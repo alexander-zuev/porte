@@ -2,6 +2,7 @@
   "name": "grok-anywhere",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "prepare": "husky",
@@ -17,6 +18,8 @@
     "cf-typegen": "turbo run cf-typegen"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "catalog:",
+    "@oxlint/plugins": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
     "oxfmt": "catalog:",
@@ -28,7 +31,7 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
       "oxfmt --write --no-error-on-unmatched-pattern",
-      "oxlint --fix -c .oxlintrc.lint-staged.json"
+      "oxlint --fix"
     ],
     "*.{json,jsonc,yaml,yml,md,css}": [
       "oxfmt --write --no-error-on-unmatched-pattern"

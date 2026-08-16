@@ -5,12 +5,12 @@
     "composite": false,
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "paths": {
       "#/*": ["./src/*"],
       "@/*": ["./src/*"],
       "@grok-anywhere/core": ["../../packages/core/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "worker-configuration.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "drizzle.config.ts", "worker-configuration.d.ts"]
 }

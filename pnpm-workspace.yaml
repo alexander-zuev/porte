@@ -6,6 +6,7 @@ catalogMode: strict
 
 catalog:
   '@cloudflare/vite-plugin': ^1.52.1
+  '@dotenvx/dotenvx': ^2.21.0
   '@posthog/react': ^1.10.3
   '@sentry/tanstackstart-react': ^10.70.0
   '@tailwindcss/typography': ^0.5.20
@@ -28,14 +29,13 @@ catalog:
   better-sqlite3: ^12.11.1
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
-  dotenv: ^17.4.2
-  dotenv-cli: ^11.0.0
   drizzle-kit: ^0.31.10
   drizzle-orm: ^0.45.2
   husky: ^9.1.7
   lint-staged: ^17.3.0
   lucide-react: ^0.577.0
   oxfmt: 0.63.0
+  '@oxlint/plugins': 1.78.0
   oxlint: 1.78.0
   oxlint-tsgolint: 7.0.2001
   posthog-js: ^1.417.1

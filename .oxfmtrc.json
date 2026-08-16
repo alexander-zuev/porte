@@ -11,11 +11,14 @@
     "**/dist/**",
     "**/build/**",
     "**/.output/**",
+    "**/.vitest/**",
     "**/.wrangler/**",
     "**/.tanstack/**",
+    "**/migrations/meta/**",
     "**/*.gen.ts",
     "**/*.gen.tsx",
     "**/worker-configuration.d.ts",
-    "**/pnpm-lock.yaml"
+    "**/pnpm-lock.yaml",
+    "tools/oxlint/anti-slop/**"
   ]
 }

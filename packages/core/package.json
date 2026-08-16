@@ -8,8 +8,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint . --quiet",
-    "lint:fix": "oxlint . --fix --quiet"
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
   },
   "devDependencies": {
     "typescript": "catalog:"

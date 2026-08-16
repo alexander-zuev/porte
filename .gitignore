@@ -22,12 +22,11 @@ apps/web/worker-configuration.d.ts
 !.dev.vars.example
 !.dev.vars.*.example
 
-# Environment
-.env
-.env.*
+# dotenvx: encrypted .env files are committed; private keys are NOT
+.env.keys
+*.local
 !.env.example
 !.env.*.example
-*.local
 
 # Storybook
 storybook-static/
@@ -56,6 +55,7 @@ __screenshots__/
 # IDEs
 .vscode/
 .idea/
+.zed/
 .DS_Store
 Thumbs.db
 *.swp
@@ -64,5 +64,6 @@ Thumbs.db
 
 # Agent local
 .claude/settings.local.json
+.mcp.local.json
 .codex
 .playwright-cli
