@@ -15,7 +15,7 @@ export default function BetterAuthHeader() {
         ) : (
           <div className="flex h-8 w-8 items-center justify-center bg-neutral-100 dark:bg-neutral-800">
             <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
-              {session.user.name?.charAt(0).toUpperCase() || 'U'}
+              {session.user.name.charAt(0).toUpperCase() || 'U'}
             </span>
           </div>
         )}
