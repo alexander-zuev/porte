@@ -1,0 +1,42 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalDependencies": ["**/.dev.vars", "**/.dev.vars.*", "**/.env", "**/.env.*"],
+  "globalEnv": ["CI"],
+  "globalPassThroughEnv": ["FORCE_COLOR", "WRANGLER_LOG"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json", "vite.config.*", "wrangler.jsonc"],
+      "outputs": ["dist/**", ".output/**"],
+      "outputLogs": "new-only",
+    },
+    "dev": {
+      "cache": false,
+      "dependsOn": ["^build", "cf-typegen"],
+      "persistent": true,
+      "outputLogs": "new-only",
+    },
+    "cf-typegen": {
+      "inputs": ["wrangler.jsonc"],
+      "outputs": ["worker-configuration.d.ts"],
+      "outputLogs": "new-only",
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": [],
+      "outputLogs": "new-only",
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": [],
+      "outputLogs": "new-only",
+    },
+    "lint:fix": {
+      "cache": false,
+      "outputLogs": "new-only",
+    },
+  },
+}

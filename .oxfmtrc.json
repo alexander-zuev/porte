@@ -1,0 +1,21 @@
+{
+  "semi": false,
+  "singleQuote": true,
+  "sortImports": true,
+  "sortTailwindcss": {
+    "stylesheet": "apps/web/src/styles.css"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.pnpm-store/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.output/**",
+    "**/.wrangler/**",
+    "**/.tanstack/**",
+    "**/*.gen.ts",
+    "**/*.gen.tsx",
+    "**/worker-configuration.d.ts",
+    "**/pnpm-lock.yaml"
+  ]
+}

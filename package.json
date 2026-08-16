@@ -1,15 +1,39 @@
 {
   "name": "grok-anywhere",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev": "pnpm --filter @grok-anywhere/web dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "preview": "pnpm --filter @grok-anywhere/web preview",
+    "deploy": "pnpm --filter @grok-anywhere/web deploy",
+    "cf-typegen": "turbo run cf-typegen"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "devDependencies": {
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
+      "oxfmt --write --no-error-on-unmatched-pattern",
+      "oxlint --fix -c .oxlintrc.lint-staged.json"
+    ],
+    "*.{json,jsonc,yaml,yml,md,css}": [
+      "oxfmt --write --no-error-on-unmatched-pattern"
+    ]
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
@@ -17,8 +41,7 @@
       "onFail": "download"
     }
   },
-  "type": "module",
-  "devDependencies": {
-    "husky": "^9.1.7"
+  "engines": {
+    "node": ">=22"
   }
 }

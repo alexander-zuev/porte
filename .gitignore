@@ -1,1 +1,68 @@
-node_modules
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.output/
+build/
+*.tsbuildinfo
+.turbo/
+
+# Generated
+.tanstack/
+.nitro/
+.vinxi/
+apps/web/worker-configuration.d.ts
+
+# Cloudflare
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+!.dev.vars.*.example
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+
+# Storybook
+storybook-static/
+*storybook.log
+
+# Sentry
+.env.sentry-build-plugin
+
+# Local databases
+*.db
+*.db-journal
+db.sqlite3
+db.sqlite3-journal
+
+# Logs
+logs/
+*.log
+.pnpm-debug.log*
+
+# Testing
+coverage/
+.vitest/
+.vitest-attachments/
+__screenshots__/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Agent local
+.claude/settings.local.json
+.codex
+.playwright-cli
