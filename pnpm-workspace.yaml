@@ -76,6 +76,7 @@ catalog:
   '@streamdown/math': ^1.0.2
   '@streamdown/mermaid': ^1.0.2
   uuid: 14.0.1
+  '@cloudflare/vitest-pool-workers': 0.21.3
 
 allowBuilds:
   '@sentry/cli': true

@@ -1,7 +1,14 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lras",
-  "compatibility_date": "2025-09-02",
+  "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  "secrets": {
+    "required": ["LRAS_DEV_DAEMON_TOKEN", "LRAS_DEV_CLIENT_TOKEN"],
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] }],
 }

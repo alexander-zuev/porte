@@ -7,9 +7,9 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "dotenvx run -- sh -c \"NODE_OPTIONS='--import ./instrument.server.mjs' vite dev --port 3000\"",
+    "dev": "dotenvx run -- vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "dotenvx run -- vite build && cp instrument.server.mjs .output/server",
+    "build": "dotenvx run -- vite build",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src",
     "lint:fix": "oxlint src --fix",
@@ -19,7 +19,6 @@
     "cf-typegen": "wrangler types",
     "preview": "dotenvx run -- vite preview",
     "deploy": "pnpm run build && wrangler deploy",
-    "start": "dotenvx run -- node --import ./.output/server/instrument.server.mjs .output/server/index.mjs",
     "db:generate": "dotenvx run -- drizzle-kit generate",
     "db:migrate": "dotenvx run -- drizzle-kit migrate",
     "db:push": "dotenvx run -- drizzle-kit push",
@@ -60,11 +59,13 @@
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
-    "use-stick-to-bottom": "catalog:"
+    "use-stick-to-bottom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",
     "@cloudflare/vite-plugin": "catalog:",
+    "@cloudflare/vitest-pool-workers": "catalog:",
     "@dotenvx/dotenvx": "catalog:",
     "@playwright/test": "catalog:",
     "@storybook/addon-themes": "catalog:",
@@ -82,6 +83,7 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
+    "vitest": "catalog:",
     "wrangler": "catalog:"
   }
 }
