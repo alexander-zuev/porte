@@ -3,14 +3,9 @@ import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
 import { HostRelayError } from '../errors.ts'
-import type { HostConnection, HostRelay, RunHostRelay } from './host-relay.ts'
+import type { HostConnection, HostRelay, HostRelayObserver, RunHostRelay } from './host-relay.ts'
 
 const MAX_RETRY_DELAY_MS = 5_000
-
-export type HostRelayObserver = {
-  connected(): void
-  reconnecting(delayMs: number): void
-}
 
 type SocketFactory = (url: string, init: WebSocketInit) => WebSocket
 type ConnectionEnd = 'aborted' | 'closed'
@@ -24,14 +19,17 @@ export class WebSocketHostRelay implements HostRelay {
     private readonly createSocket: SocketFactory = (url, init) => new WebSocket(url, init),
   ) {}
 
-  async run(input: RunHostRelay): Promise<ResultType<void, HostRelayError>> {
+  /** Run the WebSocket relay until the signal stops it or a failure occurs. */
+  async run<THandlerError>(
+    input: RunHostRelay<THandlerError>,
+  ): Promise<ResultType<void, HostRelayError | THandlerError>> {
     return this.connectWithRetry(input, 0)
   }
 
-  private async connectWithRetry(
-    input: RunHostRelay,
+  private async connectWithRetry<THandlerError>(
+    input: RunHostRelay<THandlerError>,
     attempt: number,
-  ): Promise<ResultType<void, HostRelayError>> {
+  ): Promise<ResultType<void, HostRelayError | THandlerError>> {
     if (input.signal.aborted) return Result.ok()
     const connected = await this.connectOnce(input)
     if (connected.isErr()) return Result.err(connected.error)
@@ -43,7 +41,9 @@ export class WebSocketHostRelay implements HostRelay {
     return this.connectWithRetry(input, attempt + 1)
   }
 
-  private connectOnce(input: RunHostRelay): Promise<ResultType<ConnectionEnd, HostRelayError>> {
+  private connectOnce<THandlerError>(
+    input: RunHostRelay<THandlerError>,
+  ): Promise<ResultType<ConnectionEnd, HostRelayError | THandlerError>> {
     return new Promise((resolve) => {
       let socket: WebSocket
       try {
@@ -56,7 +56,7 @@ export class WebSocketHostRelay implements HostRelay {
       }
 
       let settled = false
-      const settle = (result: ResultType<ConnectionEnd, HostRelayError>): void => {
+      const settle = (result: ResultType<ConnectionEnd, HostRelayError | THandlerError>): void => {
         if (settled) return
         settled = true
         input.signal.removeEventListener('abort', onAbort)
@@ -79,7 +79,16 @@ export class WebSocketHostRelay implements HostRelay {
             socket.send(JSON.stringify(DaemonMessageSchema.parse(message)))
           },
         }
-        void input.handlers.onConnected(connection).catch(fail)
+        void input.handlers
+          .onConnected(connection)
+          .then((handled) => {
+            if (handled.isErr()) {
+              settle(Result.err(handled.error))
+              socket.close(1011, 'host handler failed')
+            }
+            return undefined
+          })
+          .catch(fail)
       })
       socket.addEventListener('message', (event) => {
         const frame = textFrameSchema.safeParse(event.data)
@@ -99,7 +108,11 @@ export class WebSocketHostRelay implements HostRelay {
   }
 }
 
-async function handleRequest(socket: WebSocket, raw: string, input: RunHostRelay): Promise<void> {
+async function handleRequest<THandlerError>(
+  socket: WebSocket,
+  raw: string,
+  input: RunHostRelay<THandlerError>,
+): Promise<void> {
   let value: unknown
   try {
     value = JSON.parse(raw)

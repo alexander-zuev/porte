@@ -2,18 +2,18 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /** Runtime config parsed at the process boundary. */
-export type DaemonConfig = {
+export type HostConfig = {
   readonly grokHome: string
   readonly relayUrl: string | undefined
   readonly daemonToken: string | undefined
 }
 
 /**
- * Resolve Grok home from the process environment.
+ * Resolve host configuration from the process environment.
  *
- * @param env - Process environment. Reads `GROK_HOME` only.
+ * @param env - Process environment to parse.
  */
-export function loadConfig(env: NodeJS.ProcessEnv): DaemonConfig {
+export function loadConfig(env: NodeJS.ProcessEnv): HostConfig {
   return {
     grokHome: env.GROK_HOME ?? join(homedir(), '.grok'),
     relayUrl: env.LRAS_URL,

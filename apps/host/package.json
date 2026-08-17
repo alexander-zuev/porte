@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "@lras/daemon",
+  "name": "@lras/host",
   "version": "0.1.0",
   "private": true,
   "bin": {

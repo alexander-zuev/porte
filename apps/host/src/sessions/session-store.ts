@@ -5,7 +5,7 @@ import { makeSessionSummary, type SessionSummary } from '@lras/core'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
-import { DuplicateSessionError, SessionNotFoundError } from '../errors.ts'
+import { DuplicateSessionError, SessionNotFoundError, SessionStoreError } from '../errors.ts'
 import { grokSummaryFileSchema } from './grok-summary.ts'
 
 const errnoSchema = z.object({
@@ -25,7 +25,15 @@ export class SessionStore {
   /**
    * List non-subagent sessions, newest first.
    */
-  async list(): Promise<ListedSession[]> {
+  async list(): Promise<ResultType<ListedSession[], SessionStoreError>> {
+    try {
+      return Result.ok(await this.listFromDisk())
+    } catch (cause) {
+      return Result.err(new SessionStoreError({ operation: 'list', cause }))
+    }
+  }
+
+  private async listFromDisk(): Promise<ListedSession[]> {
     const sessionsRoot = join(this.grokHome, 'sessions')
     const groups = await readDirNames(sessionsRoot)
     if (groups === undefined) {
@@ -59,8 +67,13 @@ export class SessionStore {
    */
   async find(
     sessionId: string,
-  ): Promise<ResultType<ListedSession, SessionNotFoundError | DuplicateSessionError>> {
-    const matches = (await this.list()).filter((session) => session.summary.id === sessionId)
+  ): Promise<
+    ResultType<ListedSession, SessionNotFoundError | DuplicateSessionError | SessionStoreError>
+  > {
+    const listed = await this.list()
+    if (listed.isErr()) return Result.err(listed.error)
+
+    const matches = listed.value.filter((session) => session.summary.id === sessionId)
     const first = matches[0]
     if (first === undefined) {
       return Result.err(new SessionNotFoundError({ sessionId }))
@@ -97,8 +110,10 @@ async function mapSummaryFile(
   let raw: string
   try {
     raw = await readFile(join(folderPath, 'summary.json'), 'utf8')
-  } catch {
-    return undefined
+  } catch (cause) {
+    const parsed = errnoSchema.safeParse(cause)
+    if (parsed.success && parsed.data.code === 'ENOENT') return undefined
+    throw cause
   }
 
   let parsedJson: unknown

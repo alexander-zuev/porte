@@ -29,6 +29,17 @@ export class DuplicateSessionError extends TaggedError('DuplicateSessionError')<
   }
 }
 
+/** The host could not read the Grok session store. */
+export class SessionStoreError extends TaggedError('SessionStoreError')<{
+  operation: 'list'
+  cause: unknown
+  message: string
+}> {
+  constructor(args: { operation: 'list'; cause: unknown }) {
+    super({ ...args, message: 'session store is unavailable' })
+  }
+}
+
 /** `grok` is not on PATH. */
 export class GrokNotFoundError extends TaggedError('GrokNotFoundError')<{
   message: string
@@ -76,6 +87,7 @@ export type CliError =
   | UsageError
   | SessionNotFoundError
   | DuplicateSessionError
+  | SessionStoreError
   | GrokNotFoundError
   | AcpRpcError
   | GrokExitedError
@@ -91,6 +103,7 @@ export function exitCodeFor(error: CliError): number {
     UsageError: () => 2,
     SessionNotFoundError: () => 2,
     DuplicateSessionError: () => 2,
+    SessionStoreError: () => 1,
     GrokNotFoundError: () => 1,
     AcpRpcError: () => 1,
     GrokExitedError: () => 1,
@@ -110,6 +123,8 @@ export function formatError(error: CliError): string {
       `Error (ENOTFOUND): ${failed.message}. Run \`lras list\` to see ids.`,
     DuplicateSessionError: (failed) =>
       `Error (EDUPLICATE): session ${failed.sessionId} exists in more than one folder:\n${failed.message}`,
+    SessionStoreError: () =>
+      'Error (ESTORE): cannot read Grok sessions. Check GROK_HOME and file permissions.',
     GrokNotFoundError: () =>
       'Error (EGROK): grok not found on PATH. Install Grok Build and ensure `grok` is on PATH.',
     AcpRpcError: (failed) => `Error (EACP): ${JSON.stringify(failed.rpc)}`,

@@ -436,7 +436,7 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
-  apps/daemon:
+  apps/host:
     dependencies:
       '@lras/core':
         specifier: workspace:*

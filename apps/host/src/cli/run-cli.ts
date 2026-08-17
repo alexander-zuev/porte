@@ -3,9 +3,7 @@ import { z } from 'zod'
 import { createAppDeps } from '../app-deps.ts'
 import { loadConfig } from '../config.ts'
 import { UsageError, exitCodeFor, formatError, type CliError } from '../errors.ts'
-import { connectHost } from '../host/connect-host.ts'
-import { listSessions } from '../sessions/list-sessions.ts'
-import { resumeSession } from '../sessions/resume-session.ts'
+import { CliHostRelayObserver } from './cli-host-relay-observer.ts'
 import { UP_HELP, VERSION, parseCommand } from './parse-command.ts'
 
 const relayUrlSchema = z.url({ protocol: /^wss?:$/ })
@@ -50,17 +48,13 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   }
 
   const config = loadConfig(io.env)
-  const deps = createAppDeps(config, {
-    connected: () => {
-      if (command.verbose) io.stderr.write('host connected\n')
-    },
-    reconnecting: (delayMs) => {
-      if (command.verbose) io.stderr.write(`host reconnecting in ${String(delayMs)}ms\n`)
-    },
-  })
+  const deps = createAppDeps(config, new CliHostRelayObserver(io.stderr, command.verbose))
 
   if (command.kind === 'list') {
-    const rows = await listSessions(deps.sessions)
+    const listed = await deps.sessions.catalog.list()
+    if (listed.isErr()) return writeError(io, listed.error)
+
+    const rows = listed.value
     if (command.verbose) {
       io.stderr.write(`listed ${String(rows.length)} sessions\n`)
     }
@@ -80,14 +74,11 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
     process.once('SIGINT', stop)
     process.once('SIGTERM', stop)
     try {
-      const connected = await connectHost(
-        {
-          relayUrl: relayUrl.data,
-          token: config.daemonToken,
-          signal: controller.signal,
-        },
-        deps.host,
-      )
+      const connected = await deps.host.connect({
+        relayUrl: relayUrl.data,
+        token: config.daemonToken,
+        signal: controller.signal,
+      })
       if (connected.isErr()) return writeError(io, connected.error)
       return 0
     } finally {
@@ -96,7 +87,7 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
     }
   }
 
-  const result = await resumeSession(deps.sessions, command.sessionId, command.prompt, (update) => {
+  const result = await deps.sessions.resumer.resume(command.sessionId, command.prompt, (update) => {
     io.stdout.write(`${JSON.stringify(update)}\n`)
   })
   if (result.isErr()) {

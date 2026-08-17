@@ -11,7 +11,17 @@ describe('SessionStore', () => {
   it('returns an empty array when sessions is missing', async () => {
     const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
     const store = new SessionStore(grokHome)
-    await expect(store.list()).resolves.toEqual([])
+    const listed = await store.list()
+    expect(listed.isOk() && listed.value).toEqual([])
+  })
+
+  it('returns a typed error when the session store cannot be read', async () => {
+    const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
+    await writeFile(join(grokHome, 'sessions'), 'not a directory')
+
+    const listed = await new SessionStore(grokHome).list()
+
+    expect(listed.isErr() && listed.error._tag).toBe('SessionStoreError')
   })
 
   it('maps title, cwd fallback, sort, and skips subagents', async () => {
@@ -45,7 +55,7 @@ describe('SessionStore', () => {
 
     const store = new SessionStore(grokHome)
     const listed = await store.list()
-    expect(listed.map((row) => row.summary)).toEqual([
+    expect(listed.isOk() && listed.value.map((row) => row.summary)).toEqual([
       { id: 'id-a', cwd: '/tmp/proj', title: 'Alpha', updatedAt: '2026-08-17T10:00:00.000Z' },
       {
         id: 'id-c',

@@ -166,12 +166,12 @@ The Durable Object uses socket tags and attachments for routing. It does not dep
 
 | Slice | Build                                                                                           | Done when                                                          |
 | ----- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 1     | `apps/daemon`: `list` and `resume`. No Worker. No PWA.                                          | **Done.** Binary + unit tests + e2e vs installed Grok.             |
+| 1     | `apps/host`: `list` and `resume`. No Worker. No PWA.                                            | **Done.** Binary + unit tests + e2e vs installed Grok.             |
 | 2     | Real daemon, Worker, Host Durable Object, and programmatic client. Use development credentials. | The client controls a real Grok session through the Worker.        |
 | 3     | Account authorization, pairing, and daemon credential storage.                                  | A signed-in user can pair one host and cannot access another host. |
 | 4     | PWA over the Slice 2 WebSocket contract.                                                        | A phone can list, create, open, prompt, approve, deny, and cancel. |
 
-CLI flags, errors, and ACP shapes live in `apps/daemon`. Do not copy them here.
+CLI flags, errors, and ACP shapes live in `apps/host`. Do not copy them here.
 
 ## Slice 2
 

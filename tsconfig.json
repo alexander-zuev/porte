@@ -3,7 +3,7 @@
   "files": [],
   "references": [
     { "path": "./apps/web" },
-    { "path": "./apps/daemon" },
+    { "path": "./apps/host" },
     { "path": "./packages/core" }
   ],
   "compilerOptions": {
