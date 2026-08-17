@@ -132,24 +132,27 @@ export type ErrorMessage = {
   error: ApiError
 }
 
-function createRequestSchema<Method extends ClientMethod>(method: Method) {
+function createRequestSchema<Method extends ClientMethod, Params extends z.ZodType>(
+  method: Method,
+  params: Params,
+) {
   return z.object({
     v: z.literal(1),
     type: z.literal('request'),
     requestId: RequestIdSchema,
     method: z.literal(method),
-    params: ClientMethodSchemas[method].params,
+    params,
   })
 }
 
 export const RequestMessageSchema = z.discriminatedUnion('method', [
-  createRequestSchema('host.snapshot'),
-  createRequestSchema('session.open'),
-  createRequestSchema('session.close'),
-  createRequestSchema('session.create'),
-  createRequestSchema('turn.start'),
-  createRequestSchema('turn.cancel'),
-  createRequestSchema('permission.answer'),
+  createRequestSchema('host.snapshot', ClientMethodSchemas['host.snapshot'].params),
+  createRequestSchema('session.open', ClientMethodSchemas['session.open'].params),
+  createRequestSchema('session.close', ClientMethodSchemas['session.close'].params),
+  createRequestSchema('session.create', ClientMethodSchemas['session.create'].params),
+  createRequestSchema('turn.start', ClientMethodSchemas['turn.start'].params),
+  createRequestSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].params),
+  createRequestSchema('permission.answer', ClientMethodSchemas['permission.answer'].params),
 ])
 
 export const ErrorMessageSchema = z.object({
@@ -267,21 +270,24 @@ export type EventMessage<Event extends ClientEvent = ClientEvent> = Event extend
     }
   : never
 
-function createEventSchema<Event extends ClientEvent>(event: Event) {
+function createEventSchema<Event extends ClientEvent, Data extends z.ZodType>(
+  event: Event,
+  data: Data,
+) {
   return z.object({
     v: z.literal(1),
     type: z.literal('event'),
     event: z.literal(event),
-    data: ClientEventSchemas[event],
+    data,
   })
 }
 
 export const EventMessageSchema = z.discriminatedUnion('event', [
-  createEventSchema('host.status'),
-  createEventSchema('sessions.changed'),
-  createEventSchema('session.update'),
-  createEventSchema('turn.finished'),
-  createEventSchema('permission.requested'),
+  createEventSchema('host.status', ClientEventSchemas['host.status']),
+  createEventSchema('sessions.changed', ClientEventSchemas['sessions.changed']),
+  createEventSchema('session.update', ClientEventSchemas['session.update']),
+  createEventSchema('turn.finished', ClientEventSchemas['turn.finished']),
+  createEventSchema('permission.requested', ClientEventSchemas['permission.requested']),
 ])
 
 export const ClientMessageSchema = z.union([
@@ -293,12 +299,12 @@ export const ClientMessageSchema = z.union([
 
 const RouteSchema = z.object({ connectionId: ConnectionIdSchema })
 const DaemonRequestMessageSchema = z.discriminatedUnion('method', [
-  createRequestSchema('session.open'),
-  createRequestSchema('session.close'),
-  createRequestSchema('session.create'),
-  createRequestSchema('turn.start'),
-  createRequestSchema('turn.cancel'),
-  createRequestSchema('permission.answer'),
+  createRequestSchema('session.open', ClientMethodSchemas['session.open'].params),
+  createRequestSchema('session.close', ClientMethodSchemas['session.close'].params),
+  createRequestSchema('session.create', ClientMethodSchemas['session.create'].params),
+  createRequestSchema('turn.start', ClientMethodSchemas['turn.start'].params),
+  createRequestSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].params),
+  createRequestSchema('permission.answer', ClientMethodSchemas['permission.answer'].params),
 ])
 
 export const RoutedRequestSchema = z.object({
@@ -306,19 +312,20 @@ export const RoutedRequestSchema = z.object({
   message: DaemonRequestMessageSchema,
 })
 
-export type RoutedRequest<Method extends DaemonMethod = DaemonMethod> = Method extends DaemonMethod
-  ? {
-      route: { connectionId: z.infer<typeof ConnectionIdSchema> }
-      message: RequestMessage<Method>
-    }
-  : never
+export type RoutedRequest<Method extends DaemonMethod = DaemonMethod> = {
+  route: { connectionId: z.infer<typeof ConnectionIdSchema> }
+  message: RequestMessage<Method>
+}
 
-function createRoutedResponseSchema<Method extends DaemonMethod>(method: Method) {
+function createRoutedResponseSchema<Method extends DaemonMethod, Result extends z.ZodType>(
+  method: Method,
+  resultSchema: Result,
+) {
   const result = z.object({
     v: z.literal(1),
     type: z.literal('result'),
     requestId: RequestIdSchema,
-    result: ClientMethodSchemas[method].result,
+    result: resultSchema,
   })
 
   return z.object({
@@ -329,12 +336,12 @@ function createRoutedResponseSchema<Method extends DaemonMethod>(method: Method)
 }
 
 export const RoutedResponseSchema = z.discriminatedUnion('method', [
-  createRoutedResponseSchema('session.open'),
-  createRoutedResponseSchema('session.close'),
-  createRoutedResponseSchema('session.create'),
-  createRoutedResponseSchema('turn.start'),
-  createRoutedResponseSchema('turn.cancel'),
-  createRoutedResponseSchema('permission.answer'),
+  createRoutedResponseSchema('session.open', ClientMethodSchemas['session.open'].result),
+  createRoutedResponseSchema('session.close', ClientMethodSchemas['session.close'].result),
+  createRoutedResponseSchema('session.create', ClientMethodSchemas['session.create'].result),
+  createRoutedResponseSchema('turn.start', ClientMethodSchemas['turn.start'].result),
+  createRoutedResponseSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].result),
+  createRoutedResponseSchema('permission.answer', ClientMethodSchemas['permission.answer'].result),
 ])
 
 export type RoutedResponse<Method extends DaemonMethod = DaemonMethod> = Method extends DaemonMethod
@@ -358,3 +365,4 @@ export const RoutedEventSchema = z.object({
 export type RoutedEvent = z.infer<typeof RoutedEventSchema>
 
 export const DaemonMessageSchema = z.union([RoutedResponseSchema, RoutedEventSchema])
+export type DaemonMessage = z.infer<typeof DaemonMessageSchema>

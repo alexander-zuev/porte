@@ -42,4 +42,11 @@ describe('lras process', () => {
     expect(result.stderr).toContain('ENOTFOUND')
     expect(result.stderr).toContain('lras list')
   })
+
+  it('exits 2 when host configuration is missing', () => {
+    const result = runCli(['up'])
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('LRAS_DAEMON_TOKEN')
+    expect(result.stdout).toBe('')
+  })
 })

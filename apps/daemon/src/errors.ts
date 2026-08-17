@@ -61,6 +61,16 @@ export class GrokExitedError extends TaggedError('GrokExitedError')<{
   }
 }
 
+/** The outbound host relay stopped because local handling failed. */
+export class HostRelayError extends TaggedError('HostRelayError')<{
+  cause: unknown
+  message: string
+}> {
+  constructor(args: { cause: unknown }) {
+    super({ ...args, message: 'host relay stopped' })
+  }
+}
+
 /** Every error the CLI can print. */
 export type CliError =
   | UsageError
@@ -69,6 +79,7 @@ export type CliError =
   | GrokNotFoundError
   | AcpRpcError
   | GrokExitedError
+  | HostRelayError
 
 /**
  * Map a CLI error to an exit code.
@@ -83,6 +94,7 @@ export function exitCodeFor(error: CliError): number {
     GrokNotFoundError: () => 1,
     AcpRpcError: () => 1,
     GrokExitedError: () => 1,
+    HostRelayError: () => 1,
   })
 }
 
@@ -103,6 +115,7 @@ export function formatError(error: CliError): string {
     AcpRpcError: (failed) => `Error (EACP): ${JSON.stringify(failed.rpc)}`,
     GrokExitedError: (failed) =>
       `Error (EEXIT): ${failed.message}. The session files stay on disk. Retry the same id.`,
+    HostRelayError: () => 'Error (ERELAY): host relay stopped. Restart `lras up`.',
   })
   if (error._tag === 'UsageError') {
     return body
