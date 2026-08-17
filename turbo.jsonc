@@ -38,5 +38,11 @@
       "cache": false,
       "outputLogs": "new-only",
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": [],
+      "outputLogs": "new-only",
+    },
   },
 }

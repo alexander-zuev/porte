@@ -1,0 +1,36 @@
+{
+  "name": "@lras/daemon",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "lras": "./dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "test": "vitest run --exclude tests/e2e/**",
+    "test:e2e": "vitest run tests/e2e"
+  },
+  "dependencies": {
+    "@lras/core": "workspace:*",
+    "better-result": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
