@@ -26,12 +26,7 @@ const writeFileParamsSchema = z.object({
   content: z.string(),
 })
 
-/**
- * Answer one JSON-RPC request Grok sent to this client.
- *
- * @param method - ACP method name.
- * @param params - Request params, if any.
- */
+/** Answer one JSON-RPC request from the ACP agent. */
 export async function answerIncomingRequest(
   method: string,
   params: JsonValue | undefined,
@@ -48,11 +43,7 @@ export async function answerIncomingRequest(
   return Result.err({ code: -32601, message: `method not found: ${method}` })
 }
 
-/**
- * Pick the once-allow option from a permission request.
- *
- * @param params - `session/request_permission` params.
- */
+/** Pick the one-time approval option from an ACP request. */
 export function selectAllowOnce(params: JsonValue | undefined): string | undefined {
   const parsed = permissionParamsSchema.safeParse(params)
   if (!parsed.success) {

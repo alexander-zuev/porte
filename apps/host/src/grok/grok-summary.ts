@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-/** On-disk Grok `summary.json` fields we read. */
+/** On-disk Grok `summary.json` fields used by the host. */
 export const grokSummaryFileSchema = z.object({
   info: z.object({
     id: z.string().min(1),

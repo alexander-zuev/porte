@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { answerIncomingRequest, selectAllowOnce } from '../src/grok/acp-incoming.ts'
+import { answerIncomingRequest, selectAllowOnce } from '../src/acp/acp-incoming.ts'
 
 describe('answerIncomingRequest', () => {
   it('selects allow_once', () => {

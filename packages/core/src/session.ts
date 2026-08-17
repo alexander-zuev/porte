@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { IsoDateTimeSchema, SessionIdSchema, TurnIdSchema } from './identity.ts'
 
 /**
- * One Grok disk session that the daemon can list or resume.
+ * One local coding-agent session that the host can list or resume.
  * The Worker treats the host path as an opaque string.
  */
 export const SessionSummarySchema = z.object({
@@ -41,7 +41,7 @@ export type SessionTurnState = z.infer<typeof SessionTurnStateSchema>
 /**
  * Build a session row from already-mapped fields.
  *
- * @param input - id, cwd, title, and updated time from a Grok `summary.json`.
+ * @param input - Session id, working directory, title, and update time.
  */
 export function makeSessionSummary(input: z.input<typeof SessionSummarySchema>): SessionSummary {
   return SessionSummarySchema.parse(input)

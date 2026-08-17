@@ -20,7 +20,7 @@ export type JsonValue =
   | readonly JsonValue[]
   | { readonly [key: string]: JsonValue }
 
-/** JSON-RPC error object from Grok. */
+/** JSON-RPC error object from an ACP agent. */
 export type JsonRpcError = {
   readonly code: number
   readonly message: string
@@ -28,7 +28,7 @@ export type JsonRpcError = {
 }
 
 /** One streamed ACP `session/update` payload. */
-export type SessionUpdate = {
+export type AcpSessionUpdate = {
   readonly sessionUpdate: string
   readonly [key: string]: JsonValue
 }
@@ -69,9 +69,9 @@ const jsonRpcResponseSchema = z
   })
   .refine((value) => !('method' in value))
 
-/** A parsed stdout line from `grok agent stdio`. */
+/** A parsed stdout line from an ACP agent. */
 export type AcpLine =
-  | { readonly kind: 'update'; readonly update: SessionUpdate }
+  | { readonly kind: 'update'; readonly update: AcpSessionUpdate }
   | {
       readonly kind: 'incoming'
       readonly id: number
@@ -85,11 +85,7 @@ export type AcpLine =
       readonly error: JsonRpcError | undefined
     }
 
-/**
- * Parse one ACP stdout line. Skip noise.
- *
- * @param line - Raw stdout line, no trailing newline.
- */
+/** Parse one ACP stdout line and skip non-protocol output. */
 export function parseAcpLine(line: string): AcpLine | undefined {
   if (line.length === 0) {
     return undefined
@@ -126,43 +122,8 @@ export function parseAcpLine(line: string): AcpLine | undefined {
   return undefined
 }
 
-/** Params for `initialize`. */
-export type InitializeParams = {
-  readonly protocolVersion: 1
-  readonly clientCapabilities: {
-    readonly fs: { readonly readTextFile: true; readonly writeTextFile: true }
-  }
+/** One JSON-RPC request sent to an ACP agent. */
+export type AcpRequest = {
+  readonly method: string
+  readonly params: JsonValue | undefined
 }
-
-/** Params for `authenticate`. */
-export type AuthenticateParams = {
-  readonly methodId: 'cached_token'
-  readonly _meta: { readonly headless: true }
-}
-
-/** Params for `session/load`. */
-export type SessionLoadParams = {
-  readonly sessionId: string
-  readonly cwd: string
-  readonly mcpServers: readonly []
-}
-
-/** Params for `session/prompt`. */
-export type SessionPromptParams = {
-  readonly sessionId: string
-  readonly prompt: readonly [{ readonly type: 'text'; readonly text: string }]
-}
-
-/** Request body we send to Grok. */
-export type AcpRequestParams =
-  | InitializeParams
-  | AuthenticateParams
-  | SessionLoadParams
-  | SessionPromptParams
-
-/** ACP method name paired with its params. */
-export type AcpRequest =
-  | { readonly method: 'initialize'; readonly params: InitializeParams }
-  | { readonly method: 'authenticate'; readonly params: AuthenticateParams }
-  | { readonly method: 'session/load'; readonly params: SessionLoadParams }
-  | { readonly method: 'session/prompt'; readonly params: SessionPromptParams }

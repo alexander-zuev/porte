@@ -12,20 +12,18 @@ const errnoSchema = z.object({
   code: z.string(),
 })
 
-/** A listed session plus the folder it was read from. */
-export type ListedSession = {
+/** A Grok session plus the folder that contains it. */
+export type GrokStoredSession = {
   readonly summary: SessionSummary
   readonly folderPath: string
 }
 
-/** Reads `GROK_HOME/sessions` and finds a row by id. */
-export class SessionStore {
+/** Reads sessions from Grok's local storage format. */
+export class GrokSessionStore {
   constructor(private readonly grokHome: string) {}
 
-  /**
-   * List non-subagent sessions, newest first.
-   */
-  async list(): Promise<ResultType<ListedSession[], SessionStoreError>> {
+  /** List non-subagent sessions, newest first. */
+  async list(): Promise<ResultType<GrokStoredSession[], SessionStoreError>> {
     try {
       return Result.ok(await this.listFromDisk())
     } catch (cause) {
@@ -33,42 +31,11 @@ export class SessionStore {
     }
   }
 
-  private async listFromDisk(): Promise<ListedSession[]> {
-    const sessionsRoot = join(this.grokHome, 'sessions')
-    const groups = await readDirNames(sessionsRoot)
-    if (groups === undefined) {
-      return []
-    }
-
-    const listed: ListedSession[] = []
-    for (const group of groups) {
-      const groupPath = join(sessionsRoot, group)
-      const sessionDirs = await readDirNames(groupPath)
-      if (sessionDirs === undefined) {
-        continue
-      }
-      for (const sessionDir of sessionDirs) {
-        const folderPath = join(groupPath, sessionDir)
-        const mapped = await mapSummaryFile(folderPath, group)
-        if (mapped !== undefined) {
-          listed.push({ summary: mapped, folderPath })
-        }
-      }
-    }
-
-    listed.sort((left, right) => right.summary.updatedAt.localeCompare(left.summary.updatedAt))
-    return listed
-  }
-
-  /**
-   * Find one session by id.
-   *
-   * @param sessionId - Session id from the CLI.
-   */
+  /** Find one Grok session by its public id. */
   async find(
     sessionId: string,
   ): Promise<
-    ResultType<ListedSession, SessionNotFoundError | DuplicateSessionError | SessionStoreError>
+    ResultType<GrokStoredSession, SessionNotFoundError | DuplicateSessionError | SessionStoreError>
   > {
     const listed = await this.list()
     if (listed.isErr()) return Result.err(listed.error)
@@ -87,6 +54,35 @@ export class SessionStore {
       )
     }
     return Result.ok(first)
+  }
+
+  private async listFromDisk(): Promise<GrokStoredSession[]> {
+    const sessionsRoot = join(this.grokHome, 'sessions')
+    const groups = await readDirNames(sessionsRoot)
+    if (groups === undefined) {
+      return []
+    }
+
+    const listed: GrokStoredSession[] = []
+    for (const group of groups) {
+      const groupPath = join(sessionsRoot, group)
+      // oxlint-disable-next-line no-await-in-loop -- Sequential reads bound open file descriptors.
+      const sessionDirs = await readDirNames(groupPath)
+      if (sessionDirs === undefined) {
+        continue
+      }
+      for (const sessionDir of sessionDirs) {
+        const folderPath = join(groupPath, sessionDir)
+        // oxlint-disable-next-line no-await-in-loop -- Sequential reads bound open file descriptors.
+        const summary = await mapSummaryFile(folderPath, group)
+        if (summary !== undefined) {
+          listed.push({ summary, folderPath })
+        }
+      }
+    }
+
+    listed.sort((left, right) => right.summary.updatedAt.localeCompare(left.summary.updatedAt))
+    return listed
   }
 }
 
@@ -124,10 +120,7 @@ async function mapSummaryFile(
   }
 
   const parsed = grokSummaryFileSchema.safeParse(parsedJson)
-  if (!parsed.success) {
-    return undefined
-  }
-  if (parsed.data.session_kind === 'subagent') {
+  if (!parsed.success || parsed.data.session_kind === 'subagent') {
     return undefined
   }
 

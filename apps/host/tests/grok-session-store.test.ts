@@ -4,22 +4,21 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import type { GrokSummaryFile } from '../src/sessions/grok-summary.ts'
-import { SessionStore } from '../src/sessions/session-store.ts'
+import { GrokSessionStore } from '../src/grok/grok-session-store.ts'
+import type { GrokSummaryFile } from '../src/grok/grok-summary.ts'
 
-describe('SessionStore', () => {
+describe('GrokSessionStore', () => {
   it('returns an empty array when sessions is missing', async () => {
     const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
-    const store = new SessionStore(grokHome)
-    const listed = await store.list()
+    const listed = await new GrokSessionStore(grokHome).list()
     expect(listed.isOk() && listed.value).toEqual([])
   })
 
-  it('returns a typed error when the session store cannot be read', async () => {
+  it('returns a typed error when the store cannot be read', async () => {
     const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
     await writeFile(join(grokHome, 'sessions'), 'not a directory')
 
-    const listed = await new SessionStore(grokHome).list()
+    const listed = await new GrokSessionStore(grokHome).list()
 
     expect(listed.isErr() && listed.error._tag).toBe('SessionStoreError')
   })
@@ -53,8 +52,7 @@ describe('SessionStore', () => {
       updated_at: '2026-08-17T08:00:00.000Z',
     })
 
-    const store = new SessionStore(grokHome)
-    const listed = await store.list()
+    const listed = await new GrokSessionStore(grokHome).list()
     expect(listed.isOk() && listed.value.map((row) => row.summary)).toEqual([
       { id: 'id-a', cwd: '/tmp/proj', title: 'Alpha', updatedAt: '2026-08-17T10:00:00.000Z' },
       {
@@ -79,12 +77,9 @@ describe('SessionStore', () => {
       updated_at: '2026-08-17T09:00:00.000Z',
     })
 
-    const store = new SessionStore(grokHome)
+    const store = new GrokSessionStore(grokHome)
     const missing = await store.find('missing')
-    expect(missing.isErr()).toBe(true)
-    if (missing.isErr()) {
-      expect(missing.error._tag).toBe('SessionNotFoundError')
-    }
+    expect(missing.isErr() && missing.error._tag).toBe('SessionNotFoundError')
     const found = await store.find('dup')
     expect(found.isErr()).toBe(true)
     if (found.isErr() && found.error._tag === 'DuplicateSessionError') {

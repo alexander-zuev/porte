@@ -1,6 +1,6 @@
 import { matchError, TaggedError } from 'better-result'
 
-import type { JsonRpcError } from './grok/acp-message.ts'
+import type { CodingAgentResumeError } from './sessions/coding-agent-sessions.ts'
 import { VERSION } from './version.ts'
 
 /** Bad argv or missing required flags. */
@@ -29,7 +29,7 @@ export class DuplicateSessionError extends TaggedError('DuplicateSessionError')<
   }
 }
 
-/** The host could not read the Grok session store. */
+/** The host could not read its local session store. */
 export class SessionStoreError extends TaggedError('SessionStoreError')<{
   operation: 'list'
   cause: unknown
@@ -37,38 +37,6 @@ export class SessionStoreError extends TaggedError('SessionStoreError')<{
 }> {
   constructor(args: { operation: 'list'; cause: unknown }) {
     super({ ...args, message: 'session store is unavailable' })
-  }
-}
-
-/** `grok` is not on PATH. */
-export class GrokNotFoundError extends TaggedError('GrokNotFoundError')<{
-  message: string
-}> {
-  constructor() {
-    super({ message: 'grok not found on PATH' })
-  }
-}
-
-/** Grok returned a JSON-RPC error. */
-export class AcpRpcError extends TaggedError('AcpRpcError')<{
-  rpc: JsonRpcError
-  message: string
-}> {
-  constructor(args: { rpc: JsonRpcError }) {
-    super({ ...args, message: args.rpc.message })
-  }
-}
-
-/** The Grok child exited before the request finished. */
-export class GrokExitedError extends TaggedError('GrokExitedError')<{
-  code: number | null
-  message: string
-}> {
-  constructor(args: { code: number | null }) {
-    super({
-      ...args,
-      message: `grok exited ${args.code === null ? 'null' : String(args.code)}`,
-    })
   }
 }
 
@@ -88,9 +56,7 @@ export type CliError =
   | SessionNotFoundError
   | DuplicateSessionError
   | SessionStoreError
-  | GrokNotFoundError
-  | AcpRpcError
-  | GrokExitedError
+  | CodingAgentResumeError
   | HostRelayError
 
 /**
@@ -104,9 +70,7 @@ export function exitCodeFor(error: CliError): number {
     SessionNotFoundError: () => 2,
     DuplicateSessionError: () => 2,
     SessionStoreError: () => 1,
-    GrokNotFoundError: () => 1,
-    AcpRpcError: () => 1,
-    GrokExitedError: () => 1,
+    CodingAgentResumeError: () => 1,
     HostRelayError: () => 1,
   })
 }
@@ -125,11 +89,7 @@ export function formatError(error: CliError): string {
       `Error (EDUPLICATE): session ${failed.sessionId} exists in more than one folder:\n${failed.message}`,
     SessionStoreError: () =>
       'Error (ESTORE): cannot read Grok sessions. Check GROK_HOME and file permissions.',
-    GrokNotFoundError: () =>
-      'Error (EGROK): grok not found on PATH. Install Grok Build and ensure `grok` is on PATH.',
-    AcpRpcError: (failed) => `Error (EACP): ${JSON.stringify(failed.rpc)}`,
-    GrokExitedError: (failed) =>
-      `Error (EEXIT): ${failed.message}. The session files stay on disk. Retry the same id.`,
+    CodingAgentResumeError: (failed) => `Error (EAGENT): ${failed.message}`,
     HostRelayError: () => 'Error (ERELAY): host relay stopped. Restart `lras up`.',
   })
   if (error._tag === 'UsageError') {
