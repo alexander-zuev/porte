@@ -1,20 +1,20 @@
 {
-  "name": "grok-anywhere",
+  "name": "lras",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "dev": "pnpm --filter @grok-anywhere/web dev",
+    "dev": "pnpm --filter @lras/web dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "preview": "pnpm --filter @grok-anywhere/web preview",
-    "deploy": "pnpm --filter @grok-anywhere/web deploy",
+    "preview": "pnpm --filter @lras/web preview",
+    "deploy": "pnpm --filter @lras/web deploy",
     "cf-typegen": "turbo run cf-typegen"
   },
   "devDependencies": {

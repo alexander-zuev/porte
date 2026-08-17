@@ -1,6 +1,8 @@
-# Grok Anywhere
+# LRAS
 
-Remote control for **local Grok Build**. Your laptop stays the computer. Your phone is the remote.
+Local Remote Agent Sessions.
+
+Manage your Grok sessions remotely. Your laptop stays the computer. Your phone is the remote.
 
 Continue the same threads, in the same repos. It does not replace or hijack the TUI. Each account sees only its own machines.
 
@@ -12,7 +14,7 @@ Continue the same threads, in the same repos. It does not replace or hijack the 
 4. Read the transcript. Prompt. Approve or deny.
 
 ```
-Phone (your account)  →  Grok Anywhere  →  your paired machine
+Phone (your account)  →  LRAS  →  your paired machine
                                               │
                                          Grok agent
                                               │

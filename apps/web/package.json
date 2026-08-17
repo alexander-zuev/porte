@@ -1,5 +1,5 @@
 {
-  "name": "@grok-anywhere/web",
+  "name": "@lras/web",
   "private": true,
   "type": "module",
   "imports": {

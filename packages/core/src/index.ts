@@ -1,2 +1,2 @@
-/** Shared schemas, types, and domain for Grok Anywhere. */
+/** Shared schemas, types, and domain for LRAS. */
 export {}
