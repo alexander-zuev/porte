@@ -1,4 +1,5 @@
 {
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
   "extends": ["../../.oxlintrc.json"],
   "plugins": ["react", "react-perf", "jsx-a11y"],
   "rules": {

@@ -2,7 +2,11 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["oxc", "typescript", "unicorn", "import", "node", "promise", "react", "jsx-a11y"],
   "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
-  "categories": { "correctness": "error" },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
   "options": { "typeAware": true, "typeCheck": true },
   "rules": {
     "unicorn/filename-case": [
@@ -42,7 +46,9 @@
     "no-useless-call": "error",
     "no-use-before-define": "off",
     "react/rules-of-hooks": "error",
+    "react/react-in-jsx-scope": "off",
     "react/react-compiler": "error",
+    "no-underscore-dangle": ["warn", { "allow": ["_tag"] }],
     "import/no-cycle": "error",
     "typescript/prefer-optional-chain": "error",
     "typescript/no-unnecessary-type-assertion": "error",

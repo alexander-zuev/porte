@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: CI
 
 on:
@@ -28,5 +29,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - run: pnpm turbo run lint
       - run: pnpm format:check
+      - run: pnpm turbo run lint
+      - run: pnpm turbo run typecheck
+      - run: pnpm turbo run test
