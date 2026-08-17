@@ -47,6 +47,9 @@ logs/
 .pnpm-debug.log*
 
 # Testing
+test-results/
+playwright-report/
+blob-report/
 coverage/
 .vitest/
 .vitest-attachments/

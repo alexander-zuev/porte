@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseAcpLine } from '../src/acp/message.ts'
+import { parseAcpLine } from '../src/grok/acp-message.ts'
 
 describe('parseAcpLine', () => {
   it('parses a session update', () => {

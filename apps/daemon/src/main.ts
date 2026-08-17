@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { run } from './run.ts'
+import { run } from './cli/run-cli.ts'
 
 const major = Number(process.versions.node.split('.')[0])
 if (Number.isNaN(major) || major < 22) {

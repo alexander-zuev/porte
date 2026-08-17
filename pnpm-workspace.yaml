@@ -6,9 +6,15 @@ packages:
 catalogMode: strict
 
 catalog:
+  '@axe-core/playwright': ^4.13.0
+  '@base-ui/react': ^1.7.0
   '@cloudflare/vite-plugin': ^1.52.1
   '@dotenvx/dotenvx': ^2.21.0
+  '@fontsource/inter': ^5.3.0
+  '@phosphor-icons/react': ^2.1.10
   '@posthog/react': ^1.10.3
+  '@storybook/addon-themes': 10.5.7
+  '@storybook/tanstack-react': 10.5.7
   '@sentry/tanstackstart-react': ^10.70.0
   '@tailwindcss/typography': ^0.5.20
   '@tailwindcss/vite': ^4.3.3
@@ -39,10 +45,12 @@ catalog:
   oxfmt: 0.63.0
   '@oxlint/plugins': 1.78.0
   oxlint: 1.78.0
+  '@playwright/test': 1.62.1
   oxlint-tsgolint: 7.0.2001
   posthog-js: ^1.417.2
   react: ^19.2.8
   react-dom: ^19.2.8
+  storybook: 10.5.7
   tailwind-merge: ^3.6.0
   tailwindcss: ^4.3.3
   tsx: ^4.23.12
@@ -54,6 +62,20 @@ catalog:
   vitest: ^4.1.10
   wrangler: ^4.123.0
   zod: ^4.4.3
+  input-otp: ^1.4.2
+  ai: ^7.0.66
+  streamdown: ^2.5.0
+  use-stick-to-bottom: ^1.1.6
+  nanoid: ^6.0.1
+  cmdk: ^1.1.1
+  motion: ^13.1.0
+  shiki: ^4.4.3
+  '@radix-ui/react-use-controllable-state': ^1.2.6
+  '@streamdown/cjk': ^1.0.3
+  '@streamdown/code': ^1.1.1
+  '@streamdown/math': ^1.0.2
+  '@streamdown/mermaid': ^1.0.2
+  uuid: 14.0.1
 
 allowBuilds:
   '@sentry/cli': true

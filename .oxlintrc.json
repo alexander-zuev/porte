@@ -86,9 +86,18 @@
     "**/*.gen.tsx",
     "**/worker-configuration.d.ts",
     "docs/**",
-    "tools/oxlint/anti-slop/**"
+    "tools/oxlint/anti-slop/**",
+    "**/.storybook/**"
   ],
   "overrides": [
+    {
+      "files": ["**/.storybook/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "no-unused-vars": "off",
+        "typescript/no-unused-vars": "off"
+      }
+    },
     {
       "files": ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/__tests__/**"],
       "rules": {

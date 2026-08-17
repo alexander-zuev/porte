@@ -9,11 +9,17 @@
     "./session": "./src/session.ts"
   },
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix"
   },
+  "dependencies": {
+    "uuid": "catalog:",
+    "zod": "catalog:"
+  },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

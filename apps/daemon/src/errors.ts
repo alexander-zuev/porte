@@ -1,6 +1,6 @@
 import { matchError, TaggedError } from 'better-result'
 
-import type { JsonRpcError } from './acp/message.ts'
+import type { JsonRpcError } from './grok/acp-message.ts'
 import { VERSION } from './version.ts'
 
 /** Bad argv or missing required flags. */
@@ -105,7 +105,7 @@ export function formatError(error: CliError): string {
       `Error (EEXIT): ${failed.message}. The session files stay on disk. Retry the same id.`,
   })
   if (error._tag === 'UsageError') {
-    return String(body)
+    return body
   }
-  return `lras v${VERSION} — ${String(body)}`
+  return `lras v${VERSION} — ${body}`
 }

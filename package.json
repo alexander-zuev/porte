@@ -12,6 +12,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
+    "storybook": "pnpm --filter @lras/web run storybook",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "preview": "pnpm --filter @lras/web preview",

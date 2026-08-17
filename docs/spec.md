@@ -13,8 +13,6 @@ Anyone can create an account, pair their machine, and use only their own session
 5. Opening a session never shows duplicate messages or tool calls.
 6. After the user stops a session, no command or file edit completes later.
 
-Phone approval is not required in slice 1. LRAS always keeps the user’s Grok permission policy.
-
 ## Scope
 
 **In:** multi-user accounts; one host per user; host daemon; Worker + one Durable Object per host; authed PWA; list, resume, prompt; new session in a known repo.
@@ -36,26 +34,125 @@ Phone PWA  --WSS (auth)-->  Worker  -->  Durable Object (host id)
 
 **Daemon.** One process per machine. Lists `$GROK_HOME/sessions`. Spawns stock `grok --no-auto-update agent stdio` in that session’s cwd. `session/load` to resume. `session/prompt` to send. Not an app server. Does not listen.
 
-### Grok modes
+**Grok modes.** Use `grok --no-auto-update agent stdio`. Do not pass `--always-approve`. Inherit sandbox and permission mode.
 
-| Mode                  | LRAS decision    | Reason                                                                                         |
-| --------------------- | ---------------- | ---------------------------------------------------------------------------------------------- |
-| `grok -p`             | Do not use.      | It runs one prompt for scripts and then exits.                                                 |
-| `grok agent stdio`    | Use in v1.       | The daemon owns the process. No local port or tunnel is required.                              |
-| `grok agent serve`    | Evaluate for v2. | It accepts WebSocket connections, so remote access needs a reachable Mac endpoint or a tunnel. |
-| `grok agent headless` | Do not use.      | It is the client for the xAI relay and sends xAI identity headers to that relay.               |
+- `grok -p` — Do not use. One prompt for scripts, then the process exits.
+- `grok agent stdio` — Use in v1. The daemon owns the process. No local port or tunnel.
+- `grok agent serve` — Not v1. It listens on a WebSocket. Remote access needs a reachable Mac or a tunnel. Revisit in v2.
+- `grok agent headless` — Do not use. Client for the xAI relay. It sends xAI identity headers to that relay.
 
-Use `grok --no-auto-update agent stdio`. Do not pass `--always-approve`. Inherit the sandbox and permission mode.
+**List.** Every non-subagent session on the host. The PWA groups rows by `cwd` (repo).
 
-**Event stream.** Complete `session/load` replay before forwarding live events. Use `_meta.eventId` as the event identity within a session. Ignore a repeated `eventId` before storage or forwarding. Do not deduplicate by `toolCallId`; one tool call has multiple valid updates.
+**Event stream.** Complete `session/load` replay before forwarding live events. Deduplicate by `_meta.eventId` in a session. Do not deduplicate by `toolCallId`. Do not render `available_commands_update` as chat. That event is Grok’s `/` catalog.
 
-**Cancellation.** Send `session/cancel` for the active turn. Grok can return `cancelled` or `end_turn`. Success means no tool process or delayed side effect remains. If ACP cancellation does not stop execution, terminate the Grok child process and its process group.
+**Cancel.** Send `session/cancel`. If the child keeps working, kill the process group.
 
-**Permissions.** Do not pass `--permission-mode`, `--always-approve`, or a sandbox override. Forward each `session/request_permission` that Grok emits. Grok remains the source of each allow, ask, or deny decision.
+**Permissions.** Do not pass `--permission-mode`, `--always-approve`, or a sandbox override. Forward each `session/request_permission` to the phone. Until that path exists, return `cancelled`. Never select `allow_once` without a user answer.
 
-**Relay.** Worker checks Better Auth. One Durable Object per host. Hibernation WebSockets. Roles `daemon` and `phone`.
+**Files.** Advertise ACP client file read and write capabilities as `false`. Do not implement `fs/read_text_file` or `fs/write_text_file`. Grok accesses local files through its own tools and permission policy.
 
-**Auth.** App account (PWA) is not Grok login. Spend stays on the host. Pair with a one-time code.
+**Relay.** The Worker checks credentials. One Durable Object coordinates each host. Transport roles are `daemon` and `client`.
+
+v1 uses WSS without end-to-end encryption. The Worker can process session payloads but does not persist or log them.
+
+**Auth.** App account is not Grok login. Spend stays on the host. Pair with a one-time code.
+
+**Worker.** `apps/web` serves the PWA and the LRAS API. WebSocket upgrades use the Worker fetch entrypoint.
+
+The Worker authenticates each connection. The Host Durable Object routes messages. The daemon alone calls Grok.
+
+## Protocol invariants
+
+The Zod schemas in `packages/core/src` are the protocol source. The daemon, Worker, test client, and PWA import them.
+
+### Identifier ownership
+
+The Worker creates `hostId` during pairing. The Durable Object creates `connectionId` for each client socket.
+
+The client creates `requestId` and `turnId`. It reuses each value when it retries the same logical action.
+
+The daemon creates `permissionId` and `messageId`. Grok creates `sessionId`, `eventId`, and `toolCallId`.
+
+The daemon validates `cwd` as an allowed absolute path. The Worker treats host paths as opaque strings.
+
+### HTTP API
+
+| Method | Path                  | Auth                           | Request              | Success data                               |
+| ------ | --------------------- | ------------------------------ | -------------------- | ------------------------------------------ |
+| `*`    | `/api/auth/$`         | Better Auth                    | Better Auth contract | Better Auth contract                       |
+| `POST` | `/api/pairings`       | Rate limited                   | `{}`                 | `{ hostId, daemonToken, code, expiresAt }` |
+| `POST` | `/api/pairings/claim` | Account session                | `{ code }`           | `{ hostId }`                               |
+| `GET`  | `/api/host/ws`        | Account cookie or daemon token | WebSocket upgrade    | `101`                                      |
+
+The pairing response returns `daemonToken` once. The daemon stores it locally. The server stores only its hash.
+
+The WebSocket URL has no `hostId`, role, or credential query parameter. The Worker derives `hostId` and role from verified credentials.
+
+Slice 2 uses fixed development credentials. Slice 3 implements pairing and account authorization.
+
+### Public WebSocket envelope
+
+The client sends requests. The Worker returns one result or error for each request and sends events independently.
+
+The receiver ignores unknown object fields. It rejects an unknown version, message type, or request method.
+
+A client ignores an unknown event. Protocol changes keep old methods and fields during a compatibility window.
+
+Each result or error uses the request `requestId`. A retry of one mutation reuses the same `requestId`.
+
+### Client methods
+
+`session.open` forwards replay events before its result. The result means replay is complete and the session is ready.
+
+`turn.start` returns after Grok accepts the turn. `turn.finished` is the authoritative final outcome.
+
+The daemon accepts one active turn per session. A repeated `turnId` never sends the prompt twice.
+
+`session.create` accepts only a `cwd` from the current session catalog. A repeated request never creates a second session.
+
+### Client events
+
+The daemon projects ACP into `SessionUpdate`. It does not forward raw ACP messages.
+
+The daemon creates `messageId`. All chunks for one user or agent message use the same value.
+
+The daemon derives replay `messageId` values from stable ACP transcript facts. A replay returns the same values after reconnect.
+
+The projection excludes `available_commands_update`, raw tool data, plugin metadata, token counts, and local debug fields.
+
+The receiver deduplicates `session.update` by `sessionId` and `eventId`. It preserves arrival order for unique events.
+
+The relay does not persist or log prompts, transcript events, tool output, diffs, or permission details.
+
+### Protocol errors
+
+Messages contain safe text only. Logs record the error code, request ID, host ID, and operation name.
+
+An invalid text frame returns `INVALID_REQUEST` when `requestId` is usable. Invalid binary frames close the socket.
+
+### Daemon WebSocket contract
+
+The Durable Object adds a route wrapper before it sends a client request to the daemon.
+
+The wrapper lets routing survive Durable Object hibernation. The Durable Object removes the wrapper before client delivery.
+
+Replay events target one connection. Live session events target clients that opened that session.
+
+The daemon sends `sessions.changed` after connection and after session changes. The Durable Object stores that catalog.
+
+### Host Durable Object
+
+The Worker routes verified `hostId` values with `HOST.getByName(hostId)`. The Durable Object does not authenticate public credentials.
+
+The Durable Object uses Hibernation WebSockets. Each socket attachment stores its role, `connectionId`, and open `sessionId`.
+
+The Durable Object derives online status from an open daemon socket. It does not persist an `online` boolean.
+
+SQLite stores only the last `SessionCatalog`. D1 stores account ownership, daemon token hashes, and pairing records.
+
+One host has one daemon socket and many client sockets. A new authenticated daemon socket replaces the old socket.
+
+The Durable Object uses socket tags and attachments for routing. It does not depend on an in-memory pending-request map.
 
 ## Decisions
 
@@ -67,26 +164,63 @@ Use `grok --no-auto-update agent stdio`. Do not pass `--always-approve`. Inherit
 
 ## Slices
 
-| Slice | Build                                                      | Done when                                  |
-| ----- | ---------------------------------------------------------- | ------------------------------------------ |
-| 1     | `apps/daemon`: `list` and `resume`. No Worker. No PWA.     | See below.                                 |
-| 2     | Worker + Durable Object. Shared envelopes in `@lras/core`. | Fake daemon lists sessions through the DO. |
-| 3     | Daemon dials the Worker. Pairing. Reconnect.               | Host online. Session list on the socket.   |
-| 4     | PWA. Better Auth is already there.                         | Phone: sign in, list, open, prompt.        |
+| Slice | Build                                                                                           | Done when                                                          |
+| ----- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1     | `apps/daemon`: `list` and `resume`. No Worker. No PWA.                                          | **Done.** Binary + unit tests + e2e vs installed Grok.             |
+| 2     | Real daemon, Worker, Host Durable Object, and programmatic client. Use development credentials. | The client controls a real Grok session through the Worker.        |
+| 3     | Account authorization, pairing, and daemon credential storage.                                  | A signed-in user can pair one host and cannot access another host. |
+| 4     | PWA over the Slice 2 WebSocket contract.                                                        | A phone can list, create, open, prompt, approve, deny, and cancel. |
 
-## Slice 1
+CLI flags, errors, and ACP shapes live in `apps/daemon`. Do not copy them here.
 
-Local CLI. Prove list + resume.
+## Slice 2
 
-Follow [Node.js CLI Apps Best Practices](https://github.com/lirantal/nodejs-cli-apps-best-practices) for the CLI. Code is the source of truth for how. The spec only requires the important ones: POSIX flags, `--help` / `--version`, stdout vs stderr, structured JSON, tagged errors + exit codes, no prompts in CI, `bin` + shebang, small dependency set.
+Slice 2 delivers the complete remote backend without account or PWA work.
 
-**Done when:** `pnpm --filter @lras/daemon build` emits `dist/main.js`. `lras list` and `lras resume` run from that binary. Unit tests cover the store and CLI. An e2e test talks to installed Grok.
+```text
+Programmatic client -> Worker -> Host Durable Object -> lras up -> grok agent stdio
+```
+
+### In scope
+
+1. Add `lras up`. It keeps one outbound WebSocket connected and reconnects with bounded backoff.
+2. Add the Worker WebSocket entrypoint and one Host Durable Object per development host.
+3. Add the published Zod schemas to `@lras/core`. Parse every message at each process boundary.
+4. Add a programmatic client for every client method and event in the published contract.
+5. Run the full flow against the installed Grok binary and the built daemon artifact.
+
+### Out of scope
+
+- Better Auth authorization for LRAS messages.
+- Pairing and permanent daemon credentials.
+- PWA routes, components, and visual design.
+- Multiple hosts per account.
+- Transcript storage in Cloudflare.
+
+### Required daemon work
+
+1. Replace automatic `allow_once` with the published permission request and answer flow.
+2. Advertise ACP client file capabilities as `false`. Remove the direct client file handlers.
+3. Add deadlines, `session/cancel`, one active turn per session, and process-group cleanup.
+4. Project and deduplicate ACP events. Exclude the command catalog and local metadata.
+5. Keep Grok processes under `lras up` instead of one CLI request lifetime.
+
+### Completion proof
+
+One automated test starts the built daemon, Worker runtime, Durable Object, test client, and installed Grok.
+
+The test proves these results:
+
+1. The host becomes online, and the client receives the real session catalog.
+2. The client creates a session, opens it, sends a prompt, and receives replay and live events.
+3. A permission allow performs the command. A permission deny performs no command.
+4. Cancellation stops the turn and leaves no later file or command side effect.
+5. Disconnect and reconnect do not duplicate a prompt, event, session, or Grok process.
 
 ## Open questions
 
-1. After slice 1: keep Grok up while a phone has that session open, or spawn per prompt.
+1. Keep Grok up while the phone has that session open, or spawn per prompt.
 2. How we warn if a TUI is writing the same session.
-3. PWA open: snapshot `updates.jsonl`, then live ACP events.
 
 ## Completion proof
 
