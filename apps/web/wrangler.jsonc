@@ -1,14 +1,112 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "lras",
+  "name": "porte",
+  "main": "./src/server.ts",
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
-  "secrets": {
-    "required": ["LRAS_DEV_DAEMON_TOKEN", "LRAS_DEV_CLIENT_TOKEN"],
-  },
-  "durable_objects": {
-    "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+  "upload_source_maps": true,
+  "observability": {
+    "logs": { "enabled": true, "invocation_logs": true },
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] }],
+  "env": {
+    "dev": {
+      "name": "porte-dev",
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "LOG_LEVEL": "DEBUG",
+        "BETTER_AUTH_URL": "http://localhost:3000",
+      },
+      "secrets": {
+        "required": [
+          "LRAS_DEV_DAEMON_TOKEN",
+          "LRAS_DEV_CLIENT_TOKEN",
+          "BETTER_AUTH_SECRET",
+          "TURNSTILE_SECRET_KEY",
+          "GITHUB_CLIENT_ID",
+          "GITHUB_CLIENT_SECRET",
+          "TWITTER_CLIENT_ID",
+          "TWITTER_CLIENT_SECRET",
+          "VERCEL_CLIENT_ID",
+          "VERCEL_CLIENT_SECRET",
+          "SENTRY_DSN",
+        ],
+      },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "porte-dev",
+          "database_id": "local-porte-auth",
+          "migrations_dir": "src/server/infrastructure/persistence/database/migrations",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+      },
+    },
+    "prod": {
+      "name": "porte",
+      "vars": { "ENVIRONMENT": "prod", "LOG_LEVEL": "INFO" },
+      "secrets": {
+        "required": [
+          "LRAS_DEV_DAEMON_TOKEN",
+          "LRAS_DEV_CLIENT_TOKEN",
+          "BETTER_AUTH_URL",
+          "BETTER_AUTH_SECRET",
+          "TURNSTILE_SECRET_KEY",
+          "GITHUB_CLIENT_ID",
+          "GITHUB_CLIENT_SECRET",
+          "TWITTER_CLIENT_ID",
+          "TWITTER_CLIENT_SECRET",
+          "VERCEL_CLIENT_ID",
+          "VERCEL_CLIENT_SECRET",
+          "SENTRY_DSN",
+        ],
+      },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "porte",
+          "database_id": "a2a76b78-898a-4dbb-ac22-c04ec09d4942",
+          "migrations_dir": "src/server/infrastructure/persistence/database/migrations",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+      },
+    },
+    "test": {
+      "name": "porte-test",
+      "vars": {
+        "ENVIRONMENT": "test",
+        "LOG_LEVEL": "ERROR",
+        "BETTER_AUTH_URL": "http://localhost:3000",
+        "LRAS_DEV_DAEMON_TOKEN": "test-daemon-token",
+        "LRAS_DEV_CLIENT_TOKEN": "test-client-token",
+        "BETTER_AUTH_SECRET": "test-better-auth-secret-with-32-characters",
+        "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
+        "GITHUB_CLIENT_ID": "test",
+        "GITHUB_CLIENT_SECRET": "test",
+        "TWITTER_CLIENT_ID": "test",
+        "TWITTER_CLIENT_SECRET": "test",
+        "VERCEL_CLIENT_ID": "test",
+        "VERCEL_CLIENT_SECRET": "test",
+        "SENTRY_DSN": "https://public@example.com/1",
+      },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "porte-test",
+          "database_id": "test-porte-auth",
+          "migrations_dir": "src/server/infrastructure/persistence/database/migrations",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+      },
+    },
+  },
 }

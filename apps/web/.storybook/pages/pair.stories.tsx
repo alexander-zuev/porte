@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useState, type ComponentProps } from 'react'
 
-import { PairPage } from '#/features/pair/components/pair-page.tsx'
+import { PairPage } from '#/pages/pair/pair-page.tsx'
 
 const meta = {
   title: 'Pages/Pair',

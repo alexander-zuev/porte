@@ -17,7 +17,16 @@
     "format:check": "oxfmt --check .",
     "preview": "pnpm --filter @lras/web preview",
     "deploy": "pnpm --filter @lras/web deploy",
-    "cf-typegen": "turbo run cf-typegen"
+    "cf-typegen": "turbo run cf-typegen",
+    "db:generate": "pnpm --filter @lras/web run db:generate",
+    "db:generate:custom": "pnpm --filter @lras/web run db:generate:custom",
+    "db:generate:prod": "pnpm --filter @lras/web run db:generate:prod",
+    "db:migrate:dev": "pnpm --filter @lras/web run db:migrate:dev",
+    "db:migrate:prod": "pnpm --filter @lras/web run db:migrate:prod",
+    "db:reset": "pnpm --filter @lras/web run db:reset",
+    "db:studio": "pnpm --filter @lras/web run db:studio",
+    "db:studio:prod": "pnpm --filter @lras/web run db:studio:prod",
+    "better-auth-generate": "pnpm --filter @lras/web run better-auth-generate"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "catalog:",

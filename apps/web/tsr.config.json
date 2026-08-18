@@ -1,3 +1,6 @@
 {
-  "target": "react"
+  "routesDirectory": "./src/routes",
+  "generatedRouteTree": "./src/lib/router/routeTree.gen.ts",
+  "quoteStyle": "single",
+  "semicolons": false
 }

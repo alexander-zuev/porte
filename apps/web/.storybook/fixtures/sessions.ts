@@ -1,6 +1,6 @@
 import { makeSessionSummary, type SessionSummary } from '@lras/core'
 
-import type { PermissionRequest, TranscriptItem } from '#/features/session/models/transcript.ts'
+import type { PermissionRequest, TranscriptItem } from '#/entities/session/transcript.ts'
 
 export const sessions: readonly SessionSummary[] = [
   makeSessionSummary({

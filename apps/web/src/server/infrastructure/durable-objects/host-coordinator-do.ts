@@ -14,16 +14,20 @@ import {
   SessionCatalogSchema,
   SessionIdSchema,
   createConnectionId,
+  createLogger,
   type SessionCatalog,
 } from '@lras/core'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
+
+import type { RuntimeEnv } from '../runtime-env.ts'
 
 const CATALOG_KEY = 'session-catalog'
 const roleSchema = z.enum(['daemon', 'client'])
 const frameSchema = z.string()
 const jsonValueSchema = z.json()
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
+const logger = createLogger('host-coordinator')
 
 const clientSessionSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('closed') }),
@@ -43,7 +47,7 @@ type ClientMessage = Exclude<z.infer<typeof ClientMessageSchema>, { type: 'reque
 type JsonValue = z.infer<typeof jsonValueSchema>
 
 /** One hibernating relay instance for one LRAS host. */
-export class HostCoordinatorDO extends DurableObject<Env> {
+export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
   async fetch(request: Request): Promise<Response> {
     const role = roleSchema.safeParse(request.headers.get('x-lras-host-role'))
     if (!role.success) return new Response('Forbidden', { status: 403 })
@@ -89,7 +93,7 @@ export class HostCoordinatorDO extends DurableObject<Env> {
       }
       await this.handleDaemonMessage(text.data)
     } catch (error) {
-      console.error('host_message_failed', { error })
+      logger.error('host_message_failed', { error })
       socket.close(1011, 'host message failed')
     }
   }
@@ -103,7 +107,7 @@ export class HostCoordinatorDO extends DurableObject<Env> {
   }
 
   webSocketError(socket: WebSocket, cause: unknown): void {
-    console.error('host_socket_failed', { cause })
+    logger.error('host_socket_failed', { error: cause })
     socket.close(1011, 'host socket failed')
   }
 

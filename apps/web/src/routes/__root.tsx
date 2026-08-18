@@ -6,7 +6,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import PostHogProvider from '../integrations/posthog/provider'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
-import appCss from '../styles.css?url'
+import appCss from '../ui/stylesheets/globals.css?url'
 
 interface MyRouterContext {
   queryClient: QueryClient

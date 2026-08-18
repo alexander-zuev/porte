@@ -1,19 +1,18 @@
+import type { PermissionRequest, TranscriptItem } from '#/entities/session/transcript.ts'
 import {
   Confirmation,
   ConfirmationAction,
   ConfirmationActions,
   ConfirmationRequest,
   ConfirmationTitle,
-} from '#/components/ai-elements/confirmation.tsx'
-import { Message, MessageContent, MessageResponse } from '#/components/ai-elements/message.tsx'
+} from '#/ui/components/ai-elements/confirmation.tsx'
+import { Message, MessageContent, MessageResponse } from '#/ui/components/ai-elements/message.tsx'
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-} from '#/components/ai-elements/reasoning.tsx'
-import { Tool, ToolContent, ToolHeader, ToolOutput } from '#/components/ai-elements/tool.tsx'
-
-import type { PermissionRequest, TranscriptItem } from '../models/transcript.ts'
+} from '#/ui/components/ai-elements/reasoning.tsx'
+import { Tool, ToolContent, ToolHeader, ToolOutput } from '#/ui/components/ai-elements/tool.tsx'
 
 type SessionTranscriptProps = {
   readonly items: readonly TranscriptItem[]

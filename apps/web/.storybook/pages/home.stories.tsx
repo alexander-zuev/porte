@@ -1,17 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { HomePage } from '#/features/home/components/home-page.tsx'
+import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
 
 import { sessions } from '../fixtures/sessions.ts'
 
 const meta = {
   title: 'Pages/Home',
-  component: HomePage,
+  component: DashboardPage,
   args: {
     onOpenSession: () => undefined,
     onStartSession: () => undefined,
   },
-} satisfies Meta<typeof HomePage>
+} satisfies Meta<typeof DashboardPage>
 
 export default meta
 type Story = StoryObj<typeof meta>

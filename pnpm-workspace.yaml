@@ -39,6 +39,7 @@ catalog:
   clsx: ^2.1.1
   drizzle-kit: ^0.31.10
   drizzle-orm: ^0.45.2
+  eslint-plugin-drizzle: ^0.2.3
   husky: ^9.1.7
   lint-staged: ^17.3.0
   lucide-react: ^1.31.0
@@ -77,6 +78,9 @@ catalog:
   '@streamdown/mermaid': ^1.0.2
   uuid: 14.0.1
   '@cloudflare/vitest-pool-workers': 0.21.3
+  '@sentry/cloudflare': ^10.70.0
+  '@marsidev/react-turnstile': ^1.6.0
+  '@typescript-eslint/utils': ^8.67.0
 
 allowBuilds:
   '@sentry/cli': true

@@ -4,7 +4,7 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "rootDir": "./src",
-    "types": []
+    "types": ["node"]
   },
   "include": ["src"]
 }

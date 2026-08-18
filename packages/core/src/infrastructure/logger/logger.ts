@@ -1,0 +1,320 @@
+/**
+ * Framework-independent logging utilities.
+ * The logger writes structured production logs and readable development logs.
+ */
+
+type LogValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Error
+  | ReadonlyArray<LogValue>
+  | LogFields
+
+type LogFields = { readonly [key: string]: LogValue }
+
+type ErrorLogContext = {
+  readonly error?: unknown
+  readonly userId?: string
+  readonly details?: LogFields
+}
+
+type SerializedLogError = {
+  readonly name: string
+  readonly message: string
+  readonly stack?: string
+  readonly cause?: SerializedLogError | { readonly message: string }
+}
+
+type LogEntry = {
+  readonly timestamp: string
+  readonly level: LogLevel
+  readonly module: string
+  readonly message: string
+  readonly data?: LogValue | SerializedLogError | ReadonlyArray<LogValue | SerializedLogError>
+}
+
+type RuntimeProcess = {
+  readonly env: {
+    readonly NODE_ENV?: string
+    readonly LOG_LEVEL?: string
+    readonly NO_COLOR?: string
+    readonly FORCE_COLOR?: string
+    readonly CI?: string
+  }
+  readonly stdout: { readonly isTTY: boolean }
+}
+
+/** The error data sent to the configured error hook. */
+export interface ErrorCaptureEntry {
+  readonly error: unknown
+  readonly distinctId: string | undefined
+  readonly context: LogFields
+}
+
+/** A function that forwards one logged error to an error service. */
+export type LoggerErrorHook = (entry: ErrorCaptureEntry) => void
+
+let errorHook: LoggerErrorHook | null = null
+
+/** Register the function that receives each logged error. */
+export function setLoggerErrorHook(fn: LoggerErrorHook): void {
+  errorHook = fn
+}
+
+/** The supported log severity levels. */
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARN = 'WARN',
+  ERROR = 'ERROR',
+}
+
+/** Configuration values that override the environment defaults. */
+export interface LoggerConfig {
+  readonly logLevel?: LogLevel
+  readonly colorize?: boolean
+  readonly enabled?: boolean
+}
+
+const LOG_LEVELS = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR] as const
+const MAX_ERROR_CAUSE_DEPTH = 3
+
+const getRuntimeProcess = (): RuntimeProcess | undefined => {
+  if (!Reflect.has(globalThis, 'process')) return undefined
+
+  // SAFETY: Reflect.has proves that globalThis contains the process property before this access.
+  return (globalThis as typeof globalThis & { readonly process: RuntimeProcess }).process
+}
+
+const getNodeEnv = (): string => getRuntimeProcess()?.env.NODE_ENV ?? 'development'
+
+const parseLogLevel = (value: string | undefined): LogLevel | undefined => {
+  switch (value?.toUpperCase()) {
+    case LogLevel.DEBUG:
+      return LogLevel.DEBUG
+    case LogLevel.INFO:
+      return LogLevel.INFO
+    case LogLevel.WARN:
+      return LogLevel.WARN
+    case LogLevel.ERROR:
+      return LogLevel.ERROR
+    default:
+      return undefined
+  }
+}
+
+const getMinLogLevel = (): LogLevel => {
+  const configuredLevel = parseLogLevel(getRuntimeProcess()?.env.LOG_LEVEL)
+  if (configuredLevel !== undefined) return configuredLevel
+
+  switch (getNodeEnv()) {
+    case 'production':
+      return LogLevel.INFO
+    case 'test':
+      return LogLevel.ERROR
+    default:
+      return LogLevel.DEBUG
+  }
+}
+
+const getLogConfig = () => {
+  const minLevel = getMinLogLevel()
+
+  switch (getNodeEnv()) {
+    case 'production':
+      return { enabled: true, minLevel, colorize: false }
+    case 'test':
+      return { enabled: false, minLevel, colorize: false }
+    default:
+      return { enabled: true, minLevel, colorize: true }
+  }
+}
+
+const serializeLogError = (error: Error, depth = 0): SerializedLogError => {
+  if (depth > MAX_ERROR_CAUSE_DEPTH) {
+    return { name: 'Error', message: '[cause chain truncated]' }
+  }
+
+  const base: SerializedLogError =
+    depth === 0 && error.stack !== undefined
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { name: error.name, message: error.message }
+  if (error.cause === undefined) return base
+
+  const cause =
+    error.cause instanceof Error
+      ? serializeLogError(error.cause, depth + 1)
+      : { message: '[non-error cause]' }
+  return { ...base, cause }
+}
+
+const serializeLogValue = (value: LogValue): LogValue | SerializedLogError =>
+  value instanceof Error ? serializeLogError(value) : value
+
+const formatDevelopmentArgs = (
+  values: ReadonlyArray<LogValue>,
+): ReadonlyArray<LogValue | SerializedLogError> => values.map(serializeLogValue)
+
+const stringifyLogEntry = (entry: LogEntry): string => {
+  try {
+    return JSON.stringify(entry)
+  } catch {
+    return JSON.stringify({
+      timestamp: entry.timestamp,
+      level: entry.level,
+      module: entry.module,
+      message: entry.message,
+      data: '[Circular or non-serializable object]',
+    })
+  }
+}
+
+const isBrowserRuntime = (): boolean => Reflect.has(globalThis, 'window')
+
+const supportsAnsiColor = (): boolean => {
+  const process = getRuntimeProcess()
+  if (process === undefined) return false
+  if (process.env.NO_COLOR !== undefined) return false
+  if (process.env.FORCE_COLOR === '0') return false
+  if (process.env.FORCE_COLOR !== undefined) return true
+  if (getNodeEnv() === 'development' && process.env.CI === undefined) return true
+  return process.stdout.isTTY
+}
+
+const ansi = {
+  gray: (value: string) => `\x1b[90m${value}\x1b[0m`,
+  dimCyan: (value: string) => `\x1b[2m\x1b[36m${value}\x1b[0m`,
+  blue: (value: string) => `\x1b[34m${value}\x1b[0m`,
+  yellow: (value: string) => `\x1b[33m${value}\x1b[0m`,
+  boldRed: (value: string) => `\x1b[1m\x1b[31m${value}\x1b[0m`,
+}
+
+const colorizeLevelAnsi = (level: LogLevel): string => {
+  switch (level) {
+    case LogLevel.DEBUG:
+      return ansi.dimCyan(level)
+    case LogLevel.INFO:
+      return ansi.blue(level)
+    case LogLevel.WARN:
+      return ansi.yellow(level)
+    case LogLevel.ERROR:
+      return ansi.boldRed(level)
+    default:
+      return level
+  }
+}
+
+const levelStyles = {
+  [LogLevel.DEBUG]: 'color: #5f9ea0',
+  [LogLevel.INFO]: 'color: #61afef',
+  [LogLevel.WARN]: 'color: #d4a843',
+  [LogLevel.ERROR]: 'color: #e06c75; font-weight: 700',
+} satisfies Record<LogLevel, string>
+
+/** Write module-scoped logs with environment configuration. */
+export class Logger {
+  private readonly module: string
+  private readonly config: ReturnType<typeof getLogConfig>
+
+  /** Create a logger for one module. */
+  constructor(module: string, overrideConfig?: LoggerConfig) {
+    this.module = module
+    this.config = getLogConfig()
+
+    if (overrideConfig?.logLevel !== undefined) {
+      this.config.minLevel = overrideConfig.logLevel
+    }
+    if (overrideConfig?.colorize !== undefined) {
+      this.config.colorize = overrideConfig.colorize
+    }
+    if (overrideConfig?.enabled !== undefined) {
+      this.config.enabled = overrideConfig.enabled
+    }
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    if (!this.config.enabled) return false
+    if (getNodeEnv() === 'production' && isBrowserRuntime()) return false
+
+    return LOG_LEVELS.indexOf(level) >= LOG_LEVELS.indexOf(this.config.minLevel)
+  }
+
+  private log(level: LogLevel, message: string, values: ReadonlyArray<LogValue>): void {
+    if (!this.shouldLog(level)) return
+
+    const timestamp = new Date().toISOString()
+    const logFunction =
+      level === LogLevel.ERROR
+        ? console.error
+        : level === LogLevel.WARN
+          ? console.warn
+          : console.log
+
+    if (this.config.colorize && isBrowserRuntime()) {
+      logFunction(
+        `%c[${timestamp}] %c[${level}] %c[${this.module}]%c ${message}`,
+        'color: gray',
+        levelStyles[level],
+        'color: #61afef',
+        'color: inherit',
+        ...formatDevelopmentArgs(values),
+      )
+      return
+    }
+
+    if (this.config.colorize && supportsAnsiColor()) {
+      logFunction(
+        `${ansi.gray(`[${timestamp}]`)} [${colorizeLevelAnsi(level)}] ${ansi.blue(
+          `[${this.module}]`,
+        )} ${message}`,
+        ...formatDevelopmentArgs(values),
+      )
+      return
+    }
+
+    const base = { timestamp, level, module: this.module, message }
+    if (values.length === 0) {
+      logFunction(stringifyLogEntry(base))
+      return
+    }
+
+    const data = values.length === 1 ? serializeLogValue(values[0]) : values.map(serializeLogValue)
+    logFunction(stringifyLogEntry({ ...base, data }))
+  }
+
+  /** Write a debug log. */
+  debug(message: string, ...values: ReadonlyArray<LogValue>): void {
+    this.log(LogLevel.DEBUG, message, values)
+  }
+
+  /** Write an information log. */
+  info(message: string, ...values: ReadonlyArray<LogValue>): void {
+    this.log(LogLevel.INFO, message, values)
+  }
+
+  /** Write a warning log. */
+  warn(message: string, ...values: ReadonlyArray<LogValue>): void {
+    this.log(LogLevel.WARN, message, values)
+  }
+
+  /** Write an error log and send its error to the configured hook. */
+  error(message: string, context?: ErrorLogContext): void {
+    this.log(LogLevel.ERROR, message, context === undefined ? [] : [context.details ?? {}])
+
+    if (errorHook !== null && context?.error !== undefined) {
+      errorHook({
+        error: context.error,
+        distinctId: context.userId,
+        context: context.details ?? {},
+      })
+    }
+  }
+}
+
+/** Create a logger for one module. */
+export function createLogger(module: string, config?: LoggerConfig): Logger {
+  return new Logger(module, config)
+}

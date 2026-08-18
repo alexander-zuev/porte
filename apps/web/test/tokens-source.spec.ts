@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 
 const SRC = fileURLToPath(new URL('../src', import.meta.url))
-const TOKEN_FILE = join(SRC, 'styles.css')
-const SKIP_DIRS = new Set(['components', 'integrations'])
+const TOKEN_DIR = join(SRC, 'ui/stylesheets')
+const SKIP_DIRS = new Set(['components', 'integrations', 'ui'])
 const LITERAL_COLOR = /(oklch\(|rgba?\(|hsla?\(|#[0-9a-fA-F]{3,8}\b)/
 
 function* walk(dir: string): Generator<string> {
@@ -14,6 +14,7 @@ function* walk(dir: string): Generator<string> {
     if (SKIP_DIRS.has(entry)) continue
     const path = join(dir, entry)
     if (statSync(path).isDirectory()) {
+      if (path === TOKEN_DIR) continue
       yield* walk(path)
       continue
     }
@@ -25,7 +26,6 @@ test('colors are declared only in the token layer', () => {
   const offenders: string[] = []
 
   for (const path of walk(SRC)) {
-    if (path === TOKEN_FILE) continue
     const lines = readFileSync(path, 'utf8').split('\n')
     for (const [index, line] of lines.entries()) {
       const trimmed = line.trimStart()

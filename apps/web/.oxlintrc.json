@@ -1,9 +1,20 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
   "extends": ["../../.oxlintrc.json"],
+  "jsPlugins": [
+    "eslint-plugin-drizzle",
+    { "name": "design-system", "specifier": "../../tools/oxlint/design-system/index.ts" }
+  ],
+  "rules": {
+    "drizzle/enforce-update-with-where": "error",
+    "drizzle/enforce-delete-with-where": "off",
+    "design-system/no-typography-overrides": "error",
+    "design-system/prefer-ui-primitives": "error"
+  },
   "ignorePatterns": [
-    "src/components/ui/**",
-    "src/components/ai-elements/**",
+    "src/ui/components/ui/**",
+    "src/ui/components/ai-elements/**",
+    "src/server/infrastructure/persistence/database/migrations/**",
     "test/**",
     ".storybook/**",
     "playwright.config.ts"

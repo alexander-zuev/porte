@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useState } from 'react'
 
-import { SessionPage } from '#/features/session/components/session-page.tsx'
-import type { SessionPageProps } from '#/features/session/components/session-page.tsx'
+import { ConversationPage } from '#/pages/conversation/conversation-page.tsx'
+import type { ConversationPageProps } from '#/pages/conversation/conversation-page.tsx'
 
 import {
   longMessageItems,
@@ -16,18 +16,18 @@ import {
 
 const meta = {
   title: 'Pages/Session',
-  component: SessionPage,
-} satisfies Meta<typeof SessionPage>
+  component: ConversationPage,
+} satisfies Meta<typeof ConversationPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
 function SessionHarness(
-  props: Pick<SessionPageProps, 'online' | 'status' | 'items' | 'permission' | 'draft'>,
+  props: Pick<ConversationPageProps, 'online' | 'status' | 'items' | 'permission' | 'draft'>,
 ) {
   const [draft, setDraft] = useState(props.draft)
   return (
-    <SessionPage
+    <ConversationPage
       draft={draft}
       items={props.items}
       onAnswerPermission={() => undefined}

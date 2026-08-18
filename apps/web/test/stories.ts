@@ -2,6 +2,7 @@
 export const STORY_IDS = [
   'design-system-tokens--dark',
   'design-system-hoverortap--tap',
+  'pages-landing--hero',
   'pages-signin--ready',
   'pages-signin--pending',
   'pages-signin--error-state',

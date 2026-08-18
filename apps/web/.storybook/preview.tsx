@@ -2,8 +2,8 @@ import { withThemeByClassName } from '@storybook/addon-themes'
 import type { Preview, ReactRenderer } from '@storybook/tanstack-react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-import '../src/styles.css'
-import { TooltipProvider } from '#/components/ui/tooltip.tsx'
+import '../src/ui/stylesheets/globals.css'
+import { TooltipProvider } from '#/ui/components/ui/tooltip.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {

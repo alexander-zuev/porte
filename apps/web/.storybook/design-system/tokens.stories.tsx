@@ -1,17 +1,23 @@
 import { PlusIcon } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert.tsx'
-import { Badge } from '#/components/ui/badge.tsx'
-import { Button } from '#/components/ui/button.tsx'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card.tsx'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/components/ui/empty.tsx'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/components/ui/field.tsx'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/components/ui/input-otp.tsx'
-import { Input } from '#/components/ui/input.tsx'
-import { Separator } from '#/components/ui/separator.tsx'
-import { Textarea } from '#/components/ui/textarea.tsx'
-import { HostStatus } from '#/ui/host-status.tsx'
+import { HostStatus } from '#/ui/components/host-status.tsx'
+import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
+import { Badge } from '#/ui/components/ui/badge.tsx'
+import { Button } from '#/ui/components/ui/button.tsx'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '#/ui/components/ui/card.tsx'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/ui/components/ui/empty.tsx'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/ui/components/ui/input-otp.tsx'
+import { Input } from '#/ui/components/ui/input.tsx'
+import { Separator } from '#/ui/components/ui/separator.tsx'
+import { Textarea } from '#/ui/components/ui/textarea.tsx'
 
 const COLOR_TOKENS = [
   { name: 'background', swatch: 'bg-background' },
@@ -58,8 +64,8 @@ function Tokens() {
       <header className="flex flex-col gap-2">
         <h1>Design system</h1>
         <p className="text-muted-foreground">
-          Inter + grok.com dark. Colors live in styles.css. Phone PWA: 16px body, 44px tap, no
-          tooltip.
+          Inter + grok.com dark. Colors and type live in ui/stylesheets. Use the HTML element. Do
+          not set size, leading, or tracking on the component.
         </p>
       </header>
 
@@ -69,7 +75,7 @@ function Tokens() {
           {COLOR_TOKENS.map((token) => (
             <div className="flex flex-col gap-2" key={token.name}>
               <div className={`h-14 rounded-lg border border-border ${token.swatch}`} />
-              <span className="text-sm text-muted-foreground">{token.name}</span>
+              <small className="text-muted-foreground">{token.name}</small>
             </div>
           ))}
         </div>
@@ -88,12 +94,16 @@ function Tokens() {
 
       <section className="flex flex-col gap-4">
         <h2>Type</h2>
-        <h1>Heading 1 / 32 / 700</h1>
-        <h2>Heading 2 / 24 / 700</h2>
-        <h3>Heading 3 / 20 / 600</h3>
-        <h4>Heading 4 / 18 / 600</h4>
-        <p>Body 16 / 400. One size for copy. Muted for secondary.</p>
-        <p className="text-muted-foreground">Muted 16 / 400. Paths, status, help text.</p>
+        <p className="text-display-hero">Display hero</p>
+        <h1>Heading 1</h1>
+        <h2>Heading 2</h2>
+        <h3>Heading 3</h3>
+        <h4>Heading 4</h4>
+        <h5>Heading 5</h5>
+        <h6>Heading 6</h6>
+        <p>Body. One size for copy. Muted for secondary.</p>
+        <p className="text-muted-foreground">Muted. Paths, status, help text.</p>
+        <small>Caption. Timestamps, metadata, legal.</small>
       </section>
 
       <section className="flex flex-col gap-4">
@@ -102,7 +112,7 @@ function Tokens() {
           {RADII.map((radius) => (
             <div className="flex flex-col items-center gap-2" key={radius.name}>
               <div className={`size-14 border border-border bg-muted ${radius.className}`} />
-              <span className="text-sm text-muted-foreground">{radius.name}</span>
+              <small className="text-muted-foreground">{radius.name}</small>
             </div>
           ))}
         </div>

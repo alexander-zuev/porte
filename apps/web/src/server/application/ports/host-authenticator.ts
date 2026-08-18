@@ -7,7 +7,7 @@ export type HostIdentity = {
   role: HostRole
 }
 
-/** Authentication capability required by the host WebSocket entrypoint. */
+/** Authentication capability required by the host WebSocket route. */
 export interface HostAuthenticator {
   authenticate(credential: string | undefined): Promise<ApiResponse<HostIdentity>>
 }

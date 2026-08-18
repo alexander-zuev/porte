@@ -1,18 +1,41 @@
+import { setLoggerErrorHook } from '@lras/core'
+import * as Sentry from '@sentry/cloudflare'
+import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
-import { hostWebSocket } from './server/entrypoints/host-websocket'
 import { createAppDeps } from './server/infrastructure/app-deps'
+import type { AppDeps } from './server/infrastructure/app-deps'
+import { HostCoordinatorDO as HostCoordinatorDOBase } from './server/infrastructure/durable-objects/host-coordinator-do'
+import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
+import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
 
-export { HostCoordinatorDO } from './server/infrastructure/durable-objects/host-coordinator-do'
+export const HostCoordinatorDO = Sentry.instrumentDurableObjectWithSentry(
+  createSentryOptions,
+  HostCoordinatorDOBase,
+)
 
-const serverEntry = createServerEntry(handler)
+setLoggerErrorHook(({ error, distinctId, context }) => {
+  Sentry.captureException(error, {
+    extra: context,
+    ...(distinctId && { user: { id: distinctId } }),
+  })
+})
 
-export default {
+// @ts-expect-error -- Sentry documents this TanStack and Cloudflare handler type mismatch.
+const serverEntry = createServerEntry(wrapFetchWithSentry(handler))
+
+export default Sentry.withSentry(createSentryOptions, {
   fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    if (url.pathname === '/api/host/ws') {
-      return hostWebSocket(request, createAppDeps(env, ctx))
-    }
-    return serverEntry.fetch(request)
+    return serverEntry.fetch(request, { context: { deps: createAppDeps(env, ctx) } })
   },
-} satisfies ExportedHandler<Env>
+}) satisfies ExportedHandler<RuntimeEnv>
+
+declare module '@tanstack/react-start' {
+  interface Register {
+    server: {
+      requestContext: {
+        deps: AppDeps
+      }
+    }
+  }
+}
