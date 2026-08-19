@@ -19,6 +19,16 @@ type OAuthVariables = {
   readonly captchaToken: string
 }
 
+const FALLBACK_DETAIL = 'Try again in a moment.'
+
+/** Keep the detail line useful: many auth errors carry the title as their message. */
+function signInFailureDetail(cause: unknown): string {
+  if (!(cause instanceof Error)) return FALLBACK_DETAIL
+  const message = cause.message.trim()
+  if (message.length === 0) return FALLBACK_DETAIL
+  return message.toLowerCase() === 'sign-in failed' ? FALLBACK_DETAIL : message
+}
+
 /** Run the social sign-in interaction and preserve its validated destination. */
 export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
   const [verifyingProvider, setVerifyingProvider] = useState<SocialProvider>()
@@ -29,9 +39,7 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
       authService().signInWithOAuth(provider, { redirectTo, captchaToken }),
     onError: (cause) => {
       turnstileRef.current?.reset()
-      toast.error('Sign-in failed', {
-        description: cause instanceof Error ? cause.message : 'Try again in a moment.',
-      })
+      toast.error('Sign-in failed', { description: signInFailureDetail(cause) })
     },
     onSettled: () => {
       setVerifyingProvider(undefined)

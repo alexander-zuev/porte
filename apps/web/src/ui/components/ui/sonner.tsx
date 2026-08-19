@@ -5,15 +5,20 @@ export function Toaster(props: React.ComponentProps<typeof Sonner>) {
   return (
     <Sonner
       className="toaster group"
-      position="top-center"
+      position="bottom-right"
+      offset={24}
+      gap={10}
       theme="dark"
       toastOptions={{
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-popover group-[.toaster]:text-popover-foreground group-[.toaster]:border-border group-[.toaster]:rounded-lg group-[.toaster]:border',
-          description: 'group-[.toast]:text-muted-foreground',
-          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+            'group toast flex w-full items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-lg',
+          title: 'text-sm font-medium text-foreground',
+          description: 'text-sm text-muted-foreground',
+          icon: 'mt-px shrink-0',
+          error: 'group-[.toaster]:text-destructive',
+          success: 'group-[.toaster]:text-status-success-muted-foreground',
+          closeButton: 'border-border bg-surface text-muted-foreground',
         },
       }}
       {...props}

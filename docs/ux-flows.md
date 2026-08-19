@@ -24,7 +24,26 @@ The primary journey crosses two devices:
 The desktop owns local execution. The phone owns remote control. Porte coordinates trust and
 delivery without becoming the execution owner.
 
-The first release supports one paired host for each account.
+The first release supports one paired host for each account. One account controls one Mac. Every
+surface that names the host names that single Mac, never a list.
+
+### Account states
+
+Porte has no onboarding wizard, no tour, and no checklist. An account is in exactly one of three
+states, and every surface resolves to the same next action.
+
+| State    | Meaning                                      | Next action                        |
+| -------- | -------------------------------------------- | ---------------------------------- |
+| Unpaired | The account controls no Mac                  | Run `npx porte pair` on the Mac    |
+| Pairing  | An attempt is open and awaiting confirmation | Confirm the phrase on both devices |
+| Paired   | The account controls one Mac                 | Open or start a session            |
+
+A fourth condition, failed, is a recoverable variant of pairing. It always returns the user to the
+unpaired next action.
+
+The whole product funnel is one line: install the CLI, sign in on the phone, confirm the phrase.
+Nothing else is taught before first use. Capability is discovered inside the session surfaces, not
+in an introduction.
 
 ## Experience Contract
 
@@ -247,6 +266,19 @@ Desktop web is a supported control surface, but mobile receives the premium view
 - Keep permission decisions near the relevant transcript event.
 - Show host and session context in both panes.
 - Collapse predictably to the mobile one-pane model at narrower widths.
+- Carry host status and the account entry in a footer slot at the base of the list pane.
+
+### Layout decision
+
+Porte uses two panes, not a navigation sidebar. The list pane is the session list. It is not a
+navigation rail.
+
+A navigation sidebar earns its place when a product has several top-level sections. Porte has one:
+sessions. Account and host management are a single leaf surface reached from the list-pane footer,
+not a second navigation level.
+
+The master-detail shell only renders when a paired host exists. An account with no host has no list
+and no detail, so it receives a single full-page surface instead.
 
 ### Avoid
 
@@ -397,6 +429,20 @@ The session home answers:
 - No paired host.
 - Pairing revoked.
 
+### No paired host
+
+A signed-in account with no host never sees the master-detail shell. It sees one full-page surface
+that states the situation and carries the single next action.
+
+The surface contains:
+
+1. What Porte is about to connect.
+2. The `npx porte pair` command as copyable text.
+3. One sentence naming what happens next on the phone.
+4. A secondary path for a user who already has a pairing code.
+
+The same surface serves a revoked pairing, with copy that names the revocation first.
+
 ### Acceptance criteria
 
 - Session titles and repository names remain distinguishable on narrow screens.
@@ -404,6 +450,8 @@ The session home answers:
 - “New session” explains why it is unavailable when the host is offline.
 - Opening a session has one visible pending state and cannot be submitted twice.
 - Phone navigation enters one session pane; desktop can retain the list pane.
+- An account with no host never renders an empty list pane or an empty detail pane.
+- The unpaired surface states the pairing command without requiring navigation.
 
 ## Flow 4: Create a Session
 
@@ -722,6 +770,91 @@ content, tool output, daemon credentials, or pairing claims.
 - Lifecycle commands work without cloud availability when the action is local.
 - Every command supports non-interactive output and stable exit behavior.
 
+## Flow 12: Account Management
+
+### Purpose
+
+One surface holds everything the user owns: who they are signed in as, which Mac they control, and
+how to leave. It is reached from the list-pane footer and from the unpaired surface.
+
+### First-release capabilities
+
+- View the signed-in identity from the authentication provider.
+- View the paired host and its current availability.
+- Unpair the host.
+- Sign out.
+- Delete the account.
+
+### Happy path
+
+1. User opens the account surface.
+2. Surface shows the signed-in identity and the paired host.
+3. User chooses unpair, sign out, or delete.
+4. Destructive choices ask for confirmation that names the effect.
+5. Porte applies the change and moves the user to the resulting state.
+
+### Required states
+
+- Signed in with a paired host.
+- Signed in with no paired host.
+- Unpairing.
+- Unpair failed.
+- Signing out.
+- Delete requested and awaiting confirmation.
+- Deleting.
+- Delete failed.
+
+### Acceptance criteria
+
+- Sign-out ends the session, clears cached account state, and lands on a signed-out surface.
+- Sign-out never leaves the user on an authenticated route with a dead session.
+- Unpair states that the Mac keeps its local sessions and files.
+- Unpair returns the account to the unpaired state, not to an error.
+- Delete states what is removed and that it cannot be undone.
+- Delete removes the identity and session metadata described in the privacy page.
+- Delete requires a deliberate confirmation, not a single click.
+- A failed destructive action leaves the previous state intact and says so.
+
+## Data Contract
+
+This section defines what each surface reads and writes. It constrains shape, not transport.
+
+### Principles
+
+1. One surface, one authoritative read. Related facts arrive together or not at all.
+2. A read returns a state, not loose fields. Impossible combinations must be unrepresentable.
+3. Mutations are idempotent and carry the logical identifier of the original request.
+4. Identity comes from the authenticated route context, never from a separate request.
+
+### Session home
+
+Reads one host snapshot. The snapshot resolves to exactly one state:
+
+| State    | Carries                                                                                 |
+| -------- | --------------------------------------------------------------------------------------- |
+| Unpaired | Nothing                                                                                 |
+| Loading  | Host name when already known                                                            |
+| Ready    | Host name, availability, last seen, sessions grouped by repository, running session ids |
+| Revoked  | Host name                                                                               |
+| Error    | Host name when already known                                                            |
+
+Host and sessions are one fact. Sessions must never render without the host that owns them.
+
+Mutations: open session, create session, pair with code.
+
+### Account
+
+Reads the same host snapshot plus the identity already present in the authenticated route context.
+It issues no separate identity request.
+
+Mutations: unpair, sign out, delete account. Each invalidates the host snapshot on success.
+
+### Session detail
+
+Reads one session snapshot, then applies live events. Live events never precede the snapshot.
+
+Mutations: send prompt, stop turn, answer permission, answer elicitation.
+
 ## Storybook Coverage Contract
 
 Storybook is the visual specification for web flows.
@@ -740,7 +873,8 @@ Each premium mobile flow must include stories for:
 Required page story families:
 
 - Mobile pairing: validating, sign-in required, confirm, success, expired, consumed, host lost.
-- Session home: online grouped, online empty, offline, reconnecting, load failure.
+- Session home: online grouped, online empty, offline, reconnecting, load failure, no paired host.
+- Account: paired, unpaired, unpairing, delete confirmation, deleting, delete failed.
 - New session: repository list, no repositories, creating, unknown result, failed.
 - Session: restoring, idle, running, permission, elicitation, stopping, completed, offline.
 - Host management: online, offline, revoked, re-pair.
@@ -796,6 +930,8 @@ A premium flow is complete only when:
 
 ## Decisions Still Required
 
+- What deleting an account does to a still-running host that holds a credential.
+- Whether sign-out lands on the landing page or the sign-in page.
 - Pairing attempt lifetime and refresh behavior.
 - Source and editability of the host display name.
 - Local credential storage mechanism by operating system.
