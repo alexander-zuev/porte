@@ -84,11 +84,7 @@ export function ElicitationDecision({ connection, decision, actions }: Elicitati
   )
 }
 
-function PendingElicitation({
-  connection,
-  decision,
-  actions,
-}: ElicitationDecisionProps) {
+function PendingElicitation({ connection, decision, actions }: ElicitationDecisionProps) {
   if (decision.request.request.type === 'url') {
     const url = decision.request.request.url
     return (
@@ -227,11 +223,9 @@ function ElicitationField({
         required={field.required}
         type={field.type}
         value={inputValue}
+        // A half-typed number ("-", "1e") has no numeric value, so the draft stays text.
         onChange={(event) => {
-          const next = field.type === 'number' && event.target.value !== ''
-            ? event.target.valueAsNumber
-            : event.target.value
-          onChange(field.id, next)
+          onChange(field.id, event.target.value)
         }}
       />
       <FieldError>{error}</FieldError>
@@ -248,7 +242,12 @@ function ElicitationResponse({
   if (response.state === 'failed') {
     return (
       <Status title="Response was not sent" icon={<WarningCircleIcon />}>
-        <Button variant="outline" onClick={() =>{  actions.onAnswer(response.answer); }}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            actions.onAnswer(response.answer)
+          }}
+        >
           Try again
         </Button>
       </Status>
