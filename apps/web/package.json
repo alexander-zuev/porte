@@ -72,6 +72,7 @@
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
     "use-stick-to-bottom": "catalog:",
+    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,5 +1,8 @@
 import type { BetterAuthOptions } from 'better-auth'
-import { captcha } from 'better-auth/plugins'
+import { bearer, captcha, deviceAuthorization } from 'better-auth/plugins'
+import { v7 as uuidv7 } from 'uuid'
+
+import type { FileRouteTypes } from '#/lib/router/routeTree.gen.ts'
 
 export type AuthRuntimeConfig = {
   readonly secret: string
@@ -13,9 +16,66 @@ export type AuthRuntimeConfig = {
   readonly twitterClientId: string
   readonly twitterClientSecret: string
   readonly turnstileSecretKey: string
+  /** Dev also trusts localhost, so either the tunnel or the local port works. */
+  readonly isDevelopment: boolean
+  /** Optional key-value store for sessions, so reads skip D1. */
+  readonly secondaryStorage?: BetterAuthOptions['secondaryStorage']
+  /** Defers non-critical writes off the response path. */
+  readonly waitUntil: (promise: Promise<unknown>) => void
 }
 
 const DEV_ORIGINS = ['http://localhost:3000']
+
+/** The only OAuth client Porte authorizes. Nothing else may claim a device code. */
+export const PORTE_CLI_CLIENT_ID = 'porte-cli'
+
+/** Long enough to walk to a phone and sign in, short enough that a seen code dies. */
+const PAIRING_EXPIRES_IN = '10m'
+/** The CLI honours this between polls. Shorter than the 5s default for a snappier pair. */
+const PAIRING_POLL_INTERVAL = '3s'
+/** Must match the OTP slot count in the pairing form. */
+const PAIRING_CODE_LENGTH = 6
+/** Where the CLI sends the user. Typed, so renaming the route breaks the build. */
+const PAIRING_PATH: FileRouteTypes['fullPaths'] = '/pair'
+
+/** Session data rides in a signed cookie for this long before storage is consulted. */
+const SESSION_COOKIE_CACHE = 5 * 60
+
+/**
+ * Advanced options, assembled in steps.
+ *
+ * `backgroundTasks` needs a live `waitUntil`, which CLI schema generation has
+ * no way to supply, so the key is added only when a runtime config exists.
+ */
+function buildAdvanced(config?: AuthRuntimeConfig): BetterAuthOptions['advanced'] {
+  const advanced: BetterAuthOptions['advanced'] = {
+    ipAddress: { ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for'] },
+    // Time-ordered ids keep index inserts local and sort rows by creation.
+    database: { generateId: () => uuidv7() },
+  }
+  if (config === undefined) return advanced
+  // Session refresh and similar writes finish after the response is sent.
+  return { ...advanced, backgroundTasks: { handler: config.waitUntil } }
+}
+
+/**
+ * Device grant options, assembled in steps.
+ *
+ * The verification URI is where the CLI sends the user, so it has to follow the
+ * base URL. CLI schema generation has no base URL, and omits the key entirely.
+ */
+function buildDeviceAuthorization(
+  config?: AuthRuntimeConfig,
+): NonNullable<Parameters<typeof deviceAuthorization>[0]> {
+  const options = {
+    expiresIn: PAIRING_EXPIRES_IN,
+    interval: PAIRING_POLL_INTERVAL,
+    userCodeLength: PAIRING_CODE_LENGTH,
+    validateClient: (clientId: string) => clientId === PORTE_CLI_CLIENT_ID,
+  } as const
+  if (config === undefined) return options
+  return { ...options, verificationUri: `${config.baseURL}${PAIRING_PATH}` }
+}
 
 /**
  * Shared Better Auth options for the Worker and `better-auth-generate`.
@@ -54,18 +114,28 @@ export function createBetterAuthOptions(
         clientSecret: config?.twitterClientSecret ?? '',
       },
     },
-    trustedOrigins: config ? [config.baseURL] : DEV_ORIGINS,
-    advanced: {
-      ipAddress: {
-        ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for'],
-      },
+    trustedOrigins: config
+      ? [config.baseURL, ...(config.isDevelopment ? DEV_ORIGINS : [])]
+      : DEV_ORIGINS,
+    // Sessions live in KV, so an authenticated request never reads D1 for them.
+    secondaryStorage: config?.secondaryStorage,
+
+    session: {
+      // expiresIn, updateAge, and freshAge keep their defaults of 7d, 1d, 1d.
+      cookieCache: { enabled: true, maxAge: SESSION_COOKIE_CACHE },
     },
+
+    advanced: buildAdvanced(config),
     plugins: [
       captcha({
         provider: 'cloudflare-turnstile',
         secretKey: config?.turnstileSecretKey ?? '',
         endpoints: ['/sign-in/social'],
       }),
+      // The Mac daemon has no browser, so it earns a session through RFC 8628.
+      deviceAuthorization(buildDeviceAuthorization(config)),
+      // The daemon holds that session as a token, not a cookie.
+      bearer(),
       ...(additionalPlugins ?? []),
     ],
   }
