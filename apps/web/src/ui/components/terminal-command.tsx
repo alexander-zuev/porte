@@ -62,7 +62,7 @@ export function TerminalCommand({ command, typed = false, className }: TerminalC
           void copy()
         }}
       >
-        {copied ? <CheckIcon /> : <CopyIcon />}
+        {copied ? <CheckIcon className="text-status-success-muted-foreground" /> : <CopyIcon />}
       </Button>
     </div>
   )

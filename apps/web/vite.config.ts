@@ -6,14 +6,23 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+/** Named tunnel, so the dev URL survives restarts and OAuth callbacks stay registered. */
+const TUNNEL_NAME = 'porte-dev'
+
 export default defineConfig(() => {
   const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
 
   return {
     resolve: { tsconfigPaths: true },
     build: { sourcemap: Boolean(sentryAuthToken) },
+    // Vite rejects unknown Host headers, so the tunnel domains need naming.
+    server: { allowedHosts: ['.trycloudflare.com', '.useporte.dev'] },
+    preview: { allowedHosts: ['.trycloudflare.com', '.useporte.dev'] },
     plugins: [
-      cloudflare({ viteEnvironment: { name: 'ssr' } }),
+      cloudflare({
+        viteEnvironment: { name: 'ssr' },
+        tunnel: { name: TUNNEL_NAME, autoStart: true },
+      }),
       devtools(),
       tailwindcss(),
       tanstackStart({

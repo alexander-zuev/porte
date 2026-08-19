@@ -15,11 +15,12 @@
       "vars": {
         "ENVIRONMENT": "dev",
         "LOG_LEVEL": "DEBUG",
-        "BETTER_AUTH_URL": "http://localhost:3000",
-        "GOOGLE_CLIENT_ID": "test",
+        // Dev runs behind the porte-dev tunnel so OAuth providers get a stable https origin.
+        "BETTER_AUTH_URL": "https://tunnel.useporte.dev",
+        "GOOGLE_CLIENT_ID": "1028556002706-0qpc7c5iiov5co2hmil32egpe9mj6rba.apps.googleusercontent.com",
         "APPLE_CLIENT_ID": "test",
         "GITHUB_CLIENT_ID": "test",
-        "TWITTER_CLIENT_ID": "test",
+        "TWITTER_CLIENT_ID": "S3hlVjNQQjl0bVlyT3BDMXUxODk6MTpjaQ",
         "SENTRY_DSN": "https://public@example.com/1",
       },
       "secrets": {
