@@ -12,7 +12,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Interactive: Story = {
-  args: { start: 'sign-in', simulateRemote: true },
+  args: { start: 'validating', simulateRemote: true },
 }
 
 export const Validating: Story = {
@@ -45,4 +45,24 @@ export const CodeEntry: Story = {
 
 export const InvalidCode: Story = {
   args: { start: 'invalid-code' },
+}
+
+export const ConfirmationMismatch: Story = {
+  args: { start: 'confirmation-mismatch' },
+}
+
+export const AlreadyConsumed: Story = {
+  args: { start: 'consumed' },
+}
+
+export const AccountConflict: Story = {
+  args: { start: 'account-conflict' },
+}
+
+export const HostDisconnected: Story = {
+  args: { start: 'host-disconnected' },
+}
+
+export const ServerUnavailable: Story = {
+  args: { start: 'server-unavailable' },
 }

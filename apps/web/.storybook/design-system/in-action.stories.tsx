@@ -155,7 +155,7 @@ function WorkspacePattern() {
                       <div className="flex min-w-0 flex-col gap-1">
                         <h3>{project.name}</h3>
                         <small className="truncate text-muted-foreground">
-                          {project.owner} · Updated {project.updated}
+                          {project.owner}, updated {project.updated}
                         </small>
                       </div>
                       <Badge variant={project.status === 'Review' ? 'outline' : 'secondary'}>

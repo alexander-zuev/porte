@@ -1,6 +1,11 @@
-import { makeSessionSummary, type SessionSummary } from '@porte/core'
+import {
+  PendingElicitationSchema,
+  PendingPermissionSchema,
+  makeSessionSummary,
+  type SessionSummary,
+} from '@porte/core'
 
-import type { PermissionRequest, TranscriptItem } from '#/entities/session/transcript.ts'
+import type { TranscriptItem } from '#/entities/session/transcript.ts'
 
 export const sessions: readonly SessionSummary[] = [
   makeSessionSummary({
@@ -139,13 +144,42 @@ export const longMessageItems: readonly TranscriptItem[] = [
   },
 ]
 
-export const permissionRequest: PermissionRequest = {
-  id: 'perm_1',
+/** Permission request used by session decision stories. */
+export const pendingPermission = PendingPermissionSchema.parse({
+  turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
+  permissionId: '0198b55e-49d7-7b67-922a-2ee176ca2c4c',
+  toolCallId: 'tool-1',
   title: 'Run a shell command',
-  detail: 'Grok wants to run `pnpm test` in /Users/az/projects/porte.',
   options: [
-    { id: 'allow_once', label: 'Allow once' },
-    { id: 'allow_always', label: 'Always allow' },
-    { id: 'reject_once', label: 'Deny' },
+    { optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' },
+    { optionId: 'allow_always', name: 'Always allow', kind: 'allow_always' },
+    { optionId: 'reject_once', name: 'Deny once', kind: 'reject_once' },
   ],
-}
+})
+
+/** Form request used by elicitation stories. */
+export const formElicitation = PendingElicitationSchema.parse({
+  turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
+  elicitationId: '0198b55e-49d8-7e0f-9917-b08777b451b9',
+  request: {
+    type: 'form',
+    fields: [
+      {
+        type: 'text',
+        id: 'environment',
+        label: 'Target environment',
+        required: true,
+        options: ['Preview', 'Production'],
+      },
+      { type: 'number', id: 'retries', label: 'Maximum retries', required: true },
+      { type: 'boolean', id: 'include_logs', label: 'Include diagnostic logs', required: false },
+    ],
+  },
+})
+
+/** External URL request used by elicitation stories. */
+export const urlElicitation = PendingElicitationSchema.parse({
+  turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
+  elicitationId: '0198b55e-49d9-7e0f-9917-b08777b451b9',
+  request: { type: 'url', url: 'https://console.example.com/authorize/porte' },
+})

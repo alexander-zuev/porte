@@ -24,8 +24,8 @@ export function HostStatus({ status, detail }: HostStatusProps) {
         )}
         aria-hidden
       />
-      {STATUS_LABEL[status]}
-      {detail ? ` · ${detail}` : null}
+      <span>{STATUS_LABEL[status]}</span>
+      {detail ? <span>{detail}</span> : null}
     </small>
   )
 }

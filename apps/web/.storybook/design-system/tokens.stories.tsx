@@ -14,19 +14,19 @@ const COLOR_GROUPS = [
       {
         name: 'surface',
         utility: 'bg-surface',
-        usage: 'Gray 2 · cards and panels',
+        usage: 'Gray 2: cards and panels',
         swatch: 'bg-surface',
       },
       {
         name: 'popover',
         utility: 'bg-popover',
-        usage: 'Gray 3 · floating content',
+        usage: 'Gray 3: floating content',
         swatch: 'bg-popover',
       },
       {
         name: 'foreground',
         utility: 'text-foreground',
-        usage: 'Gray 12 · primary content',
+        usage: 'Gray 12: primary content',
         swatch: 'bg-foreground',
       },
     ],
@@ -38,25 +38,25 @@ const COLOR_GROUPS = [
       {
         name: 'muted',
         utility: 'bg-muted',
-        usage: 'Gray 3 · default component',
+        usage: 'Gray 3: default component',
         swatch: 'bg-muted',
       },
       {
         name: 'surface-hover',
         utility: 'bg-surface-hover',
-        usage: 'Gray 4 · hover',
+        usage: 'Gray 4: hover',
         swatch: 'bg-surface-hover',
       },
       {
         name: 'surface-active',
         utility: 'bg-surface-active',
-        usage: 'Gray 5 · pressed or selected',
+        usage: 'Gray 5: pressed or selected',
         swatch: 'bg-surface-active',
       },
       {
         name: 'primary',
         utility: 'bg-primary',
-        usage: 'Gray 12 · primary action',
+        usage: 'Gray 12: primary action',
         swatch: 'bg-primary',
       },
     ],
@@ -68,25 +68,25 @@ const COLOR_GROUPS = [
       {
         name: 'border-non-interactive',
         utility: 'border-border-non-interactive',
-        usage: 'Gray 6 · cards and separators',
+        usage: 'Gray 6: cards and separators',
         swatch: 'bg-border-non-interactive',
       },
       {
         name: 'border-interactive',
         utility: 'border-border-interactive',
-        usage: 'Gray 7 · controls',
+        usage: 'Gray 7: controls',
         swatch: 'bg-border-interactive',
       },
       {
         name: 'border-interactive-strong',
         utility: 'border-border-interactive-strong',
-        usage: 'Gray 8 · strong interaction',
+        usage: 'Gray 8: strong interaction',
         swatch: 'bg-border-interactive-strong',
       },
       {
         name: 'ring',
         utility: 'ring-ring',
-        usage: 'Gray 8 · keyboard focus',
+        usage: 'Gray 8: keyboard focus',
         swatch: 'bg-ring',
       },
     ],
@@ -98,25 +98,25 @@ const COLOR_GROUPS = [
       {
         name: 'info',
         utility: 'text-status-info',
-        usage: 'Blue 9 · information',
+        usage: 'Blue 9: information',
         swatch: 'bg-status-info',
       },
       {
         name: 'warning',
         utility: 'text-status-warning',
-        usage: 'Amber 9 · needs attention',
+        usage: 'Amber 9: needs attention',
         swatch: 'bg-status-warning',
       },
       {
         name: 'success',
         utility: 'text-status-success',
-        usage: 'Green 9 · completed or online',
+        usage: 'Green 9: completed or online',
         swatch: 'bg-status-success',
       },
       {
         name: 'destructive',
         utility: 'text-destructive',
-        usage: 'Red 9 · failure or danger',
+        usage: 'Red 9: failure or danger',
         swatch: 'bg-destructive',
       },
     ],
@@ -192,30 +192,30 @@ function TokenReference() {
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1">
                 <span className="text-wordmark">Porte</span>
-                <small className="text-muted-foreground">text-wordmark · brand</small>
+                <small className="text-muted-foreground">text-wordmark: brand</small>
               </div>
               <div className="flex flex-col gap-1">
                 <h1>Page heading</h1>
-                <small className="text-muted-foreground">h1 · one per page</small>
+                <small className="text-muted-foreground">h1: one per page</small>
               </div>
               <div className="flex flex-col gap-1">
                 <h2>Section heading</h2>
-                <small className="text-muted-foreground">h2 · major content group</small>
+                <small className="text-muted-foreground">h2: major content group</small>
               </div>
               <div className="flex flex-col gap-1">
                 <h3>Component heading</h3>
-                <small className="text-muted-foreground">h3 · dialog, card, or panel</small>
+                <small className="text-muted-foreground">h3: dialog, card, or panel</small>
               </div>
               <div className="flex flex-col gap-1">
                 <p>Body copy carries the primary message at a comfortable reading size.</p>
-                <small className="text-muted-foreground">p · default content</small>
+                <small className="text-muted-foreground">p: default content</small>
               </div>
               <div className="flex flex-col gap-1">
                 <p className="text-muted-foreground">
                   Muted copy supports the primary message without competing with it.
                 </p>
                 <small className="text-muted-foreground">
-                  text-muted-foreground · supporting copy
+                  text-muted-foreground: supporting copy
                 </small>
               </div>
             </div>
