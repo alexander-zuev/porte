@@ -59,6 +59,7 @@ export const SessionViewSchema = z.object({
   usage: SessionUsageSchema.optional(),
   configuration: z.array(SessionConfigurationOptionSchema).optional(),
   commands: z.array(SessionCommandSchema).optional(),
+  modeId: z.string().min(1).optional(),
   pending: PendingInteractionsSchema,
 })
 

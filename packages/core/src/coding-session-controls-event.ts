@@ -61,6 +61,7 @@ const controlsEventDataSchema = z.discriminatedUnion('type', [
     type: z.literal('session.commands.updated'),
     commands: z.array(SessionCommandSchema),
   }),
+  z.object({ type: z.literal('session.mode.updated'), modeId: z.string().min(1) }),
 ])
 
 /** Canonical configuration or command replacement for one coding session. */

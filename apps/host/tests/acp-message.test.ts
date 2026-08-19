@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseAcpLine } from '../src/acp/acp-message.ts'
+import { parseAcpLine } from '../src/adapters/acp/message.ts'
 
 describe('parseAcpLine', () => {
   it('parses a session update', () => {
@@ -8,12 +8,24 @@ describe('parseAcpLine', () => {
       JSON.stringify({
         jsonrpc: '2.0',
         method: 'session/update',
-        params: { update: { sessionUpdate: 'agent_message_chunk' } },
+        params: {
+          sessionId: 'session-1',
+          update: {
+            sessionUpdate: 'agent_message_chunk',
+            content: { type: 'text', text: 'Done' },
+          },
+        },
       }),
     )
     expect(parsed).toEqual({
       kind: 'update',
-      update: { sessionUpdate: 'agent_message_chunk' },
+      notification: {
+        sessionId: 'session-1',
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: 'Done' },
+        },
+      },
     })
   })
 

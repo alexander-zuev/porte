@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  HELP,
-  LIST_HELP,
-  RESUME_HELP,
-  UP_HELP,
-  parseCommand,
-} from '../src/entrypoints/cli/parse-command.ts'
-import { UsageError } from '../src/errors.ts'
+import { UsageError } from '../src/cli/cli-error.ts'
+import { HELP, LIST_HELP, RESUME_HELP, UP_HELP, parseCommand } from '../src/cli/parse-command.ts'
 
 describe('parseCommand', () => {
   it('parses help and version', () => {
@@ -24,7 +18,7 @@ describe('parseCommand', () => {
     expect(parseCommand(['list'])).toEqual({ kind: 'list', verbose: false })
     expect(parseCommand(['resume', 'abc', '--prompt', 'hi'])).toEqual({
       kind: 'resume',
-      sessionId: 'abc',
+      conversationId: 'abc',
       prompt: 'hi',
       verbose: false,
     })

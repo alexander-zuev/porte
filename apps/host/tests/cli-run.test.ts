@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { VERSION } from '../src/version.ts'
+import { VERSION } from '../src/cli/version.ts'
 
 const main = join(import.meta.dirname, '../src/main.ts')
 

@@ -22,7 +22,7 @@ function runPorte(args: readonly string[]) {
 }
 
 describe('e2e resume against installed grok', () => {
-  it('creates a session, resumes it, and writes a file', async () => {
+  it('creates a conversation, resumes it, and writes a file', async () => {
     if (!grokOnPath()) {
       throw new Error('grok is not on PATH; e2e requires installed Grok Build')
     }
@@ -59,8 +59,8 @@ describe('e2e resume against installed grok', () => {
       `Write ${marker} with the single line e2e-ok. Do nothing else.`,
     ])
     expect(resumed.status, resumed.stderr).toBe(0)
-    expect(resumed.stdout).toContain('agent_message_chunk')
-    expect(resumed.stdout).toContain('tool_call')
+    expect(resumed.stdout).toContain('"type":"message.delta"')
+    expect(resumed.stdout).toContain('"type":"tool.updated"')
     const written = await readFile(marker, 'utf8')
     expect(written.trim()).toBe('e2e-ok')
   }, 300_000)

@@ -5,7 +5,6 @@ import { CodingSessionToolEventSchema } from '../src/coding-session-tool-event.t
 const turnId = '0198b55e-49d6-7e0f-9917-b08777b451b9'
 const tool = {
   toolCallId: 'tool-1',
-  turnId,
   title: 'Edit README',
   kind: 'edit',
   status: 'completed',
@@ -19,6 +18,7 @@ describe('CodingSessionToolEventSchema', () => {
       eventId: 'event-1',
       sessionId: 'session-1',
       type: 'tool.updated',
+      turnId,
       tool,
     })
 
@@ -30,6 +30,7 @@ describe('CodingSessionToolEventSchema', () => {
       eventId: 'event-1',
       sessionId: 'session-1',
       type: 'tool.updated',
+      turnId,
       tool: { ...tool, kind: 'grok_terminal' },
     })
 
@@ -42,7 +43,20 @@ describe('CodingSessionToolEventSchema', () => {
       eventId: 'event-1',
       sessionId: 'session-1',
       type: 'tool.updated',
+      turnId,
       tool: partialTool,
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects line zero', () => {
+    const result = CodingSessionToolEventSchema.safeParse({
+      eventId: 'event-1',
+      sessionId: 'session-1',
+      type: 'tool.updated',
+      turnId,
+      tool: { ...tool, locations: [{ path: 'README.md', line: 0 }] },
     })
 
     expect(result.success).toBe(false)

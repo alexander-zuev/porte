@@ -40,8 +40,14 @@ export type SessionId = z.infer<typeof SessionIdSchema>
 export const MessageIdSchema = z.string().min(1).brand<'MessageId'>()
 export type MessageId = z.infer<typeof MessageIdSchema>
 
+/** Create one time-ordered message identifier. */
+export const createMessageId = (): MessageId => MessageIdSchema.parse(uuidv7())
+
 export const EventIdSchema = z.string().min(1).brand<'EventId'>()
 export type EventId = z.infer<typeof EventIdSchema>
+
+/** Create one time-ordered event identifier. */
+export const createEventId = (): EventId => EventIdSchema.parse(uuidv7())
 
 export const ToolCallIdSchema = z.string().min(1).brand<'ToolCallId'>()
 export type ToolCallId = z.infer<typeof ToolCallIdSchema>

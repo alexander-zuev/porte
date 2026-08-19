@@ -13,6 +13,7 @@ export const ToolKindSchema = z.enum([
   'execute',
   'think',
   'fetch',
+  'switch_mode',
   'other',
 ])
 
@@ -28,6 +29,7 @@ export type ToolStatus = z.infer<typeof ToolStatusSchema>
 /** Display content or file diff produced by one tool call. */
 export const ToolContentSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('content'), content: CanonicalContentSchema }),
+  z.object({ type: z.literal('terminal'), terminalId: z.string().min(1) }),
   z.object({
     type: z.literal('diff'),
     path: z.string().min(1),
@@ -51,7 +53,6 @@ export type ToolLocation = z.infer<typeof ToolLocationSchema>
 /** Complete current view of one tool call. */
 export const ToolViewSchema = z.object({
   toolCallId: ToolCallIdSchema,
-  turnId: TurnIdSchema,
   title: z.string(),
   kind: ToolKindSchema,
   status: ToolStatusSchema,
@@ -67,6 +68,7 @@ export const CodingSessionToolEventSchema = z.object({
   eventId: EventIdSchema,
   sessionId: SessionIdSchema,
   type: z.literal('tool.updated'),
+  turnId: TurnIdSchema,
   tool: ToolViewSchema,
 })
 
