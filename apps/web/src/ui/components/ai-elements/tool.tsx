@@ -60,7 +60,7 @@ const statusIcons: Record<ToolPart['state'], ReactNode> = {
   'input-streaming': <CircleIcon className="size-4" />,
   'output-available': <CheckCircleIcon className="size-4 text-status-success-muted-foreground" />,
   'output-denied': <XCircleIcon className="size-4 text-status-warning-muted-foreground" />,
-  'output-error': <XCircleIcon className="size-4 text-destructive" />,
+  'output-error': <XCircleIcon className="size-4 text-destructive-muted-foreground" />,
 }
 
 export const getStatusBadge = (status: ToolPart['state']) => (
@@ -146,7 +146,9 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
       <div
         className={cn(
           'overflow-x-auto rounded-md text-xs [&_table]:w-full',
-          errorText ? 'bg-destructive/10 text-destructive' : 'bg-muted/50 text-foreground',
+          errorText
+            ? 'bg-destructive/10 text-destructive-muted-foreground'
+            : 'bg-muted/50 text-foreground',
         )}
       >
         {errorText && <div>{errorText}</div>}

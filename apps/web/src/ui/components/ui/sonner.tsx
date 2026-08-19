@@ -16,7 +16,7 @@ export function Toaster(props: React.ComponentProps<typeof Sonner>) {
           title: 'text-sm font-medium text-foreground',
           description: 'text-sm text-muted-foreground',
           icon: 'mt-px shrink-0',
-          error: 'group-[.toaster]:text-destructive',
+          error: 'group-[.toaster]:text-destructive-muted-foreground',
           success: 'group-[.toaster]:text-status-success-muted-foreground',
           closeButton: 'border-border bg-surface text-muted-foreground',
         },

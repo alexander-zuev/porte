@@ -326,29 +326,28 @@ function OperationsPattern() {
             </CardAction>
           </CardHeader>
           <CardContent>
-            <ul className="flex flex-col">
+            {/* A ul takes only li, so rows divide with a border rather than a Separator. */}
+            <ul className="flex flex-col [&>li+li]:border-t [&>li+li]:border-border">
               <li className="flex items-start gap-3 py-4">
                 <CheckCircleIcon className="text-status-success" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <h3>Security scan</h3>
+                  <h2>Security scan</h2>
                   <small className="text-muted-foreground">Completed 12 minutes ago</small>
                 </div>
                 <Badge variant="outline">Passed</Badge>
               </li>
-              <Separator />
               <li className="flex items-start gap-3 py-4">
                 <ClockIcon className="text-status-info" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <h3>Performance budget</h3>
+                  <h2>Performance budget</h2>
                   <small className="text-muted-foreground">Running against production data</small>
                 </div>
                 <Badge variant="secondary">Running</Badge>
               </li>
-              <Separator />
               <li className="flex items-start gap-3 py-4">
                 <WarningCircleIcon className="text-status-warning" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <h3>Customer communication</h3>
+                  <h2>Customer communication</h2>
                   <small className="text-muted-foreground">Copy needs final approval</small>
                 </div>
                 <Button size="sm">Review</Button>

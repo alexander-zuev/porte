@@ -49,20 +49,23 @@ function FieldGroup({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-const fieldVariants = cva('group/field flex w-full gap-3 data-[invalid=true]:text-destructive', {
-  variants: {
-    orientation: {
-      vertical: 'flex-col *:w-full [&>.sr-only]:w-auto',
-      horizontal:
-        'flex-row items-center has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
-      responsive:
-        'flex-col *:w-full @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:*:data-[slot=field-label]:flex-auto [&>.sr-only]:w-auto @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
+const fieldVariants = cva(
+  'group/field flex w-full gap-3 data-[invalid=true]:text-destructive-muted-foreground',
+  {
+    variants: {
+      orientation: {
+        vertical: 'flex-col *:w-full [&>.sr-only]:w-auto',
+        horizontal:
+          'flex-row items-center has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
+        responsive:
+          'flex-col *:w-full @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:*:data-[slot=field-label]:flex-auto [&>.sr-only]:w-auto @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px',
+      },
+    },
+    defaultVariants: {
+      orientation: 'vertical',
     },
   },
-  defaultVariants: {
-    orientation: 'vertical',
-  },
-})
+)
 
 function Field({
   className,
@@ -200,7 +203,7 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn('text-sm font-normal text-destructive', className)}
+      className={cn('text-sm font-normal text-destructive-muted-foreground', className)}
       {...props}
     >
       {content}

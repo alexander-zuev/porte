@@ -58,7 +58,7 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
         </Field>
       </FieldGroup>
       {error ? (
-        <p className="text-destructive" role="alert">
+        <p className="text-destructive-muted-foreground" role="alert">
           {error}
         </p>
       ) : null}

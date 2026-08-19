@@ -163,8 +163,9 @@ function TokenReference() {
                 <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
                   {group.tokens.map((token) => (
                     <article className="flex flex-col gap-4 bg-surface p-4" key={token.name}>
+                      {/* Decorative: the name and usage below already say what this is. */}
                       <div
-                        aria-label={`${token.name} color sample`}
+                        aria-hidden="true"
                         className={`h-16 rounded-lg border border-border ${token.swatch}`}
                       />
                       <div className="flex flex-col gap-1">
@@ -233,7 +234,7 @@ function TokenReference() {
                 <div className="flex flex-col gap-3" key={radius.name}>
                   <div className={`h-20 border border-border bg-muted ${radius.className}`} />
                   <div className="flex flex-col gap-1">
-                    <h4>{radius.name}</h4>
+                    <h3>{radius.name}</h3>
                     <code className="w-fit">{radius.token}</code>
                   </div>
                 </div>

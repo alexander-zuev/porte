@@ -122,7 +122,7 @@ export function AccountPanel({
         )}
 
         {failure === undefined ? null : (
-          <p className="text-destructive" role="alert">
+          <p className="text-destructive-muted-foreground" role="alert">
             {failure}
           </p>
         )}

@@ -54,7 +54,6 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
 // Token rendering component
 const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
-    className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
     style={
       {
         backgroundColor: token.bgColor,
@@ -208,6 +207,8 @@ export const highlightCode = (
           dark: 'github-dark',
           light: 'github-light',
         },
+        // The app is dark-only, so the dark theme supplies the inline colors.
+        defaultColor: 'dark',
       })
 
       const tokenized: TokenizedCode = {
@@ -258,13 +259,7 @@ const CodeBlockBody = memo(
     const keyedLines = useMemo(() => addKeysToTokens(tokenized.tokens), [tokenized.tokens])
 
     return (
-      <pre
-        className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-sm',
-          className,
-        )}
-        style={preStyle}
-      >
+      <pre className={cn('m-0 p-4 text-sm', className)} style={preStyle}>
         <code
           className={cn(
             'font-mono text-sm',

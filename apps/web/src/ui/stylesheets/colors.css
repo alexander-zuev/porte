@@ -33,8 +33,10 @@
   --muted: var(--gray-3);
   --accent: var(--gray-3);
   --accent-foreground: var(--gray-12);
+  /* Step 9 fills and borders. Destructive text needs step 11, as below. */
   --destructive: var(--red-9);
   --destructive-foreground: var(--gray-1);
+  --destructive-muted-foreground: var(--red-11);
 
   /* Step 9 is a solid fill. Text needs step 11, which is the readable one. */
   --status-info: var(--blue-9);
@@ -83,6 +85,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-muted-foreground: var(--destructive-muted-foreground);
   --color-border: var(--border);
   --color-border-non-interactive: var(--border-non-interactive);
   --color-border-interactive: var(--border-interactive);
