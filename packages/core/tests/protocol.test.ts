@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  EventMessageSchema,
   RequestMessageSchema,
   RoutedResponseSchema,
   SessionUpdateEventSchema,
@@ -43,5 +44,34 @@ describe('published protocol schemas', () => {
     })
 
     expect(result.success).toBe(false)
+  })
+
+  it('parses a canonical session event', () => {
+    const result = EventMessageSchema.safeParse({
+      v: 1,
+      type: 'event',
+      event: 'session.event',
+      data: { eventId: 'event-1', sessionId: 'session-1', type: 'turn.started', turnId },
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('continues to parse a legacy session update', () => {
+    const result = EventMessageSchema.safeParse({
+      v: 1,
+      type: 'event',
+      event: 'session.update',
+      data: {
+        delivery: 'live',
+        sessionId: 'session-1',
+        turnId,
+        eventId: 'event-1',
+        messageId: 'message-1',
+        update: { kind: 'agent_text', text: 'Done' },
+      },
+    })
+
+    expect(result.success).toBe(true)
   })
 })

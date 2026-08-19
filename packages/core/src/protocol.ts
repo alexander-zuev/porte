@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { CodingSessionEventSchema } from './coding-session-event.ts'
 import {
   ConnectionIdSchema,
   EventIdSchema,
@@ -251,6 +252,7 @@ export type PermissionRequestedEvent = z.infer<typeof PermissionRequestedEventSc
 export const ClientEventSchemas = {
   'host.status': z.object({ status: z.enum(['online', 'offline']) }),
   'sessions.changed': z.object({ catalog: SyncedSessionCatalogSchema }),
+  'session.event': CodingSessionEventSchema,
   'session.update': SessionUpdateEventSchema,
   'turn.finished': TurnFinishedEventSchema,
   'permission.requested': PermissionRequestedEventSchema,
@@ -285,6 +287,7 @@ function createEventSchema<Event extends ClientEvent, Data extends z.ZodType>(
 export const EventMessageSchema = z.discriminatedUnion('event', [
   createEventSchema('host.status', ClientEventSchemas['host.status']),
   createEventSchema('sessions.changed', ClientEventSchemas['sessions.changed']),
+  createEventSchema('session.event', ClientEventSchemas['session.event']),
   createEventSchema('session.update', ClientEventSchemas['session.update']),
   createEventSchema('turn.finished', ClientEventSchemas['turn.finished']),
   createEventSchema('permission.requested', ClientEventSchemas['permission.requested']),

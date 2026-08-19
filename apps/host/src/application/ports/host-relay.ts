@@ -1,4 +1,5 @@
 import type { SessionCatalog } from '@porte/core'
+import type { CodingSessionEvent } from '@porte/core/coding-session-event'
 import type { Result } from 'better-result'
 
 import type { HostRelayError } from '../../errors.ts'
@@ -7,6 +8,9 @@ import type { HostRelayError } from '../../errors.ts'
 export interface HostEventPublisher {
   /** Publish the complete current session catalog. */
   sessionsChanged(catalog: Extract<SessionCatalog, { state: 'synced' }>): void
+
+  /** Publish one canonical event for a coding session. */
+  sessionEvent(event: CodingSessionEvent): void
 }
 
 /** Relay lifecycle events observed by the process entrypoint. */

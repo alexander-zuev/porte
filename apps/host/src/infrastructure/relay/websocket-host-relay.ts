@@ -4,6 +4,7 @@ import {
   RoutedResponseSchema,
   type RoutedEvent,
 } from '@porte/core'
+import type { CodingSessionEvent } from '@porte/core/coding-session-event'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
@@ -21,6 +22,31 @@ type SocketFactory = (url: string, init: WebSocketInit) => WebSocket
 type ConnectionEnd = 'aborted' | 'closed'
 
 const textFrameSchema = z.string()
+
+/** WebSocket publisher that converts host events to routed protocol events. */
+export class WebSocketHostEventPublisher implements HostEventPublisher {
+  constructor(private readonly send: (frame: string) => void) {}
+
+  /** Publish the complete current session catalog. */
+  sessionsChanged(catalog: Parameters<HostEventPublisher['sessionsChanged']>[0]): void {
+    this.sendEvent({
+      audience: { type: 'host' },
+      message: { v: 1, type: 'event', event: 'sessions.changed', data: { catalog } },
+    })
+  }
+
+  /** Publish one canonical event for a coding session. */
+  sessionEvent(event: CodingSessionEvent): void {
+    this.sendEvent({
+      audience: { type: 'session', sessionId: event.sessionId },
+      message: { v: 1, type: 'event', event: 'session.event', data: event },
+    })
+  }
+
+  private sendEvent(event: RoutedEvent): void {
+    this.send(JSON.stringify(DaemonMessageSchema.parse(event)))
+  }
+}
 
 /** Native WebSocket adapter for the daemon's outbound host connection. */
 export class WebSocketHostRelay implements HostRelay {
@@ -84,20 +110,9 @@ export class WebSocketHostRelay implements HostRelay {
       input.signal.addEventListener('abort', onAbort, { once: true })
       socket.addEventListener('open', () => {
         this.observer.connected()
-        const publisher: HostEventPublisher = {
-          sessionsChanged: (catalog) => {
-            const event: RoutedEvent = {
-              audience: { type: 'host' },
-              message: {
-                v: 1,
-                type: 'event',
-                event: 'sessions.changed',
-                data: { catalog },
-              },
-            }
-            socket.send(JSON.stringify(DaemonMessageSchema.parse(event)))
-          },
-        }
+        const publisher = new WebSocketHostEventPublisher((frame) => {
+          socket.send(frame)
+        })
         void input.handlers
           .onConnected(publisher)
           .then((handled) => {

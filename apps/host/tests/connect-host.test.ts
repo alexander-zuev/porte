@@ -25,6 +25,7 @@ const connector = new HostConnector(
             message: { v: 1, type: 'event', event: 'sessions.changed', data: { catalog } },
           })
         },
+        sessionEvent: () => undefined,
       }),
   },
 )
@@ -47,7 +48,13 @@ describe('connectHost', () => {
     const failed = new HostConnector(
       { list: async () => Result.err(error) },
       { now: () => IsoDateTimeSchema.parse('2026-08-17T12:01:00.000Z') },
-      { run: async ({ handlers }) => handlers.onConnected({ sessionsChanged: () => undefined }) },
+      {
+        run: async ({ handlers }) =>
+          handlers.onConnected({
+            sessionsChanged: () => undefined,
+            sessionEvent: () => undefined,
+          }),
+      },
     )
 
     const result = await failed.connect({
