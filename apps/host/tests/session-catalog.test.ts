@@ -1,4 +1,4 @@
-import { SessionSummarySchema } from '@lras/core'
+import { SessionSummarySchema } from '@porte/core'
 import { Result } from 'better-result'
 import { describe, expect, it } from 'vitest'
 
@@ -9,7 +9,7 @@ describe('SessionCatalog', () => {
     const summary = SessionSummarySchema.parse({
       id: 'session-1',
       cwd: '/repo',
-      title: 'LRAS',
+      title: 'Porte',
       updatedAt: '2026-08-17T12:00:00.000Z',
     })
     const catalog = new SessionCatalog({ list: async () => Result.ok([{ summary }]) })

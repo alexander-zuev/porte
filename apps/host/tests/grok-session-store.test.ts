@@ -9,13 +9,13 @@ import type { GrokSummaryFile } from '../src/grok/grok-summary.ts'
 
 describe('GrokSessionStore', () => {
   it('returns an empty array when sessions is missing', async () => {
-    const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
+    const grokHome = await mkdtemp(join(tmpdir(), 'porte-list-'))
     const listed = await new GrokSessionStore(grokHome).list()
     expect(listed.isOk() && listed.value).toEqual([])
   })
 
   it('returns a typed error when the store cannot be read', async () => {
-    const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
+    const grokHome = await mkdtemp(join(tmpdir(), 'porte-list-'))
     await writeFile(join(grokHome, 'sessions'), 'not a directory')
 
     const listed = await new GrokSessionStore(grokHome).list()
@@ -24,7 +24,7 @@ describe('GrokSessionStore', () => {
   })
 
   it('maps title, cwd fallback, sort, and skips subagents', async () => {
-    const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
+    const grokHome = await mkdtemp(join(tmpdir(), 'porte-list-'))
     const encoded = encodeURIComponent('/tmp/proj')
     const other = encodeURIComponent('/tmp/other')
 
@@ -66,7 +66,7 @@ describe('GrokSessionStore', () => {
   })
 
   it('reports missing and duplicate ids', async () => {
-    const grokHome = await mkdtemp(join(tmpdir(), 'lras-list-'))
+    const grokHome = await mkdtemp(join(tmpdir(), 'porte-list-'))
     const encoded = encodeURIComponent('/tmp/proj')
     await writeSummary(grokHome, encoded, 'one', {
       info: { id: 'dup', cwd: '/tmp/proj' },

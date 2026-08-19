@@ -13,7 +13,7 @@ function grokOnPath(): boolean {
   return result.status === 0
 }
 
-function runLras(args: readonly string[]) {
+function runPorte(args: readonly string[]) {
   return spawnSync(process.execPath, ['--import', 'tsx', main, ...args], {
     encoding: 'utf8',
     env: process.env,
@@ -27,7 +27,7 @@ describe('e2e resume against installed grok', () => {
       throw new Error('grok is not on PATH; e2e requires installed Grok Build')
     }
 
-    const cwd = await mkdtemp(join(tmpdir(), 'lras-e2e-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'porte-e2e-'))
     const seeded = spawnSync(
       'grok',
       [
@@ -46,13 +46,13 @@ describe('e2e resume against installed grok', () => {
     const sessionId = readSessionId(seeded.stdout)
     expect(sessionId.length).toBeGreaterThan(0)
 
-    const listed = runLras(['list'])
+    const listed = runPorte(['list'])
     expect(listed.status).toBe(0)
     const rows = sessionListSchema.parse(JSON.parse(listed.stdout))
     expect(rows.some((row) => row.id === sessionId)).toBe(true)
 
     const marker = join(cwd, 'e2e-ok.txt')
-    const resumed = runLras([
+    const resumed = runPorte([
       'resume',
       sessionId,
       '--prompt',

@@ -7,9 +7,9 @@ export { VERSION }
 
 /** Root help text. */
 export const HELP = `Usage:
-  lras <command> [options]
+  porte <command> [options]
 
-List local Grok sessions, resume one, or connect this host to LRAS.
+List local Grok sessions, resume one, or connect this host to Porte.
 
 Options:
   -h, --help       Show help
@@ -19,17 +19,17 @@ Options:
 Commands:
   list             Print sessions as a JSON array
   resume           Load a session and send one prompt
-  up               Connect this host to LRAS
+  up               Connect this host to Porte
 
 Examples:
-  lras list
-  lras resume 01a00e6b-2f90-7e61-9288-7c75e3509921 --prompt "What is left?"
-  LRAS_DAEMON_TOKEN=secret lras up --url wss://example.com/api/host/ws
+  porte list
+  porte resume 01a00e6b-2f90-7e61-9288-7c75e3509921 --prompt "What is left?"
+  PORTE_DAEMON_TOKEN=secret porte up --url wss://example.com/api/host/ws
 `
 
-/** Help for `lras resume`. */
+/** Help for `porte resume`. */
 export const RESUME_HELP = `Usage:
-  lras resume <id> --prompt <text>
+  porte resume <id> --prompt <text>
 
 Load a Grok session by id and send one prompt. Streams ACP updates as NDJSON.
 
@@ -39,12 +39,12 @@ Options:
   -v, --verbose    Print debug detail on stderr
 
 Examples:
-  lras resume 01a00e6b-2f90-7e61-9288-7c75e3509921 --prompt "What is left?"
+  porte resume 01a00e6b-2f90-7e61-9288-7c75e3509921 --prompt "What is left?"
 `
 
-/** Help for `lras list`. */
+/** Help for `porte list`. */
 export const LIST_HELP = `Usage:
-  lras list
+  porte list
 
 Print local Grok sessions as a JSON array. Does not start Grok.
 
@@ -53,19 +53,19 @@ Options:
   -v, --verbose    Print debug detail on stderr
 `
 
-/** Help for `lras up`. */
+/** Help for `porte up`. */
 export const UP_HELP = `Usage:
-  lras up [--url <websocket-url>]
+  porte up [--url <websocket-url>]
 
-Connect this host to LRAS and stay connected.
+Connect this host to Porte and stay connected.
 
 Options:
-  --url <url>       Worker WebSocket URL. Defaults to LRAS_URL.
+  --url <url>       Worker WebSocket URL. Defaults to PORTE_URL.
   -h, --help        Show this help
   -v, --verbose     Print connection status on stderr
 
 Environment:
-  LRAS_DAEMON_TOKEN  Development daemon credential
+  PORTE_DAEMON_TOKEN  Development daemon credential
 `
 
 /** Parsed argv. */

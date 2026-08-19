@@ -1,4 +1,4 @@
-import type { HostSnapshot } from '@lras/core'
+import type { HostSnapshot } from '@porte/core'
 import { queryOptions } from '@tanstack/react-query'
 
 export const hostQueries = {

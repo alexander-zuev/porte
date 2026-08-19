@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "@lras/web",
+  "name": "@porte/web",
   "private": true,
   "type": "module",
   "imports": {
@@ -33,9 +33,9 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@fontsource/inter": "catalog:",
-    "@lras/core": "workspace:*",
     "@marsidev/react-turnstile": "catalog:",
     "@phosphor-icons/react": "catalog:",
+    "@porte/core": "workspace:*",
     "@posthog/react": "catalog:",
     "@radix-ui/react-use-controllable-state": "catalog:",
     "@sentry/cloudflare": "catalog:",

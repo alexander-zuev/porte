@@ -84,16 +84,16 @@ export function formatError(error: CliError): string {
   const body = matchError(error, {
     UsageError: (failed) => failed.message,
     SessionNotFoundError: (failed) =>
-      `Error (ENOTFOUND): ${failed.message}. Run \`lras list\` to see ids.`,
+      `Error (ENOTFOUND): ${failed.message}. Run \`porte list\` to see ids.`,
     DuplicateSessionError: (failed) =>
       `Error (EDUPLICATE): session ${failed.sessionId} exists in more than one folder:\n${failed.message}`,
     SessionStoreError: () =>
       'Error (ESTORE): cannot read Grok sessions. Check GROK_HOME and file permissions.',
     CodingAgentResumeError: (failed) => `Error (EAGENT): ${failed.message}`,
-    HostRelayError: () => 'Error (ERELAY): host relay stopped. Restart `lras up`.',
+    HostRelayError: () => 'Error (ERELAY): host relay stopped. Restart `porte up`.',
   })
   if (error._tag === 'UsageError') {
     return body
   }
-  return `lras v${VERSION} — ${body}`
+  return `porte v${VERSION} — ${body}`
 }

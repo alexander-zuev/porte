@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { makeSessionSummary, type SessionSummary } from '@lras/core'
+import { makeSessionSummary, type SessionSummary } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 

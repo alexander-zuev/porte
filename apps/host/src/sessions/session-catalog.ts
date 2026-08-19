@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@lras/core'
+import type { SessionSummary } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { SessionStoreError } from '../errors.ts'

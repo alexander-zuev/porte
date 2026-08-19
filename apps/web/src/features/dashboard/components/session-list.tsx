@@ -1,5 +1,5 @@
-import type { SessionSummary } from '@lras/core'
 import { FolderSimpleIcon, PlusIcon } from '@phosphor-icons/react'
+import type { SessionSummary } from '@porte/core'
 
 import { groupSessionsByCwd, repoName } from '#/entities/session/group-sessions.ts'
 import { HostStatus } from '#/ui/components/host-status.tsx'

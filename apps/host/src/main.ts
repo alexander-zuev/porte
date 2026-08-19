@@ -4,7 +4,7 @@ import { run } from './cli/run-cli.ts'
 
 const major = Number(process.versions.node.split('.')[0])
 if (Number.isNaN(major) || major < 22) {
-  process.stderr.write('lras requires Node.js 22 or higher\n')
+  process.stderr.write('porte requires Node.js 22 or higher\n')
   process.exit(1)
 }
 

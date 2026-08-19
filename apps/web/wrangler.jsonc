@@ -19,8 +19,8 @@
       },
       "secrets": {
         "required": [
-          "LRAS_DEV_DAEMON_TOKEN",
-          "LRAS_DEV_CLIENT_TOKEN",
+          "PORTE_DEV_DAEMON_TOKEN",
+          "PORTE_DEV_CLIENT_TOKEN",
           "BETTER_AUTH_SECRET",
           "TURNSTILE_SECRET_KEY",
           "GITHUB_CLIENT_ID",
@@ -50,8 +50,8 @@
       "vars": { "ENVIRONMENT": "prod", "LOG_LEVEL": "INFO" },
       "secrets": {
         "required": [
-          "LRAS_DEV_DAEMON_TOKEN",
-          "LRAS_DEV_CLIENT_TOKEN",
+          "PORTE_DEV_DAEMON_TOKEN",
+          "PORTE_DEV_CLIENT_TOKEN",
           "BETTER_AUTH_URL",
           "BETTER_AUTH_SECRET",
           "TURNSTILE_SECRET_KEY",
@@ -69,7 +69,7 @@
         {
           "binding": "DB",
           "database_name": "porte",
-          "database_id": "a2a76b78-898a-4dbb-ac22-c04ec09d4942",
+          "database_id": "ff625f0c-0361-455b-98f9-8e91b4fff253",
           "migrations_dir": "src/server/infrastructure/persistence/database/migrations",
         },
       ],
@@ -83,8 +83,8 @@
         "ENVIRONMENT": "test",
         "LOG_LEVEL": "ERROR",
         "BETTER_AUTH_URL": "http://localhost:3000",
-        "LRAS_DEV_DAEMON_TOKEN": "test-daemon-token",
-        "LRAS_DEV_CLIENT_TOKEN": "test-client-token",
+        "PORTE_DEV_DAEMON_TOKEN": "test-daemon-token",
+        "PORTE_DEV_CLIENT_TOKEN": "test-client-token",
         "BETTER_AUTH_SECRET": "test-better-auth-secret-with-32-characters",
         "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
         "GITHUB_CLIENT_ID": "test",

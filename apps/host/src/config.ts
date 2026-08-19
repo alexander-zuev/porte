@@ -16,7 +16,7 @@ export type HostConfig = {
 export function loadConfig(env: NodeJS.ProcessEnv): HostConfig {
   return {
     grokHome: env.GROK_HOME ?? join(homedir(), '.grok'),
-    relayUrl: env.LRAS_URL,
-    daemonToken: env.LRAS_DAEMON_TOKEN,
+    relayUrl: env.PORTE_URL,
+    daemonToken: env.PORTE_DAEMON_TOKEN,
   }
 }

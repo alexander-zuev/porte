@@ -14,7 +14,7 @@ function runCli(args: readonly string[]) {
   })
 }
 
-describe('lras process', () => {
+describe('porte process', () => {
   it('prints version and exits 0', () => {
     const result = runCli(['--version'])
     expect(result.status).toBe(0)
@@ -25,7 +25,7 @@ describe('lras process', () => {
   it('prints help on stdout and exits 0', () => {
     const result = runCli(['--help'])
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('lras <command>')
+    expect(result.stdout).toContain('porte <command>')
     expect(result.stderr).toBe('')
   })
 
@@ -40,13 +40,13 @@ describe('lras process', () => {
     const result = runCli(['resume', 'does-not-exist', '--prompt', 'hi'])
     expect(result.status).toBe(2)
     expect(result.stderr).toContain('ENOTFOUND')
-    expect(result.stderr).toContain('lras list')
+    expect(result.stderr).toContain('porte list')
   })
 
   it('exits 2 when host configuration is missing', () => {
     const result = runCli(['up'])
     expect(result.status).toBe(2)
-    expect(result.stderr).toContain('LRAS_DAEMON_TOKEN')
+    expect(result.stderr).toContain('PORTE_DAEMON_TOKEN')
     expect(result.stdout).toBe('')
   })
 })

@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@lras/core'
+import type { SessionSummary } from '@porte/core'
 import { queryOptions } from '@tanstack/react-query'
 
 export const sessionQueries = {

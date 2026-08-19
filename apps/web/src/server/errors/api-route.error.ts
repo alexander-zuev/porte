@@ -1,4 +1,4 @@
-import type { ApiError, ApiErrorCode } from '@lras/core'
+import type { ApiError, ApiErrorCode } from '@porte/core'
 
 const HTTP_STATUS_BY_CODE = {
   INVALID_REQUEST: 400,

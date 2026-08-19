@@ -19,7 +19,7 @@ describe('answerIncomingRequest', () => {
   })
 
   it('writes and reads a text file', async () => {
-    const folder = await mkdtemp(join(tmpdir(), 'lras-fs-'))
+    const folder = await mkdtemp(join(tmpdir(), 'porte-fs-'))
     const path = join(folder, 'pong.txt')
     const written = await answerIncomingRequest('fs/write_text_file', { path, content: 'pong\n' })
     expect(written.isOk()).toBe(true)

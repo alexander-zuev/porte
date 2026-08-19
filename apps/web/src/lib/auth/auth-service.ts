@@ -1,4 +1,4 @@
-import { createLogger } from '@lras/core'
+import { createLogger } from '@porte/core'
 import { createClientOnlyFn } from '@tanstack/react-start'
 
 import type { SocialProvider } from '#/lib/auth/social-provider.ts'

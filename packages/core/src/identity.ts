@@ -2,7 +2,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 
 /**
- * These schemas define identifiers that cross LRAS process boundaries.
+ * These schemas define identifiers that cross Porte process boundaries.
  * Each brand prevents accidental use of a different identifier.
  */
 export const HostIdSchema = z.uuidv7().brand<'HostId'>()

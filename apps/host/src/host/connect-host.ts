@@ -5,7 +5,7 @@ import {
   type RoutedRequest,
   type RoutedResponse,
   type SessionSummary,
-} from '@lras/core'
+} from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { HostRelayError, SessionStoreError } from '../errors.ts'

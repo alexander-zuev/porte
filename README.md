@@ -1,6 +1,6 @@
-# LRAS
+# Porte
 
-Local Remote Agent Sessions.
+Run your local Grok sessions remotely.
 
 Manage your Grok sessions remotely. Your laptop stays the computer. Your phone is the remote.
 
@@ -14,7 +14,7 @@ Continue the same threads, in the same repos. It does not replace or hijack the 
 4. Read the transcript. Prompt. Approve or deny.
 
 ```
-Phone (your account)  →  LRAS  →  your paired machine
+Phone (your account)  →  Porte  →  your paired machine
                                               │
                                          Grok agent
                                               │

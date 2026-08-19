@@ -1,8 +1,8 @@
-# LRAS Product Specification
+# Porte Product Specification
 
 ## Goal
 
-LRAS lets a user control local coding-agent sessions from a phone.
+Porte lets a user control local coding-agent sessions from a phone.
 
 Grok through ACP is the first integration. The product protocol does not expose ACP or Grok types.
 
@@ -310,7 +310,7 @@ The final product check uses a second account on another network. It can access 
 
 ## Decisions
 
-1. LRAS controls a separate coding-agent process and never attaches to a live terminal interface.
+1. Porte controls a separate coding-agent process and never attaches to a live terminal interface.
 2. The product protocol uses canonical events and never exposes ACP or provider payloads.
 3. The host stays outbound-only, and Cloudflare provides the meeting point.
 4. One Durable Object coordinates one host, not one session.

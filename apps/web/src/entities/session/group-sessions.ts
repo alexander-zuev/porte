@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@lras/core'
+import type { SessionSummary } from '@porte/core'
 
 export type SessionGroup = {
   readonly cwd: string

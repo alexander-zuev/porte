@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "@lras/core",
+  "name": "@porte/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",

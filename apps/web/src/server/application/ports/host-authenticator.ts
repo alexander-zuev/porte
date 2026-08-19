@@ -1,4 +1,4 @@
-import type { ApiResponse, HostId } from '@lras/core'
+import type { ApiResponse, HostId } from '@porte/core'
 
 export type HostRole = 'daemon' | 'client'
 

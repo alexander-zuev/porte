@@ -1,4 +1,4 @@
-import { createLogger } from '@lras/core'
+import { createLogger } from '@porte/core'
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { isNotFound, isRedirect } from '@tanstack/react-router'
 

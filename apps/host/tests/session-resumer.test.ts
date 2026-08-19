@@ -1,4 +1,4 @@
-import { SessionSummarySchema } from '@lras/core'
+import { SessionSummarySchema } from '@porte/core'
 import { Result } from 'better-result'
 import { describe, expect, it } from 'vitest'
 
@@ -21,7 +21,7 @@ function makeHarness() {
   const summary = SessionSummarySchema.parse({
     id: 'session-1',
     cwd: '/repo',
-    title: 'LRAS',
+    title: 'Porte',
     updatedAt: '2026-08-17T12:00:00.000Z',
   })
   const agents = {

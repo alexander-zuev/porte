@@ -1,4 +1,4 @@
-import type { HostId } from '@lras/core'
+import type { HostId } from '@porte/core'
 
 import type { HostRole } from './host-authenticator'
 

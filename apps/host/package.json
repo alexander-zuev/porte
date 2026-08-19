@@ -1,10 +1,10 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "@lras/host",
+  "name": "@porte/host",
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "lras": "./dist/main.js"
+    "porte": "./dist/main.js"
   },
   "files": [
     "dist"
@@ -20,7 +20,7 @@
     "test:e2e": "vitest run tests/e2e"
   },
   "dependencies": {
-    "@lras/core": "workspace:*",
+    "@porte/core": "workspace:*",
     "better-result": "catalog:",
     "zod": "catalog:"
   },

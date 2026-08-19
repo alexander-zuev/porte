@@ -16,7 +16,7 @@ import {
   createConnectionId,
   createLogger,
   type SessionCatalog,
-} from '@lras/core'
+} from '@porte/core'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 
@@ -46,10 +46,10 @@ type SocketAttachment = z.infer<typeof socketAttachmentSchema>
 type ClientMessage = Exclude<z.infer<typeof ClientMessageSchema>, { type: 'request' }>
 type JsonValue = z.infer<typeof jsonValueSchema>
 
-/** One hibernating relay instance for one LRAS host. */
+/** One hibernating relay instance for one Porte host. */
 export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
   async fetch(request: Request): Promise<Response> {
-    const role = roleSchema.safeParse(request.headers.get('x-lras-host-role'))
+    const role = roleSchema.safeParse(request.headers.get('x-porte-host-role'))
     if (!role.success) return new Response('Forbidden', { status: 403 })
 
     const pair = new WebSocketPair()

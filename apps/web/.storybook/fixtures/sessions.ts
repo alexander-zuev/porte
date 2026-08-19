@@ -1,17 +1,17 @@
-import { makeSessionSummary, type SessionSummary } from '@lras/core'
+import { makeSessionSummary, type SessionSummary } from '@porte/core'
 
 import type { PermissionRequest, TranscriptItem } from '#/entities/session/transcript.ts'
 
 export const sessions: readonly SessionSummary[] = [
   makeSessionSummary({
-    id: 'ses_lras_1',
-    cwd: '/Users/az/projects/lras',
+    id: 'ses_porte_1',
+    cwd: '/Users/az/projects/porte',
     title: 'Daemon list and resume',
     updatedAt: '2026-08-17T10:12:00.000Z',
   }),
   makeSessionSummary({
-    id: 'ses_lras_2',
-    cwd: '/Users/az/projects/lras',
+    id: 'ses_porte_2',
+    cwd: '/Users/az/projects/porte',
     title: 'Worker host contract',
     updatedAt: '2026-08-16T18:40:00.000Z',
   }),
@@ -130,7 +130,7 @@ export const longMessageItems: readonly TranscriptItem[] = [
   {
     kind: 'user',
     id: 'evt_long_1',
-    text: 'Resume /Users/az/projects/lras/apps/daemon/src/sessions/session-store.ts and explain why encoded cwd folders must stay opaque on the Worker.',
+    text: 'Resume /Users/az/projects/porte/apps/daemon/src/sessions/session-store.ts and explain why encoded cwd folders must stay opaque on the Worker.',
   },
   {
     kind: 'agent',
@@ -142,7 +142,7 @@ export const longMessageItems: readonly TranscriptItem[] = [
 export const permissionRequest: PermissionRequest = {
   id: 'perm_1',
   title: 'Run a shell command',
-  detail: 'Grok wants to run `pnpm test` in /Users/az/projects/lras.',
+  detail: 'Grok wants to run `pnpm test` in /Users/az/projects/porte.',
   options: [
     { id: 'allow_once', label: 'Allow once' },
     { id: 'allow_always', label: 'Always allow' },

@@ -9,6 +9,6 @@ export default defineConfig({
   dts: false,
   clean: true,
   deps: {
-    alwaysBundle: ['better-result', 'zod', '@lras/core'],
+    alwaysBundle: ['better-result', 'zod', '@porte/core'],
   },
 })

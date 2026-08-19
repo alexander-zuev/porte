@@ -18,7 +18,7 @@ import {
 } from './session.ts'
 
 /**
- * These schemas define the published LRAS HTTP and WebSocket contract.
+ * These schemas define the published Porte HTTP and WebSocket contract.
  * ACP and UI library types do not cross this boundary.
  */
 export const ApiErrorCodeSchema = z.enum([

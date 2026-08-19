@@ -1,4 +1,4 @@
-import { HostIdSchema, type ApiResponse } from '@lras/core'
+import { HostIdSchema, type ApiResponse } from '@porte/core'
 
 import type { HostAuthenticator, HostIdentity } from '../../application/ports/host-authenticator'
 

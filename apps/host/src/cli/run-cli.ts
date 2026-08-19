@@ -30,8 +30,8 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
       return writeError(io, cause)
     }
     const detail = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause)
-    io.stderr.write(`lras v${VERSION} — unexpected error\n${detail}\n`)
-    io.stderr.write('Report: https://github.com/alexander-zuev/lras/issues/new\n')
+    io.stderr.write(`porte v${VERSION} — unexpected error\n${detail}\n`)
+    io.stderr.write('Report: https://github.com/alexander-zuev/porte/issues/new\n')
     return 1
   }
 }

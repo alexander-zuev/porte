@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@lras/core'
+import type { SessionSummary } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { DuplicateSessionError, SessionNotFoundError, SessionStoreError } from '../errors.ts'
@@ -22,7 +22,7 @@ export interface SessionFinder {
   >
 }
 
-/** Failures from `lras resume`. */
+/** Failures from `porte resume`. */
 export type ResumeFailure =
   | SessionNotFoundError
   | DuplicateSessionError

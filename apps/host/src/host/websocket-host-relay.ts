@@ -1,4 +1,4 @@
-import { DaemonMessageSchema, RoutedRequestSchema } from '@lras/core'
+import { DaemonMessageSchema, RoutedRequestSchema } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 

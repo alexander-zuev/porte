@@ -24,8 +24,8 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
     db: () => db,
     executionCtx,
     hostAuthenticator: new DevelopmentHostAuthenticator(
-      env.LRAS_DEV_DAEMON_TOKEN,
-      env.LRAS_DEV_CLIENT_TOKEN,
+      env.PORTE_DEV_DAEMON_TOKEN,
+      env.PORTE_DEV_CLIENT_TOKEN,
     ),
     hostCoordinator: new HostCoordinatorClient(env.HOST),
   }

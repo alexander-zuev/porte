@@ -1,4 +1,4 @@
-import { setLoggerErrorHook } from '@lras/core'
+import { setLoggerErrorHook } from '@porte/core'
 import * as Sentry from '@sentry/tanstackstart-react'
 import { isNotFound, isRedirect } from '@tanstack/react-router'
 

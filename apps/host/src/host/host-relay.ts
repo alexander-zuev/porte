@@ -1,4 +1,4 @@
-import type { DaemonMessage, RoutedRequest, RoutedResponse } from '@lras/core'
+import type { DaemonMessage, RoutedRequest, RoutedResponse } from '@porte/core'
 import type { Result } from 'better-result'
 
 import type { HostRelayError } from '../errors.ts'

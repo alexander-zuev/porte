@@ -9,7 +9,7 @@
     "paths": {
       "#/*": ["./src/*"],
       "@/*": ["./src/*"],
-      "@lras/core": ["../../packages/core/src/index.ts"]
+      "@porte/core": ["../../packages/core/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "drizzle.config.ts", "worker-configuration.d.ts"]

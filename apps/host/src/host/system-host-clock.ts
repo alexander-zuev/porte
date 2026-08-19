@@ -1,4 +1,4 @@
-import { IsoDateTimeSchema, type IsoDateTime } from '@lras/core'
+import { IsoDateTimeSchema, type IsoDateTime } from '@porte/core'
 
 import type { HostClock } from './connect-host.ts'
 

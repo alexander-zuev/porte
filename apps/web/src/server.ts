@@ -1,4 +1,4 @@
-import { setLoggerErrorHook } from '@lras/core'
+import { setLoggerErrorHook } from '@porte/core'
 import * as Sentry from '@sentry/cloudflare'
 import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
