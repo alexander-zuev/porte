@@ -22,7 +22,7 @@ const PAIRS: Pair[] = [
 ]
 
 test('token contrast pairs meet WCAG minimums', async ({ page }) => {
-  await page.goto(storyPath('design-system-tokens--dark'))
+  await page.goto(storyPath('design-system-tokens--reference'))
   await page.evaluate(() => {
     document.documentElement.classList.add('dark')
   })

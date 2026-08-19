@@ -42,7 +42,7 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
       "oxfmt --write --no-error-on-unmatched-pattern",
-      "oxlint --fix"
+      "oxlint --fix --no-error-on-unmatched-pattern"
     ],
     "*.{json,jsonc,yaml,yml,md,css}": [
       "oxfmt --write --no-error-on-unmatched-pattern"

@@ -1,6 +1,9 @@
 /** Storybook iframe ids. Add a row when a new flow story lands. */
 export const STORY_IDS = [
-  'design-system-tokens--dark',
+  'design-system-tokens--reference',
+  'design-system-in-action--workspace',
+  'design-system-in-action--settings',
+  'design-system-in-action--operations',
   'design-system-hoverortap--tap',
   'pages-landing--hero',
   'pages-signin--ready',

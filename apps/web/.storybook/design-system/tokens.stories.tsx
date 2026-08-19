@@ -1,236 +1,229 @@
-import { PlusIcon } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Badge } from '#/ui/components/ui/badge.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '#/ui/components/ui/card.tsx'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '#/ui/components/ui/empty.tsx'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/ui/components/ui/input-otp.tsx'
-import { Input } from '#/ui/components/ui/input.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
-import { Textarea } from '#/ui/components/ui/textarea.tsx'
-
-const COLOR_TOKENS = [
-  { name: 'background', swatch: 'bg-background' },
-  { name: 'foreground', swatch: 'bg-foreground' },
-  { name: 'card', swatch: 'bg-card' },
-  { name: 'card-foreground', swatch: 'bg-card-foreground' },
-  { name: 'popover', swatch: 'bg-popover' },
-  { name: 'popover-foreground', swatch: 'bg-popover-foreground' },
-  { name: 'primary', swatch: 'bg-primary' },
-  { name: 'primary-foreground', swatch: 'bg-primary-foreground' },
-  { name: 'secondary', swatch: 'bg-secondary' },
-  { name: 'secondary-foreground', swatch: 'bg-secondary-foreground' },
-  { name: 'muted', swatch: 'bg-muted' },
-  { name: 'muted-foreground', swatch: 'bg-muted-foreground' },
-  { name: 'accent', swatch: 'bg-accent' },
-  { name: 'accent-foreground', swatch: 'bg-accent-foreground' },
-  { name: 'destructive', swatch: 'bg-destructive' },
-  { name: 'overlay', swatch: 'bg-overlay' },
-  { name: 'border', swatch: 'bg-border' },
-  { name: 'input', swatch: 'bg-input' },
-  { name: 'ring', swatch: 'bg-ring' },
-  { name: 'status-info', swatch: 'bg-status-info' },
-  { name: 'status-warning', swatch: 'bg-status-warning' },
-  { name: 'status-success', swatch: 'bg-status-success' },
-] as const
-
-const TEXT_PAIRS = [
-  { fg: 'text-foreground', bg: 'bg-background', label: 'body on page' },
-  { fg: 'text-foreground', bg: 'bg-card', label: 'body on card' },
-  { fg: 'text-muted-foreground', bg: 'bg-background', label: 'secondary on page' },
-  { fg: 'text-muted-foreground', bg: 'bg-muted', label: 'secondary on muted' },
-  { fg: 'text-primary-foreground', bg: 'bg-primary', label: 'primary button' },
-  { fg: 'text-destructive', bg: 'bg-background', label: 'error copy' },
+const COLOR_GROUPS = [
+  {
+    name: 'Foundation',
+    description: 'The page canvas, default copy, and structural boundaries.',
+    tokens: [
+      {
+        name: 'background',
+        utility: 'bg-background',
+        usage: 'Application canvas',
+        swatch: 'bg-background',
+      },
+      {
+        name: 'foreground',
+        utility: 'text-foreground',
+        usage: 'Primary content',
+        swatch: 'bg-foreground',
+      },
+      {
+        name: 'border',
+        utility: 'border-border',
+        usage: 'Structural boundaries',
+        swatch: 'bg-border',
+      },
+      {
+        name: 'ring',
+        utility: 'ring-ring',
+        usage: 'Keyboard focus',
+        swatch: 'bg-ring',
+      },
+    ],
+  },
+  {
+    name: 'Surfaces',
+    description: 'Layers that group content without inventing local colors.',
+    tokens: [
+      {
+        name: 'card',
+        utility: 'bg-card',
+        usage: 'Grouped content',
+        swatch: 'bg-card',
+      },
+      {
+        name: 'popover',
+        utility: 'bg-popover',
+        usage: 'Floating content',
+        swatch: 'bg-popover',
+      },
+      {
+        name: 'muted',
+        utility: 'bg-muted',
+        usage: 'Quiet surfaces',
+        swatch: 'bg-muted',
+      },
+      {
+        name: 'overlay',
+        utility: 'bg-overlay',
+        usage: 'Scrim base',
+        swatch: 'bg-overlay',
+      },
+    ],
+  },
+  {
+    name: 'Actions and feedback',
+    description: 'Intent colors reinforce meaning; labels and icons still carry the message.',
+    tokens: [
+      {
+        name: 'primary',
+        utility: 'bg-primary',
+        usage: 'Primary action',
+        swatch: 'bg-primary',
+      },
+      {
+        name: 'destructive',
+        utility: 'text-destructive',
+        usage: 'Failure or danger',
+        swatch: 'bg-destructive',
+      },
+      {
+        name: 'status-info',
+        utility: 'text-status-info',
+        usage: 'Acknowledged',
+        swatch: 'bg-status-info',
+      },
+      {
+        name: 'status-warning',
+        utility: 'text-status-warning',
+        usage: 'Needs attention',
+        swatch: 'bg-status-warning',
+      },
+      {
+        name: 'status-success',
+        utility: 'text-status-success',
+        usage: 'Completed or online',
+        swatch: 'bg-status-success',
+      },
+    ],
+  },
 ] as const
 
 const RADII = [
-  { name: 'sm', className: 'rounded-sm' },
-  { name: 'md', className: 'rounded-md' },
-  { name: 'lg', className: 'rounded-lg' },
-  { name: 'xl', className: 'rounded-xl' },
+  { name: 'Small', token: 'rounded-sm', className: 'rounded-sm' },
+  { name: 'Medium', token: 'rounded-md', className: 'rounded-md' },
+  { name: 'Large', token: 'rounded-lg', className: 'rounded-lg' },
+  { name: 'Extra large', token: 'rounded-xl', className: 'rounded-xl' },
 ] as const
 
-function Tokens() {
+function TokenReference() {
   return (
-    <main className="dark mx-auto flex max-w-3xl flex-col gap-12 bg-background px-5 py-10 text-foreground">
-      <header className="flex flex-col gap-2">
-        <h1>Design system</h1>
-        <p className="text-muted-foreground">
-          Inter + grok.com dark. Colors and type live in ui/stylesheets. Use the HTML element. Do
-          not set size, leading, or tracking on the component.
-        </p>
+    <main className="min-h-svh bg-background text-foreground">
+      <header className="border-b border-border">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-10 md:px-8">
+          <small className="text-muted-foreground uppercase">Foundation</small>
+          <h1>Token reference</h1>
+          <p className="max-w-2xl text-muted-foreground">
+            Tokens name reusable visual decisions. Components request a role such as background,
+            muted, or success; this layer decides how that role looks.
+          </p>
+        </div>
       </header>
 
-      <section className="flex flex-col gap-4">
-        <h2>Color</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {COLOR_TOKENS.map((token) => (
-            <div className="flex flex-col gap-2" key={token.name}>
-              <div className={`h-14 rounded-lg border border-border ${token.swatch}`} />
-              <small className="text-muted-foreground">{token.name}</small>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Contrast</h2>
-        <div className="flex flex-col gap-2">
-          {TEXT_PAIRS.map((pair) => (
-            <p className={`rounded-md px-3 py-2 ${pair.bg} ${pair.fg}`} key={pair.label}>
-              {pair.label}
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-5 py-10 md:px-8 md:py-14">
+        <section className="flex flex-col gap-8">
+          <header className="flex max-w-2xl flex-col gap-2">
+            <h2>Color roles</h2>
+            <p className="text-muted-foreground">
+              Use the utility shown below. Raw palette values belong only in the token stylesheet.
             </p>
-          ))}
-        </div>
-      </section>
+          </header>
 
-      <section className="flex flex-col gap-4">
-        <h2>Type</h2>
-        <p className="text-display-hero">Display hero</p>
-        <h1>Heading 1</h1>
-        <h2>Heading 2</h2>
-        <h3>Heading 3</h3>
-        <h4>Heading 4</h4>
-        <h5>Heading 5</h5>
-        <h6>Heading 6</h6>
-        <p>Body. One size for copy. Muted for secondary.</p>
-        <p className="text-muted-foreground">Muted. Paths, status, help text.</p>
-        <small>Caption. Timestamps, metadata, legal.</small>
-      </section>
+          <div className="flex flex-col gap-10">
+            {COLOR_GROUPS.map((group) => (
+              <section className="flex flex-col gap-4" key={group.name}>
+                <header className="flex flex-col gap-1">
+                  <h3>{group.name}</h3>
+                  <p className="text-muted-foreground">{group.description}</p>
+                </header>
+                <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+                  {group.tokens.map((token) => (
+                    <article className="flex flex-col gap-4 bg-background p-4" key={token.name}>
+                      <div
+                        aria-label={`${token.name} color sample`}
+                        className={`h-16 rounded-lg border border-border ${token.swatch}`}
+                      />
+                      <div className="flex flex-col gap-1">
+                        <h4>{token.name}</h4>
+                        <small className="text-muted-foreground">{token.usage}</small>
+                      </div>
+                      <code className="w-fit">{token.utility}</code>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
 
-      <section className="flex flex-col gap-4">
-        <h2>Radius</h2>
-        <div className="flex flex-wrap items-end gap-3">
-          {RADII.map((radius) => (
-            <div className="flex flex-col items-center gap-2" key={radius.name}>
-              <div className={`size-14 border border-border bg-muted ${radius.className}`} />
-              <small className="text-muted-foreground">{radius.name}</small>
+        <section className="grid gap-8 border-t border-border pt-10 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+          <div className="flex flex-col gap-6">
+            <header className="flex flex-col gap-2">
+              <h2>Typography</h2>
+              <p className="text-muted-foreground">
+                Semantic HTML owns the hierarchy. Display utilities are reserved for expressive
+                marketing moments.
+              </p>
+            </header>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <h1>Page heading</h1>
+                <small className="text-muted-foreground">h1 · one per page</small>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h2>Section heading</h2>
+                <small className="text-muted-foreground">h2 · major content group</small>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3>Component heading</h3>
+                <small className="text-muted-foreground">h3 · dialog, card, or panel</small>
+              </div>
+              <div className="flex flex-col gap-1">
+                <p>Body copy carries the primary message at a comfortable reading size.</p>
+                <small className="text-muted-foreground">p · default content</small>
+              </div>
+              <div className="flex flex-col gap-1">
+                <p className="text-muted-foreground">
+                  Muted copy supports the primary message without competing with it.
+                </p>
+                <small className="text-muted-foreground">
+                  text-muted-foreground · supporting copy
+                </small>
+              </div>
             </div>
-          ))}
-        </div>
-        <p className="text-muted-foreground">Shadows are none. Elevation is border only.</p>
-      </section>
+          </div>
 
-      <section className="flex flex-col gap-4">
-        <h2>Status</h2>
-        <div className="flex flex-col gap-3">
-          <HostStatus online />
-          <HostStatus online={false} />
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Buttons</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button>Primary</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="ghost">Ghost</Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm">
-            <PlusIcon data-icon="inline-start" />
-            Small
-          </Button>
-          <Button size="lg">Large</Button>
-          <Button disabled>Disabled</Button>
-          <Button aria-label="Add" size="icon">
-            <PlusIcon />
-          </Button>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Badge</h2>
-        <div className="flex flex-wrap gap-2">
-          <Badge>Default</Badge>
-          <Badge variant="secondary">Secondary</Badge>
-          <Badge variant="outline">Outline</Badge>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Forms</h2>
-        <FieldGroup className="max-w-md gap-4">
-          <Field>
-            <FieldLabel htmlFor="ds-message">Message</FieldLabel>
-            <Input aria-label="Message" defaultValue="Resume yesterday" id="ds-message" />
-            <FieldDescription>Visible help. Do not hide this in a tooltip.</FieldDescription>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="ds-note">Note</FieldLabel>
-            <Textarea aria-label="Note" defaultValue="Optional context" id="ds-note" />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="ds-otp">Pairing code</FieldLabel>
-            <InputOTP
-              containerClassName="w-full justify-center"
-              defaultValue="7K2M9Q"
-              id="ds-otp"
-              maxLength={6}
-            >
-              <InputOTPGroup className="justify-center">
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </Field>
-        </FieldGroup>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Feedback</h2>
-        <Alert>
-          <AlertTitle>Host is offline</AlertTitle>
-          <AlertDescription>Open the daemon on the Mac, then retry.</AlertDescription>
-        </Alert>
-        <Alert variant="destructive">
-          <AlertTitle>That code is expired.</AlertTitle>
-          <AlertDescription>Ask the daemon for a new six-character code.</AlertDescription>
-        </Alert>
-        <Empty className="border border-border">
-          <EmptyHeader>
-            <EmptyTitle>No conversations yet</EmptyTitle>
-            <EmptyDescription>Pair a host, then start a session in a known repo.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2>Surface</h2>
-        <Card className="max-w-md" size="sm">
-          <CardHeader>
-            <CardTitle>Card</CardTitle>
-            <CardDescription>Border #374151. Radius 8px. No shadow.</CardDescription>
-          </CardHeader>
-          <CardContent>Use for grouped content. Chat uses Conversation, not Card.</CardContent>
-        </Card>
-        <Separator />
-      </section>
+          <div className="flex flex-col gap-6">
+            <header className="flex flex-col gap-2">
+              <h2>Shape</h2>
+              <p className="text-muted-foreground">
+                Radius communicates scale. Elevation uses borders, not shadows.
+              </p>
+            </header>
+            <div className="grid grid-cols-2 gap-3">
+              {RADII.map((radius) => (
+                <div className="flex flex-col gap-3" key={radius.name}>
+                  <div className={`h-20 border border-border bg-muted ${radius.className}`} />
+                  <div className="flex flex-col gap-1">
+                    <h4>{radius.name}</h4>
+                    <code className="w-fit">{radius.token}</code>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
   )
 }
 
 const meta = {
   title: 'Design System/Tokens',
-  component: Tokens,
-} satisfies Meta<typeof Tokens>
+  component: TokenReference,
+} satisfies Meta<typeof TokenReference>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Dark: Story = {}
+export const Reference: Story = {}

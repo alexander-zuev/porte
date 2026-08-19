@@ -81,6 +81,8 @@ catalog:
   '@sentry/cloudflare': ^10.70.0
   '@marsidev/react-turnstile': ^1.6.0
   '@typescript-eslint/utils': ^8.67.0
+  '@tanstack/react-store': ^0.11.1
+  use-sync-external-store: ^1.6.0
 
 allowBuilds:
   '@sentry/cli': true
