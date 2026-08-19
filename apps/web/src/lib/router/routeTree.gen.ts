@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './../../routes/__root'
 import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
 import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
+import { Route as AuthAccountRouteImport } from './../../routes/_auth/account'
 import { Route as AuthDashboardRouteImport } from './../../routes/_auth/dashboard'
 import { Route as AuthPairRouteImport } from './../../routes/_auth/pair'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
@@ -28,6 +29,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthAccountRoute = AuthAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthDashboardRoute = AuthDashboardRouteImport.update({
   id: '/dashboard',
@@ -77,6 +83,7 @@ const ApiHostWsRoute = ApiHostWsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
+  '/account': typeof AuthAccountRoute
   '/dashboard': typeof AuthDashboardRoute
   '/pair': typeof AuthPairRoute
   '/privacy': typeof PublicPrivacyRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
+  '/account': typeof AuthAccountRoute
   '/dashboard': typeof AuthDashboardRoute
   '/pair': typeof AuthPairRoute
   '/privacy': typeof PublicPrivacyRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_public': typeof PublicRouteRouteWithChildren
+  '/_auth/account': typeof AuthAccountRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/pair': typeof AuthPairRoute
   '/_public/privacy': typeof PublicPrivacyRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/dashboard'
     | '/pair'
     | '/privacy'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/dashboard'
     | '/pair'
     | '/privacy'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_auth'
     | '/_public'
+    | '/_auth/account'
     | '/_auth/dashboard'
     | '/_auth/pair'
     | '/_public/privacy'
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_auth/account': {
+      id: '/_auth/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthAccountRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/_auth/dashboard': {
       id: '/_auth/dashboard'
@@ -239,12 +258,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteRouteChildren {
+  AuthAccountRoute: typeof AuthAccountRoute
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthPairRoute: typeof AuthPairRoute
   AuthCSessionIdRoute: typeof AuthCSessionIdRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthAccountRoute: AuthAccountRoute,
   AuthDashboardRoute: AuthDashboardRoute,
   AuthPairRoute: AuthPairRoute,
   AuthCSessionIdRoute: AuthCSessionIdRoute,
