@@ -223,6 +223,9 @@ catalogs:
     '@fontsource/inter':
       specifier: ^5.3.0
       version: 5.3.0
+    '@fontsource/space-grotesk':
+      specifier: ^5.2.10
+      version: 5.3.0
     '@marsidev/react-turnstile':
       specifier: ^1.6.0
       version: 1.6.0
@@ -238,6 +241,9 @@ catalogs:
     '@posthog/react':
       specifier: ^1.10.3
       version: 1.10.3
+    '@radix-ui/colors':
+      specifier: ^3.0.0
+      version: 3.0.0
     '@radix-ui/react-use-controllable-state':
       specifier: ^1.2.6
       version: 1.2.6
@@ -484,6 +490,9 @@ importers:
       '@fontsource/inter':
         specifier: 'catalog:'
         version: 5.3.0
+      '@fontsource/space-grotesk':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@marsidev/react-turnstile':
         specifier: 'catalog:'
         version: 1.6.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -496,6 +505,9 @@ importers:
       '@posthog/react':
         specifier: 'catalog:'
         version: 1.10.3(@types/react@19.2.18)(posthog-js@1.417.2)(react@19.2.8)
+      '@radix-ui/colors':
+        specifier: 'catalog:'
+        version: 3.0.0
       '@radix-ui/react-use-controllable-state':
         specifier: 'catalog:'
         version: 1.2.6(@types/react@19.2.18)(react@19.2.8)
@@ -1675,6 +1687,9 @@ packages:
   '@fontsource/inter@5.3.0':
     resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
 
+  '@fontsource/space-grotesk@5.3.0':
+    resolution: {integrity: sha512-ksnGizDPXIDuvqcTYTSrmZ+evx9sDlS8rp7+42BQ7wU+spt3twEoXfbJz672C+5CLg6VeUQwRy5RXshWb67LcQ==}
+
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -2678,6 +2693,9 @@ packages:
 
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
+
+  '@radix-ui/colors@3.0.0':
+    resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
 
   '@radix-ui/primitive@1.1.7':
     resolution: {integrity: sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q==}
@@ -7661,6 +7679,8 @@ snapshots:
 
   '@fontsource/inter@5.3.0': {}
 
+  '@fontsource/space-grotesk@5.3.0': {}
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -8310,6 +8330,8 @@ snapshots:
   '@quansync/fs@1.0.0':
     dependencies:
       quansync: 1.0.0
+
+  '@radix-ui/colors@3.0.0': {}
 
   '@radix-ui/primitive@1.1.7': {}
 

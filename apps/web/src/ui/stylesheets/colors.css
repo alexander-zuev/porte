@@ -1,0 +1,99 @@
+@import '@radix-ui/colors/gray.css';
+@import '@radix-ui/colors/gray-dark.css';
+@import '@radix-ui/colors/gray-alpha.css';
+@import '@radix-ui/colors/gray-dark-alpha.css';
+@import '@radix-ui/colors/blue.css';
+@import '@radix-ui/colors/blue-dark.css';
+@import '@radix-ui/colors/green.css';
+@import '@radix-ui/colors/green-dark.css';
+@import '@radix-ui/colors/amber.css';
+@import '@radix-ui/colors/amber-dark.css';
+@import '@radix-ui/colors/red.css';
+@import '@radix-ui/colors/red-dark.css';
+@import '@radix-ui/colors/black-alpha.css';
+
+:root {
+  --background: var(--gray-1);
+  --surface: var(--gray-2);
+  --popover: var(--gray-3);
+  --surface-hover: var(--gray-4);
+  --surface-active: var(--gray-5);
+
+  --foreground: var(--gray-12);
+  --muted-foreground: var(--gray-11);
+
+  --border-non-interactive: var(--gray-6);
+  --border-interactive: var(--gray-7);
+  --border-interactive-strong: var(--gray-8);
+
+  --primary: var(--gray-12);
+  --primary-foreground: var(--gray-1);
+  --secondary: var(--gray-3);
+  --secondary-foreground: var(--gray-12);
+  --muted: var(--gray-3);
+  --accent: var(--gray-3);
+  --accent-foreground: var(--gray-12);
+  --destructive: var(--red-9);
+  --destructive-foreground: var(--gray-1);
+
+  --status-info: var(--blue-9);
+  --status-warning: var(--amber-9);
+  --status-success: var(--green-9);
+  --overlay: var(--black-a9);
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --border: var(--border-non-interactive);
+  --input: var(--border-interactive);
+  --ring: var(--border-interactive-strong);
+
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border-non-interactive);
+  --sidebar-ring: var(--border-interactive-strong);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-non-interactive: var(--border-non-interactive);
+  --color-border-interactive: var(--border-interactive);
+  --color-border-interactive-strong: var(--border-interactive-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-status-info: var(--status-info);
+  --color-status-warning: var(--status-warning);
+  --color-status-success: var(--status-success);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}

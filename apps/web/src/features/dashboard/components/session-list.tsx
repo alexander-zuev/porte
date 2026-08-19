@@ -1,80 +1,101 @@
-import { FolderSimpleIcon, PlusIcon } from '@phosphor-icons/react'
-import type { SessionSummary } from '@porte/core'
+import type { HostSnapshot, SessionSummary } from '@porte/core'
 
-import { groupSessionsByCwd, repoName } from '#/entities/session/group-sessions.ts'
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '#/ui/components/ui/empty.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
+import { SessionGroupList } from './session-group-list.tsx'
+import { NoSessions, SessionHomeFailure, SessionHomeLoading } from './session-home-feedback.tsx'
+import { SessionHomeHeader } from './session-home-header.tsx'
 
-export type SessionListProps = {
-  readonly online: boolean
-  readonly sessions: readonly SessionSummary[]
+type SessionListActions = {
   readonly onOpenSession: (sessionId: string) => void
   readonly onStartSession: () => void
+  readonly onPair: () => void
+  readonly onRetry: () => void
 }
 
-export function SessionList({ online, sessions, onOpenSession, onStartSession }: SessionListProps) {
-  const groups = groupSessionsByCwd(sessions)
+export type SessionListProps = SessionListActions &
+  (
+    | { readonly state: 'loading'; readonly hostName: string }
+    | {
+        readonly state: 'ready'
+        readonly hostName: string
+        readonly hostStatus: HostSnapshot['status'] | 'reconnecting'
+        readonly sessions: readonly SessionSummary[]
+        readonly runningSessionIds: ReadonlySet<string>
+        readonly lastSeen?: string
+        readonly openingSessionId?: string
+        readonly selectedSessionId?: string
+      }
+    | { readonly state: 'error'; readonly hostName: string }
+    | { readonly state: 'unpaired' }
+    | { readonly state: 'revoked'; readonly hostName: string }
+  )
 
+export function SessionList(props: SessionListProps) {
+  if (props.state === 'unpaired' || props.state === 'revoked') {
+    return (
+      <SessionHomeFailure
+        hostName={props.state === 'revoked' ? props.hostName : undefined}
+        state={props.state}
+        onPair={props.onPair}
+        onRetry={props.onRetry}
+      />
+    )
+  }
+  if (props.state === 'loading') {
+    return (
+      <>
+        <SessionHomeHeader
+          canCreate={false}
+          hostName={props.hostName}
+          hostStatus="loading"
+          onStartSession={props.onStartSession}
+        />
+        <SessionHomeLoading />
+      </>
+    )
+  }
+  if (props.state === 'error') {
+    return (
+      <>
+        <SessionHomeHeader
+          canCreate={false}
+          hostName={props.hostName}
+          hostStatus="offline"
+          onStartSession={props.onStartSession}
+        />
+        <SessionHomeFailure
+          hostName={props.hostName}
+          state="error"
+          onPair={props.onPair}
+          onRetry={props.onRetry}
+        />
+      </>
+    )
+  }
+
+  const canCreate = props.hostStatus === 'online' && props.sessions.length > 0
   return (
     <>
-      <header className="flex items-center justify-between gap-3 px-5 py-4">
-        <div className="flex flex-col gap-1">
-          <h1>Conversations</h1>
-          <HostStatus online={online} />
-        </div>
-        <Button disabled={!online} size="sm" onClick={onStartSession}>
-          <PlusIcon data-icon="inline-start" />
-          New
-        </Button>
-      </header>
-      <Separator />
-      {groups.length === 0 ? (
-        <Empty className="border-0">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FolderSimpleIcon />
-            </EmptyMedia>
-            <EmptyTitle>No conversations yet</EmptyTitle>
-            <EmptyDescription>
-              Pair a host, then resume a session or start one in a known repo.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      <SessionHomeHeader
+        canCreate={canCreate}
+        hostName={props.hostName}
+        hostStatus={props.hostStatus}
+        statusDetail={
+          props.hostStatus === 'offline' && props.lastSeen
+            ? `Last seen ${props.lastSeen}`
+            : undefined
+        }
+        onStartSession={props.onStartSession}
+      />
+      {props.sessions.length === 0 ? (
+        <NoSessions canCreate={canCreate} onStartSession={props.onStartSession} />
       ) : (
-        <nav className="flex flex-col gap-6 px-5 py-4">
-          {groups.map((group) => (
-            <section key={group.cwd} className="flex flex-col gap-2">
-              <h2 className="flex min-w-0 items-baseline gap-2">
-                <span className="shrink-0">{repoName(group.cwd)}</span>
-                <span className="truncate text-muted-foreground">{group.cwd}</span>
-              </h2>
-              <ul className="flex flex-col gap-1">
-                {group.sessions.map((session) => (
-                  <li key={session.id}>
-                    <Button
-                      className="h-auto w-full justify-start truncate px-3 py-3 text-left"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        onOpenSession(session.id)
-                      }}
-                    >
-                      {session.title}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </nav>
+        <SessionGroupList
+          openingSessionId={props.openingSessionId}
+          runningSessionIds={props.runningSessionIds}
+          selectedSessionId={props.selectedSessionId}
+          sessions={props.sessions}
+          onOpenSession={props.onOpenSession}
+        />
       )}
     </>
   )

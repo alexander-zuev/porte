@@ -1,6 +1,5 @@
-import { LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import { LinkIcon } from '@phosphor-icons/react'
 
-import { Alert, AlertDescription } from '#/ui/components/ui/alert.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/ui/components/ui/input-otp.tsx'
@@ -15,24 +14,23 @@ export type PairFormProps = {
   readonly onSubmit: () => void
 }
 
+/** OTP submit control used inside the pairing scaffold. */
 export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairFormProps) {
   const invalid = error !== undefined
 
   return (
     <form
-      className="flex flex-col gap-8"
+      className="flex w-full flex-col gap-6"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit()
       }}
     >
-      <header className="flex flex-col gap-2">
-        <h1>Pair this Mac</h1>
-        <p className="text-muted-foreground">Enter the one-time code shown by Porte on your Mac.</p>
-      </header>
-      <FieldGroup className="gap-4">
+      <FieldGroup>
         <Field data-invalid={invalid || undefined}>
-          <FieldLabel htmlFor="pair-code">Pairing code</FieldLabel>
+          <FieldLabel className="sr-only" htmlFor="pair-code">
+            Pairing code
+          </FieldLabel>
           <InputOTP
             autoComplete="one-time-code"
             containerClassName="w-full justify-center"
@@ -54,18 +52,17 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
               <InputOTPSlot index={5} />
             </InputOTPGroup>
           </InputOTP>
-          <FieldDescription>
-            Six characters from the <code>porte pair</code> command.
+          <FieldDescription className="text-center">
+            Six characters from porte pair
           </FieldDescription>
         </Field>
       </FieldGroup>
       {error ? (
-        <Alert variant="destructive">
-          <WarningCircleIcon />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <p className="text-destructive" role="alert">
+          {error}
+        </p>
       ) : null}
-      <Button disabled={pending || code.length !== 6} type="submit">
+      <Button className="w-full" disabled={pending || code.length !== 6} type="submit">
         {pending ? <Spinner data-icon="inline-start" /> : <LinkIcon data-icon="inline-start" />}
         Pair Mac
       </Button>

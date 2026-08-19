@@ -25,6 +25,15 @@ export const PermissionIdSchema = z.uuidv7().brand<'PermissionId'>()
 export type PermissionId = z.infer<typeof PermissionIdSchema>
 export const createPermissionId = (): PermissionId => PermissionIdSchema.parse(uuidv7())
 
+/** Identifier for one pending elicitation in a coding session. */
+export const ElicitationIdSchema = z.uuidv7().brand<'ElicitationId'>()
+
+/** Identifier for one pending elicitation in a coding session. */
+export type ElicitationId = z.infer<typeof ElicitationIdSchema>
+
+/** Create one time-ordered elicitation identifier. */
+export const createElicitationId = (): ElicitationId => ElicitationIdSchema.parse(uuidv7())
+
 export const SessionIdSchema = z.string().min(1).brand<'SessionId'>()
 export type SessionId = z.infer<typeof SessionIdSchema>
 

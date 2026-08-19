@@ -2,20 +2,30 @@ import { cn } from '#/lib/utils.ts'
 import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
 
 type HostStatusProps = {
-  readonly online: boolean
+  readonly status: 'loading' | 'online' | 'offline' | 'reconnecting'
+  readonly detail?: string
 }
 
-export function HostStatus({ online }: HostStatusProps) {
+const STATUS_LABEL = {
+  loading: 'Loading',
+  online: 'Online',
+  offline: 'Offline',
+  reconnecting: 'Reconnecting',
+} as const
+
+export function HostStatus({ status, detail }: HostStatusProps) {
   return (
     <small className="inline-flex items-center gap-2 text-muted-foreground">
       <span
         className={cn(
           'size-2 shrink-0 rounded-full',
-          online ? 'bg-status-success' : 'bg-muted-foreground',
+          status === 'online' ? 'bg-status-success' : 'bg-muted-foreground',
+          status === 'reconnecting' && 'animate-pulse bg-status-warning',
         )}
         aria-hidden
       />
-      {online ? 'Online' : 'Offline'}
+      {STATUS_LABEL[status]}
+      {detail ? ` · ${detail}` : null}
     </small>
   )
 }

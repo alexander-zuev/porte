@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 
+import { Logo } from '#/ui/components/logo.tsx'
 import { MarketingFrame } from '#/ui/components/marketing-frame.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 
@@ -17,7 +18,7 @@ export function LandingPage() {
       />
 
       <header className="flex items-center justify-between px-6 py-6 md:px-10">
-        <small className="text-muted-foreground uppercase">Porte</small>
+        <Logo size="sm" />
       </header>
 
       <div className="flex flex-1 flex-col justify-end px-6 pb-10 md:justify-center md:px-10 md:pb-24">

@@ -51,7 +51,7 @@ export function ConversationPane({
       <header className="flex items-center justify-between gap-3 px-5 py-4">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="truncate">{title}</h1>
-          <HostStatus online={online} />
+          <HostStatus status={online ? 'online' : 'offline'} />
         </div>
       </header>
       <Separator />

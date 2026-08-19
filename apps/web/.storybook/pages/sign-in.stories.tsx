@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { SignInPage } from '#/pages/sign-in/sign-in-page.tsx'
 
+import { PairingPlay, SignInPlay } from '../harnesses/pairing-play.tsx'
+
 const meta = {
   title: 'Pages/SignIn',
   component: SignInPage,
@@ -11,27 +13,24 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Ready: Story = {
-  args: {
-    captchaReady: true,
-    error: undefined,
-    pendingProvider: undefined,
-    onSocial: () => undefined,
-  },
+  render: () => <SignInPlay />,
+}
+
+export const PairingRedirect: Story = {
+  render: () => <PairingPlay start="sign-in" />,
 }
 
 export const Pending: Story = {
   args: {
-    captchaReady: true,
     error: undefined,
-    pendingProvider: 'github',
+    pendingProvider: 'google',
     onSocial: () => undefined,
   },
 }
 
 export const ErrorState: Story = {
   args: {
-    captchaReady: true,
-    error: 'Sign-in failed.',
+    error: 'Sign-in failed',
     pendingProvider: undefined,
     onSocial: () => undefined,
   },

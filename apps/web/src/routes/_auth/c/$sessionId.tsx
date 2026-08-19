@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { ConversationPage } from '#/pages/conversation/conversation-page.tsx'
 
-export const Route = createFileRoute('/c/$sessionId')({
+export const Route = createFileRoute('/_auth/c/$sessionId')({
   component: ConversationRoute,
 })
 

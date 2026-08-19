@@ -2,17 +2,19 @@ import { setLoggerErrorHook } from '@porte/core'
 import * as Sentry from '@sentry/tanstackstart-react'
 import { isNotFound, isRedirect } from '@tanstack/react-router'
 
+import { settings } from '#/lib/env/env.ts'
+
 Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: import.meta.env.MODE,
-  enabled: import.meta.env.PROD,
+  dsn: settings.sentry.dsn,
+  environment: settings.sentry.environment,
+  enabled: settings.sentry.enabled,
   dataCollection: {
     userInfo: false,
     httpBodies: [],
     genAI: { inputs: false, outputs: false },
   },
   enableLogs: true,
-  tracesSampleRate: import.meta.env.PROD ? 0.1 : 0,
+  tracesSampleRate: settings.sentry.tracesSampleRate,
 })
 
 setLoggerErrorHook(({ error, context }) => {

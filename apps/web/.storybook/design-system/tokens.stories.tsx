@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 const COLOR_GROUPS = [
   {
-    name: 'Foundation',
-    description: 'The page canvas, default copy, and structural boundaries.',
+    name: 'Surface hierarchy',
+    description: 'Radix Gray steps 1, 2, and 3 separate the canvas from raised content.',
     tokens: [
       {
         name: 'background',
@@ -12,88 +12,112 @@ const COLOR_GROUPS = [
         swatch: 'bg-background',
       },
       {
-        name: 'foreground',
-        utility: 'text-foreground',
-        usage: 'Primary content',
-        swatch: 'bg-foreground',
+        name: 'surface',
+        utility: 'bg-surface',
+        usage: 'Gray 2 · cards and panels',
+        swatch: 'bg-surface',
       },
       {
-        name: 'border',
-        utility: 'border-border',
-        usage: 'Structural boundaries',
-        swatch: 'bg-border',
+        name: 'popover',
+        utility: 'bg-popover',
+        usage: 'Gray 3 · floating content',
+        swatch: 'bg-popover',
+      },
+      {
+        name: 'foreground',
+        utility: 'text-foreground',
+        usage: 'Gray 12 · primary content',
+        swatch: 'bg-foreground',
+      },
+    ],
+  },
+  {
+    name: 'Interaction surfaces',
+    description: 'Radix Gray steps 3, 4, and 5 define default, hover, and active states.',
+    tokens: [
+      {
+        name: 'muted',
+        utility: 'bg-muted',
+        usage: 'Gray 3 · default component',
+        swatch: 'bg-muted',
+      },
+      {
+        name: 'surface-hover',
+        utility: 'bg-surface-hover',
+        usage: 'Gray 4 · hover',
+        swatch: 'bg-surface-hover',
+      },
+      {
+        name: 'surface-active',
+        utility: 'bg-surface-active',
+        usage: 'Gray 5 · pressed or selected',
+        swatch: 'bg-surface-active',
+      },
+      {
+        name: 'primary',
+        utility: 'bg-primary',
+        usage: 'Gray 12 · primary action',
+        swatch: 'bg-primary',
+      },
+    ],
+  },
+  {
+    name: 'Border hierarchy',
+    description: 'Radix Gray steps 6, 7, and 8 increase with interaction strength.',
+    tokens: [
+      {
+        name: 'border-non-interactive',
+        utility: 'border-border-non-interactive',
+        usage: 'Gray 6 · cards and separators',
+        swatch: 'bg-border-non-interactive',
+      },
+      {
+        name: 'border-interactive',
+        utility: 'border-border-interactive',
+        usage: 'Gray 7 · controls',
+        swatch: 'bg-border-interactive',
+      },
+      {
+        name: 'border-interactive-strong',
+        utility: 'border-border-interactive-strong',
+        usage: 'Gray 8 · strong interaction',
+        swatch: 'bg-border-interactive-strong',
       },
       {
         name: 'ring',
         utility: 'ring-ring',
-        usage: 'Keyboard focus',
+        usage: 'Gray 8 · keyboard focus',
         swatch: 'bg-ring',
       },
     ],
   },
   {
-    name: 'Surfaces',
-    description: 'Layers that group content without inventing local colors.',
+    name: 'Feedback',
+    description: 'Radix color scales reinforce labels and icons without replacing them.',
     tokens: [
       {
-        name: 'card',
-        utility: 'bg-card',
-        usage: 'Grouped content',
-        swatch: 'bg-card',
+        name: 'info',
+        utility: 'text-status-info',
+        usage: 'Blue 9 · information',
+        swatch: 'bg-status-info',
       },
       {
-        name: 'popover',
-        utility: 'bg-popover',
-        usage: 'Floating content',
-        swatch: 'bg-popover',
+        name: 'warning',
+        utility: 'text-status-warning',
+        usage: 'Amber 9 · needs attention',
+        swatch: 'bg-status-warning',
       },
       {
-        name: 'muted',
-        utility: 'bg-muted',
-        usage: 'Quiet surfaces',
-        swatch: 'bg-muted',
-      },
-      {
-        name: 'overlay',
-        utility: 'bg-overlay',
-        usage: 'Scrim base',
-        swatch: 'bg-overlay',
-      },
-    ],
-  },
-  {
-    name: 'Actions and feedback',
-    description: 'Intent colors reinforce meaning; labels and icons still carry the message.',
-    tokens: [
-      {
-        name: 'primary',
-        utility: 'bg-primary',
-        usage: 'Primary action',
-        swatch: 'bg-primary',
+        name: 'success',
+        utility: 'text-status-success',
+        usage: 'Green 9 · completed or online',
+        swatch: 'bg-status-success',
       },
       {
         name: 'destructive',
         utility: 'text-destructive',
-        usage: 'Failure or danger',
+        usage: 'Red 9 · failure or danger',
         swatch: 'bg-destructive',
-      },
-      {
-        name: 'status-info',
-        utility: 'text-status-info',
-        usage: 'Acknowledged',
-        swatch: 'bg-status-info',
-      },
-      {
-        name: 'status-warning',
-        utility: 'text-status-warning',
-        usage: 'Needs attention',
-        swatch: 'bg-status-warning',
-      },
-      {
-        name: 'status-success',
-        utility: 'text-status-success',
-        usage: 'Completed or online',
-        swatch: 'bg-status-success',
       },
     ],
   },
@@ -138,7 +162,7 @@ function TokenReference() {
                 </header>
                 <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
                   {group.tokens.map((token) => (
-                    <article className="flex flex-col gap-4 bg-background p-4" key={token.name}>
+                    <article className="flex flex-col gap-4 bg-surface p-4" key={token.name}>
                       <div
                         aria-label={`${token.name} color sample`}
                         className={`h-16 rounded-lg border border-border ${token.swatch}`}
@@ -166,6 +190,10 @@ function TokenReference() {
               </p>
             </header>
             <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1">
+                <span className="text-wordmark">Porte</span>
+                <small className="text-muted-foreground">text-wordmark · brand</small>
+              </div>
               <div className="flex flex-col gap-1">
                 <h1>Page heading</h1>
                 <small className="text-muted-foreground">h1 · one per page</small>

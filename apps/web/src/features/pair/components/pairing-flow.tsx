@@ -2,37 +2,28 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   ClockIcon,
+  KeyIcon,
   LinkIcon,
   ShieldCheckIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 
 import { PairForm, type PairFormProps } from '#/features/pair/components/pair-form.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '#/ui/components/ui/card.tsx'
+  PairingHost,
+  PairingLayout,
+  PairingStatusIcon,
+  VerificationPhrase,
+  type PairingHostSummary,
+} from '#/features/pair/components/pairing-layout.tsx'
+import { Button } from '#/ui/components/ui/button.tsx'
 import { Spinner } from '#/ui/components/ui/spinner.tsx'
 
-/** Safe host details shown before a phone account claims a pairing attempt. */
-export type PairingHostSummary = {
-  readonly name: string
-  readonly platform: string
-}
+export type { PairingHostSummary }
 
 /** Complete presentational states for the mobile half of pairing. */
 export type PairingFlowProps =
   | { readonly view: 'validating' }
-  | {
-      readonly view: 'sign-in-required'
-      readonly host: PairingHostSummary
-      readonly onSignIn: () => void
-    }
   | {
       readonly view: 'confirm'
       readonly host: PairingHostSummary
@@ -64,175 +55,121 @@ export function PairingFlow(props: PairingFlowProps) {
   if (props.view === 'validating') {
     return (
       <PairingLayout>
-        <Spinner className="size-6" />
-        <header className="flex flex-col gap-2">
-          <h1>Checking pairing link</h1>
-          <p className="text-muted-foreground">
-            Porte is confirming that this request is valid and still available.
-          </p>
-        </header>
-      </PairingLayout>
-    )
-  }
-
-  if (props.view === 'sign-in-required') {
-    return (
-      <PairingLayout>
-        <PairingHeader
-          description="Sign in to your Porte account before this Mac can be paired."
-          title="Continue on your phone"
-        />
-        <HostCard host={props.host} />
-        <Alert>
-          <ShieldCheckIcon />
-          <AlertTitle>Your Mac stays in control</AlertTitle>
-          <AlertDescription>
-            Porte grants remote access to this account without sharing your local Grok login.
-          </AlertDescription>
-        </Alert>
-        <Button onClick={props.onSignIn}>Sign in to continue</Button>
+        <PairingStatusIcon tone="info">
+          <Spinner className="size-6" />
+        </PairingStatusIcon>
+        <h1>Checking link</h1>
       </PairingLayout>
     )
   }
 
   if (props.view === 'confirm') {
     return (
-      <PairingLayout>
-        <PairingHeader
-          description="Confirm that the Mac and account below are the ones you expect."
-          title="Pair this Mac"
-        />
-        <HostCard host={props.host} />
+      <PairingLayout
+        actions={
+          <>
+            <Button className="w-full" disabled={props.pending} onClick={props.onConfirm}>
+              {props.pending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <LinkIcon data-icon="inline-start" />
+              )}
+              Pair Mac
+            </Button>
+            <Button
+              className="w-full"
+              disabled={props.pending}
+              variant="ghost"
+              onClick={props.onCancel}
+            >
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <PairingStatusIcon tone="info">
+          <ShieldCheckIcon aria-hidden className="size-6" />
+        </PairingStatusIcon>
+        <PairingHost host={props.host} />
         <VerificationPhrase value={props.verificationPhrase} />
-        <p className="text-muted-foreground">
-          The terminal will ask to pair with <strong>{props.accountLabel}</strong>.
-        </p>
-        <div className="flex flex-col gap-3">
-          <Button disabled={props.pending} onClick={props.onConfirm}>
-            {props.pending ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <LinkIcon data-icon="inline-start" />
-            )}
-            Pair Mac
-          </Button>
-          <Button disabled={props.pending} variant="ghost" onClick={props.onCancel}>
-            Cancel
-          </Button>
-        </div>
+        <small className="text-muted-foreground">{props.accountLabel}</small>
       </PairingLayout>
     )
   }
 
   if (props.view === 'waiting-for-desktop') {
     return (
-      <PairingLayout>
-        <ClockIcon className="size-6 text-status-info" />
-        <PairingHeader
-          description="Return to the Porte terminal and approve this account. Keep this page open."
-          title="Confirm on your Mac"
-        />
-        <HostCard host={props.host} />
+      <PairingLayout
+        actions={
+          <Button className="w-full" variant="ghost" onClick={props.onCancel}>
+            Cancel
+          </Button>
+        }
+      >
+        <PairingStatusIcon tone="info">
+          <ClockIcon aria-hidden className="size-6" />
+        </PairingStatusIcon>
+        <PairingHost host={props.host} />
         <VerificationPhrase value={props.verificationPhrase} />
-        <Button variant="ghost" onClick={props.onCancel}>
-          Cancel pairing
-        </Button>
+        <p className="text-muted-foreground">Approve this account on your Mac</p>
       </PairingLayout>
     )
   }
 
   if (props.view === 'success') {
     return (
-      <PairingLayout>
-        <CheckCircleIcon className="size-6 text-status-success" />
-        <PairingHeader
-          description="This phone can now securely control Porte sessions running on your Mac."
-          title="Mac paired"
-        />
-        <HostCard host={props.host} />
-        <Button onClick={props.onContinue}>
-          Open sessions
-          <ArrowRightIcon data-icon="inline-end" />
-        </Button>
+      <PairingLayout
+        actions={
+          <Button className="w-full" onClick={props.onContinue}>
+            Open sessions
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        }
+      >
+        <PairingStatusIcon tone="success">
+          <CheckCircleIcon aria-hidden className="size-6" />
+        </PairingStatusIcon>
+        <PairingHost host={props.host} />
+        <p className="text-status-success">Paired</p>
       </PairingLayout>
     )
   }
 
   if (props.view === 'expired') {
     return (
-      <PairingLayout>
-        <WarningCircleIcon className="size-6 text-status-warning" />
-        <PairingHeader
-          description="Run porte pair again on your Mac, then scan the new QR code."
-          title="Pairing link expired"
-        />
-        <Alert>
-          <AlertTitle>No access was granted</AlertTitle>
-          <AlertDescription>
-            Pairing links expire quickly and can be used only once.
-          </AlertDescription>
-        </Alert>
-        <Button variant="outline" onClick={props.onEnterCode}>
-          Enter a fallback code
-        </Button>
+      <PairingLayout
+        actions={
+          <Button className="w-full" variant="outline" onClick={props.onEnterCode}>
+            Enter a code
+          </Button>
+        }
+      >
+        <PairingStatusIcon tone="warning">
+          <WarningCircleIcon aria-hidden className="size-6" />
+        </PairingStatusIcon>
+        <h1>Link expired</h1>
+        <p className="text-muted-foreground">Run porte pair again</p>
       </PairingLayout>
     )
   }
 
   return (
-    <PairForm
-      code={props.code}
-      error={props.error}
-      pending={props.pending}
-      onCodeChange={props.onCodeChange}
-      onSubmit={props.onSubmit}
-    />
-  )
-}
-
-function PairingLayout({ children }: { readonly children: React.ReactNode }) {
-  return <section className="flex w-full flex-col gap-8">{children}</section>
-}
-
-function PairingHeader({
-  title,
-  description,
-}: {
-  readonly title: string
-  readonly description: string
-}) {
-  return (
-    <header className="flex flex-col gap-2">
-      <small className="text-muted-foreground">Porte</small>
-      <h1>{title}</h1>
-      <p className="text-muted-foreground">{description}</p>
-    </header>
-  )
-}
-
-function HostCard({ host }: { readonly host: PairingHostSummary }) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{host.name}</CardTitle>
-        <CardDescription>{host.platform}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <small className="text-muted-foreground">
-          Local sessions and repositories remain on this machine.
-        </small>
-      </CardContent>
-    </Card>
-  )
-}
-
-function VerificationPhrase({ value }: { readonly value: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <small className="text-muted-foreground">Match this phrase in the terminal</small>
-      <code className="w-full rounded-lg border border-border bg-muted p-4 text-center">
-        {value}
-      </code>
-    </div>
+    <PairingLayout
+      actions={
+        <PairForm
+          code={props.code}
+          error={props.error}
+          pending={props.pending}
+          onCodeChange={props.onCodeChange}
+          onSubmit={props.onSubmit}
+        />
+      }
+    >
+      <PairingStatusIcon tone="info">
+        <KeyIcon aria-hidden className="size-6" />
+      </PairingStatusIcon>
+      <h1>Enter code</h1>
+      <p className="text-muted-foreground">From the terminal</p>
+    </PairingLayout>
   )
 }

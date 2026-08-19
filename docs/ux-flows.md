@@ -326,16 +326,14 @@ authentication without exposing the daemon credential.
 
 ### Happy path
 
-1. Phone validates the pairing attempt.
-2. If signed out, phone explains that authentication is required to pair the displayed Mac.
-3. User authenticates.
-4. OAuth returns to the same pairing attempt.
-5. Phone shows the host identity and the access being granted.
-6. Phone shows the shared verification phrase.
-7. User confirms the host from the phone.
-8. Phone waits for explicit CLI confirmation of the account.
-9. Phone reports success after both confirmations.
-10. Phone continues directly to the session home.
+1. Phone validates the pairing attempt after authentication.
+2. If signed out, the pairing route redirects to sign-in with pairing intent preserved.
+3. Sign-in shows why pairing needs an account, then OAuth returns to the same pairing URL.
+4. Phone shows the host identity and the shared verification phrase.
+5. User confirms the host from the phone.
+6. Phone waits for explicit CLI confirmation of the account.
+7. Phone reports success after both confirmations.
+8. Phone continues directly to the session home.
 
 The user does not re-enter the pairing code after authentication.
 

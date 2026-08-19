@@ -1,0 +1,17 @@
+@import './colors.css';
+@import './typography.css';
+
+:root {
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: var(--radius);
+  --radius-xl: 0.75rem;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}

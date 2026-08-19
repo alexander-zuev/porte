@@ -2,8 +2,10 @@ import { PostHogProvider as BasePostHogProvider } from '@posthog/react'
 import posthog from 'posthog-js'
 import type { ReactNode } from 'react'
 
-if (!import.meta.env.SSR && import.meta.env.VITE_POSTHOG_KEY) {
-  posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
+import { settings } from '#/lib/env/env.ts'
+
+if (!import.meta.env.SSR && settings.posthog.apiKey.length > 0) {
+  posthog.init(settings.posthog.apiKey, {
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'identified_only',
     capture_pageview: false,

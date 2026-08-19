@@ -19,8 +19,6 @@ apps/web/worker-configuration.d.ts
 .wrangler/
 .dev.vars
 .dev.vars.*
-!.dev.vars.example
-!.dev.vars.*.example
 
 # dotenvx: encrypted .env files are committed; private keys are NOT
 .env.keys

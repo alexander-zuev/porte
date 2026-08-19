@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { PairPage } from '#/pages/pair/pair-page.tsx'
 
-export const Route = createFileRoute('/pair')({
+export const Route = createFileRoute('/_auth/pair')({
   component: PairRoute,
 })
 

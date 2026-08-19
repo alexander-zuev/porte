@@ -9,38 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './../../routes/__root'
-import { Route as IndexRouteImport } from './../../routes/index'
-import { Route as DashboardRouteImport } from './../../routes/dashboard'
-import { Route as PairRouteImport } from './../../routes/pair'
-import { Route as SignInRouteImport } from './../../routes/sign-in'
-import { Route as CSessionIdRouteImport } from './../../routes/c/$sessionId'
+import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
+import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
+import { Route as AuthDashboardRouteImport } from './../../routes/_auth/dashboard'
+import { Route as AuthPairRouteImport } from './../../routes/_auth/pair'
+import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
+import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
+import { Route as AuthCSessionIdRouteImport } from './../../routes/_auth/c/$sessionId'
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
 import { Route as ApiHostWsRouteImport } from './../../routes/api/host/ws'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRouteRoute = AuthRouteRouteImport.update({
+  id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
+const PublicRouteRoute = PublicRouteRouteImport.update({
+  id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthDashboardRoute = AuthDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const PairRoute = PairRouteImport.update({
+const AuthPairRoute = AuthPairRouteImport.update({
   id: '/pair',
   path: '/pair',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
-const SignInRoute = SignInRouteImport.update({
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicSignInRoute = PublicSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PublicRouteRoute,
 } as any)
-const CSessionIdRoute = CSessionIdRouteImport.update({
+const AuthCSessionIdRoute = AuthCSessionIdRouteImport.update({
   id: '/c/$sessionId',
   path: '/c/$sessionId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -54,30 +64,32 @@ const ApiHostWsRoute = ApiHostWsRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/pair': typeof PairRoute
-  '/sign-in': typeof SignInRoute
-  '/c/$sessionId': typeof CSessionIdRoute
+  '/': typeof PublicIndexRoute
+  '/dashboard': typeof AuthDashboardRoute
+  '/pair': typeof AuthPairRoute
+  '/sign-in': typeof PublicSignInRoute
+  '/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/host/ws': typeof ApiHostWsRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/pair': typeof PairRoute
-  '/sign-in': typeof SignInRoute
-  '/c/$sessionId': typeof CSessionIdRoute
+  '/': typeof PublicIndexRoute
+  '/dashboard': typeof AuthDashboardRoute
+  '/pair': typeof AuthPairRoute
+  '/sign-in': typeof PublicSignInRoute
+  '/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/host/ws': typeof ApiHostWsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/pair': typeof PairRoute
-  '/sign-in': typeof SignInRoute
-  '/c/$sessionId': typeof CSessionIdRoute
+  '/_auth': typeof AuthRouteRouteWithChildren
+  '/_public': typeof PublicRouteRouteWithChildren
+  '/_auth/dashboard': typeof AuthDashboardRoute
+  '/_auth/pair': typeof AuthPairRoute
+  '/_public/sign-in': typeof PublicSignInRoute
+  '/_public/': typeof PublicIndexRoute
+  '/_auth/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/host/ws': typeof ApiHostWsRoute
 }
@@ -102,61 +114,74 @@ export interface FileRouteTypes {
     | '/api/host/ws'
   id:
     | '__root__'
-    | '/'
-    | '/dashboard'
-    | '/pair'
-    | '/sign-in'
-    | '/c/$sessionId'
+    | '/_auth'
+    | '/_public'
+    | '/_auth/dashboard'
+    | '/_auth/pair'
+    | '/_public/sign-in'
+    | '/_public/'
+    | '/_auth/c/$sessionId'
     | '/api/auth/$'
     | '/api/host/ws'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
-  PairRoute: typeof PairRoute
-  SignInRoute: typeof SignInRoute
-  CSessionIdRoute: typeof CSessionIdRoute
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  PublicRouteRoute: typeof PublicRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiHostWsRoute: typeof ApiHostWsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_auth': {
+      id: '/_auth'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth/dashboard': {
+      id: '/_auth/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthDashboardRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/pair': {
-      id: '/pair'
+    '/_auth/pair': {
+      id: '/_auth/pair'
       path: '/pair'
       fullPath: '/pair'
-      preLoaderRoute: typeof PairRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthPairRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/sign-in': {
-      id: '/sign-in'
+    '/_public/': {
+      id: '/_public/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/sign-in': {
+      id: '/_public/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicSignInRouteImport
+      parentRoute: typeof PublicRouteRoute
     }
-    '/c/$sessionId': {
-      id: '/c/$sessionId'
+    '/_auth/c/$sessionId': {
+      id: '/_auth/c/$sessionId'
       path: '/c/$sessionId'
       fullPath: '/c/$sessionId'
-      preLoaderRoute: typeof CSessionIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthCSessionIdRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -175,12 +200,39 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthRouteRouteChildren {
+  AuthDashboardRoute: typeof AuthDashboardRoute
+  AuthPairRoute: typeof AuthPairRoute
+  AuthCSessionIdRoute: typeof AuthCSessionIdRoute
+}
+
+const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthDashboardRoute: AuthDashboardRoute,
+  AuthPairRoute: AuthPairRoute,
+  AuthCSessionIdRoute: AuthCSessionIdRoute,
+}
+
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
+  AuthRouteRouteChildren,
+)
+
+interface PublicRouteRouteChildren {
+  PublicSignInRoute: typeof PublicSignInRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+}
+
+const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicSignInRoute: PublicSignInRoute,
+  PublicIndexRoute: PublicIndexRoute,
+}
+
+const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
+  PublicRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
-  PairRoute: PairRoute,
-  SignInRoute: SignInRoute,
-  CSessionIdRoute: CSessionIdRoute,
+  AuthRouteRoute: AuthRouteRouteWithChildren,
+  PublicRouteRoute: PublicRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiHostWsRoute: ApiHostWsRoute,
 }

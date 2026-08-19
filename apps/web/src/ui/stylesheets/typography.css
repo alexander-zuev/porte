@@ -40,7 +40,7 @@
 :root {
   --font-text: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-code: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  --font-brand: var(--font-text);
+  --font-brand: 'Space Grotesk', var(--font-text);
   --font-emphasis: var(--font-text);
   --font-quote: var(--font-text);
 
@@ -279,6 +279,30 @@
 }
 
 @layer utilities {
+  .text-wordmark-sm {
+    font-family: var(--font-brand);
+    font-size: var(--font-size-fluid-3);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--letter-spacing-8);
+    line-height: var(--heading-line-height-9);
+  }
+
+  .text-wordmark {
+    font-family: var(--font-brand);
+    font-size: var(--font-size-fluid-4);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--letter-spacing-9);
+    line-height: var(--heading-line-height-9);
+  }
+
+  .text-wordmark-lg {
+    font-family: var(--font-brand);
+    font-size: var(--font-size-fluid-6);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--letter-spacing-10);
+    line-height: var(--heading-line-height-9);
+  }
+
   .text-display-hero {
     @apply text-5xl font-bold;
     letter-spacing: var(--letter-spacing-11);

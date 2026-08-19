@@ -10,7 +10,7 @@ class OAuthSignInError extends Error {
   readonly code = 'OAUTH_SIGN_IN_FAILED' as const
 
   constructor(readonly cause: unknown) {
-    super('Sign-in failed.', { cause })
+    super('Sign-in failed', { cause })
   }
 }
 

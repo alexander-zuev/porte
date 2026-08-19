@@ -5,16 +5,22 @@ import { cn } from '#/lib/utils.ts'
 type AppShellProps = {
   readonly list?: ReactNode
   readonly children?: ReactNode
+  readonly mobilePane?: 'list' | 'detail'
 }
 
 /** Phone: one pane. From md: list | thread when both exist. */
-export function AppShell({ list, children }: AppShellProps) {
+export function AppShell({ list, children, mobilePane = 'detail' }: AppShellProps) {
   const hasList = list !== undefined
   const hasMain = children !== undefined
 
   const listClassName = cn(
-    'flex min-h-svh w-full flex-col border-border md:max-w-sm md:shrink-0 md:border-r',
-    hasMain ? 'hidden md:flex' : 'flex',
+    'min-h-svh w-full flex-col border-border md:flex md:max-w-sm md:shrink-0 md:border-r',
+    hasMain && mobilePane === 'detail' ? 'hidden' : 'flex',
+  )
+
+  const mainClassName = cn(
+    'min-h-svh min-w-0 flex-1 flex-col md:flex',
+    hasList && mobilePane === 'list' ? 'hidden' : 'flex',
   )
 
   return (
@@ -26,7 +32,7 @@ export function AppShell({ list, children }: AppShellProps) {
           <main className={listClassName}>{list}</main>
         )
       ) : null}
-      {hasMain ? <main className="flex min-h-svh min-w-0 flex-1 flex-col">{children}</main> : null}
+      {hasMain ? <main className={mainClassName}>{children}</main> : null}
     </div>
   )
 }

@@ -4,12 +4,14 @@ import { captcha } from 'better-auth/plugins'
 export type AuthRuntimeConfig = {
   readonly secret: string
   readonly baseURL: string
+  readonly googleClientId: string
+  readonly googleClientSecret: string
+  readonly appleClientId: string
+  readonly appleClientSecret: string
   readonly githubClientId: string
   readonly githubClientSecret: string
   readonly twitterClientId: string
   readonly twitterClientSecret: string
-  readonly vercelClientId: string
-  readonly vercelClientSecret: string
   readonly turnstileSecretKey: string
 }
 
@@ -35,6 +37,14 @@ export function createBetterAuthOptions(
       enabled: false,
     },
     socialProviders: {
+      google: {
+        clientId: config?.googleClientId ?? '',
+        clientSecret: config?.googleClientSecret ?? '',
+      },
+      apple: {
+        clientId: config?.appleClientId ?? '',
+        clientSecret: config?.appleClientSecret ?? '',
+      },
       github: {
         clientId: config?.githubClientId ?? '',
         clientSecret: config?.githubClientSecret ?? '',
@@ -42,10 +52,6 @@ export function createBetterAuthOptions(
       twitter: {
         clientId: config?.twitterClientId ?? '',
         clientSecret: config?.twitterClientSecret ?? '',
-      },
-      vercel: {
-        clientId: config?.vercelClientId ?? '',
-        clientSecret: config?.vercelClientSecret ?? '',
       },
     },
     trustedOrigins: config ? [config.baseURL] : DEV_ORIGINS,
