@@ -1,102 +1,226 @@
 # Host Architecture
 
-## Status
+## Status and Authority
 
-This document defines the target host architecture. It replaces the earlier chat summary.
+This document defines the target host architecture for the first Porte release.
 
-The first implementation supports Grok through ACP. Future coding-agent integrations use the same application contracts and canonical events.
+[The product specification](./spec.md) owns product scope and published behavior. This document defines the host design that implements it.
 
-## Goal
+The current host code implements session discovery, CLI resume, and the outbound relay. It does not implement this complete target yet.
 
-The host lets a remote client control local coding-agent sessions without exposing provider protocols to the relay or web application.
+## Summary
 
-The core flow is:
+The host lets a remote client control local coding-agent sessions. Provider protocols do not cross the host adapter boundary.
 
 ```text
-ACP DTO
+Phone PWA
+  -> Worker authentication
+  -> Host Durable Object
+  -> routed WebSocket request
+  -> host relay entrypoint
+  -> application handler
+  -> ActiveSession
+  -> CodingAgent port
   -> Grok ACP adapter
-  -> CodingSessionEvent
-  -> host relay
-  -> UIMessage projector
-  -> UIMessage
+  -> local Grok process
 ```
 
-A future provider uses the same boundary:
+Events use the reverse path. The web application projects canonical events into `UIMessage` parts.
 
-```text
-Claude protocol
-  -> Claude adapter
-  -> CodingSessionEvent
-  -> host relay
-  -> UIMessage projector
-  -> UIMessage
-```
+The host uses direct handlers. Each relay method has one handler and no local persistence transaction.
+
+## Goals
+
+1. Implement every host behavior in the product specification.
+2. Keep ACP and Grok types inside the Grok adapter.
+3. Preserve one current session view across replay and live updates.
+4. Make retries, cancellation, and reconnect safe.
+5. Return stable errors without exposing content or raw failures.
+
+## Non-Goals
+
+1. Attach to an open terminal interface.
+2. Expose a file browser or interactive terminal.
+3. Advertise ACP filesystem or terminal capabilities.
+4. Support session deletion, fork, extra roots, or MCP injection.
+5. Persist conversation content in the relay.
+
+## Invariants
+
+| Invariant                                            | Owner                               |
+| ---------------------------------------------------- | ----------------------------------- |
+| One agent process exists for each open session.      | `ActiveSessionRegistry`             |
+| One active turn exists in each session.              | `ActiveSession`                     |
+| A repeated `turnId` never sends a second prompt.     | `ActiveSession`                     |
+| A repeated `requestId` never repeats a mutation.     | `RequestLedger`                     |
+| Only a catalog path can start or load a session.     | Create and open handlers            |
+| Replay completes before live delivery starts.        | `SessionEventRouter`                |
+| `session.snapshot` replaces the complete view.       | `ActiveSession` and web projector   |
+| Every permission and elicitation waits for the user. | `ActiveSession`                     |
+| Cancellation stops later process and file effects.   | ACP boundary and process controller |
+| Raw provider values never enter public events.       | Grok adapter                        |
+
+## Current State
+
+The current code is an earlier delivery slice. Implementation must replace these contracts.
+
+| Current code                                         | Target state                                   |
+| ---------------------------------------------------- | ---------------------------------------------- |
+| `protocol.ts` publishes `session.update`.            | Publish the event families in this document.   |
+| `session.open` returns no complete snapshot.         | Publish `session.snapshot` before live events. |
+| Messages contain text only.                          | Use canonical rich content.                    |
+| Tools support four kinds.                            | Support all nine product tool kinds.           |
+| Permission requests receive an automatic answer.     | Store each request until the user answers.     |
+| The adapter advertises filesystem methods.           | Advertise no filesystem or terminal methods.   |
+| Configuration, commands, and elicitation are absent. | Map all capability-gated inputs.               |
+| Errors expose `GROK_UNAVAILABLE`.                    | Use provider-independent agent codes.          |
+
+Confirm external protocol use before removing current shapes. If an external client exists, use an overlap period.
+
+## Design Constraints
+
+`packages/core` owns published Zod schemas and inferred types. Runtime boundaries parse unknown data with these schemas.
+
+The host uses `better-result`. Expected failures return `Result.err(TaggedError)`. Only programmer defects can escape as thrown values.
+
+The host daemon owns local process state. The Durable Object owns public routing state for one paired host.
+
+The relay can hold payloads in memory. It does not persist or log prompts, messages, tool output, diffs, or responses.
+
+Optional ACP features remain capability-gated. The adapter records only safe names and counts for unsupported data.
+
+## Alternatives Considered
+
+### Raw ACP relay
+
+This design couples the relay and PWA to ACP. It also exposes unsafe extension data.
+
+### Canonical events with direct handlers
+
+This design keeps provider changes local. It gives domain models clear ownership of state, replay, and interactions.
+
+### Generic state patches
+
+This design makes invalid patches representable. It hides replacement rules and makes replay checks harder.
+
+## Recommendation
+
+Use canonical events with direct handlers. Keep one provider adapter, one session model, and one composition root.
+
+Do not add generic provider, raw, custom, or patch events.
 
 ## Boundaries
 
-Each boundary owns one representation.
+| Boundary       | Input             | Output                     | Must not cross            |
+| -------------- | ----------------- | -------------------------- | ------------------------- |
+| Worker         | Public request    | Authenticated route        | Unverified identity       |
+| Durable Object | Protocol envelope | Routed envelope            | Local path interpretation |
+| Host relay     | Unknown JSON      | Parsed request             | Invalid data              |
+| Application    | Typed command     | Typed result or event      | Transport and ACP types   |
+| Grok adapter   | Application types | Events and typed errors    | Raw ACP values            |
+| Web projector  | Canonical events  | `UIMessage` and view state | Raw ACP values            |
 
-1. ACP DTOs exist only inside the ACP infrastructure adapter.
-2. `CodingSessionEvent` is the canonical coding-session event model.
-3. WebSocket envelopes exist only at the relay boundary.
-4. `UIMessage` exists only inside the web application.
-5. Raw provider events never cross the adapter boundary.
+The relay entrypoint owns parsing, dispatch, response conversion, and final error logging.
 
-`CodingSessionEvent` does not include a product name. Its name describes the domain concept.
+Handlers own use-case order. Domain models own invariants and state changes.
 
-## First ACP Scope
+Infrastructure owns WebSocket, ACP, process, clock, and identifier details.
 
-### Session lifecycle
+## Canonical Domain Model
 
-The first implementation supports these ACP operations:
+### Content
 
-- `initialize` with capability validation.
-- `session/load` for an existing session and its conversation replay.
-- `session/new` for a new session.
-- `session/prompt`, `session/cancel`, and `session/close`.
-- `session/request_permission` with an explicit user answer.
+```ts
+type CanonicalContent =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
+  | { type: 'audio'; data: string; mimeType: string }
+  | { type: 'resource'; resource: EmbeddedResource }
+  | ResourceLink
 
-The web open flow uses `session/load`. ACP requires this operation to replay the conversation before it returns.
+type EmbeddedResource = {
+  uri: string
+  mimeType?: string
+  content: { type: 'text'; text: string } | { type: 'blob'; data: string }
+}
 
-`session/resume` is not part of the first implementation. It restores context without replay and cannot provide the initial conversation.
+type ResourceLink = {
+  type: 'resource-link'
+  uri: string
+  name: string
+  title?: string
+  description?: string
+  mimeType?: string
+  size?: number
+}
+```
 
-### Session updates
+Text and resource links are baseline inputs. Other content requires the matching negotiated capability.
 
-The first implementation maps all ACP input required for a usable coding session:
+### Session view
 
-| ACP input                       | Canonical output                     |
-| ------------------------------- | ------------------------------------ |
-| Completed `session/load` replay | `conversation.snapshot`              |
-| Accepted prompt                 | `turn.started`                       |
-| `user_message_chunk`            | `message.*` with `role: 'user'`      |
-| `agent_message_chunk`           | `message.*` with `role: 'assistant'` |
-| `agent_thought_chunk`           | `reasoning.*`                        |
-| `tool_call`                     | `tool.started`                       |
-| `tool_call_update`              | `tool.updated`                       |
-| `plan`                          | `plan.updated`                       |
-| `usage_update`                  | `session.usage.updated`              |
-| `session_info_update`           | `session.metadata.updated`           |
-| `session/request_permission`    | `permission.requested`               |
-| Permission response             | `permission.resolved`                |
-| Prompt result with `stopReason` | `turn.finished`                      |
-| Agent process or ACP failure    | `session.failed`                     |
+`SessionView` is the only current representation of one open session.
 
-These events cover replay, live turns, progress, tools, permissions, session metadata, and terminal failures.
+```ts
+type SessionView<TPending extends PendingInteractions = PendingInteractions> = {
+  items: readonly ConversationItem[]
+  tools: readonly ToolView[]
+  plan: readonly PlanEntry[]
+  usage?: SessionUsage
+  configuration?: readonly SessionConfigurationOption[]
+  commands?: readonly SessionCommand[]
+  pending: TPending
+}
 
-The first implementation deliberately ignores these ACP updates:
+type ConversationItem = MessageView | ReasoningView | { type: 'tool'; toolCallId: ToolCallId }
 
-- Mode and model configuration.
-- Available commands.
+type MessageView = {
+  type: 'message'
+  messageId: MessageId
+  role: 'user' | 'assistant'
+  content: readonly CanonicalContent[]
+}
 
-The product does not display or control these values yet. The adapter records an observability count when it ignores a known update.
+type ReasoningView = {
+  type: 'reasoning'
+  messageId: MessageId
+  content: readonly CanonicalContent[]
+}
+```
 
-Filesystem and terminal methods are separate client capabilities. They are not session events. The host does not advertise these capabilities.
+A tool appears once in `tools`. A conversation item references it by `toolCallId`.
 
-The adapter skips an unknown update and records its ACP name. A malformed supported update stops the session with a typed protocol error.
+### Active session
+
+```ts
+type ActiveSession = {
+  acceptedTurnIds: ReadonlySet<TurnId>
+  state: ActiveSessionState
+}
+
+type ActiveSessionState =
+  | { state: 'idle'; view: SessionView<NoPendingInteractions> }
+  | { state: 'running'; turnId: TurnId; view: SessionView }
+  | { state: 'failed'; error: CodingAgentError; view: SessionView<NoPendingInteractions> }
+
+type PendingInteractions = {
+  permissions: readonly PendingPermission[]
+  elicitations: readonly PendingElicitation[]
+}
+
+type NoPendingInteractions = {
+  permissions: readonly []
+  elicitations: readonly []
+}
+```
+
+`ActiveSession` applies events and rejects invalid turn or interaction changes.
+
+Each pending interaction must use the active `turnId`. Failure and cancellation clear all pending interactions.
 
 ## Canonical Event Model
 
-`packages/core` owns the schemas and types for `CodingSessionEvent`.
+`packages/core/src/coding-session-event.ts` owns these schemas and types.
 
 ```ts
 type CodingSessionEvent = {
@@ -105,122 +229,103 @@ type CodingSessionEvent = {
 } & CodingSessionEventData
 
 type CodingSessionEventData =
-  | ConversationSnapshotEvent
+  | SessionSnapshotEvent
   | TurnStartedEvent
-  | MessageStartedEvent
-  | MessageDeltaEvent
-  | MessageCompletedEvent
-  | ReasoningStartedEvent
-  | ReasoningDeltaEvent
-  | ReasoningCompletedEvent
-  | ToolStartedEvent
+  | MessageEvent
+  | ReasoningEvent
   | ToolUpdatedEvent
   | PlanUpdatedEvent
   | SessionUsageUpdatedEvent
-  | SessionUpdatedEvent
-  | PermissionRequestedEvent
-  | PermissionResolvedEvent
+  | SessionMetadataUpdatedEvent
+  | SessionConfigurationUpdatedEvent
+  | SessionCommandsUpdatedEvent
+  | PermissionEvent
+  | ElicitationEvent
   | TurnFinishedEvent
   | SessionFailedEvent
-```
 
-### Conversation replay
-
-The Grok adapter collects ACP replay updates during `session/load`.
-
-It emits one snapshot before the open operation returns.
-
-```ts
-type ConversationSnapshotEvent = {
-  type: 'conversation.snapshot'
-  items: readonly ConversationItem[]
-  plan: readonly PlanEntry[]
+type CodingAgentError = {
+  code: 'CODING_AGENT_UNAVAILABLE' | 'REQUEST_TIMEOUT' | 'INTERNAL_ERROR'
+  message: string
 }
 
-type ConversationItem = TextMessage | ReasoningMessage | ToolActivity
+type SessionFailedEvent = {
+  type: 'session.failed'
+  error: CodingAgentError
+}
 ```
 
-The receiver replaces its current conversation with the snapshot. It does not merge two replay streams.
+Each receiver removes duplicate `eventId` values within one session. It preserves unique arrival order.
 
-### Turn lifecycle
+The adapter keeps a provider event ID when available. The host creates one stable ID for each derived event.
+
+### Snapshot and conversation
 
 ```ts
-type TurnStartedEvent = {
-  type: 'turn.started'
-  turnId: TurnId
+type SessionSnapshotEvent = {
+  type: 'session.snapshot'
+  view: SessionView
 }
+
+type TurnStartedEvent = { type: 'turn.started'; turnId: TurnId }
 
 type TurnFinishedEvent = {
   type: 'turn.finished'
   turnId: TurnId
   outcome:
-    | { type: 'completed'; stopReason: string }
+    | { type: 'completed'; reason: 'completed' | 'limit_reached' | 'refused' | 'other' }
     | { type: 'cancelled' }
     | { type: 'failed'; error: CodingAgentError }
 }
+
+type MessageEvent =
+  | { type: 'message.started'; turnId: TurnId; messageId: MessageId; role: 'user' | 'assistant' }
+  | { type: 'message.delta'; turnId: TurnId; messageId: MessageId; content: CanonicalContent }
+  | { type: 'message.completed'; turnId: TurnId; messageId: MessageId }
+
+type ReasoningEvent =
+  | { type: 'reasoning.started'; turnId: TurnId; messageId: MessageId }
+  | { type: 'reasoning.delta'; turnId: TurnId; messageId: MessageId; content: CanonicalContent }
+  | { type: 'reasoning.completed'; turnId: TurnId; messageId: MessageId }
 ```
 
-One session can have one active turn. A repeated `turnId` must not send the prompt again.
+The snapshot replaces the complete view. The client never merges two replay streams.
 
-### Text messages
+All chunks for one message use one `messageId`. The adapter creates an ID only when the agent supplies none.
 
-```ts
-type MessageStartedEvent = {
-  type: 'message.started'
-  turnId: TurnId
-  messageId: MessageId
-  role: 'user' | 'assistant'
-}
-
-type MessageDeltaEvent = {
-  type: 'message.delta'
-  turnId: TurnId
-  messageId: MessageId
-  delta: string
-}
-
-type MessageCompletedEvent = {
-  type: 'message.completed'
-  turnId: TurnId
-  messageId: MessageId
-}
-```
-
-All chunks for one message use one `messageId`.
-
-The provider adapter creates explicit start and completion events when the provider only supplies chunks.
-
-### Reasoning
-
-Reasoning uses `reasoning.started`, `reasoning.delta`, and `reasoning.completed`.
-
-Reasoning stays separate from assistant text. This lets the web projector create a distinct `UIMessage` reasoning part.
-
-### Tool activity
+### Tools
 
 ```ts
-type ToolStartedEvent = {
-  type: 'tool.started'
-  turnId: TurnId
+type ToolKind =
+  'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'other'
+
+type ToolView = {
   toolCallId: ToolCallId
+  turnId: TurnId
   title: string
-  kind: 'read' | 'edit' | 'execute' | 'other'
+  kind: ToolKind
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  content: readonly ToolContent[]
+  locations: readonly ToolLocation[]
 }
+
+type ToolContent =
+  | { type: 'content'; content: CanonicalContent }
+  | { type: 'diff'; path: string; oldText: string | null; newText: string }
+
+type ToolLocation = { path: string; line?: number }
 
 type ToolUpdatedEvent = {
   type: 'tool.updated'
-  turnId: TurnId
-  toolCallId: ToolCallId
-  status: 'pending' | 'in_progress' | 'completed' | 'failed'
-  content: readonly ToolContent[]
+  tool: ToolView
 }
 ```
 
-The adapter removes raw tool metadata. It keeps only content that the product displays.
+Each event replaces its complete `ToolView`. There is no separate `tool.started` event.
 
-### Plan
+The adapter removes raw input, raw output, provider metadata, and unknown extension fields.
 
-ACP sends each plan as a complete replacement. The canonical event keeps the same replacement rule.
+### Plan and usage
 
 ```ts
 type PlanEntry = {
@@ -234,19 +339,11 @@ type PlanUpdatedEvent = {
   turnId: TurnId
   entries: readonly PlanEntry[]
 }
-```
 
-The web projector replaces the current plan. It does not merge plan entries.
-
-### Session usage
-
-`usage_update` reports current context use and optional cumulative cost. It does not report token use for one turn.
-
-```ts
 type SessionUsage = {
   usedTokens: number
   sizeTokens: number
-  cost: { state: 'reported'; amount: number; currency: string } | { state: 'unavailable' }
+  cost?: { amount: number; currency: string }
 }
 
 type SessionUsageUpdatedEvent = {
@@ -255,33 +352,84 @@ type SessionUsageUpdatedEvent = {
 }
 ```
 
-The web application derives remaining tokens and percentage from `usedTokens` and `sizeTokens`. The event does not duplicate these values.
+Each plan event replaces the ordered plan. Each usage event replaces current session usage.
 
-Usage support is optional in ACP. The adapter emits no usage event when the coding agent supplies no usage data.
+The client derives remaining tokens and percentage. Per-turn token use stays outside the protocol.
 
-### Session metadata and failures
+### Configuration and commands
 
 ```ts
-type SessionMetadataUpdatedEvent = {
-  type: 'session.metadata.updated'
-  update: { title: string; updatedAt?: Instant } | { title?: never; updatedAt: Instant }
+type SessionConfigurationOption = SelectConfiguration | BooleanConfiguration
+
+type SelectConfiguration = {
+  type: 'select'
+  id: string
+  name: string
+  description?: string
+  category?: string
+  currentValue: string
+  options: readonly SelectConfigurationValue[]
 }
 
-type SessionFailedEvent = {
-  type: 'session.failed'
-  error: CodingAgentError
+type SelectConfigurationValue = {
+  value: string
+  name: string
+  description?: string
+}
+
+type BooleanConfiguration = {
+  type: 'boolean'
+  id: string
+  name: string
+  description?: string
+  category?: string
+  currentValue: boolean
+}
+
+type SessionConfigurationUpdatedEvent = {
+  type: 'session.configuration.updated'
+  options: readonly SessionConfigurationOption[]
+}
+
+type SessionCommand = {
+  name: string
+  description: string
+  inputHint?: string
+}
+
+type SessionCommandsUpdatedEvent = {
+  type: 'session.commands.updated'
+  commands: readonly SessionCommand[]
 }
 ```
 
-`session.metadata.updated` cannot contain an empty update. The session catalog remains the current metadata source for a reconnect.
+Each event contains the complete ordered state. Unknown configuration categories remain displayable.
 
-`session.failed` means the active session cannot accept more commands. An active turn first emits a failed `turn.finished` event.
+The adapter uses `configOptions` when present. It maps legacy modes only when configuration options are absent.
+
+The client executes a slash command as a normal prompt. The command catalog is session state, not conversation content.
+
+### Session metadata
+
+```ts
+type SessionMetadataPatch =
+  | { title: string | null; updatedAt?: Instant | null }
+  | { title?: never; updatedAt: Instant | null }
+
+type SessionMetadataUpdatedEvent = {
+  type: 'session.metadata.updated'
+  update: SessionMetadataPatch
+}
+```
+
+Omitted fields stay unchanged. `null` clears a field. An empty update is invalid.
+
+The event router also updates the host catalog. The Durable Object receives the catalog without polling.
 
 ### Permissions
 
 ```ts
-type PermissionRequestedEvent = {
-  type: 'permission.requested'
+type PendingPermission = {
   turnId: TurnId
   permissionId: PermissionId
   toolCallId: ToolCallId
@@ -289,126 +437,504 @@ type PermissionRequestedEvent = {
   options: readonly PermissionOption[]
 }
 
-type PermissionResolvedEvent = {
-  type: 'permission.resolved'
-  turnId: TurnId
-  permissionId: PermissionId
-  outcome: { type: 'selected'; optionId: string } | { type: 'cancelled' }
+type PermissionOption = {
+  optionId: string
+  name: string
+  kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
 }
+
+type PermissionEvent =
+  | ({ type: 'permission.requested' } & PendingPermission)
+  | {
+      type: 'permission.resolved'
+      turnId: TurnId
+      permissionId: PermissionId
+      outcome: { type: 'selected'; optionId: string } | { type: 'cancelled' }
+    }
 ```
 
-The host never selects an allow option automatically.
+The host forwards every option. It never selects an allow option without a user response.
 
-The client answers with `sessionId`, `turnId`, `permissionId`, and `optionId`.
+### Elicitation
 
-The host emits `permission.resolved` after the ACP response succeeds. This event clears the request for all connected clients.
+```ts
+type FormValue = string | number | boolean
 
-Every canonical event has one `eventId`. The receiver uses this value to remove duplicate events within one session.
+type FormField =
+  | { type: 'text'; id: string; label: string; required: boolean; options?: readonly string[] }
+  | { type: 'number'; id: string; label: string; required: boolean }
+  | { type: 'boolean'; id: string; label: string; required: boolean }
 
-The adapter keeps an ACP event ID when one exists. It creates an ID once for each event that the host derives.
+type PendingElicitation = {
+  turnId: TurnId
+  elicitationId: ElicitationId
+  request: { type: 'form'; fields: readonly FormField[] } | { type: 'url'; url: string }
+}
+
+type ElicitationAnswer =
+  | { type: 'submit'; values: Readonly<Record<string, FormValue>> }
+  | { type: 'accept' }
+  | { type: 'decline' }
+  | { type: 'cancel' }
+
+type ElicitationEvent =
+  | ({ type: 'elicitation.requested' } & PendingElicitation)
+  | {
+      type: 'elicitation.resolved'
+      turnId: TurnId
+      elicitationId: ElicitationId
+      outcome:
+        | { type: 'submitted'; values: Readonly<Record<string, FormValue>> }
+        | { type: 'accepted' }
+        | { type: 'declined' }
+        | { type: 'cancelled' }
+    }
+  | { type: 'elicitation.completed'; turnId: TurnId; elicitationId: ElicitationId }
+```
+
+The adapter accepts only the restricted form schema. It rejects sensitive fields and unsupported schema keywords.
+
+`submit` is valid only for a form. `accept` is valid only for a URL.
+
+The PWA shows the complete URL and obtains consent. It does not prefetch the URL.
+
+The host does not advertise request-scoped elicitation outside a session.
 
 ## Application Ports
 
-Port names describe capabilities. Concrete names include the provider or transport.
+| Port                 | Responsibility                      | Grok implementation           |
+| -------------------- | ----------------------------------- | ----------------------------- |
+| `SessionCatalog`     | List provider-independent sessions. | `GrokSessionCatalog`          |
+| `CodingAgent`        | Create or open one session.         | `GrokAcpCodingAgent`          |
+| `CodingAgentSession` | Control one open session.           | `GrokAcpSession`              |
+| `HostEventPublisher` | Publish canonical events.           | `WebSocketHostEventPublisher` |
+| `Clock`              | Return protocol time.               | `SystemClock`                 |
+| `IdFactory`          | Create host-owned identifiers once. | `UuidV7IdFactory`             |
 
-| Port                 | Responsibility                            | First implementation          |
-| -------------------- | ----------------------------------------- | ----------------------------- |
-| `SessionCatalog`     | Read stored session metadata              | `GrokSessionCatalog`          |
-| `CodingAgent`        | Open or create a coding-agent session     | `GrokAcpCodingAgent`          |
-| `CodingAgentSession` | Control one active coding-agent process   | `GrokAcpSession`              |
-| `HostEventPublisher` | Publish canonical events to relay targets | `WebSocketHostEventPublisher` |
-| `Clock`              | Return the current protocol time          | `SystemClock`                 |
-
-ACP clients and subprocess helpers are infrastructure details. They are not application ports.
-
-### Coding-agent contracts
+ACP clients, Grok storage, subprocess helpers, and WebSocket libraries are infrastructure details.
 
 ```ts
+interface SessionCatalog {
+  list(): Promise<Result<readonly SessionSummary[], SessionCatalogError>>
+}
+
 interface CodingAgent {
-  open(input: OpenCodingSession): Promise<Result<CodingAgentSession, OpenSessionError>>
-
-  create(input: CreateCodingSession): Promise<Result<CreatedCodingSession, CreateSessionError>>
+  create(input: CreateCodingSession): Promise<Result<OpenedCodingSession, CreateSessionError>>
+  open(input: OpenCodingSession): Promise<Result<OpenedCodingSession, OpenSessionError>>
 }
 
-type OpenCodingSession = {
-  session: SessionSummary
-  emit: EmitCodingSessionEvent
+type CreateCodingSession = { cwd: string; routeEvent: RouteCodingSessionEvent }
+type OpenCodingSession = { session: SessionSummary; routeEvent: RouteCodingSessionEvent }
+
+type OpenedCodingSession = {
+  runtime: CodingAgentSession
+  replay: SessionView
 }
 
-type CreateCodingSession = {
-  cwd: string
-  emit: EmitCodingSessionEvent
-}
-```
+type RouteCodingSessionEvent = (
+  event: CodingSessionEvent,
+) => Promise<Result<void, SessionEventRouteError>>
 
-```ts
+type TurnAccepted = { turnId: TurnId }
+type TurnCancelled = { turnId: TurnId }
+type PermissionAnswered = { permissionId: PermissionId }
+type ElicitationAnswered = { elicitationId: ElicitationId }
+
+type AnswerPermission = {
+  turnId: TurnId
+  permissionId: PermissionId
+  optionId: string
+}
+
+type AnswerElicitation = {
+  turnId: TurnId
+  elicitationId: ElicitationId
+  answer: ElicitationAnswer
+}
+
 interface CodingAgentSession {
   readonly sessionId: SessionId
-
   startTurn(input: StartTurn): Promise<Result<TurnAccepted, StartTurnError>>
-
   cancelTurn(turnId: TurnId): Promise<Result<TurnCancelled, CancelTurnError>>
-
+  setConfiguration(
+    input: SetSessionConfiguration,
+  ): Promise<Result<readonly SessionConfigurationOption[], SetConfigurationError>>
   answerPermission(
     input: AnswerPermission,
   ): Promise<Result<PermissionAnswered, AnswerPermissionError>>
-
+  answerElicitation(
+    input: AnswerElicitation,
+  ): Promise<Result<ElicitationAnswered, AnswerElicitationError>>
   close(): Promise<Result<void, CloseSessionError>>
+}
+
+type StartTurn = { turnId: TurnId; prompt: readonly CanonicalContent[] }
+
+type SetSessionConfiguration =
+  | { optionId: string; value: { type: 'select'; value: string } }
+  | { optionId: string; value: { type: 'boolean'; value: boolean } }
+```
+
+The event callback belongs to the session lifetime. It does not belong to each prompt.
+
+The Grok adapter starts `grok --no-auto-update agent stdio` in the validated workspace.
+
+`GrokSessionCatalog` uses `session/list` when advertised. Otherwise, it reads provider storage.
+
+The adapter follows every list cursor. Provider `_meta` data does not cross the boundary.
+
+## Application Services
+
+### Active session registry
+
+`ActiveSessionRegistry` stores each `ActiveSession` with its `CodingAgentSession` runtime.
+
+Opening an active session returns its current snapshot. It does not start another process.
+
+Closing removes the runtime only after the process stops. A failed stop leaves the session in `failed` state.
+
+### Request ledger
+
+```ts
+type RequestFingerprint = string & { readonly __brand: 'RequestFingerprint' }
+
+type DaemonMethod = Exclude<ClientMethod, 'host.snapshot'>
+type DaemonResult<Method extends DaemonMethod> = ApiResponse<ClientMethodMap[Method]['result']>
+
+type RequestKey<Method extends DaemonMethod> = {
+  requestId: RequestId
+  method: Method
+  fingerprint: RequestFingerprint
+}
+
+type RequestClaim<Method extends DaemonMethod> =
+  | { state: 'new' }
+  | { state: 'pending'; result: Promise<DaemonResult<Method>> }
+  | { state: 'completed'; result: DaemonResult<Method> }
+  | { state: 'conflict' }
+
+interface RequestLedger {
+  claim<Method extends DaemonMethod>(key: RequestKey<Method>): RequestClaim<Method>
+  complete<Method extends DaemonMethod>(key: RequestKey<Method>, result: DaemonResult<Method>): void
 }
 ```
 
-The event callback belongs to the session lifecycle. It does not belong to each prompt.
+The bounded ledger is process-local. It survives relay reconnects because the daemon stays alive.
 
-## Application State
+A repeated pending request waits for the first result. A completed request returns the stored result.
 
-`ActiveSession` is the domain entity. It enforces the turn and permission state.
+The ledger rejects one `requestId` with a different method or payload fingerprint.
 
-```ts
-type ActiveSessionState =
-  | { state: 'idle' }
-  | { state: 'running'; turnId: TurnId }
-  | {
-      state: 'awaiting_permission'
-      turnId: TurnId
-      permissionId: PermissionId
-      allowedOptionIds: ReadonlySet<string>
-    }
-  | { state: 'failed'; error: CodingAgentError }
-```
+The ledger never evicts an entry during the daemon process lifetime. It rejects new claims when its fixed capacity is full.
 
-`ActiveSessionRegistry` is an application service. It stores each `ActiveSession` with its `CodingAgentSession` runtime.
+The client does not retry an indeterminate mutation after the daemon exits. It first reads current host and session state.
+
+### Event router
+
+`SessionEventRouter` applies each event to `ActiveSession` before publication.
+
+During open, it collects replay into one `SessionView`. It buffers live events until snapshot publication completes.
+
+Metadata changes go to the session audience and the host catalog audience.
 
 ## Application Handlers
 
-The relay entrypoint dispatches each request to one handler.
+| Public method               | Owner                     | Main sequence                                      |
+| --------------------------- | ------------------------- | -------------------------------------------------- |
+| `host.snapshot`             | Host Durable Object       | Read host status and cached catalog.               |
+| `session.create`            | `CreateSession`           | Validate path, create, register, publish snapshot. |
+| `session.open`              | `OpenSession`             | Find summary, open or reuse, publish snapshot.     |
+| `session.close`             | `CloseSession`            | Cancel work, close process, remove runtime.        |
+| `turn.start`                | `StartTurn`               | Claim turn, send prompt, publish acceptance.       |
+| `turn.cancel`               | `CancelTurn`              | Cancel interactions, cancel turn, enforce stop.    |
+| `session.configuration.set` | `SetSessionConfiguration` | Validate option, set value, replace state.         |
+| `permission.answer`         | `AnswerPermission`        | Validate request and option, answer, resolve.      |
+| `elicitation.answer`        | `AnswerElicitation`       | Validate request and data, answer, resolve.        |
 
-| Request             | Handler            |
-| ------------------- | ------------------ |
-| List host sessions  | `ListSessions`     |
-| `session.open`      | `OpenSession`      |
-| `session.create`    | `CreateSession`    |
-| `session.close`     | `CloseSession`     |
-| `turn.start`        | `StartTurn`        |
-| `turn.cancel`       | `CancelTurn`       |
-| `permission.answer` | `AnswerPermission` |
+Handlers receive parsed inputs. They never parse WebSocket or ACP data.
 
-Handlers coordinate domain state and ports. They do not parse ACP or build WebSocket envelopes.
+## Public Protocol
 
-## AG-UI Design Insights
+`packages/core/src/protocol.ts` owns request, response, route, and version envelopes.
 
-AG-UI is a design reference, not a runtime dependency.
+`packages/core/src/coding-session-event.ts` owns event data. `protocol.ts` references those schemas.
 
-We use these ideas:
+```ts
+type ClientMethodMap = {
+  'host.snapshot': { params: {}; result: HostSnapshot }
+  'session.create': { params: CreateSessionParams; result: SessionOpened }
+  'session.open': { params: OpenSessionParams; result: SessionOpened }
+  'session.close': { params: CloseSessionParams; result: {} }
+  'turn.start': { params: StartTurnParams; result: TurnAccepted }
+  'turn.cancel': { params: CancelTurnParams; result: TurnCancelled }
+  'session.configuration.set': {
+    params: SetSessionConfigurationParams
+    result: SessionConfigurationState
+  }
+  'permission.answer': { params: AnswerPermissionParams; result: PermissionAnswered }
+  'elicitation.answer': { params: AnswerElicitationParams; result: ElicitationAnswered }
+}
 
-1. Separate session, turn, message, and tool identifiers.
-2. Use explicit start, delta, and completion events.
-3. Use a complete snapshot for replay and ordered events for live work.
-4. Keep event semantics independent from the transport.
-5. Keep reasoning separate from assistant text.
+type SessionOpened = { session: SessionSummary; turn: SessionTurnState }
+type CreateSessionParams = { cwd: string }
+type OpenSessionParams = { sessionId: SessionId }
+type CloseSessionParams = { sessionId: SessionId }
 
-We do not use AG-UI `RAW`, `CUSTOM`, or generic state patches in the first implementation.
+type StartTurnParams = {
+  sessionId: SessionId
+  turnId: TurnId
+  prompt: readonly CanonicalContent[]
+}
 
-ACP tool state does not match AG-UI tool argument streaming. The canonical model keeps ACP-independent tool status and content.
+type CancelTurnParams = { sessionId: SessionId; turnId: TurnId }
+type SetSessionConfigurationParams = { sessionId: SessionId } & SetSessionConfiguration
+type SessionConfigurationState = { options: readonly SessionConfigurationOption[] }
+type AnswerPermissionParams = { sessionId: SessionId } & AnswerPermission
+type AnswerElicitationParams = { sessionId: SessionId } & AnswerElicitation
+
+type HostStatusEvent = { status: 'online' | 'offline' }
+type SessionsChangedEvent = { catalog: SessionCatalogState }
+
+type ClientEventMap = {
+  'host.status': HostStatusEvent
+  'sessions.changed': SessionsChangedEvent
+  'session.event': CodingSessionEvent
+}
+```
+
+Each request has a client-owned `requestId`. `turn.start` also has a client-owned `turnId`.
+
+The client reuses both identifiers only for the same logical action.
+
+`session.event` transports the canonical union. Its nested `type` is the product event name.
+
+## Call Stacks and Data Flow
+
+### Connect and catalog
+
+```text
+main
+  -> createAppDeps
+  -> HostConnector.connect
+  -> WebSocketHostRelay.run
+  -> Worker verifies daemon token
+  -> Host Durable Object accepts socket
+  -> ListSessions handler
+  -> SessionCatalog.list
+  -> ACP session/list or Grok storage
+  -> sessions.changed
+  -> Durable Object stores catalog
+```
+
+The daemon reconnects with bounded exponential backoff, full jitter, and a maximum delay.
+
+A new authenticated socket replaces the prior host socket. The host publishes a catalog after each reconnect.
+
+### Open session
+
+```text
+session.open envelope
+  -> Durable Object adds connection route
+  -> host relay parses RoutedRequest
+  -> RequestLedger.claim
+  -> OpenSession.execute
+  -> SessionCatalog.list
+  -> validate session and workspace
+  -> reuse ActiveSession or CodingAgent.open
+  -> Grok initialize and session/load
+  -> map replay into SessionView
+  -> ActiveSessionRegistry.add
+  -> publish session.snapshot
+  -> open live event gate
+  -> return typed result
+```
+
+The handler publishes the snapshot before it returns. No live event can arrive first.
+
+### Create session
+
+```text
+session.create envelope
+  -> request claim
+  -> CreateSession.execute
+  -> validate cwd against catalog paths
+  -> CodingAgent.create
+  -> Grok initialize and session/new
+  -> build SessionView
+  -> register session
+  -> publish sessions.changed
+  -> publish session.snapshot
+  -> return SessionOpened
+```
+
+A repeated `requestId` returns the same result. It never creates a second session.
+
+### Start turn and live updates
+
+```text
+turn.start envelope
+  -> request claim
+  -> StartTurn.execute
+  -> ActiveSession.acceptTurn
+  -> CodingAgentSession.startTurn
+  -> ACP session/prompt
+  -> turn.started
+  -> ACP session/update notifications
+  -> Grok canonical mapper
+  -> SessionEventRouter applies and publishes events
+  -> ACP prompt result
+  -> turn.finished
+  -> ActiveSession.finishTurn
+```
+
+A repeated `turnId` returns the first acceptance. It does not send another prompt.
+
+### Configuration and commands
+
+```text
+ACP configuration or command update
+  -> ACP DTO parser
+  -> Grok canonical mapper
+  -> complete ordered state
+  -> SessionEventRouter applies replacement
+  -> publish session event
+```
+
+```text
+session.configuration.set envelope
+  -> validate option id, type, and value
+  -> ACP session/set_config_option
+  -> complete configuration response
+  -> apply and publish replacement
+  -> typed result
+```
+
+### Permission and elicitation
+
+```text
+ACP incoming request
+  -> Grok DTO parser
+  -> canonical requested event
+  -> ActiveSession stores request
+  -> publish request
+  -> user answer envelope
+  -> validate identifiers and value
+  -> answer original ACP request
+  -> canonical resolved event
+  -> remove pending request
+  -> publish resolution
+```
+
+No default answer exists. A relay disconnect leaves the request pending while the host process stays alive.
+
+### Cancellation and close
+
+```text
+turn.cancel envelope
+  -> CancelTurn.execute
+  -> cancel pending interactions
+  -> answer pending ACP requests as cancelled
+  -> ACP session/cancel
+  -> wait for bounded grace period
+  -> stop process group if work continues
+  -> turn.finished(cancelled)
+```
+
+```text
+session.close envelope
+  -> CloseSession.execute
+  -> cancel active turn when present
+  -> ACP session/close when advertised
+  -> stop process group when required
+  -> remove active runtime
+  -> typed result
+```
+
+### Timeout and failure
+
+```text
+ACP request starts with deadline
+  -> deadline expires
+  -> send $/cancel_request when advertised
+  -> wait for bounded grace period
+  -> stop process group when work continues
+  -> create typed RequestTimeoutError
+  -> relay boundary returns safe error
+```
+
+The ACP boundary does not retry requests. A nested retry can duplicate a mutation.
+
+```text
+raw ACP, process, or transport failure
+  -> infrastructure classifier
+  -> typed boundary error with cause
+  -> application cleanup or propagation
+  -> relay maps ApiError once
+  -> relay logs once
+  -> error response or session.failed
+```
+
+During a turn, the host publishes failed `turn.finished` before `session.failed`.
+
+Unknown external failures are terminal. The host never classifies failures from message text.
+
+## Error Model
+
+```ts
+type HostApplicationError =
+  | WorkspaceNotAllowedError
+  | SessionNotFoundError
+  | SessionBusyError
+  | TurnNotFoundError
+  | PermissionNotFoundError
+  | ElicitationNotFoundError
+  | InvalidInteractionAnswerError
+  | RequestTimeoutError
+  | CodingAgentUnavailableError
+  | CodingAgentProtocolError
+  | CodingAgentProcessError
+```
+
+Each error is a `TaggedError` with a stable `_tag`. Infrastructure errors preserve the raw failure as `cause`.
+
+| Internal error                   | Public code                |
+| -------------------------------- | -------------------------- |
+| Invalid envelope or answer       | `INVALID_REQUEST`          |
+| `WorkspaceNotAllowedError`       | `WORKSPACE_NOT_ALLOWED`    |
+| `SessionNotFoundError`           | `SESSION_NOT_FOUND`        |
+| `SessionBusyError`               | `SESSION_BUSY`             |
+| `TurnNotFoundError`              | `TURN_NOT_FOUND`           |
+| `PermissionNotFoundError`        | `PERMISSION_NOT_FOUND`     |
+| `ElicitationNotFoundError`       | `INVALID_REQUEST`          |
+| `RequestTimeoutError`            | `REQUEST_TIMEOUT`          |
+| Agent start or transport failure | `CODING_AGENT_UNAVAILABLE` |
+| Programmer defect                | `INTERNAL_ERROR`           |
+
+The code that creates an error does not log it. The relay entrypoint logs the final error once.
+
+Raw ACP codes, process output, paths, and causes stay inside the host.
+
+## Observability
+
+Metrics use bounded attributes only. These include operation, provider, outcome, error code, and capability.
+
+Metrics never contain account, host, session, turn, request, path, prompt, content, or timestamp values.
+
+Logs can contain safe identifiers and operation names. They never contain prompts, messages, diffs, URLs, or form values.
+
+The adapter records only the ACP name and count for ignored updates.
+
+## Security
+
+The Worker authenticates public connections. The host accepts requests only from its authenticated Durable Object connection.
+
+The host validates each workspace against the current catalog. It does not accept an arbitrary local path from the Worker.
+
+The Grok process inherits the account, repository rules, sandbox, hooks, and permission policy.
+
+The adapter advertises no ACP filesystem or terminal capability. Grok remains the execution owner.
+
+Zod validates prompt content, configuration values, permission answers, and elicitation values before use.
 
 ## Module Layout
 
@@ -420,9 +946,12 @@ apps/host/src/
 ├── application/
 │   ├── handlers/
 │   ├── ports/
-│   └── active-session-registry.ts
+│   ├── active-session-registry.ts
+│   ├── request-ledger.ts
+│   └── session-event-router.ts
 ├── domain/
 │   ├── active-session.ts
+│   ├── session-view.ts
 │   └── errors/
 ├── infrastructure/
 │   ├── acp/
@@ -435,18 +964,84 @@ apps/host/src/
 
 ```text
 packages/core/src/
+├── coding-content.ts
 ├── coding-session-event.ts
 ├── identity.ts
 ├── protocol.ts
 └── session.ts
 ```
 
-`coding-session-event.ts` owns canonical schemas. `protocol.ts` only owns request, response, routing, and version envelopes.
+Dependencies flow from entrypoints to application, then domain and application ports. Infrastructure implements ports and depends inward.
+
+`infrastructure/app-deps.ts` is the only composition root. It constructs adapters and injects them into handlers.
+
+## File Change Map
+
+| File or module                              | Required change                                             |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `packages/core/src/identity.ts`             | Add `ElicitationId` and keep branded identifiers.           |
+| `packages/core/src/coding-content.ts`       | Own canonical content schemas.                              |
+| `packages/core/src/coding-session-event.ts` | Own event and snapshot schemas.                             |
+| `packages/core/src/protocol.ts`             | Add all methods and route canonical events.                 |
+| `packages/core/src/session.ts`              | Own catalog, summary, and host snapshot schemas.            |
+| `apps/host/src/domain/*`                    | Own session state, view replacement, and errors.            |
+| `apps/host/src/application/handlers/*`      | Own one use case for each daemon method.                    |
+| `apps/host/src/application/ports/*`         | Own agent, catalog, publisher, clock, and ID contracts.     |
+| `apps/host/src/infrastructure/acp/*`        | Own JSON-RPC, deadlines, cancellation, and process control. |
+| `apps/host/src/infrastructure/grok/*`       | Own Grok parsing and canonical mapping.                     |
+| `apps/host/src/infrastructure/relay/*`      | Own outbound WSS and routed envelopes.                      |
+| `apps/host/src/infrastructure/app-deps.ts`  | Construct the dependency graph.                             |
+
+Remove automatic permission answers and filesystem handlers after the new interaction flow works.
+
+## RGR TDD Test Plan
+
+Each slice starts with one failing behavior test. Add only the code required to pass, then refactor.
+
+| Slice       | Red test                                                  | Green result                              |
+| ----------- | --------------------------------------------------------- | ----------------------------------------- |
+| Catalog     | Prefer ACP list; use storage only without the capability. | One ordered canonical catalog.            |
+| Open        | Replay completes before snapshot and live events.         | One complete current view.                |
+| Create      | Repeat one `requestId`.                                   | One session and one process.              |
+| Turn        | Repeat one `turnId` while active and after completion.    | One prompt submission.                    |
+| Content     | Map supported content and reject unknown data.            | No raw ACP content crosses.               |
+| Tools       | Apply replacements for all tool kinds.                    | One current tool view.                    |
+| State       | Replace plan, usage, configuration, and commands.         | Ordered state stays canonical.            |
+| Metadata    | Set, omit, and clear each mutable field.                  | Catalog and session stay equal.           |
+| Permission  | Deny, cancel, and reject invalid identifiers.             | No automatic approval.                    |
+| Elicitation | Accept form, decline URL, and reject sensitive fields.    | One validated response.                   |
+| Cancel      | Continue work after graceful cancel in a test process.    | Process group stops before later effects. |
+| Timeout     | Hold one ACP request past its deadline.                   | Cancel request, process stop, safe error. |
+| Reconnect   | Drop the relay during a request and live stream.          | No duplicate request, event, or process.  |
+| Failure     | Fail process and protocol paths during a turn.            | One log, then ordered failure events.     |
+
+Tests use real Zod schemas and application handlers. They fake only clocks, identifiers, process boundaries, and network boundaries.
+
+The final end-to-end test starts the built host, Worker runtime, Durable Object, test client, and installed Grok process.
+
+It proves the completion flow in the product specification without provider fixtures.
+
+## Risks and Open Questions
+
+### Protocol maturity
+
+ACP session list, select configuration, metadata updates, and session close are stable as of this update.
+
+Boolean configuration, usage, request cancellation, and elicitation remain capability-gated. Grok integration tests must verify their installed shapes.
+
+Porte does not expose ACP stability labels. The adapter contains any ACP change.
+
+### Published contract use
+
+Confirm whether a client outside this repository uses the current protocol before implementation changes it.
+
+If one exists, use an overlap period. Otherwise, replace the pre-release contract in one coordinated deployment.
 
 ## References
 
-- [ACP overview](https://agentclientprotocol.com/protocol/v1/overview)
-- [ACP session setup](https://agentclientprotocol.com/protocol/v1/session-setup)
-- [ACP prompt turn](https://agentclientprotocol.com/protocol/v1/prompt-turn)
-- [AG-UI architecture](https://docs.ag-ui.com/concepts/architecture)
-- [AG-UI events](https://docs.ag-ui.com/concepts/events)
+- [Porte product specification](./spec.md)
+- [ACP architecture](https://agentclientprotocol.com/get-started/architecture)
+- [ACP session list](https://agentclientprotocol.com/rfds/session-list)
+- [ACP session configuration](https://agentclientprotocol.com/rfds/session-config-options)
+- [ACP request cancellation](https://agentclientprotocol.com/rfds/request-cancellation)
+- [ACP elicitation](https://agentclientprotocol.com/rfds/elicitation)
