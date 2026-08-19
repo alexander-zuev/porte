@@ -7,14 +7,20 @@ import { TurnstileWidget } from '#/ui/components/security/turnstile-widget.tsx'
 
 import { SignInForm } from './sign-in-form.tsx'
 
-export function SignInFlow() {
+/** Props controlling where OAuth returns after authentication. */
+export type SignInFlowProps = {
+  readonly redirectTo: string
+}
+
+/** Run the social sign-in interaction and preserve its validated destination. */
+export function SignInFlow({ redirectTo }: SignInFlowProps) {
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState<string>()
 
   const oauth = useMutation({
     mutationFn: (provider: SocialProvider) =>
       authService().signInWithOAuth(provider, {
-        redirectTo: '/dashboard',
+        redirectTo,
         captchaToken,
       }),
     onError: (cause) => {
