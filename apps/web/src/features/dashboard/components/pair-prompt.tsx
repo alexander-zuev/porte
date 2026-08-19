@@ -1,4 +1,5 @@
 import { LaptopIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import { Link } from '@tanstack/react-router'
 
 import { PAIR_COMMAND } from '#/lib/product.ts'
 import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
@@ -59,9 +60,14 @@ export function PairPrompt({ reason, hostName, onEnterCode }: PairPromptProps) {
           </small>
         </div>
 
-        <Button className="self-start" variant="ghost" onClick={onEnterCode}>
-          I already have a code
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={onEnterCode}>
+            I already have a code
+          </Button>
+          <Button nativeButton={false} variant="ghost" render={<Link to="/account" />}>
+            Account
+          </Button>
+        </div>
       </div>
     </div>
   )
