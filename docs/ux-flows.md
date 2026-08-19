@@ -288,6 +288,33 @@ and no detail, so it receives a single full-page surface instead.
 - Treating hover behavior as required.
 - Showing an empty detail pane without guidance.
 
+## Pairing Implementation Decision
+
+Pairing runs on the OAuth 2.0 Device Authorization Grant, RFC 8628, through the Better Auth
+`device-authorization` plugin. Porte does not implement its own attempt lifecycle.
+
+The plugin owns the transport:
+
+| Step                             | Plugin                                |
+| -------------------------------- | ------------------------------------- |
+| Create the attempt               | `deviceAuthorization`                 |
+| Six-character code               | `userCode`, sized by `userCodeLength` |
+| Claim by code                    | `deviceVerify`                        |
+| Approve or refuse                | `deviceApprove`, `deviceDeny`         |
+| Desktop waits for its credential | `deviceToken`, polled at `interval`   |
+| Expiry, single use, replay       | `expiresIn` and the specification     |
+
+Porte owns what the specification does not cover:
+
+1. **The verification phrase.** RFC 8628 proves that a signed-in person approved a device code. It
+   does not prove that the approved machine is the machine in front of that person. The phrase shown
+   on both screens is the step that binds the two devices, and it is deliberate Porte behavior.
+2. **The host record.** Name, platform, availability, and last seen.
+3. **The one-host rule.** The first release binds at most one Mac to one account.
+
+`PairingClaim` maps onto verify and `PairingConfirmation` onto approve. Web handlers call the plugin
+rather than reimplementing attempt storage, code generation, or single-use enforcement.
+
 ## Flow 1: Initiate Pairing on Desktop
 
 ### Entry
@@ -930,9 +957,9 @@ A premium flow is complete only when:
 
 ## Decisions Still Required
 
-- What deleting an account does to a still-running host that holds a credential.
-- Whether sign-out lands on the landing page or the sign-in page.
-- Pairing attempt lifetime and refresh behavior.
+- Where the verification phrase is derived, given the plugin owns the device and user codes.
+- Whether the desktop confirmation reuses `deviceApprove` or needs a second Porte-side step.
+- Pairing attempt lifetime and refresh behavior, expressed as plugin `expiresIn` and `interval`.
 - Source and editability of the host display name.
 - Local credential storage mechanism by operating system.
 - First-release daemon supervisor: macOS LaunchAgent, portable process manager, or both.

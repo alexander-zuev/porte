@@ -6,8 +6,12 @@ import { z } from 'zod'
 /**
  * Pairing entrypoints for the web client.
  *
- * Both handlers are stubs returning the contract shape. The relay that owns
- * pairing attempts is not wired yet.
+ * Both handlers are stubs returning the contract shape. When they gain a body
+ * they call the Better Auth `device-authorization` plugin, which owns the
+ * attempt lifecycle: `deviceVerify` backs the claim and `deviceApprove` backs
+ * the confirmation. Porte adds only the verification phrase and the host
+ * record, since RFC 8628 authenticates the person rather than the pair of
+ * devices. See docs/ux-flows.md, Pairing Implementation Decision.
  */
 
 const ClaimInputSchema = z.object({ code: PairingCodeSchema })
