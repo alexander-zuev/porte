@@ -3,7 +3,6 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 
 import { AuthenticationError } from '../../errors/authentication.error.ts'
-import { getAuthInstance } from '../../infrastructure/auth/auth.ts'
 
 const logger = createLogger('auth-fn')
 
@@ -13,8 +12,7 @@ const logger = createLogger('auth-fn')
  */
 export const getSession = createServerFn({ method: 'GET' }).handler(async ({ context }) => {
   const headers = getRequestHeaders()
-  const auth = getAuthInstance(context.deps)
-  return auth.api.getSession({ headers })
+  return context.deps.auth().api.getSession({ headers })
 })
 
 /**
@@ -24,8 +22,7 @@ export const getSession = createServerFn({ method: 'GET' }).handler(async ({ con
 export const ensureSession = createServerFn({ method: 'GET' }).handler(async ({ context }) => {
   try {
     const headers = getRequestHeaders()
-    const auth = getAuthInstance(context.deps)
-    const session = await auth.api.getSession({ headers })
+    const session = await context.deps.auth().api.getSession({ headers })
     if (!session) throw new AuthenticationError()
     return session
   } catch (error) {

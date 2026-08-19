@@ -15,72 +15,97 @@ export type RequestConnectionBinder = {
   useDb: (db: Db) => void
 }
 
-/** The only D1 surface Drizzle uses. Both a database and a session provide it. */
-type D1Queryable = Pick<D1Database, 'prepare' | 'batch'>
-
 const BOOKMARK_COOKIE = 'd1-bookmark'
 
-/** Where a session with no prior bookmark starts reading. */
-const UNCONSTRAINED = 'first-unconstrained'
+/** Methods that only read, so their session may start from a bookmark. */
+const READ_METHODS = new Set(['GET', 'HEAD'])
 
 /**
- * Open a D1 session and bind it for this request.
+ * Paths where the writer and the reader are different clients.
  *
- * Reads route to the nearest replica; writes always reach the primary. With
- * replication disabled the session is a no-op that reads the primary, so this
- * is safe before the database has replicas.
+ * The daemon polls the device grant while the phone approves it, so the
+ * approval it waits for was written under a bookmark it never receives.
+ */
+const CROSS_CLIENT_PREFIX = '/api/auth'
+
+/**
+ * Bound the cookie's life, matching Cloudflare's own example.
+ *
+ * This is hygiene, not speed: a bookmark means "at least this fresh", so an old
+ * one is satisfied by every replica and constrains nothing either way.
+ */
+const BOOKMARK_MAX_AGE = 60 * 60
+
+/**
+ * Choose where the session's first query may run.
+ *
+ * Only the first query is placed. Sequential consistency pins everything after
+ * it, so this is the one decision the request gets to make.
+ *
+ * A mutating request starts at the primary because it usually reads before it
+ * writes, and deciding from a stale replica is how a write goes wrong. A read
+ * starts from its own bookmark, which is as fresh as anything it has written.
+ */
+const pickConstraint = createServerOnlyFn((method: string, pathname: string) => {
+  if (!READ_METHODS.has(method)) return 'first-primary'
+  if (pathname.startsWith(CROSS_CLIENT_PREFIX)) return 'first-primary'
+  return getCookie(BOOKMARK_COOKIE) ?? 'first-unconstrained'
+})
+
+/**
+ * Open a D1 session and bind it as this request's connection.
+ *
+ * Binding is what adopts the session: handlers read `deps.db()`, so a session
+ * nothing is bound to would leave every query on the primary.
  */
 const bindD1Session = createServerOnlyFn(
   (deps: RequestConnectionBinder, constraint: string, d1: D1Database) => {
     const session = d1.withSession(constraint)
-    // A session is not a D1Database: it adds getBookmark and drops exec, dump,
-    // and withSession. Drizzle calls neither of those, only the two below, so
-    // the session satisfies everything that is actually used.
-    const queryable: D1Queryable = session
-    // SAFETY: every method Drizzle reaches for is present on the session above.
-    const db = createDatabase(queryable as D1Database)
-    deps.useDb(db)
-    return { session, db }
+    deps.useDb(createDatabase(session))
+    return session
   },
 )
 
 /**
- * Route reads to a replica while keeping read-your-writes.
+ * Carry the session's position into the next request.
  *
- * The bookmark cookie carries the last write position, so a replica that has
- * not caught up is never read from after the user changes something.
+ * The position lives only in memory, so without this cookie the next request
+ * starts unconstrained and may read a replica older than what this one wrote.
+ * No queries means no position, and a pointless `Set-Cookie` would cost the
+ * response its cacheability.
  */
-export const withD1 = createMiddleware({ type: 'function' }).server(async ({ next, context }) => {
-  const { session, db } = bindD1Session(
-    context.deps,
-    getCookie(BOOKMARK_COOKIE) ?? UNCONSTRAINED,
-    context.deps.env.DB,
-  )
-
-  const result = await next({ context: { db } })
-
+const persistBookmark = createServerOnlyFn((session: { getBookmark: () => string | null }) => {
   const bookmark = session.getBookmark()
-  if (bookmark !== null) {
-    setCookie(BOOKMARK_COOKIE, bookmark, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      path: '/',
-    })
-  }
+  if (bookmark === null) return
 
-  return result
+  setCookie(BOOKMARK_COOKIE, bookmark, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: BOOKMARK_MAX_AGE,
+  })
 })
 
 /**
- * Route reads to a replica and write no bookmark.
+ * Route reads to a replica while keeping read-your-writes, for every request.
  *
- * For public content that nobody has just written. Omitting the cookie is what
- * keeps the response cacheable at the edge, since `Set-Cookie` would prevent it.
+ * Registered globally in `start.ts`, so it covers routes and server functions
+ * alike and always runs before a handler resolves the connection. Contexts with
+ * no request — Durable Objects, and later queues or cron — never reach it and
+ * stay on the primary connection that `createAppDeps` builds.
  */
-export const withD1ReadOnly = createMiddleware({ type: 'function' }).server(
-  async ({ next, context }) => {
-    const { db } = bindD1Session(context.deps, UNCONSTRAINED, context.deps.env.DB)
-    return next({ context: { db } })
+export const d1SessionMiddleware = createMiddleware({ type: 'request' }).server(
+  async ({ next, context, pathname, request }) => {
+    const session = bindD1Session(
+      context.deps,
+      pickConstraint(request.method, pathname),
+      context.deps.env.DB,
+    )
+
+    // getBookmark reports where the session ended, so it has to follow the queries.
+    const result = await next()
+    persistBookmark(session)
+    return result
   },
 )

@@ -1,5 +1,6 @@
 import type { HostAuthenticator } from '../application/ports/host-authenticator'
 import type { HostCoordinator } from '../application/ports/host-coordinator'
+import { getAuthInstance } from './auth/auth.ts'
 import { DevelopmentHostAuthenticator } from './auth/development-host-authenticator'
 import { HostCoordinatorClient } from './cloudflare/host-coordinator-client'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
@@ -7,12 +8,21 @@ import { createDatabase } from './persistence/database/connection.ts'
 import type { Db } from './persistence/database/types.ts'
 import type { RuntimeEnv } from './runtime-env.ts'
 
+export type AuthInstance = ReturnType<typeof getAuthInstance>
+
 /** Dependencies constructed for one Worker invocation. */
 export type AppDeps = {
   env: RuntimeEnv
   db: () => Db
   /** Rebind the connection for this request, so reads can route to a replica. */
   useDb: (db: Db) => void
+  /**
+   * Better Auth for this request.
+   *
+   * Built on first use, not at construction, so it captures whichever connection
+   * `useDb` has bound by then. Callers must not reach for it before D1 middleware.
+   */
+  auth: () => AuthInstance
   /** Short-lived auth records, kept out of D1. */
   authStorage: ReturnType<typeof createKvSecondaryStorage>
   hostAuthenticator: HostAuthenticator
@@ -22,15 +32,20 @@ export type AppDeps = {
 
 /** Construct Worker adapters from generated Cloudflare bindings. */
 export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): AppDeps {
-  // Starts on the primary. A request may swap in a replica-routed session.
-  let db = createDatabase(env.DB)
+  // Lazy primary handle. A request may swap in a replica-routed session through
+  // useDb; background contexts never rebind and stay on the primary.
+  const rootDb = once(() => createDatabase(env.DB))
+  let current: () => Db = rootDb
 
-  return {
+  const deps: AppDeps = {
     env,
-    db: () => db,
+    db: () => current(),
     useDb: (next) => {
-      db = next
+      current = () => next
     },
+    // Self-reference into the composition root. The factory runs on first call,
+    // long after deps is built, so reading deps here is safe.
+    auth: once(() => getAuthInstance(deps)),
     authStorage: createKvSecondaryStorage(env.AUTH_KV),
     executionCtx,
     hostAuthenticator: new DevelopmentHostAuthenticator(
@@ -38,5 +53,17 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
       env.PORTE_DEV_CLIENT_TOKEN,
     ),
     hostCoordinator: new HostCoordinatorClient(env.HOST),
+  }
+
+  return deps
+}
+
+/** Defer a dependency to first use and build it at most once per request. */
+function once<T>(factory: () => T): () => T {
+  let value: T | undefined
+
+  return () => {
+    value ??= factory()
+    return value
   }
 }

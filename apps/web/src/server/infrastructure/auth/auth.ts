@@ -1,4 +1,3 @@
-import type { BetterAuthOptions } from 'better-auth'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
@@ -12,10 +11,13 @@ import { createBetterAuthOptions } from './options.ts'
  * Bindings are read here, not at import time, because they are not populated
  * during Vite SSR module evaluation.
  *
+ * Reads `deps.db()` at construction, so build it only after D1 middleware has
+ * bound the request connection. `AppDeps.auth` enforces that by deferring to
+ * first use.
+ *
  * @param deps - Per-request composition root.
- * @param additionalPlugins - Extra Better Auth plugins for this instance.
  */
-export function getAuthInstance(deps: AppDeps, additionalPlugins?: BetterAuthOptions['plugins']) {
+export function getAuthInstance(deps: AppDeps) {
   const env = deps.env
   const database = drizzleAdapter(deps.db(), { provider: 'sqlite' })
 
@@ -42,7 +44,7 @@ export function getAuthInstance(deps: AppDeps, additionalPlugins?: BetterAuthOpt
           deps.executionCtx.waitUntil(promise)
         },
       },
-      [tanstackStartCookies(), ...(additionalPlugins ?? [])],
+      [tanstackStartCookies()],
     ),
   )
 }
