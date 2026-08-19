@@ -1,4 +1,4 @@
-import type { HostRelayObserver } from '../host/host-relay.ts'
+import type { HostRelayObserver } from '../../application/ports/host-relay.ts'
 
 /** Writes host relay lifecycle events when verbose output is active. */
 export class CliHostRelayObserver implements HostRelayObserver {

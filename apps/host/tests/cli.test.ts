@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { HELP, LIST_HELP, RESUME_HELP, UP_HELP, parseCommand } from '../src/cli/parse-command.ts'
+import {
+  HELP,
+  LIST_HELP,
+  RESUME_HELP,
+  UP_HELP,
+  parseCommand,
+} from '../src/entrypoints/cli/parse-command.ts'
 import { UsageError } from '../src/errors.ts'
 
 describe('parseCommand', () => {

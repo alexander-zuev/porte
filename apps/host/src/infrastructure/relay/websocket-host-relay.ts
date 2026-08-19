@@ -1,9 +1,19 @@
-import { DaemonMessageSchema, RoutedRequestSchema } from '@porte/core'
+import {
+  DaemonMessageSchema,
+  RoutedRequestSchema,
+  RoutedResponseSchema,
+  type RoutedEvent,
+} from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
-import { HostRelayError } from '../errors.ts'
-import type { HostConnection, HostRelay, HostRelayObserver, RunHostRelay } from './host-relay.ts'
+import type {
+  HostEventPublisher,
+  HostRelay,
+  HostRelayObserver,
+  RunHostRelay,
+} from '../../application/ports/host-relay.ts'
+import { HostRelayError } from '../../errors.ts'
 
 const MAX_RETRY_DELAY_MS = 5_000
 
@@ -74,13 +84,22 @@ export class WebSocketHostRelay implements HostRelay {
       input.signal.addEventListener('abort', onAbort, { once: true })
       socket.addEventListener('open', () => {
         this.observer.connected()
-        const connection: HostConnection = {
-          send: (message) => {
-            socket.send(JSON.stringify(DaemonMessageSchema.parse(message)))
+        const publisher: HostEventPublisher = {
+          sessionsChanged: (catalog) => {
+            const event: RoutedEvent = {
+              audience: { type: 'host' },
+              message: {
+                v: 1,
+                type: 'event',
+                event: 'sessions.changed',
+                data: { catalog },
+              },
+            }
+            socket.send(JSON.stringify(DaemonMessageSchema.parse(event)))
           },
         }
         void input.handlers
-          .onConnected(connection)
+          .onConnected(publisher)
           .then((handled) => {
             if (handled.isErr()) {
               settle(Result.err(handled.error))
@@ -96,7 +115,7 @@ export class WebSocketHostRelay implements HostRelay {
           socket.close(1003, 'text messages required')
           return
         }
-        void handleRequest(socket, frame.data, input).catch(fail)
+        void handleRequest(socket, frame.data).catch(fail)
       })
       socket.addEventListener('error', () => {
         socket.close()
@@ -108,11 +127,7 @@ export class WebSocketHostRelay implements HostRelay {
   }
 }
 
-async function handleRequest<THandlerError>(
-  socket: WebSocket,
-  raw: string,
-  input: RunHostRelay<THandlerError>,
-): Promise<void> {
+async function handleRequest(socket: WebSocket, raw: string): Promise<void> {
   let value: unknown
   try {
     value = JSON.parse(raw)
@@ -125,7 +140,16 @@ async function handleRequest<THandlerError>(
     socket.close(1007, 'invalid host request')
     return
   }
-  const response = await input.handlers.onRequest(parsed.data)
+  const response = RoutedResponseSchema.parse({
+    route: parsed.data.route,
+    method: parsed.data.message.method,
+    message: {
+      v: 1,
+      type: 'error',
+      requestId: parsed.data.message.requestId,
+      error: { code: 'GROK_UNAVAILABLE', message: 'Session control is not available' },
+    },
+  })
   socket.send(JSON.stringify(DaemonMessageSchema.parse(response)))
 }
 

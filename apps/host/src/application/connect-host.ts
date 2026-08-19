@@ -1,15 +1,8 @@
-import {
-  RoutedResponseSchema,
-  type IsoDateTime,
-  type RoutedEvent,
-  type RoutedRequest,
-  type RoutedResponse,
-  type SessionSummary,
-} from '@porte/core'
+import type { IsoDateTime, SessionSummary } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { HostRelayError, SessionStoreError } from '../errors.ts'
-import type { HostConnection, HostRelay } from './host-relay.ts'
+import type { HostEventPublisher, HostRelay } from './ports/host-relay.ts'
 
 /** Session catalog capability required when the host connects. */
 export interface SessionCatalogReader {
@@ -45,47 +38,22 @@ export class HostConnector {
     return this.relay.run({
       ...command,
       handlers: {
-        onConnected: async (connection) => this.publishCatalog(connection),
-        onRequest: async (request) => unavailableResponse(request),
+        onConnected: async (publisher) => this.publishCatalog(publisher),
       },
     })
   }
 
   private async publishCatalog(
-    connection: HostConnection,
+    publisher: HostEventPublisher,
   ): Promise<ResultType<void, SessionStoreError>> {
     const sessions = await this.sessions.list()
     if (sessions.isErr()) return Result.err(sessions.error)
 
-    const message: RoutedEvent = {
-      audience: { type: 'host' },
-      message: {
-        v: 1,
-        type: 'event',
-        event: 'sessions.changed',
-        data: {
-          catalog: {
-            state: 'synced',
-            sessions: sessions.value,
-            observedAt: this.clock.now(),
-          },
-        },
-      },
-    }
-    connection.send(message)
+    publisher.sessionsChanged({
+      state: 'synced',
+      sessions: sessions.value,
+      observedAt: this.clock.now(),
+    })
     return Result.ok()
   }
-}
-
-function unavailableResponse(request: RoutedRequest): RoutedResponse {
-  return RoutedResponseSchema.parse({
-    route: request.route,
-    method: request.message.method,
-    message: {
-      v: 1,
-      type: 'error',
-      requestId: request.message.requestId,
-      error: { code: 'GROK_UNAVAILABLE', message: 'Session control is not available' },
-    },
-  })
 }

@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { createAppDeps } from '../app-deps.ts'
-import { loadConfig } from '../config.ts'
-import { UsageError, exitCodeFor, formatError, type CliError } from '../errors.ts'
+import { loadConfig } from '../../config.ts'
+import { UsageError, exitCodeFor, formatError, type CliError } from '../../errors.ts'
+import { createAppDeps } from '../../infrastructure/app-deps.ts'
 import { CliHostRelayObserver } from './cli-host-relay-observer.ts'
 import { UP_HELP, VERSION, parseCommand } from './parse-command.ts'
 

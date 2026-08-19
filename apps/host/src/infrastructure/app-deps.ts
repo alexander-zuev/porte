@@ -1,13 +1,13 @@
-import { AcpClientFactory } from './acp/acp-client.ts'
-import type { HostConfig } from './config.ts'
-import { GrokCodingAgentSessions } from './grok/grok-coding-agent-sessions.ts'
-import { GrokSessionStore } from './grok/grok-session-store.ts'
-import { HostConnector } from './host/connect-host.ts'
-import type { HostRelayObserver } from './host/host-relay.ts'
-import { SystemHostClock } from './host/system-host-clock.ts'
-import { WebSocketHostRelay } from './host/websocket-host-relay.ts'
-import { SessionCatalog } from './sessions/session-catalog.ts'
-import { SessionResumer } from './sessions/session-resumer.ts'
+import { AcpClientFactory } from '../acp/acp-client.ts'
+import { HostConnector } from '../application/connect-host.ts'
+import type { HostRelayObserver } from '../application/ports/host-relay.ts'
+import type { HostConfig } from '../config.ts'
+import { GrokCodingAgentSessions } from '../grok/grok-coding-agent-sessions.ts'
+import { GrokSessionStore } from '../grok/grok-session-store.ts'
+import { SessionCatalog } from '../sessions/session-catalog.ts'
+import { SessionResumer } from '../sessions/session-resumer.ts'
+import { WebSocketHostRelay } from './relay/websocket-host-relay.ts'
+import { SystemHostClock } from './system/system-host-clock.ts'
 
 /** Application capabilities constructed once for one host process. */
 export type AppDeps = {

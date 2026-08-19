@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { retryDelayMs } from '../src/host/websocket-host-relay.ts'
+import { retryDelayMs } from '../src/infrastructure/relay/websocket-host-relay.ts'
 
 describe('retryDelayMs', () => {
   it('uses bounded exponential delays', () => {

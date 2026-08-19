@@ -2,8 +2,8 @@ import { IsoDateTimeSchema, SessionSummarySchema, type DaemonMessage } from '@po
 import { Result } from 'better-result'
 import { describe, expect, it } from 'vitest'
 
+import { HostConnector } from '../src/application/connect-host.ts'
 import { SessionStoreError } from '../src/errors.ts'
-import { HostConnector } from '../src/host/connect-host.ts'
 
 const sent: DaemonMessage[] = []
 const session = SessionSummarySchema.parse({
@@ -17,7 +17,15 @@ const connector = new HostConnector(
   { list: async () => Result.ok([session]) },
   { now: () => IsoDateTimeSchema.parse('2026-08-17T12:01:00.000Z') },
   {
-    run: async ({ handlers }) => handlers.onConnected({ send: (message) => sent.push(message) }),
+    run: async ({ handlers }) =>
+      handlers.onConnected({
+        sessionsChanged: (catalog) => {
+          sent.push({
+            audience: { type: 'host' },
+            message: { v: 1, type: 'event', event: 'sessions.changed', data: { catalog } },
+          })
+        },
+      }),
   },
 )
 
@@ -39,7 +47,7 @@ describe('connectHost', () => {
     const failed = new HostConnector(
       { list: async () => Result.err(error) },
       { now: () => IsoDateTimeSchema.parse('2026-08-17T12:01:00.000Z') },
-      { run: async ({ handlers }) => handlers.onConnected({ send: () => undefined }) },
+      { run: async ({ handlers }) => handlers.onConnected({ sessionsChanged: () => undefined }) },
     )
 
     const result = await failed.connect({

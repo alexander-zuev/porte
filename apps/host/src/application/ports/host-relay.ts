@@ -1,12 +1,12 @@
-import type { DaemonMessage, RoutedRequest, RoutedResponse } from '@porte/core'
+import type { SessionCatalog } from '@porte/core'
 import type { Result } from 'better-result'
 
-import type { HostRelayError } from '../errors.ts'
+import type { HostRelayError } from '../../errors.ts'
 
-/** One active connection from the daemon to its Host Durable Object. */
-export interface HostConnection {
-  /** Send one validated protocol message. */
-  send(message: DaemonMessage): void
+/** Canonical host events published through one active relay connection. */
+export interface HostEventPublisher {
+  /** Publish the complete current session catalog. */
+  sessionsChanged(catalog: Extract<SessionCatalog, { state: 'synced' }>): void
 }
 
 /** Relay lifecycle events observed by the process entrypoint. */
@@ -20,8 +20,7 @@ export interface HostRelayObserver {
 
 /** Callbacks that the relay invokes after it validates inbound messages. */
 export type HostRelayHandlers<THandlerError> = {
-  readonly onConnected: (connection: HostConnection) => Promise<Result<void, THandlerError>>
-  readonly onRequest: (request: RoutedRequest) => Promise<RoutedResponse>
+  readonly onConnected: (publisher: HostEventPublisher) => Promise<Result<void, THandlerError>>
 }
 
 /** Input for one long-running daemon relay connection. */

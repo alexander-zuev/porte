@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util'
 
-import { UsageError } from '../errors.ts'
-import { VERSION } from '../version.ts'
+import { UsageError } from '../../errors.ts'
+import { VERSION } from '../../version.ts'
 
 export { VERSION }
 
