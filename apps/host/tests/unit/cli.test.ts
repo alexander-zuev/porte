@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { UsageError } from '../src/cli/cli-error.ts'
-import { HELP, LIST_HELP, RESUME_HELP, UP_HELP, parseCommand } from '../src/cli/parse-command.ts'
+import { UsageError } from '../../src/cli/cli-error.ts'
+import { HELP, LIST_HELP, RESUME_HELP, UP_HELP, parseCommand } from '../../src/cli/parse-command.ts'
 
 describe('parseCommand', () => {
   it('parses help and version', () => {

@@ -1,7 +1,7 @@
 import { CodingSessionEventSchema, SessionViewSchema } from '@porte/core/coding-session-event'
 import { describe, expect, it } from 'vitest'
 
-import { applyConversationEvents } from '../src/application/conversation-view-reducer.ts'
+import { applyConversationEvents } from '../../src/application/conversation-view-reducer.ts'
 
 const view = SessionViewSchema.parse({
   items: [],

@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest'
 import {
   findGrokConversation,
   listGrokConversations,
-} from '../src/adapters/grok/grok-conversation-files.ts'
-import type { GrokSummaryFile } from '../src/adapters/grok/grok-summary.ts'
+} from '../../src/adapters/grok/grok-conversation-files.ts'
+import type { GrokSummaryFile } from '../../src/adapters/grok/grok-summary.ts'
 
 describe('Grok conversation files', () => {
   it('returns an empty array when sessions is missing', async () => {

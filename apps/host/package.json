@@ -17,6 +17,8 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "test": "vitest run --exclude tests/e2e/**",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e"
   },
   "dependencies": {

@@ -3,9 +3,9 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { VERSION } from '../src/cli/version.ts'
+import { VERSION } from '../../src/cli/version.ts'
 
-const main = join(import.meta.dirname, '../src/main.ts')
+const main = join(import.meta.dirname, '../../src/main.ts')
 
 function runCli(args: readonly string[]) {
   return spawnSync(process.execPath, ['--import', 'tsx', main, ...args], {

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   answerIncomingRequest,
   parsePermissionRequest,
-} from '../src/adapters/acp/incoming-request.ts'
+} from '../../src/adapters/acp/incoming-request.ts'
 
 describe('answerIncomingRequest', () => {
   it('parses a permission request', () => {

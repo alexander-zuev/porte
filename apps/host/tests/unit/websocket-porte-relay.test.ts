@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   retryDelayMs,
   WebSocketPorteConnection,
-} from '../src/adapters/websocket/websocket-porte-relay.ts'
+} from '../../src/adapters/websocket/websocket-porte-relay.ts'
 
 describe('retryDelayMs', () => {
   it('uses bounded exponential delays', () => {
