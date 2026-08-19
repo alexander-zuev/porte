@@ -24,7 +24,22 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Reserve the scrollbar gutter so centred content cannot shift between routes. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  /* Tailwind's reset drops the pointer on buttons; restore it for anything clickable. */
+  button:not(:disabled),
+  summary,
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']) {
+    cursor: pointer;
   }
 }

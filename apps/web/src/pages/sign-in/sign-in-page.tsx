@@ -1,18 +1,27 @@
 import type { ReactNode } from 'react'
 
-import { SignInForm, type SignInFormProps } from '#/features/auth/components/sign-in-form.tsx'
-import { MarketingFrame } from '#/ui/components/marketing-frame.tsx'
+import { SignInLayout } from '#/features/auth/components/sign-in-layout.tsx'
+import { SocialSignInButtons } from '#/features/auth/components/social-sign-in-buttons.tsx'
+import type { SocialProvider } from '#/lib/auth/social-provider.ts'
 
-export type SignInPageProps = SignInFormProps & {
+export type SignInPageProps = {
+  readonly pendingProvider: SocialProvider | undefined
+  /** Context shown above the providers, such as a pending pairing request. */
+  readonly notice?: ReactNode
   readonly children?: ReactNode
+  readonly onSocial: (provider: SocialProvider) => void
 }
 
-export function SignInPage({ children, ...props }: SignInPageProps) {
+/** Sign-in screen. Failures surface as a toast, so nothing here reserves space for them. */
+export function SignInPage({ pendingProvider, notice, children, onSocial }: SignInPageProps) {
   return (
-    <MarketingFrame className="flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm">
-        <SignInForm {...props}>{children}</SignInForm>
+    <SignInLayout>
+      <div className="flex flex-col gap-6">
+        <h1 className="text-center">Sign in</h1>
+        {notice}
+        <SocialSignInButtons pendingProvider={pendingProvider} onSocial={onSocial} />
+        {children}
       </div>
-    </MarketingFrame>
+    </SignInLayout>
   )
 }

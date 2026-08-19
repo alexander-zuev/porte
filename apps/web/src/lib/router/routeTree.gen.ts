@@ -14,7 +14,9 @@ import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
 import { Route as AuthDashboardRouteImport } from './../../routes/_auth/dashboard'
 import { Route as AuthPairRouteImport } from './../../routes/_auth/pair'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
+import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
 import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
+import { Route as PublicTermsRouteImport } from './../../routes/_public/terms'
 import { Route as AuthCSessionIdRouteImport } from './../../routes/_auth/c/$sessionId'
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
 import { Route as ApiHostWsRouteImport } from './../../routes/api/host/ws'
@@ -42,9 +44,19 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicPrivacyRoute = PublicPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicSignInRoute = PublicSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicTermsRoute = PublicTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const AuthCSessionIdRoute = AuthCSessionIdRouteImport.update({
@@ -67,7 +79,9 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/dashboard': typeof AuthDashboardRoute
   '/pair': typeof AuthPairRoute
+  '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
+  '/terms': typeof PublicTermsRoute
   '/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/host/ws': typeof ApiHostWsRoute
@@ -76,7 +90,9 @@ export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/dashboard': typeof AuthDashboardRoute
   '/pair': typeof AuthPairRoute
+  '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
+  '/terms': typeof PublicTermsRoute
   '/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/host/ws': typeof ApiHostWsRoute
@@ -87,7 +103,9 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/pair': typeof AuthPairRoute
+  '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/sign-in': typeof PublicSignInRoute
+  '/_public/terms': typeof PublicTermsRoute
   '/_public/': typeof PublicIndexRoute
   '/_auth/c/$sessionId': typeof AuthCSessionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -99,7 +117,9 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/pair'
+    | '/privacy'
     | '/sign-in'
+    | '/terms'
     | '/c/$sessionId'
     | '/api/auth/$'
     | '/api/host/ws'
@@ -108,7 +128,9 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/pair'
+    | '/privacy'
     | '/sign-in'
+    | '/terms'
     | '/c/$sessionId'
     | '/api/auth/$'
     | '/api/host/ws'
@@ -118,7 +140,9 @@ export interface FileRouteTypes {
     | '/_public'
     | '/_auth/dashboard'
     | '/_auth/pair'
+    | '/_public/privacy'
     | '/_public/sign-in'
+    | '/_public/terms'
     | '/_public/'
     | '/_auth/c/$sessionId'
     | '/api/auth/$'
@@ -169,11 +193,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/privacy': {
+      id: '/_public/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PublicPrivacyRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/sign-in': {
       id: '/_public/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof PublicSignInRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/terms': {
+      id: '/_public/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof PublicTermsRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_auth/c/$sessionId': {
@@ -217,12 +255,16 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 )
 
 interface PublicRouteRouteChildren {
+  PublicPrivacyRoute: typeof PublicPrivacyRoute
   PublicSignInRoute: typeof PublicSignInRoute
+  PublicTermsRoute: typeof PublicTermsRoute
   PublicIndexRoute: typeof PublicIndexRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicPrivacyRoute: PublicPrivacyRoute,
   PublicSignInRoute: PublicSignInRoute,
+  PublicTermsRoute: PublicTermsRoute,
   PublicIndexRoute: PublicIndexRoute,
 }
 

@@ -1,5 +1,7 @@
 import { FolderSimpleIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
 
+import { PAIR_COMMAND } from '#/lib/product.ts'
+import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 import {
   Empty,
@@ -74,13 +76,19 @@ export function SessionHomeFailure({
         <EmptyTitle>{content.title}</EmptyTitle>
         <EmptyDescription>{content.description}</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
-        <Button
-          variant={state === 'error' ? 'outline' : 'default'}
-          onClick={state === 'error' ? onRetry : onPair}
-        >
-          {state === 'error' ? 'Retry' : 'Pair a Mac'}
-        </Button>
+      <EmptyContent className="w-full max-w-sm">
+        {state === 'error' ? (
+          <Button variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+        ) : (
+          <>
+            <TerminalCommand command={PAIR_COMMAND} />
+            <Button variant="ghost" onClick={onPair}>
+              Enter a pairing code
+            </Button>
+          </>
+        )}
       </EmptyContent>
     </Empty>
   )
@@ -91,7 +99,7 @@ function failureContent(state: 'error' | 'unpaired' | 'revoked', hostName?: stri
     return {
       icon: <LinkIcon />,
       title: 'Pair your Mac',
-      description: 'Run `porte pair` on the Mac to connect your local sessions.',
+      description: 'Run this on the Mac where you use Grok, then open the link it prints.',
     }
   }
   if (state === 'revoked') {

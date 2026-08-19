@@ -1,38 +1,45 @@
 /**
  * Typography system
  *
- * 1. :root — base variables. Not Tailwind utilities.
- * 2. @theme inline — generates font-bold, text-lg, leading-tight.
+ * 1. :root — size, leading, and tracking tokens named by their px value.
+ * 2. @theme inline — generates the Tailwind text-* and font-* utilities.
  * 3. @layer base — default styles for h1–h6, p, small, code.
- * 4. @layer utilities — landing display classes.
+ * 4. @layer utilities — wordmark and landing display classes.
  */
 
 /* === TYPOGRAPHY GUIDELINES === */
 /*
  * Use HTML elements. Do not set size, leading, or tracking in components.
  *
+ * === SCALE ===
+ * Tokens are named by px: --text-14 is 14px. 14px is the floor; there is no
+ * smaller token, so nothing on the site can render below it.
+ *
+ * === ROLE RAMPS ===
+ * Copy    — weight 400, tracking 0.       small, p, li
+ * Heading — weight 500/700, tracking < 0. h1–h6, display, wordmark
+ * Label   — weight 500, tracking 0.       buttons and form controls
+ *
  * === BODY TEXT ===
- * small (12px) — timestamps, captions, metadata, legal
+ * small (14px) — timestamps, captions, metadata, legal
  * p (16px) — primary content, labels, descriptions
  *
  * === HEADINGS ===
  * h6 (14px) — list headers, form sections
  * h5 (16px) — card titles, small component headers
- * h4 (16–18px fluid) — tertiary section headers
- * h3 (18–20px fluid) — dialog, modal, card titles
- * h2 (20–24px fluid) — page section headers
- * h1 (24–28px fluid) — app page title (one per page)
+ * h4 (18px) — tertiary section headers
+ * h3 (20px) — dialog, modal, card titles
+ * h2 (24px) — page section headers
+ * h1 (32px) — app page title (one per page)
  *
  * === LANDING ===
- * .text-display-hero on h1 — marketing headline only
+ * .text-display-hero on h1 — marketing headline only. 40px, 64px from md up.
  *
- * === WEIGHT ===
- * Bold 700: h1, h2
- * Medium 500: h3–h6
- * Regular 400: body
+ * === LINE HEIGHT ===
+ * Absolute px in 4px steps. Never a unitless ratio.
  *
  * === DO NOT USE ===
- * text-lg, text-xl, text-2xl, leading-*, tracking-*
+ * leading-*, tracking-*, or any text-* size utility inside a component
  * Multiple h1 tags on one page
  * Hero size on app pages
  */
@@ -44,58 +51,30 @@
   --font-emphasis: var(--font-text);
   --font-quote: var(--font-text);
 
-  --font-size-1: 0.75rem; /* 12px */
-  --font-size-2: 0.875rem; /* 14px */
-  --font-size-3: 1rem; /* 16px */
-  --font-size-4: 1.125rem; /* 18px */
-  --font-size-5: 1.25rem; /* 20px */
-  --font-size-6: 1.5rem; /* 24px */
-  --font-size-7: 1.75rem; /* 28px */
-  --font-size-8: 2.1875rem; /* 35px */
-  --font-size-9: 3.75rem; /* 60px */
+  /* Sizes. Named by px so a token can never drift from its value. */
+  --text-14: 0.875rem;
+  --text-16: 1rem;
+  --text-18: 1.125rem;
+  --text-20: 1.25rem;
+  --text-24: 1.5rem;
+  --text-32: 2rem;
+  --text-40: 2.5rem;
+  --text-64: 4rem;
 
-  --font-size-fluid-1: clamp(0.75rem, 2vw, 0.75rem);
-  --font-size-fluid-2: clamp(0.875rem, 2.5vw, 0.875rem);
-  --font-size-fluid-3: clamp(1rem, 3vw, 1rem);
-  --font-size-fluid-4: clamp(1rem, 4vw, 1.125rem);
-  --font-size-fluid-5: clamp(1.125rem, 5vw, 1.25rem);
-  --font-size-fluid-6: clamp(1.25rem, 6vw, 1.5rem);
-  --font-size-fluid-7: clamp(1.5rem, 7vw, 1.75rem);
-  --font-size-fluid-8: clamp(1.75rem, 8vw, 2.1875rem);
-  --font-size-fluid-9: clamp(2.25rem, 10vw, 3.75rem);
+  /* Line heights. Absolute, 4px steps. */
+  --leading-20: 1.25rem;
+  --leading-24: 1.5rem;
+  --leading-28: 1.75rem;
+  --leading-32: 2rem;
+  --leading-40: 2.5rem;
+  --leading-64: 4rem;
 
-  --letter-spacing-1: 0.0025em;
-  --letter-spacing-2: 0em;
-  --letter-spacing-3: 0em;
-  --letter-spacing-4: -0.0025em;
-  --letter-spacing-5: -0.005em;
-  --letter-spacing-6: -0.01em;
-  --letter-spacing-7: -0.015em;
-  --letter-spacing-8: -0.02em;
-  --letter-spacing-9: -0.03em;
-  --letter-spacing-10: -0.035em;
-  --letter-spacing-11: -0.04em;
-  --letter-spacing-12: -0.045em;
-
-  --line-height-1: 1.333;
-  --line-height-2: 1.428;
-  --line-height-3: 1.5;
-  --line-height-4: 1.444;
-  --line-height-5: 1.4;
-  --line-height-6: 1.25;
-  --line-height-7: 1.285;
-  --line-height-8: 1.142;
-  --line-height-9: 1;
-
-  --heading-line-height-1: 1.333;
-  --heading-line-height-2: 1.428;
-  --heading-line-height-3: 1.5;
-  --heading-line-height-4: 1.444;
-  --heading-line-height-5: 1.4;
-  --heading-line-height-6: 1.25;
-  --heading-line-height-7: 1.285;
-  --heading-line-height-8: 1.142;
-  --heading-line-height-9: 1;
+  /* Tracking. Copy sits at 0; headings tighten as they grow. */
+  --tracking-copy: 0em;
+  --tracking-heading-sm: -0.02em;
+  --tracking-heading-md: -0.03em;
+  --tracking-heading-lg: -0.04em;
+  --tracking-display: -0.045em;
 }
 
 @theme inline {
@@ -137,74 +116,75 @@
   --quote-font-weight: inherit;
   --quote-letter-spacing: -0.01em;
 
-  --text-xs: var(--font-size-fluid-1);
-  --text-sm: var(--font-size-fluid-2);
-  --text-base: var(--font-size-fluid-3);
-  --text-lg: var(--font-size-fluid-4);
-  --text-xl: var(--font-size-fluid-5);
-  --text-2xl: var(--font-size-fluid-6);
-  --text-3xl: var(--font-size-fluid-7);
-  --text-4xl: var(--font-size-fluid-8);
-  --text-5xl: var(--font-size-fluid-9);
+  /* text-xs is an alias of text-sm: the 14px floor leaves no room below it. */
+  --text-xs: var(--text-14);
+  --text-sm: var(--text-14);
+  --text-base: var(--text-16);
+  --text-lg: var(--text-18);
+  --text-xl: var(--text-20);
+  --text-2xl: var(--text-24);
+  --text-3xl: var(--text-32);
+  --text-4xl: var(--text-40);
+  --text-5xl: var(--text-64);
 
-  --leading-none: var(--line-height-9);
-  --leading-tight: var(--line-height-6);
-  --leading-normal: var(--line-height-3);
-  --leading-relaxed: var(--line-height-2);
+  --leading-none: 1;
+  --leading-tight: var(--leading-24);
+  --leading-normal: var(--leading-24);
+  --leading-relaxed: var(--leading-28);
 
-  --tracking-tight: var(--letter-spacing-9);
-  --tracking-normal: var(--letter-spacing-6);
-  --tracking-wide: var(--letter-spacing-3);
-  --tracking-widest: var(--letter-spacing-1);
+  --tracking-tight: var(--tracking-heading-md);
+  --tracking-normal: var(--tracking-copy);
+  --tracking-wide: var(--tracking-copy);
+  --tracking-widest: var(--tracking-copy);
 }
 
 @layer base {
   body {
     font-family: var(--font-text);
-    font-size: var(--font-size-fluid-3);
-    line-height: var(--line-height-3);
+    font-size: var(--text-16);
+    line-height: var(--leading-24);
     font-weight: var(--font-weight-regular);
   }
 
   h1 {
-    font-size: var(--font-size-fluid-7);
-    letter-spacing: var(--letter-spacing-9);
-    line-height: var(--heading-line-height-9);
+    font-size: var(--text-32);
+    letter-spacing: var(--tracking-heading-lg);
+    line-height: var(--leading-40);
     font-weight: var(--font-weight-bold);
   }
 
   h2 {
-    font-size: var(--font-size-fluid-6);
-    letter-spacing: var(--letter-spacing-8);
-    line-height: var(--heading-line-height-8);
+    font-size: var(--text-24);
+    letter-spacing: var(--tracking-heading-md);
+    line-height: var(--leading-32);
     font-weight: var(--font-weight-bold);
   }
 
   h3 {
-    font-size: var(--font-size-fluid-5);
-    letter-spacing: var(--letter-spacing-7);
-    line-height: var(--heading-line-height-7);
+    font-size: var(--text-20);
+    letter-spacing: var(--tracking-heading-sm);
+    line-height: var(--leading-28);
     font-weight: var(--font-weight-medium);
   }
 
   h4 {
-    font-size: var(--font-size-fluid-4);
-    letter-spacing: var(--letter-spacing-6);
-    line-height: var(--heading-line-height-6);
+    font-size: var(--text-18);
+    letter-spacing: var(--tracking-heading-sm);
+    line-height: var(--leading-24);
     font-weight: var(--font-weight-medium);
   }
 
   h5 {
-    font-size: var(--font-size-fluid-3);
-    letter-spacing: var(--letter-spacing-5);
-    line-height: var(--heading-line-height-5);
+    font-size: var(--text-16);
+    letter-spacing: var(--tracking-heading-sm);
+    line-height: var(--leading-24);
     font-weight: var(--font-weight-medium);
   }
 
   h6 {
-    font-size: var(--font-size-fluid-2);
-    letter-spacing: var(--letter-spacing-4);
-    line-height: var(--heading-line-height-4);
+    font-size: var(--text-14);
+    letter-spacing: var(--tracking-heading-sm);
+    line-height: var(--leading-20);
     font-weight: var(--font-weight-medium);
   }
 
@@ -212,15 +192,15 @@
   ul,
   ol,
   li {
-    font-size: var(--font-size-fluid-3);
-    letter-spacing: var(--letter-spacing-3);
-    line-height: var(--line-height-3);
+    font-size: var(--text-16);
+    letter-spacing: var(--tracking-copy);
+    line-height: var(--leading-24);
   }
 
   small {
-    font-size: var(--font-size-fluid-1);
-    letter-spacing: var(--letter-spacing-1);
-    line-height: var(--line-height-1);
+    font-size: var(--text-14);
+    letter-spacing: var(--tracking-copy);
+    line-height: var(--leading-20);
   }
 
   a {
@@ -279,42 +259,61 @@
 }
 
 @layer utilities {
+  /* Wordmark sits ~1.3x the nav text so it reads as the brand, not a label. */
   .text-wordmark-sm {
     font-family: var(--font-brand);
-    font-size: var(--font-size-fluid-3);
+    font-size: var(--text-18);
     font-weight: var(--font-weight-bold);
-    letter-spacing: var(--letter-spacing-8);
-    line-height: var(--heading-line-height-9);
+    letter-spacing: var(--tracking-heading-md);
+    line-height: var(--leading-24);
   }
 
   .text-wordmark {
     font-family: var(--font-brand);
-    font-size: var(--font-size-fluid-4);
+    font-size: var(--text-24);
     font-weight: var(--font-weight-bold);
-    letter-spacing: var(--letter-spacing-9);
-    line-height: var(--heading-line-height-9);
+    letter-spacing: var(--tracking-heading-lg);
+    line-height: var(--leading-32);
   }
 
   .text-wordmark-lg {
     font-family: var(--font-brand);
-    font-size: var(--font-size-fluid-6);
+    font-size: var(--text-40);
     font-weight: var(--font-weight-bold);
-    letter-spacing: var(--letter-spacing-10);
-    line-height: var(--heading-line-height-9);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-40);
   }
 
+  /* Fixed sizes swapped at a breakpoint. No clamp: display type needs exact control. */
   .text-display-hero {
-    @apply text-5xl font-bold;
-    letter-spacing: var(--letter-spacing-11);
+    font-size: var(--text-40);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-40);
   }
 
   .text-display {
-    @apply text-3xl font-bold;
-    letter-spacing: var(--letter-spacing-10);
+    font-size: var(--text-32);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-heading-lg);
+    line-height: var(--leading-40);
   }
 
   .text-subtitle {
-    @apply text-xl;
-    letter-spacing: var(--letter-spacing-7);
+    font-size: var(--text-20);
+    letter-spacing: var(--tracking-copy);
+    line-height: var(--leading-28);
+  }
+
+  @media (width >= 48rem) {
+    .text-display-hero {
+      font-size: var(--text-64);
+      line-height: var(--leading-64);
+    }
+
+    .text-display {
+      font-size: var(--text-40);
+      line-height: var(--leading-40);
+    }
   }
 }

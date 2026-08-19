@@ -10,7 +10,7 @@ import { sessions } from '../fixtures/sessions.ts'
 
 const HOST = {
   name: "Alex's MacBook Pro",
-  platform: 'macOS · Porte CLI',
+  platform: 'macOS',
 } as const
 
 const ACCOUNT = 'a•••@example.com'
@@ -28,14 +28,29 @@ export type PairingPlayStart =
   | 'expired'
   | 'code-entry'
   | 'invalid-code'
+  | 'confirmation-mismatch'
+  | 'consumed'
+  | 'account-conflict'
+  | 'host-disconnected'
+  | 'server-unavailable'
 
 type Screen =
   | { readonly kind: 'sign-in'; readonly pendingProvider: SocialProvider | undefined }
   | { readonly kind: 'validating' }
-  | { readonly kind: 'confirm'; readonly pending: boolean }
+  | { readonly kind: 'confirm' }
+  | { readonly kind: 'confirming' }
   | { readonly kind: 'waiting' }
   | { readonly kind: 'success' }
   | { readonly kind: 'expired' }
+  | {
+      readonly kind: 'issue'
+      readonly issue:
+        | 'confirmation-mismatch'
+        | 'consumed'
+        | 'account-conflict'
+        | 'host-disconnected'
+        | 'server-unavailable'
+    }
   | {
       readonly kind: 'code'
       readonly code: string
@@ -51,9 +66,9 @@ function initialScreen(start: PairingPlayStart): Screen {
     case 'validating':
       return { kind: 'validating' }
     case 'confirm':
-      return { kind: 'confirm', pending: false }
+      return { kind: 'confirm' }
     case 'confirming':
-      return { kind: 'confirm', pending: true }
+      return { kind: 'confirming' }
     case 'waiting-for-desktop':
       return { kind: 'waiting' }
     case 'success':
@@ -69,6 +84,12 @@ function initialScreen(start: PairingPlayStart): Screen {
         error: 'That code is expired or already used',
         pending: false,
       }
+    case 'confirmation-mismatch':
+    case 'consumed':
+    case 'account-conflict':
+    case 'host-disconnected':
+    case 'server-unavailable':
+      return { kind: 'issue', issue: start }
   }
 }
 
@@ -99,7 +120,7 @@ export function PairingPlay({
   useEffect(() => {
     if (!allowRemote || screen.kind !== 'validating') return
     const timer = window.setTimeout(() => {
-      setScreen({ kind: 'confirm', pending: false })
+      setScreen({ kind: 'confirm' })
     }, 800)
     return () => {
       window.clearTimeout(timer)
@@ -107,7 +128,7 @@ export function PairingPlay({
   }, [allowRemote, screen])
 
   useEffect(() => {
-    if (screen.kind !== 'confirm' || !screen.pending || !progressConfirm.current) return
+    if (screen.kind !== 'confirming' || !progressConfirm.current) return
     const timer = window.setTimeout(() => {
       setScreen({ kind: 'waiting' })
     }, 600)
@@ -129,7 +150,6 @@ export function PairingPlay({
   if (screen.kind === 'sign-in') {
     return (
       <SignInPage
-        error={undefined}
         notice={<PairingSignInNotice />}
         pendingProvider={screen.pendingProvider}
         onSocial={(provider) => {
@@ -158,21 +178,20 @@ export function PairingPlay({
     return <PairPage view="validating" />
   }
 
-  if (screen.kind === 'confirm') {
+  if (screen.kind === 'confirm' || screen.kind === 'confirming') {
     return (
       <PairPage
         accountLabel={ACCOUNT}
         host={HOST}
-        pending={screen.pending}
         verificationPhrase={PHRASE}
-        view="confirm"
+        view={screen.kind}
         onCancel={() => {
           setScreen({ kind: 'home', paired: false })
         }}
         onConfirm={() => {
           progressConfirm.current = true
           setAllowRemote(true)
-          setScreen({ kind: 'confirm', pending: true })
+          setScreen({ kind: 'confirming' })
         }}
       />
     )
@@ -214,6 +233,18 @@ export function PairingPlay({
     )
   }
 
+  if (screen.kind === 'issue') {
+    return (
+      <PairPage
+        issue={screen.issue}
+        pending={false}
+        view="issue"
+        onCancel={() => undefined}
+        onPrimary={() => undefined}
+      />
+    )
+  }
+
   return (
     <PairPage
       code={screen.code}
@@ -235,7 +266,7 @@ export function PairingPlay({
         }
         setScreen({ kind: 'code', code: screen.code, error: undefined, pending: true })
         later(() => {
-          setScreen({ kind: 'confirm', pending: false })
+          setScreen({ kind: 'confirm' })
         }, 600)
       }}
     />
@@ -267,7 +298,6 @@ export function SignInPlay() {
 
   return (
     <SignInPage
-      error={undefined}
       pendingProvider={pendingProvider}
       onSocial={(provider) => {
         setPendingProvider(provider)

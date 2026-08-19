@@ -4,9 +4,9 @@ import { useRef, useState } from 'react'
 
 import { authService } from '#/lib/auth/auth-service.ts'
 import type { SocialProvider } from '#/lib/auth/social-provider.ts'
+import { SignInPage } from '#/pages/sign-in/sign-in-page.tsx'
 import { TurnstileWidget } from '#/ui/components/security/turnstile-widget.tsx'
-
-import { SignInForm } from './sign-in-form.tsx'
+import { toast } from '#/ui/components/ui/sonner.tsx'
 
 /** Props controlling where OAuth returns after authentication. */
 export type SignInFlowProps = {
@@ -21,7 +21,6 @@ type OAuthVariables = {
 
 /** Run the social sign-in interaction and preserve its validated destination. */
 export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
-  const [error, setError] = useState<string>()
   const [verifyingProvider, setVerifyingProvider] = useState<SocialProvider>()
   const turnstileRef = useRef<TurnstileInstance | null>(null)
 
@@ -30,7 +29,9 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
       authService().signInWithOAuth(provider, { redirectTo, captchaToken }),
     onError: (cause) => {
       turnstileRef.current?.reset()
-      setError(cause instanceof Error ? cause.message : 'Sign-in failed')
+      toast.error('Sign-in failed', {
+        description: cause instanceof Error ? cause.message : 'Try again in a moment.',
+      })
     },
     onSettled: () => {
       setVerifyingProvider(undefined)
@@ -40,11 +41,12 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
   async function signIn(provider: SocialProvider) {
     const widget = turnstileRef.current
     if (widget === null) {
-      setError('Verification unavailable')
+      toast.error('Verification unavailable', {
+        description: 'Reload the page and try again.',
+      })
       return
     }
 
-    setError(undefined)
     setVerifyingProvider(provider)
     try {
       widget.reset()
@@ -53,13 +55,12 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
       oauth.mutate({ provider, captchaToken })
     } catch {
       setVerifyingProvider(undefined)
-      setError('Verification failed. Try again')
+      toast.error('Verification failed', { description: 'Try again in a moment.' })
     }
   }
 
   return (
-    <SignInForm
-      error={error}
+    <SignInPage
       notice={notice}
       pendingProvider={oauth.isPending ? oauth.variables.provider : verifyingProvider}
       onSocial={(provider) => {
@@ -67,6 +68,6 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
       }}
     >
       <TurnstileWidget ref={turnstileRef} />
-    </SignInForm>
+    </SignInPage>
   )
 }

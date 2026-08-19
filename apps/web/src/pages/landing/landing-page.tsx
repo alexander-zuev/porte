@@ -1,44 +1,56 @@
-import { ArrowRightIcon } from '@phosphor-icons/react'
+import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 
-import { Logo } from '#/ui/components/logo.tsx'
-import { MarketingFrame } from '#/ui/components/marketing-frame.tsx'
+import { PAIR_COMMAND } from '#/lib/product.ts'
+import { PublicShell } from '#/ui/components/public-shell.tsx'
+import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 
+const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
+  { icon: <ShieldCheckIcon aria-hidden />, label: 'Adds no new permissions' },
+  { icon: <LaptopIcon aria-hidden />, label: 'Repos never leave the Mac' },
+  { icon: <GithubLogoIcon aria-hidden />, label: 'Apache-2.0' },
+]
+
+/** Single-screen marketing entry that sends visitors to the pairing command. */
 export function LandingPage() {
   return (
-    <MarketingFrame className="relative isolate flex min-h-svh flex-col overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-px -translate-x-[min(36rem,50vw)] bg-border md:block"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-px translate-x-[min(36rem,50vw)] bg-border md:block"
-      />
+    <PublicShell background action={<SignInAction />}>
+      <div className="flex flex-1 flex-col justify-center">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-14 md:px-10">
+          <h1 className="text-display-hero max-w-[16ch]">
+            Grok stays on your Mac.
+            <br />
+            <span className="text-muted-foreground">You do not have to.</span>
+          </h1>
 
-      <header className="flex items-center justify-between px-6 py-6 md:px-10">
-        <Logo size="sm" />
-      </header>
-
-      <div className="flex flex-1 flex-col justify-end px-6 pb-10 md:justify-center md:px-10 md:pb-24">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
-          <h1 className="text-display-hero max-w-[14ch]">Grok. From the phone.</h1>
-          <p className="max-w-[32ch] text-muted-foreground">
-            Pair the Mac. Open a session. Approve the work. The laptop never listens.
-          </p>
-          <div>
-            <Button nativeButton={false} render={<Link to="/sign-in" />}>
-              Enter
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
+          <div className="flex flex-col gap-4">
+            <TerminalCommand typed className="max-w-md" command={PAIR_COMMAND} />
+            <p className="max-w-[46ch] text-muted-foreground">
+              Run this on the Mac where you use Grok, then confirm the phrase on your phone. Read
+              the transcript, send a prompt, approve the work from anywhere.
+            </p>
           </div>
+
+          <ul className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:gap-x-7">
+            {PROOF.map((proof) => (
+              <li key={proof.label} className="flex items-center gap-2 text-muted-foreground">
+                {proof.icon}
+                <small>{proof.label}</small>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
+    </PublicShell>
+  )
+}
 
-      <footer className="border-t border-border px-6 py-5 md:px-10">
-        <small className="text-muted-foreground">Pair · Resume · Approve</small>
-      </footer>
-    </MarketingFrame>
+function SignInAction() {
+  return (
+    <Button nativeButton={false} size="sm" variant="ghost" render={<Link to="/sign-in" />}>
+      Sign in
+    </Button>
   )
 }

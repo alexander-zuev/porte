@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import { Toaster } from '#/ui/components/ui/sonner.tsx'
 import { TooltipProvider } from '#/ui/components/ui/tooltip.tsx'
 
 import PostHogProvider from '../integrations/posthog/provider'
@@ -25,7 +26,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'Porte',
       },
     ],
     links: [
@@ -48,6 +49,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <TooltipProvider>
           <PostHogProvider>
             {children}
+            <Toaster />
             <TanStackDevtools
               config={{
                 position: 'bottom-right',

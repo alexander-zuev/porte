@@ -1,15 +1,11 @@
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import type { HostDescriptor } from '@porte/core'
 import { useState, type ReactNode } from 'react'
 
 import { cn } from '#/lib/utils.ts'
 import { Logo } from '#/ui/components/logo.tsx'
+import { DecryptedText } from '#/ui/components/react-bits/decrypted-text.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
-
-/** Safe host details shown before a phone account claims a pairing attempt. */
-export type PairingHostSummary = {
-  readonly name: string
-  readonly platform: string
-}
 
 /** Semantic color for a pairing status icon. */
 export type PairingTone = 'info' | 'success' | 'warning'
@@ -51,7 +47,7 @@ export function PairingStatusIcon({
 }
 
 /** Host identity as the primary pairing object. */
-export function PairingHost({ host }: { readonly host: PairingHostSummary }) {
+export function PairingHost({ host }: { readonly host: HostDescriptor }) {
   return (
     <div className="flex flex-col gap-1">
       <h1>{host.name}</h1>
@@ -79,7 +75,9 @@ export function VerificationPhrase({ value }: { readonly value: string }) {
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex items-center gap-1 rounded-lg bg-muted py-2 pr-2 pl-4">
-        <code className="min-w-0 flex-1 bg-transparent p-0">{value}</code>
+        <code className="min-w-0 flex-1 bg-transparent p-0">
+          <DecryptedText encryptedClassName="text-muted-foreground" text={value} />
+        </code>
         <Button
           aria-label={copied ? 'Copied' : 'Copy phrase'}
           size="icon-sm"
