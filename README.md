@@ -1,10 +1,8 @@
 # Porte
 
-Run your local Grok sessions remotely.
+Porte - means door in French - is a secure remote interface for your local Grok sessions.
 
-Manage your Grok sessions remotely. Your laptop stays the computer. Your phone is the remote.
-
-Continue the same threads, in the same repos. It does not replace or hijack the TUI. Each account sees only its own machines.
+Manage the same Grok threads and repos from your phone while they continue to run on your laptop. Porte does not replace the TUI, and each account can access only its own machines.
 
 ## How it works
 
