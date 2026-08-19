@@ -19,19 +19,15 @@ Phone (your account)  →  Porte  →  your paired machine
                                     local sessions + repos
 ```
 
-The daemon dials out. Nothing listens on your laptop. If the machine sleeps, access stops. Files, spend, and Grok login stay on the host.
+## What Porte handles
 
-## What we handle
-
-Almost nothing.
+Porte relays remote actions while your machine keeps the Grok runtime and all local data.
 
 | ☁️ Us                               | 💻 Your machine           |
 | ----------------------------------- | ------------------------- |
 | App account + pairing               | `grok.com` login, spend   |
 | Session titles (id, cwd, updated)   | Repos, files, transcripts |
 | Live relay of prompts and approvals | The Grok process          |
-
-We do not read your disk. We do not get your Grok password. Offline host = nothing to run.
 
 ## Safety
 
