@@ -1,9 +1,12 @@
-import { LinkIcon } from '@phosphor-icons/react'
+import { LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
 
+import { Alert, AlertDescription } from '#/ui/components/ui/alert.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/ui/components/ui/input-otp.tsx'
+import { Spinner } from '#/ui/components/ui/spinner.tsx'
 
+/** Controlled fallback-code form for claiming a desktop pairing attempt. */
 export type PairFormProps = {
   readonly code: string
   readonly pending: boolean
@@ -24,8 +27,8 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
       }}
     >
       <header className="flex flex-col gap-2">
-        <h1>Pair this phone</h1>
-        <p className="text-muted-foreground">Enter the one-time code shown on your Mac.</p>
+        <h1>Pair this Mac</h1>
+        <p className="text-muted-foreground">Enter the one-time code shown by Porte on your Mac.</p>
       </header>
       <FieldGroup className="gap-4">
         <Field data-invalid={invalid || undefined}>
@@ -51,16 +54,19 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
               <InputOTPSlot index={5} />
             </InputOTPGroup>
           </InputOTP>
-          <FieldDescription>Six characters from the daemon.</FieldDescription>
+          <FieldDescription>
+            Six characters from the <code>porte pair</code> command.
+          </FieldDescription>
         </Field>
       </FieldGroup>
       {error ? (
-        <p className="text-destructive" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <WarningCircleIcon />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
       <Button disabled={pending || code.length !== 6} type="submit">
-        <LinkIcon data-icon="inline-start" />
+        {pending ? <Spinner data-icon="inline-start" /> : <LinkIcon data-icon="inline-start" />}
         Pair Mac
       </Button>
     </form>

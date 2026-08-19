@@ -1,46 +1,93 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { useState, type ComponentProps } from 'react'
+import { useState } from 'react'
 
 import { PairPage } from '#/pages/pair/pair-page.tsx'
+
+const HOST = {
+  name: "Alex's MacBook Pro",
+  platform: 'macOS · Porte CLI',
+} as const
 
 const meta = {
   title: 'Pages/Pair',
   component: PairPage,
+  args: { view: 'validating' },
 } satisfies Meta<typeof PairPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-function PairHarness(props: Pick<ComponentProps<typeof PairPage>, 'pending' | 'error' | 'code'>) {
-  const [code, setCode] = useState(props.code)
+export const Validating: Story = {}
+
+export const SignInRequired: Story = {
+  render: () => <PairPage host={HOST} view="sign-in-required" onSignIn={() => undefined} />,
+}
+
+export const Confirm: Story = {
+  render: () => (
+    <PairPage
+      accountLabel="a•••@example.com"
+      host={HOST}
+      pending={false}
+      verificationPhrase="quiet cedar seven"
+      view="confirm"
+      onCancel={() => undefined}
+      onConfirm={() => undefined}
+    />
+  ),
+}
+
+export const Confirming: Story = {
+  render: () => (
+    <PairPage
+      accountLabel="a•••@example.com"
+      host={HOST}
+      pending
+      verificationPhrase="quiet cedar seven"
+      view="confirm"
+      onCancel={() => undefined}
+      onConfirm={() => undefined}
+    />
+  ),
+}
+
+export const WaitingForDesktop: Story = {
+  render: () => (
+    <PairPage
+      host={HOST}
+      verificationPhrase="quiet cedar seven"
+      view="waiting-for-desktop"
+      onCancel={() => undefined}
+    />
+  ),
+}
+
+export const Success: Story = {
+  render: () => <PairPage host={HOST} view="success" onContinue={() => undefined} />,
+}
+
+export const Expired: Story = {
+  render: () => <PairPage view="expired" onEnterCode={() => undefined} />,
+}
+
+function CodeEntryHarness({ error }: { readonly error?: string }) {
+  const [code, setCode] = useState(error === undefined ? '' : 'ZZZZZZ')
   return (
     <PairPage
       code={code}
-      pending={props.pending}
-      error={props.error}
+      error={error}
+      pending={false}
+      view="code-entry"
       onCodeChange={setCode}
       onSubmit={() => undefined}
     />
   )
 }
 
-export const Ready: Story = {
-  args: {
-    code: '7K2M9Q',
-    pending: false,
-    error: undefined,
-    onCodeChange: () => undefined,
-    onSubmit: () => undefined,
-  },
-  render: () => <PairHarness code="7K2M9Q" pending={false} error={undefined} />,
-}
-
-export const EmptyCode: Story = {
-  args: Ready.args,
-  render: () => <PairHarness code="" pending={false} error={undefined} />,
+export const CodeEntry: Story = {
+  render: () => <CodeEntryHarness />,
 }
 
 export const InvalidCode: Story = {
-  args: Ready.args,
-  render: () => <PairHarness code="ZZZZZZ" pending={false} error="That code is expired." />,
+  render: () => <CodeEntryHarness error="That code is expired or has already been used." />,
 }

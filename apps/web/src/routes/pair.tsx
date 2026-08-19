@@ -12,6 +12,7 @@ function PairRoute() {
       code=""
       error={undefined}
       pending={false}
+      view="code-entry"
       onCodeChange={() => undefined}
       onSubmit={() => undefined}
     />
