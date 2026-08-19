@@ -11,9 +11,9 @@ import { Button } from '#/ui/components/ui/button.tsx'
 export type PairingTone = 'info' | 'success' | 'warning'
 
 const TONE_CLASS = {
-  info: 'text-status-info',
-  success: 'text-status-success',
-  warning: 'text-status-warning',
+  info: 'text-status-info-muted-foreground',
+  success: 'text-status-success-muted-foreground',
+  warning: 'text-status-warning-muted-foreground',
 } as const
 
 /** Shared centered pairing scaffold so states occupy the same column. */

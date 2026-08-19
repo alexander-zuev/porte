@@ -8,9 +8,9 @@ export function TermsPage() {
     <LegalPage title="Terms of Service" updated={LEGAL_UPDATED}>
       <LegalSection heading="What Porte is">
         <p>
-          Porte connects your phone to a Mac you control, so you can read and steer Grok sessions
-          that run on that Mac. The Porte source code is open under the Apache License 2.0. These
-          terms cover the hosted service that relays messages between your devices.
+          Porte connects your phone to a Mac you control, so you can continue and start Grok
+          sessions that run on that Mac. The Porte source code is open under the Apache License 2.0.
+          These terms cover the hosted service that relays messages between your devices.
         </p>
       </LegalSection>
 

@@ -28,8 +28,8 @@ export function LandingPage() {
           <div className="flex flex-col gap-4">
             <TerminalCommand typed className="max-w-md" command={PAIR_COMMAND} />
             <p className="max-w-[46ch] text-muted-foreground">
-              Run this on the Mac where you use Grok, then confirm the phrase on your phone. Read
-              the transcript, send a prompt, approve the work from anywhere.
+              Run this on the Mac where you use Grok, then confirm the phrase on your phone. Pick up
+              a session, start a new one, and approve every action from anywhere.
             </p>
           </div>
 
