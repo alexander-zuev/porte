@@ -35,6 +35,7 @@ export function getAuthInstance(deps: AppDeps, additionalPlugins?: BetterAuthOpt
         twitterClientSecret: env.TWITTER_CLIENT_SECRET,
         turnstileSecretKey: env.TURNSTILE_SECRET_KEY,
         isDevelopment: env.ENVIRONMENT === 'dev',
+        secondaryStorage: deps.authStorage,
         waitUntil: (promise) => {
           deps.executionCtx.waitUntil(promise)
         },
