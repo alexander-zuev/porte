@@ -11,7 +11,7 @@ export function HostStatus({ online }: HostStatusProps) {
       <span
         className={cn(
           'size-2 shrink-0 rounded-full',
-          online ? 'bg-status-online' : 'bg-status-offline',
+          online ? 'bg-status-success' : 'bg-muted-foreground',
         )}
         aria-hidden
       />

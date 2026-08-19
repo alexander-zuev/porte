@@ -8,6 +8,8 @@
   "rules": {
     "drizzle/enforce-update-with-where": "error",
     "drizzle/enforce-delete-with-where": "off",
+    "design-system/no-color-opacity-modifiers": "error",
+    "design-system/no-raw-colors": "error",
     "design-system/no-typography-overrides": "error",
     "design-system/prefer-ui-primitives": "error"
   },

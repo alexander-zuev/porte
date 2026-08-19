@@ -26,8 +26,10 @@
   --accent: #f4f4f5;
   --accent-foreground: #050505;
   --destructive: #dc2626;
-  --status-online: #16a34a;
-  --status-offline: #737373;
+  --overlay: #000000;
+  --status-info: #2563eb;
+  --status-warning: #ca8a04;
+  --status-success: #16a34a;
   --border: #d1d5db;
   --input: #d1d5db;
   --ring: #050505;
@@ -59,8 +61,9 @@
   --accent: #1a1a1a;
   --accent-foreground: #fcfcfc;
   --destructive: #ef4444;
-  --status-online: #4ade80;
-  --status-offline: #737373;
+  --status-info: #60a5fa;
+  --status-warning: #facc15;
+  --status-success: #4ade80;
   --border: #374151;
   --input: #374151;
   --ring: #fcfcfc;
@@ -91,8 +94,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-status-online: var(--status-online);
-  --color-status-offline: var(--status-offline);
+  --color-overlay: var(--overlay);
+  --color-status-info: var(--status-info);
+  --color-status-warning: var(--status-warning);
+  --color-status-success: var(--status-success);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

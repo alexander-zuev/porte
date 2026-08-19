@@ -35,11 +35,13 @@ const COLOR_TOKENS = [
   { name: 'accent', swatch: 'bg-accent' },
   { name: 'accent-foreground', swatch: 'bg-accent-foreground' },
   { name: 'destructive', swatch: 'bg-destructive' },
+  { name: 'overlay', swatch: 'bg-overlay' },
   { name: 'border', swatch: 'bg-border' },
   { name: 'input', swatch: 'bg-input' },
   { name: 'ring', swatch: 'bg-ring' },
-  { name: 'status-online', swatch: 'bg-status-online' },
-  { name: 'status-offline', swatch: 'bg-status-offline' },
+  { name: 'status-info', swatch: 'bg-status-info' },
+  { name: 'status-warning', swatch: 'bg-status-warning' },
+  { name: 'status-success', swatch: 'bg-status-success' },
 ] as const
 
 const TEXT_PAIRS = [

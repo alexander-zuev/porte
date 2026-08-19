@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    { "name": "design-system", "specifier": "../../tools/oxlint/design-system/index.ts" }
+  ],
+  "rules": {
+    "design-system/no-raw-colors": "error"
+  },
+  "ignorePatterns": ["src/server/infrastructure/persistence/database/migrations/**"]
+}

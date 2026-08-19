@@ -1,25 +1,24 @@
 import { authClient } from '#/lib/clients/auth.client.ts'
+import { Avatar, AvatarFallback, AvatarImage } from '#/ui/components/ui/avatar.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
+import { Skeleton } from '#/ui/components/ui/skeleton.tsx'
 
 export default function BetterAuthHeader() {
   const { data: session, isPending } = authClient.useSession()
 
   if (isPending) {
-    return <div className="h-8 w-8 animate-pulse bg-neutral-100 dark:bg-neutral-800" />
+    return <Skeleton className="size-8 rounded-full" />
   }
 
   if (session?.user) {
     return (
       <div className="flex items-center gap-2">
-        {session.user.image ? (
-          <img src={session.user.image} alt="" className="h-8 w-8" />
-        ) : (
-          <div className="flex h-8 w-8 items-center justify-center bg-neutral-100 dark:bg-neutral-800">
-            <small className="text-neutral-600 dark:text-neutral-400">
-              {session.user.name.charAt(0).toUpperCase() || 'U'}
-            </small>
-          </div>
-        )}
+        <Avatar>
+          {session.user.image ? (
+            <AvatarImage alt={`${session.user.name}'s profile picture`} src={session.user.image} />
+          ) : null}
+          <AvatarFallback>{session.user.name.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+        </Avatar>
         <Button
           type="button"
           variant="outline"
