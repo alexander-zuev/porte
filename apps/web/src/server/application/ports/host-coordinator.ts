@@ -19,4 +19,12 @@ export type ConnectHost = {
 /** Cloudflare binding capability required for one host connection. */
 export interface HostCoordinator {
   connect(input: ConnectHost): Promise<Response>
+
+  /**
+   * Turn everyone out of one Mac's relay.
+   *
+   * Refusing the next connection is not enough: a daemon already holding a
+   * socket would keep serving a pairing that has ended.
+   */
+  disconnect(hostId: HostId): Promise<void>
 }

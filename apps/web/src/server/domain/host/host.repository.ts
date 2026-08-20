@@ -1,4 +1,4 @@
-import type { UserId } from '@porte/core'
+import type { HostId, UserId } from '@porte/core'
 
 import type { Host } from './host.aggregate.ts'
 
@@ -15,6 +15,9 @@ import type { Host } from './host.aggregate.ts'
 export interface HostRepository {
   /** The account's Mac, revoked or not, or null when it has never registered one. */
   findByUserId(userId: UserId): Promise<Host | null>
+
+  /** By its own id. The relay knows which Mac it holds, never whose it is. */
+  findById(hostId: HostId): Promise<Host | null>
 
   /** Insert or overwrite the account's Mac. */
   save(host: Host): Promise<void>

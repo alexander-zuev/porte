@@ -79,15 +79,18 @@ not in an introduction.
 
 ### Next slice
 
-Ordered. Each item unblocks the one after it.
+The pairing loop is closed: a code request names the Mac, approval writes the row, the daemon
+authenticates with what pairing gave it, and the relay records what it saw.
 
-1. Close the pairing loop end to end, from the code request to a live relay connection. Nothing
-   records pairing today, which is why a paired account still sees "Pair your Mac", and the relay
-   still authenticates with a development secret. Specified in `pair-and-connect.md`.
-2. `/dashboard` redirects to `/pair` when the account owns no Mac.
-3. Split `/pair` into step 1 (the command) and `/pair/code` (code entry), and label both.
-4. `porte up` installs a launchd agent so the daemon survives logout and reboot. `porte stop` ends
-   it; `porte unpair` ends the pairing. `porte up --foreground` stays for development.
+What remains:
+
+1. `porte up` runs in the foreground and dies with the terminal. It should install a launchd agent
+   so the daemon survives logout and reboot. `porte stop` ends it; `porte unpair` ends the pairing.
+   `porte up --foreground` stays for development.
+2. `porte up` prints almost nothing. It should name the Mac and the account it connected, the way
+   `porte pair` names the code.
+3. The browser has no relay client, so `/conversations` reports a connected Mac as offline. Until
+   it has one, `useHostConnection` answers from the database alone.
 
 ## Experience Contract
 

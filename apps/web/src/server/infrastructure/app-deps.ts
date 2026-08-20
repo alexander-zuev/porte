@@ -39,11 +39,20 @@ export type AppDeps = {
   /** Where each pairing code was asked for. Written when one is issued. */
   pairingOrigins: PairingOrigins
   hostCoordinator: HostCoordinator
-  executionCtx: ExecutionContext
+  executionCtx: BackgroundWork
 }
 
+/**
+ * Somewhere to hand work that outlives the response.
+ *
+ * Only `waitUntil` is ever used, and a Worker request and a relay both offer
+ * one. Naming that much lets the relay build the same dependencies as everything
+ * else instead of assembling its own.
+ */
+export type BackgroundWork = Pick<ExecutionContext, 'waitUntil'>
+
 /** Construct Worker adapters from generated Cloudflare bindings. */
-export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): AppDeps {
+export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): AppDeps {
   // Lazy primary handle. A request may swap in a replica-routed session through
   // useDb; background contexts never rebind and stay on the primary.
   const rootDb = once(() => createDatabase(env.DB))

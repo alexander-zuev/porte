@@ -17,21 +17,6 @@ export type HostSnapshot = {
   readonly lastSeenAt: Date | null
 }
 
-/** What a daemon tells us about itself when it connects. */
-export type HostAnnouncement = {
-  readonly name: string
-  readonly platform: HostPlatform
-  readonly at: Date
-}
-
-/**
- * Outcome of an announcement.
- *
- * A revoked daemon reconnecting is an ordinary event, not a fault, so it is
- * reported as data the caller must handle rather than thrown past it.
- */
-export type AnnounceResult = { ok: true } | { ok: false; reason: 'revoked' }
-
 export class Host {
   private constructor(private state: HostSnapshot) {}
 
@@ -80,22 +65,14 @@ export class Host {
   }
 
   /**
-   * Refresh identity and liveness from a reconnecting daemon.
+   * Record that the relay held this Mac at a moment.
    *
-   * Refuses a revoked host, so unpairing cannot be undone by reconnecting.
-   * Name and platform are re-read every time, which is what makes a rename or
-   * an OS upgrade need no separate code path.
+   * Written when a daemon arrives and again when it goes, because those are the
+   * two moments anyone observed it. Between them the Mac is reachable and the
+   * relay says so, which is why nothing writes while a socket is open.
    */
-  announce(announcement: HostAnnouncement): AnnounceResult {
-    if (this.isRevoked) return { ok: false, reason: 'revoked' }
-
-    this.state = {
-      ...this.state,
-      name: announcement.name,
-      platform: announcement.platform,
-      lastSeenAt: announcement.at,
-    }
-    return { ok: true }
+  markSeen(at: Date): void {
+    this.state = { ...this.state, lastSeenAt: at }
   }
 
   /** Release the Mac. Repeating this keeps the original moment. */

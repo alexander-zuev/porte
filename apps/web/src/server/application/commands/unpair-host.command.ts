@@ -1,6 +1,7 @@
 import type { AccountActionResult, UserId } from '@porte/core'
 
 import type { HostRepository } from '../../domain/host/host.repository.ts'
+import type { HostCoordinator } from '../ports/host-coordinator.ts'
 
 /**
  * Release the Mac an account controls.
@@ -8,9 +9,14 @@ import type { HostRepository } from '../../domain/host/host.repository.ts'
  * The row stays and carries `revokedAt`, rather than being deleted. A daemon
  * holding a still-valid session must be refused on its next connection, and a
  * deleted row would read as "never paired" and let it straight back in.
+ *
+ * Revoking is written before the relay is emptied. The other order would let a
+ * daemon reconnect into the gap and be allowed, because the row still said it
+ * could.
  */
 export async function unpairHost(
   hosts: HostRepository,
+  coordinator: HostCoordinator,
   userId: UserId,
   now: Date,
 ): Promise<AccountActionResult> {
@@ -21,5 +27,9 @@ export async function unpairHost(
 
   host.revoke(now)
   await hosts.save(host)
+
+  // Refusing the next connection is not enough. A daemon already holding a
+  // socket would keep serving a pairing that has ended.
+  await coordinator.disconnect(host.id)
   return { ok: true }
 }

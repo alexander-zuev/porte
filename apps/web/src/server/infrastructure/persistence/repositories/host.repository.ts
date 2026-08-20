@@ -1,4 +1,4 @@
-import { HostIdSchema, UserIdSchema, type UserId } from '@porte/core'
+import { HostIdSchema, UserIdSchema, type HostId, type UserId } from '@porte/core'
 import { eq } from 'drizzle-orm'
 
 import { Host } from '../../../domain/host/host.aggregate.ts'
@@ -35,6 +35,11 @@ export class DrizzleHostRepository implements HostRepository {
 
   async findByUserId(userId: UserId): Promise<Host | null> {
     const row = await this.db().select().from(host).where(eq(host.userId, userId)).get()
+    return row ? toDomain(row) : null
+  }
+
+  async findById(hostId: HostId): Promise<Host | null> {
+    const row = await this.db().select().from(host).where(eq(host.id, hostId)).get()
     return row ? toDomain(row) : null
   }
 

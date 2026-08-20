@@ -1,97 +1,113 @@
 import {
   ClientEventSchemas,
-  ClientMessageSchema,
   ClientMethodSchemas,
-  ConnectionIdSchema,
   DaemonMessageSchema,
   ErrorMessageSchema,
   EventMessageSchema,
+  HostIdSchema,
   RequestIdSchema,
   RequestMessageSchema,
   RoutedEventSchema,
   RoutedRequestSchema,
   RoutedResponseSchema,
-  ConversationCatalogSchema,
-  ConversationIdSchema,
-  createConnectionId,
   createLogger,
-  type ConversationCatalog,
+  sendableCloseCode,
 } from '@porte/core'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 
+import { recordHostSeen } from '../../application/commands/record-host-seen.command.ts'
+import { createAppDeps, type AppDeps } from '../app-deps.ts'
 import type { RuntimeEnv } from '../runtime-env.ts'
+import { RelayCatalog } from './relay/relay-catalog.ts'
+import { readFrame, type JsonValue } from './relay/relay-frame.ts'
+import { RelaySockets } from './relay/relay-sockets.ts'
+import type { ClientAttachment } from './relay/socket-attachment.ts'
 
-const CATALOG_KEY = 'session-catalog'
 const roleSchema = z.enum(['daemon', 'client'])
-const frameSchema = z.string()
-const jsonValueSchema = z.json()
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
 const logger = createLogger('host-coordinator')
 
-const clientConversationSchema = z.discriminatedUnion('state', [
-  z.object({ state: z.literal('closed') }),
-  z.object({ state: z.literal('open'), conversationId: ConversationIdSchema }),
-])
-
-const socketAttachmentSchema = z.discriminatedUnion('role', [
-  z.object({ role: z.literal('daemon') }),
-  z.object({
-    role: z.literal('client'),
-    connectionId: ConnectionIdSchema,
-    conversation: clientConversationSchema,
-  }),
-])
-type SocketAttachment = z.infer<typeof socketAttachmentSchema>
-type ClientMessage = Exclude<z.infer<typeof ClientMessageSchema>, { type: 'request' }>
-type JsonValue = z.infer<typeof jsonValueSchema>
-
-/** One hibernating relay instance for one Porte host. */
+/**
+ * The switchboard for one Mac.
+ *
+ * It joins two parties who cannot reach each other: the Mac dials out and so
+ * does the browser, and both land here. One daemon, many clients, frames
+ * travelling in opposite directions between them.
+ *
+ * It never opens a frame it is only carrying. Turns, tool calls, and prompts
+ * pass through as they arrived. The only thing it reads is the address.
+ *
+ * It hibernates, so nothing lives in a field. State is on the sockets, or in
+ * storage; `RelaySockets` and `RelayCatalog` own that distinction.
+ */
 export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
+  private readonly sockets: RelaySockets
+  private readonly catalog: RelayCatalog
+  private readonly deps: AppDeps
+
+  constructor(ctx: DurableObjectState, env: RuntimeEnv) {
+    super(ctx, env)
+
+    this.sockets = new RelaySockets(ctx)
+    this.catalog = new RelayCatalog(ctx.storage)
+    // The same dependencies every other entrypoint gets. A relay that assembled
+    // its own would be a second place the wiring lives.
+    this.deps = createAppDeps(env, ctx)
+  }
+
   async fetch(request: Request): Promise<Response> {
     const role = roleSchema.safeParse(request.headers.get('x-porte-host-role'))
-    if (!role.success) return new Response('Forbidden', { status: 403 })
+    const hostId = HostIdSchema.safeParse(request.headers.get('x-porte-host-id'))
+    if (!role.success || !hostId.success) return new Response('Forbidden', { status: 403 })
 
     const pair = new WebSocketPair()
-    const client = pair[0]
-    const server = pair[1]
+    const [client, server] = [pair[0], pair[1]]
+
     if (role.data === 'daemon') {
-      for (const current of this.ctx.getWebSockets('daemon')) {
-        current.close(1012, 'daemon replaced')
-      }
-      this.ctx.acceptWebSocket(server, ['daemon'])
-      server.serializeAttachment({ role: 'daemon' } satisfies SocketAttachment)
-      this.broadcastClients(hostStatusMessage('online'))
+      this.sockets.acceptDaemon(server, hostId.data)
+      this.sockets.broadcast(hostStatus('online'))
+      // The arrival is an observation worth keeping after the Mac goes away.
+      this.ctx.waitUntil(this.rememberSeen(hostId.data))
     } else {
-      const attachment = {
-        role: 'client',
-        connectionId: createConnectionId(),
-        conversation: { state: 'closed' },
-      } satisfies SocketAttachment
-      this.ctx.acceptWebSocket(server, ['client'])
-      server.serializeAttachment(attachment)
+      this.sockets.acceptClient(server)
     }
 
     return new Response(null, { status: 101, webSocket: client })
   }
 
+  /**
+   * End every connection this relay holds.
+   *
+   * Called when the pairing ends. Clients are told the Mac is gone before the
+   * sockets close, so a page that is open explains itself rather than going
+   * quiet. Nothing here can be reconnected to: the next attempt is refused
+   * before it reaches the relay at all.
+   */
+  disconnectAll(): void {
+    this.sockets.broadcast(hostStatus('offline'))
+    this.sockets.closeAll('pairing ended')
+  }
+
   async webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): Promise<void> {
     try {
-      const attachment = socketAttachmentSchema.safeParse(socket.deserializeAttachment())
-      if (!attachment.success) {
+      const attachment = this.sockets.attachmentOf(socket)
+      if (attachment === undefined) {
         socket.close(1011, 'invalid socket state')
         return
       }
-      const text = frameSchema.safeParse(frame)
-      if (!text.success) {
-        socket.close(1003, 'text messages required')
+
+      const read = readFrame(frame)
+      if (!read.ok) {
+        socket.close(read.reason === 'not-text' ? 1003 : 1007, `frame was ${read.reason}`)
         return
       }
-      if (attachment.data.role === 'client') {
-        await this.handleClientMessage(socket, attachment.data, text.data)
+
+      if (attachment.role === 'client') {
+        await this.handleClientMessage(socket, attachment, read.json)
         return
       }
-      await this.handleDaemonMessage(text.data)
+      await this.handleDaemonMessage(read.json)
     } catch (error) {
       logger.error('host_message_failed', { error })
       socket.close(1011, 'host message failed')
@@ -99,11 +115,16 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
-    const attachment = socketAttachmentSchema.safeParse(socket.deserializeAttachment())
-    if (attachment.success && attachment.data.role === 'daemon' && !this.hasOtherDaemon(socket)) {
-      this.broadcastClients(hostStatusMessage('offline'))
+    const attachment = this.sockets.attachmentOf(socket)
+    const daemonLeft = attachment?.role === 'daemon' && !this.sockets.hasOtherDaemon(socket)
+
+    if (daemonLeft) {
+      this.sockets.broadcast(hostStatus('offline'))
+      // The departure is the second and last moment anyone saw this Mac.
+      this.ctx.waitUntil(this.rememberSeen(attachment.hostId))
     }
-    socket.close(safeCloseCode(code), reason)
+
+    socket.close(sendableCloseCode(code), reason)
   }
 
   webSocketError(socket: WebSocket, cause: unknown): void {
@@ -111,35 +132,36 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     socket.close(1011, 'host socket failed')
   }
 
+  /** A browser asks; the relay answers itself, or passes the question along. */
   private async handleClientMessage(
     socket: WebSocket,
-    attachment: Extract<SocketAttachment, { role: 'client' }>,
-    raw: string,
+    attachment: ClientAttachment,
+    value: JsonValue,
   ): Promise<void> {
-    const value = parseJson(raw)
     const request = RequestMessageSchema.safeParse(value)
     if (!request.success) {
       this.rejectInvalidRequest(socket, value)
       return
     }
+
+    // The only question the relay can answer on its own: it holds the socket
+    // and it holds the catalog, so both halves are already here.
     if (request.data.method === 'host.snapshot') {
-      const catalog = await this.readCatalog()
-      const result = ClientMethodSchemas['host.snapshot'].result.parse({
-        status: this.daemon() === undefined ? 'offline' : 'online',
-        catalog,
-      })
-      this.sendClient(socket, {
+      this.sockets.send(socket, {
         v: 1,
         type: 'result',
         requestId: request.data.requestId,
-        result,
+        result: ClientMethodSchemas['host.snapshot'].result.parse({
+          status: this.sockets.daemon() === undefined ? 'offline' : 'online',
+          catalog: await this.catalog.read(),
+        }),
       })
       return
     }
 
-    const daemon = this.daemon()
+    const daemon = this.sockets.daemon()
     if (daemon === undefined) {
-      this.sendClient(socket, {
+      this.sockets.send(socket, {
         v: 1,
         type: 'error',
         requestId: request.data.requestId,
@@ -147,6 +169,8 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
       })
       return
     }
+
+    // Tagged with who asked, so the answer can find its way back.
     daemon.send(
       JSON.stringify(
         RoutedRequestSchema.parse({
@@ -157,8 +181,10 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     )
   }
 
-  private async handleDaemonMessage(raw: string): Promise<void> {
-    const message = DaemonMessageSchema.parse(parseJson(raw))
+  /** The Mac answers or reports; the relay decides who hears it. */
+  private async handleDaemonMessage(value: JsonValue): Promise<void> {
+    const message = DaemonMessageSchema.parse(value)
+
     const response = RoutedResponseSchema.safeParse(message)
     if (response.success) {
       this.routeResponse(response.data)
@@ -169,52 +195,56 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     if (event.audience.type === 'host') {
       if (event.message.event === 'conversations.changed') {
         const changed = ClientEventSchemas['conversations.changed'].parse(event.message.data)
-        await this.ctx.storage.put(CATALOG_KEY, changed.catalog)
+        await this.catalog.write(changed.catalog)
       }
-      this.broadcastClients(event.message)
+      this.sockets.broadcast(event.message)
       return
     }
+
     if (event.audience.type === 'connection') {
-      const target = this.client(event.audience.connectionId)
-      if (target !== undefined) this.sendClient(target, event.message)
+      const target = this.sockets.client(event.audience.connectionId)
+      if (target !== undefined) this.sockets.send(target, event.message)
       return
     }
-    for (const client of this.conversationClients(event.audience.conversationId)) {
-      this.sendClient(client, event.message)
+
+    for (const client of this.sockets.conversationClients(event.audience.conversationId)) {
+      this.sockets.send(client, event.message)
     }
   }
 
+  /**
+   * Return one answer to the browser that asked.
+   *
+   * Opening and closing a conversation are the two answers the relay reads,
+   * because they change which events that browser should receive next.
+   */
   private routeResponse(response: z.infer<typeof RoutedResponseSchema>): void {
-    const target = this.client(response.route.connectionId)
+    const target = this.sockets.client(response.route.connectionId)
     if (target === undefined) return
+
     if (response.message.type === 'result') {
-      const attachment = this.clientAttachment(target)
-      if (attachment !== undefined && response.method === 'conversation.open') {
+      if (response.method === 'conversation.open') {
         const opened = ClientMethodSchemas['conversation.open'].result.parse(
           response.message.result,
         )
-        target.serializeAttachment({
-          ...attachment,
-          conversation: { state: 'open', conversationId: opened.conversation.id },
-        } satisfies SocketAttachment)
+        this.sockets.watchConversation(target, opened.conversation.id)
       }
-      if (attachment !== undefined && response.method === 'conversation.close') {
-        target.serializeAttachment({
-          ...attachment,
-          conversation: { state: 'closed' },
-        } satisfies SocketAttachment)
+      if (response.method === 'conversation.close') {
+        this.sockets.watchConversation(target, null)
       }
     }
-    this.sendClient(target, response.message)
+
+    this.sockets.send(target, response.message)
   }
 
-  private rejectInvalidRequest(socket: WebSocket, value: JsonValue | undefined): void {
+  private rejectInvalidRequest(socket: WebSocket, value: JsonValue): void {
     const identity = requestIdentitySchema.safeParse(value)
     if (!identity.success) {
       socket.close(1007, 'invalid client request')
       return
     }
-    this.sendClient(
+
+    this.sockets.send(
       socket,
       ErrorMessageSchema.parse({
         v: 1,
@@ -225,72 +255,17 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     )
   }
 
-  private async readCatalog(): Promise<ConversationCatalog> {
-    const stored = await this.ctx.storage.get(CATALOG_KEY)
-    if (stored === undefined) return { state: 'never-synced' }
-    return ConversationCatalogSchema.parse(stored)
-  }
-
-  private daemon(): WebSocket | undefined {
-    return this.ctx.getWebSockets('daemon').find((socket) => socket.readyState === WebSocket.OPEN)
-  }
-
-  private hasOtherDaemon(closed: WebSocket): boolean {
-    return this.ctx
-      .getWebSockets('daemon')
-      .some((socket) => socket !== closed && socket.readyState === WebSocket.OPEN)
-  }
-
-  private client(connectionId: z.infer<typeof ConnectionIdSchema>): WebSocket | undefined {
-    return this.ctx
-      .getWebSockets('client')
-      .find((socket) => this.clientAttachment(socket)?.connectionId === connectionId)
-  }
-
-  private conversationClients(conversationId: z.infer<typeof ConversationIdSchema>): WebSocket[] {
-    return this.ctx.getWebSockets('client').filter((socket) => {
-      const attachment = this.clientAttachment(socket)
-      return (
-        attachment?.conversation.state === 'open' &&
-        attachment.conversation.conversationId === conversationId
-      )
-    })
-  }
-
-  private clientAttachment(
-    socket: WebSocket,
-  ): Extract<SocketAttachment, { role: 'client' }> | undefined {
-    const attachment = socketAttachmentSchema.safeParse(socket.deserializeAttachment())
-    return attachment.success && attachment.data.role === 'client' ? attachment.data : undefined
-  }
-
-  private broadcastClients(message: ClientMessage): void {
-    for (const client of this.ctx.getWebSockets('client')) this.sendClient(client, message)
-  }
-
-  private sendClient(socket: WebSocket, message: ClientMessage): void {
-    if (socket.readyState !== WebSocket.OPEN) return
-    socket.send(JSON.stringify(ClientMessageSchema.parse(message)))
+  /** The one durable fact this relay produces. Nothing else here reaches D1. */
+  private async rememberSeen(hostId: z.infer<typeof HostIdSchema>): Promise<void> {
+    await recordHostSeen(this.deps.hosts, hostId, new Date())
   }
 }
 
-function parseJson(raw: string): JsonValue | undefined {
-  try {
-    return jsonValueSchema.parse(JSON.parse(raw))
-  } catch {
-    return undefined
-  }
-}
-
-function hostStatusMessage(status: 'online' | 'offline'): ClientMessage {
+function hostStatus(status: 'online' | 'offline') {
   return EventMessageSchema.parse({
     v: 1,
     type: 'event',
     event: 'host.status',
     data: ClientEventSchemas['host.status'].parse({ status }),
   })
-}
-
-function safeCloseCode(code: number): number {
-  return code === 1005 || code === 1006 || code === 1015 ? 1000 : code
 }
