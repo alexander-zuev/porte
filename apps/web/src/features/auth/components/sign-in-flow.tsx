@@ -1,12 +1,11 @@
 import type { TurnstileInstance } from '@marsidev/react-turnstile'
 import { useMutation } from '@tanstack/react-query'
+import { authService } from '@web/lib/auth/auth-service.ts'
+import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
+import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
+import { TurnstileWidget } from '@web/ui/components/security/turnstile-widget.tsx'
+import { toast } from '@web/ui/components/ui/sonner.tsx'
 import { useRef, useState } from 'react'
-
-import { authService } from '#/lib/auth/auth-service.ts'
-import type { SocialProvider } from '#/lib/auth/social-provider.ts'
-import { SignInPage } from '#/pages/sign-in/sign-in-page.tsx'
-import { TurnstileWidget } from '#/ui/components/security/turnstile-widget.tsx'
-import { toast } from '#/ui/components/ui/sonner.tsx'
 
 /** Props controlling where OAuth returns after authentication. */
 export type SignInFlowProps = {

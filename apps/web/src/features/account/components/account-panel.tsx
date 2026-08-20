@@ -1,9 +1,8 @@
 import type { PairedHost } from '@porte/core'
-
-import { formatDateTime } from '#/lib/format-date.ts'
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+import { formatDateTime } from '@web/lib/format-date.ts'
+import { HostStatus } from '@web/ui/components/host-status.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 /** Identity shown on the account surface. */
 export type AccountIdentity = {

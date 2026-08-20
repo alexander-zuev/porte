@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { RouteError } from '#/ui/components/feedback/route-error.tsx'
+import { RouteError } from '@web/ui/components/feedback/route-error.tsx'
 
 const meta = {
   title: 'Pages/Route error',

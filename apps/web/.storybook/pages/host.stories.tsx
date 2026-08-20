@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { HostPage } from '#/pages/host/host-page.tsx'
+import { HostPage } from '@web/pages/host/host-page.tsx'
 
 const HOST = {
   name: "Alexander's MacBook Pro",

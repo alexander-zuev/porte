@@ -1,10 +1,9 @@
+import { cn } from '@web/lib/utils.ts'
+import { Alert, AlertDescription } from '@web/ui/components/ui/alert.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { ToolUIPart } from 'ai'
 import type { ComponentProps, ReactNode } from 'react'
 import { createContext, useContext, useMemo } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { Alert, AlertDescription } from '#/ui/components/ui/alert.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 type ToolUIPartApproval =
   | {

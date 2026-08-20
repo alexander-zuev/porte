@@ -1,8 +1,7 @@
+import { SignInLayout } from '@web/features/auth/components/sign-in-layout.tsx'
+import { SocialSignInButtons } from '@web/features/auth/components/social-sign-in-buttons.tsx'
+import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
 import type { ReactNode } from 'react'
-
-import { SignInLayout } from '#/features/auth/components/sign-in-layout.tsx'
-import { SocialSignInButtons } from '#/features/auth/components/social-sign-in-buttons.tsx'
-import type { SocialProvider } from '#/lib/auth/social-provider.ts'
 
 export type SignInPageProps = {
   readonly pendingProvider: SocialProvider | undefined

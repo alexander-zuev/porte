@@ -1,10 +1,12 @@
 import { CircleIcon } from '@phosphor-icons/react'
 import type { ConversationSummary } from '@porte/core'
-
-import { groupConversationsByCwd, repoName } from '#/entities/conversation/group-conversations.ts'
-import { Badge } from '#/ui/components/ui/badge.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+import {
+  groupConversationsByCwd,
+  repoName,
+} from '@web/entities/conversation/group-conversations.ts'
+import { Badge } from '@web/ui/components/ui/badge.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 type ConversationGroupListProps = {
   readonly conversations: readonly ConversationSummary[]

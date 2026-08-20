@@ -1,15 +1,14 @@
 import type { ConversationSummary } from '@porte/core'
-
 import {
   ConversationFailure,
   type ConversationFailureProps,
   ConversationOpening,
-} from '#/features/conversation/components/conversation-page-feedback.tsx'
+} from '@web/features/conversation/components/conversation-page-feedback.tsx'
 import {
   ConversationPane,
   type ConversationPaneProps,
-} from '#/features/conversation/components/conversation-pane.tsx'
-import { AppShell } from '#/ui/components/app-shell.tsx'
+} from '@web/features/conversation/components/conversation-pane.tsx'
+import { AppShell } from '@web/ui/components/app-shell.tsx'
 
 type ConversationContext = {
   readonly conversation: ConversationSummary

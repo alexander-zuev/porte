@@ -1,14 +1,13 @@
 import { PAIRING_CODE_LENGTH } from '@porte/core'
-
-import { Button } from '#/ui/components/ui/button.tsx'
-import { Field, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import { Field, FieldGroup, FieldLabel } from '@web/ui/components/ui/field.tsx'
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
-} from '#/ui/components/ui/input-otp.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+} from '@web/ui/components/ui/input-otp.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 /** Half the code. The terminal prints the dash in the same place. */
 const GROUP_LENGTH = PAIRING_CODE_LENGTH / 2

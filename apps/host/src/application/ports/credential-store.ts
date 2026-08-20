@@ -1,6 +1,5 @@
+import type { CredentialStoreError } from '@host/application/host-error.ts'
 import type { Result } from 'better-result'
-
-import type { CredentialStoreError } from '../host-error.ts'
 
 /**
  * What pairing leaves behind on this Mac.

@@ -1,11 +1,10 @@
 import { CheckIcon, WarningIcon } from '@phosphor-icons/react'
 import type { PairingOrigin } from '@porte/core'
+import { cn } from '@web/lib/utils.ts'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
+import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'
+import { Card, CardContent, CardFooter } from '@web/ui/components/ui/card.tsx'
 import type { ReactNode } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Avatar, AvatarFallback, AvatarImage } from '#/ui/components/ui/avatar.tsx'
-import { Card, CardContent, CardFooter } from '#/ui/components/ui/card.tsx'
 
 /**
  * Semantic color for a pairing status icon.

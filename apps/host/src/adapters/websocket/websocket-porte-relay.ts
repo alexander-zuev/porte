@@ -1,3 +1,9 @@
+import { HostRelayError } from '@host/application/host-error.ts'
+import type {
+  PorteConnection,
+  PorteRelay,
+  RunPorteRelay,
+} from '@host/application/ports/porte-relay.ts'
 import {
   DaemonMessageSchema,
   RoutedRequestSchema,
@@ -8,13 +14,6 @@ import {
 import type { ConversationEvent } from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
-
-import { HostRelayError } from '../../application/host-error.ts'
-import type {
-  PorteConnection,
-  PorteRelay,
-  RunPorteRelay,
-} from '../../application/ports/porte-relay.ts'
 
 const MAX_RETRY_DELAY_MS = 5_000
 const textFrameSchema = z.string()

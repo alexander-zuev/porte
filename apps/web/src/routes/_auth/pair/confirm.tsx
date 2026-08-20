@@ -1,9 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-
-import { pairingQueries } from '#/entities/pairing/pairing-queries.ts'
-import { PairConfirmation } from '#/features/pair/components/pair-confirmation.tsx'
-import { createSeoHead } from '#/lib/seo.ts'
-import { PairPage } from '#/pages/pair/pair-page.tsx'
+import { pairingQueries } from '@web/entities/pairing/pairing-queries.ts'
+import { PairConfirmation } from '@web/features/pair/components/pair-confirmation.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { PairPage } from '@web/pages/pair/pair-page.tsx'
 
 export const Route = createFileRoute('/_auth/pair/confirm')({
   // Nothing to decide without a claim, and the claim lives in a cookie the

@@ -1,14 +1,15 @@
-import { GrokAgent } from '../adapters/grok/grok-agent.ts'
-import { FileCredentialStore } from '../adapters/node/credential-store.ts'
-import { DeviceAuthorizationClient } from '../adapters/porte/device-authorization-client.ts'
+import { GrokAgent } from '@host/adapters/grok/grok-agent.ts'
+import { FileCredentialStore } from '@host/adapters/node/credential-store.ts'
+import { DeviceAuthorizationClient } from '@host/adapters/porte/device-authorization-client.ts'
 import {
   WebSocketPorteRelay,
   type PorteRelayObserver,
-} from '../adapters/websocket/websocket-porte-relay.ts'
-import { HostController } from '../application/host-controller.ts'
-import type { CodingAgent } from '../application/ports/coding-agent.ts'
-import type { CredentialStore } from '../application/ports/credential-store.ts'
-import type { DeviceAuthorizer } from '../application/ports/device-authorizer.ts'
+} from '@host/adapters/websocket/websocket-porte-relay.ts'
+import { HostController } from '@host/application/host-controller.ts'
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
+import type { CredentialStore } from '@host/application/ports/credential-store.ts'
+import type { DeviceAuthorizer } from '@host/application/ports/device-authorizer.ts'
+
 import type { HostConfig } from './host-config.ts'
 
 /** Host capabilities constructed for one CLI process. */

@@ -1,6 +1,5 @@
+import { PublicShell } from '@web/ui/components/public-shell.tsx'
 import type { ReactNode } from 'react'
-
-import { PublicShell } from '#/ui/components/public-shell.tsx'
 
 /** One column under the centred wordmark, matching the pairing screens. */
 export function SignInLayout({ children }: { readonly children: ReactNode }) {

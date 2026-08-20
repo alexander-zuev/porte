@@ -1,4 +1,4 @@
-import { cn } from '#/lib/utils.ts'
+import { cn } from '@web/lib/utils.ts'
 
 const LOGO_SIZE = {
   sm: 'text-wordmark-sm',

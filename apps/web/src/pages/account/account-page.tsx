@@ -1,8 +1,8 @@
 import {
   AccountPanel,
   type AccountPanelProps,
-} from '#/features/account/components/account-panel.tsx'
-import { AppShell } from '#/ui/components/app-shell.tsx'
+} from '@web/features/account/components/account-panel.tsx'
+import { AppShell } from '@web/ui/components/app-shell.tsx'
 
 export type AccountPageProps = AccountPanelProps
 

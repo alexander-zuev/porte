@@ -1,7 +1,7 @@
 import {
   NewConversation,
   type NewConversationProps,
-} from '#/features/conversation-create/components/new-conversation.tsx'
+} from '@web/features/conversation-create/components/new-conversation.tsx'
 
 /** Props for the new-conversation page. */
 export type NewConversationPageProps = NewConversationProps

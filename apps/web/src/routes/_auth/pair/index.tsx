@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { PairCodeEntry } from '@web/features/pair/components/pair-code-entry.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
 import { z } from 'zod'
-
-import { PairCodeEntry } from '#/features/pair/components/pair-code-entry.tsx'
-import { createSeoHead } from '#/lib/seo.ts'
 
 /** Why a previous attempt ended, carried back so the form can explain itself. */
 const pairSearchSchema = z.object({

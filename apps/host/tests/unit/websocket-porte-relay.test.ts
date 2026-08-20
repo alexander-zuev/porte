@@ -1,10 +1,9 @@
-import { ConversationEventSchema } from '@porte/core/conversation-event'
-import { describe, expect, it } from 'vitest'
-
 import {
   retryDelayMs,
   WebSocketPorteConnection,
-} from '../../src/adapters/websocket/websocket-porte-relay.ts'
+} from '@host/adapters/websocket/websocket-porte-relay.ts'
+import { ConversationEventSchema } from '@porte/core/conversation-event'
+import { describe, expect, it } from 'vitest'
 
 describe('retryDelayMs', () => {
   it('uses bounded exponential delays', () => {

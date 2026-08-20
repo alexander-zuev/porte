@@ -1,11 +1,15 @@
-import type { TranscriptItem } from '#/entities/conversation/transcript.ts'
-import { Message, MessageContent, MessageResponse } from '#/ui/components/ai-elements/message.tsx'
+import type { TranscriptItem } from '@web/entities/conversation/transcript.ts'
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from '@web/ui/components/ai-elements/message.tsx'
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-} from '#/ui/components/ai-elements/reasoning.tsx'
-import { Tool, ToolContent, ToolHeader, ToolOutput } from '#/ui/components/ai-elements/tool.tsx'
+} from '@web/ui/components/ai-elements/reasoning.tsx'
+import { Tool, ToolContent, ToolHeader, ToolOutput } from '@web/ui/components/ai-elements/tool.tsx'
 
 type ConversationTranscriptProps = {
   readonly items: readonly TranscriptItem[]

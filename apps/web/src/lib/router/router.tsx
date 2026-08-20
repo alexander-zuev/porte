@@ -1,9 +1,8 @@
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-
-import { NotFound } from '#/ui/components/feedback/not-found.tsx'
-import { RouteError } from '#/ui/components/feedback/route-error.tsx'
+import { NotFound } from '@web/ui/components/feedback/not-found.tsx'
+import { RouteError } from '@web/ui/components/feedback/route-error.tsx'
 
 import { createQueryClient } from '../clients/query.ts'
 import { routeTree } from './routeTree.gen'

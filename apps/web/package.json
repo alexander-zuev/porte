@@ -3,9 +3,6 @@
   "name": "@porte/web",
   "private": true,
   "type": "module",
-  "imports": {
-    "#/*": "./src/*"
-  },
   "scripts": {
     "dev": "CLOUDFLARE_ENV=dev dotenvx run -f .env.dev -- vite dev --port 3000",
     "generate-routes": "tsr generate",

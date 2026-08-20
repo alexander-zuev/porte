@@ -1,9 +1,8 @@
+import { cn } from '@web/lib/utils.ts'
 import type { MotionProps } from 'motion/react'
 import { motion } from 'motion/react'
 import type { CSSProperties, ElementType, JSX } from 'react'
 import { memo, useMemo } from 'react'
-
-import { cn } from '#/lib/utils.ts'
 
 type MotionHTMLProps = MotionProps & Record<string, unknown>
 

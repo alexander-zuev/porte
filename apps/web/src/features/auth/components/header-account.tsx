@@ -1,6 +1,5 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-
-import { Button } from '#/ui/components/ui/button.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 
 import { UserMenu } from './user-menu.tsx'
 

@@ -1,4 +1,4 @@
-import { LEGAL_UPDATED, REPOSITORY_URL } from '#/lib/product.ts'
+import { LEGAL_UPDATED, REPOSITORY_URL } from '@web/lib/product.ts'
 
 import { LegalPage, LegalSection } from './legal-page.tsx'
 

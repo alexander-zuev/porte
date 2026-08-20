@@ -1,3 +1,4 @@
+import { GrokEventMapper, GrokReplayMapper } from '@host/adapters/grok/grok-event-mapper.ts'
 import {
   EventIdSchema,
   MessageIdSchema,
@@ -6,8 +7,6 @@ import {
   TurnIdSchema,
 } from '@porte/core'
 import { describe, expect, it } from 'vitest'
-
-import { GrokEventMapper, GrokReplayMapper } from '../../src/adapters/grok/grok-event-mapper.ts'
 
 const sessionId = ConversationIdSchema.parse('session-1')
 const turnId = TurnIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451b9')

@@ -1,8 +1,7 @@
+import { createDatabase } from '@server/infrastructure/persistence/database/connection.ts'
+import type { Db } from '@server/infrastructure/persistence/database/types.ts'
 import { createMiddleware, createServerOnlyFn } from '@tanstack/react-start'
 import { getCookie, setCookie } from '@tanstack/react-start/server'
-
-import { createDatabase } from '#/server/infrastructure/persistence/database/connection.ts'
-import type { Db } from '#/server/infrastructure/persistence/database/types.ts'
 
 /**
  * The narrow rebinding contract this middleware needs.

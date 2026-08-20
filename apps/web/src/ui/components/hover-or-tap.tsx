@@ -1,12 +1,11 @@
-import { type ReactElement, useEffect, useState } from 'react'
-
 import {
   Popover,
   PopoverContent,
   PopoverDescription,
   PopoverTrigger,
-} from '#/ui/components/ui/popover.tsx'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/ui/components/ui/tooltip.tsx'
+} from '@web/ui/components/ui/popover.tsx'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@web/ui/components/ui/tooltip.tsx'
+import { type ReactElement, useEffect, useState } from 'react'
 
 type HoverOrTapProps = {
   readonly label: string

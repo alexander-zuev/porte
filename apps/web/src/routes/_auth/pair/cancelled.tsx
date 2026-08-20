@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-
-import { createSeoHead } from '#/lib/seo.ts'
-import { PairPage } from '#/pages/pair/pair-page.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { PairPage } from '@web/pages/pair/pair-page.tsx'
 
 export const Route = createFileRoute('/_auth/pair/cancelled')({
   head: () =>

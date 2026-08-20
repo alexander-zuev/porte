@@ -1,7 +1,6 @@
+import { startAcpClient } from '@host/adapters/acp/client.ts'
 import { Result } from 'better-result'
 import { describe, expect, it } from 'vitest'
-
-import { startAcpClient } from '../../src/adapters/acp/client.ts'
 
 describe('AcpClient', () => {
   it('stops one request at its deadline', async () => {

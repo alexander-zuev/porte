@@ -1,6 +1,5 @@
+import type { PairingError } from '@host/application/pairing-error.ts'
 import type { Result } from 'better-result'
-
-import type { PairingError } from '../pairing-error.ts'
 
 /** What the server hands back when a device asks to be authorized. */
 export type DeviceCodeGrant = {

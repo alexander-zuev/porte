@@ -1,7 +1,6 @@
+import { ConfigError } from '@host/application/host-error.ts'
+import { loadConfig, relayUrlFor } from '@host/composition/host-config.ts'
 import { describe, expect, it } from 'vitest'
-
-import { ConfigError } from '../../src/application/host-error.ts'
-import { loadConfig, relayUrlFor } from '../../src/composition/host-config.ts'
 
 describe('loadConfig', () => {
   it('defaults to the hosted relay', () => {

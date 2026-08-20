@@ -1,11 +1,10 @@
+import { getLastLoginMethodFn } from '@server/entrypoints/functions/last-login-method.fn.ts'
 import { createFileRoute } from '@tanstack/react-router'
+import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
+import { SignInFlow } from '@web/features/auth/components/sign-in-flow.tsx'
+import { internalReturnTo } from '@web/lib/auth/internal-return-to.ts'
+import { createSeoHead } from '@web/lib/seo.ts'
 import { z } from 'zod'
-
-import { PairingSignInNotice } from '#/features/auth/components/pairing-sign-in-notice.tsx'
-import { SignInFlow } from '#/features/auth/components/sign-in-flow.tsx'
-import { internalReturnTo } from '#/lib/auth/internal-return-to.ts'
-import { createSeoHead } from '#/lib/seo.ts'
-import { getLastLoginMethodFn } from '#/server/entrypoints/functions/last-login-method.fn.ts'
 
 const signInSearchSchema = z.object({
   returnTo: z.string().optional(),

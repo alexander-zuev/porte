@@ -1,12 +1,11 @@
 import type { PairedHost } from '@porte/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { hostMutations } from '@web/entities/host/host-mutations.ts'
+import { hostQueryKeys } from '@web/entities/host/host-queries.ts'
+import { authService } from '@web/lib/auth/auth-service.ts'
+import { AccountPage } from '@web/pages/account/account-page.tsx'
 import { useState } from 'react'
-
-import { hostMutations } from '#/entities/host/host-mutations.ts'
-import { hostQueryKeys } from '#/entities/host/host-queries.ts'
-import { authService } from '#/lib/auth/auth-service.ts'
-import { AccountPage } from '#/pages/account/account-page.tsx'
 
 import type { AccountIdentity, AccountPending } from './account-panel.tsx'
 

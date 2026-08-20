@@ -1,18 +1,17 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
-import type { UIMessage } from 'ai'
-import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Streamdown } from 'streamdown'
-
-import { cn } from '#/lib/utils.ts'
-import { ButtonGroup, ButtonGroupText } from '#/ui/components/ui/button-group.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { cn } from '@web/lib/utils.ts'
+import { ButtonGroup, ButtonGroupText } from '@web/ui/components/ui/button-group.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '#/ui/components/ui/tooltip.tsx'
+} from '@web/ui/components/ui/tooltip.tsx'
+import type { UIMessage } from 'ai'
+import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { Streamdown } from 'streamdown'
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']

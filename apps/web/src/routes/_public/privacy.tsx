@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-
-import { createSeoHead } from '#/lib/seo.ts'
-import { PrivacyPage } from '#/pages/legal/privacy-page.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { PrivacyPage } from '@web/pages/legal/privacy-page.tsx'
 
 export const Route = createFileRoute('/_public/privacy')({
   head: () =>

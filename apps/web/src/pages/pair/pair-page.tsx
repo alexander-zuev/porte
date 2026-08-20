@@ -1,5 +1,5 @@
-import { PairingFlow, type PairingFlowProps } from '#/features/pair/components/pairing-flow.tsx'
-import { PublicShell } from '#/ui/components/public-shell.tsx'
+import { PairingFlow, type PairingFlowProps } from '@web/features/pair/components/pairing-flow.tsx'
+import { PublicShell } from '@web/ui/components/public-shell.tsx'
 
 /** Props for one pairing page state. */
 export type PairPageProps = PairingFlowProps

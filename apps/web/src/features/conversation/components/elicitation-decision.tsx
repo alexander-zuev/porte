@@ -1,13 +1,12 @@
 import { ArrowSquareOutIcon, QuestionIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { ElicitationAnswer, FormField } from '@porte/core'
-
 import type {
   ElicitationDecision as ElicitationDecisionState,
   ElicitationDraftValue,
-} from '#/entities/conversation/conversation-control.ts'
-import type { ConversationConnection } from '#/features/conversation/components/conversation-header.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+} from '@web/entities/conversation/conversation-control.ts'
+import type { ConversationConnection } from '@web/features/conversation/components/conversation-header.tsx'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Card,
   CardContent,
@@ -15,10 +14,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '#/ui/components/ui/card.tsx'
-import { Checkbox } from '#/ui/components/ui/checkbox.tsx'
-import { Field, FieldError, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
-import { Input } from '#/ui/components/ui/input.tsx'
+} from '@web/ui/components/ui/card.tsx'
+import { Checkbox } from '@web/ui/components/ui/checkbox.tsx'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@web/ui/components/ui/field.tsx'
+import { Input } from '@web/ui/components/ui/input.tsx'
 import {
   Select,
   SelectContent,
@@ -26,9 +25,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '#/ui/components/ui/select.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+} from '@web/ui/components/ui/select.tsx'
+import { Separator } from '@web/ui/components/ui/separator.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 /** Actions for one elicitation decision. */
 export type ElicitationDecisionActions = {

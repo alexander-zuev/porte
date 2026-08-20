@@ -1,32 +1,44 @@
 import {
   PendingElicitationSchema,
   PendingPermissionSchema,
-  makeSessionSummary,
-  type SessionSummary,
+  makeConversationSummary,
+  type ConversationSummary,
 } from '@porte/core'
+import type { TranscriptItem } from '@web/entities/conversation/transcript.ts'
 
-import type { TranscriptItem } from '#/entities/session/transcript.ts'
+// Named, so a story can point at one row without indexing into the array.
+export const listResume = makeConversationSummary({
+  id: 'con_porte_1',
+  cwd: '/Users/az/projects/porte',
+  title: 'Daemon list and resume',
+  updatedAt: '2026-08-17T10:12:00.000Z',
+})
 
-export const sessions: readonly SessionSummary[] = [
-  makeSessionSummary({
-    id: 'ses_porte_1',
-    cwd: '/Users/az/projects/porte',
-    title: 'Daemon list and resume',
-    updatedAt: '2026-08-17T10:12:00.000Z',
-  }),
-  makeSessionSummary({
-    id: 'ses_porte_2',
-    cwd: '/Users/az/projects/porte',
-    title: 'Worker host contract',
-    updatedAt: '2026-08-16T18:40:00.000Z',
-  }),
-  makeSessionSummary({
-    id: 'ses_typist_1',
-    cwd: '/Users/az/projects/typist',
-    title: 'Storybook TanStack Start',
-    updatedAt: '2026-08-15T09:00:00.000Z',
-  }),
+export const hostContract = makeConversationSummary({
+  id: 'con_porte_2',
+  cwd: '/Users/az/projects/porte',
+  title: 'Worker host contract',
+  updatedAt: '2026-08-16T18:40:00.000Z',
+})
+
+export const storybookSetup = makeConversationSummary({
+  id: 'con_typist_1',
+  cwd: '/Users/az/projects/typist',
+  title: 'Storybook TanStack Start',
+  updatedAt: '2026-08-15T09:00:00.000Z',
+})
+
+export const conversations: readonly ConversationSummary[] = [
+  listResume,
+  hostContract,
+  storybookSetup,
 ]
+
+/** The signed-in account every page story renders in its footer or header. */
+export const storyUser = {
+  name: 'Alexander Zuev',
+  email: 'azuevpersonal@gmail.com',
+} as const
 
 export const streamingItems: readonly TranscriptItem[] = [
   {
@@ -37,7 +49,7 @@ export const streamingItems: readonly TranscriptItem[] = [
   {
     kind: 'thought',
     id: 'evt_2',
-    text: 'Load the session, then inspect the daemon entry.',
+    text: 'Load the conversation, then inspect the daemon entry.',
   },
   {
     kind: 'tool',
@@ -64,7 +76,7 @@ export const userOnlyItems: readonly TranscriptItem[] = [
   {
     kind: 'user',
     id: 'evt_user_1',
-    text: 'List sessions in this repo.',
+    text: 'List conversations in this repo.',
   },
 ]
 
@@ -78,14 +90,14 @@ export const markdownItems: readonly TranscriptItem[] = [
     kind: 'agent',
     id: 'evt_md_2',
     text: [
-      'Send `session/cancel`, then kill the process group if Grok keeps working.',
+      'Send `conversation/cancel`, then kill the process group if Grok keeps working.',
       '',
       '1. User taps Stop',
       '2. Client sends `turn.cancel`',
-      '3. Daemon forwards `session/cancel`',
+      '3. Daemon forwards `conversation/cancel`',
       '',
       '```ts',
-      'await client.cancel(sessionId)',
+      'await client.cancel(conversationId)',
       '```',
     ].join('\n'),
   },
@@ -100,7 +112,7 @@ export const reasoningItems: readonly TranscriptItem[] = [
   {
     kind: 'thought',
     id: 'evt_think_2',
-    text: 'Empty session dirs have no summary.json. Skip them so the catalog only shows resumable rows.',
+    text: 'Empty conversation dirs have no summary.json. Skip them so the catalog only shows resumable rows.',
   },
   {
     kind: 'agent',
@@ -135,7 +147,7 @@ export const longMessageItems: readonly TranscriptItem[] = [
   {
     kind: 'user',
     id: 'evt_long_1',
-    text: 'Resume /Users/az/projects/porte/apps/daemon/src/sessions/session-store.ts and explain why encoded cwd folders must stay opaque on the Worker.',
+    text: 'Resume /Users/az/projects/porte/apps/daemon/src/conversations/conversation-store.ts and explain why encoded cwd folders must stay opaque on the Worker.',
   },
   {
     kind: 'agent',
@@ -144,7 +156,7 @@ export const longMessageItems: readonly TranscriptItem[] = [
   },
 ]
 
-/** Permission request used by session decision stories. */
+/** Permission request used by conversation decision stories. */
 export const pendingPermission = PendingPermissionSchema.parse({
   turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
   permissionId: '0198b55e-49d7-7b67-922a-2ee176ca2c4c',

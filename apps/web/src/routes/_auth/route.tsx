@@ -1,7 +1,6 @@
+import { ensureSession } from '@server/entrypoints/functions/auth.fn.ts'
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-
-import { signInSearchFromLocation } from '#/lib/auth/internal-return-to.ts'
-import { ensureSession } from '#/server/entrypoints/functions/auth.fn.ts'
+import { signInSearchFromLocation } from '@web/lib/auth/internal-return-to.ts'
 
 export const Route = createFileRoute('/_auth')({
   beforeLoad: async ({ location }) => {

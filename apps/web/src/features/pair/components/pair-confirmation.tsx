@@ -1,11 +1,10 @@
 import type { PairingVerdict } from '@porte/core'
+import { decidePairing } from '@server/entrypoints/functions/pairing.fn.ts'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
-
-import { hostQueryKeys } from '#/entities/host/host-queries.ts'
-import { pairingQueries, pairingQueryKeys } from '#/entities/pairing/pairing-queries.ts'
-import { PairPage } from '#/pages/pair/pair-page.tsx'
-import { decidePairing } from '#/server/entrypoints/functions/pairing.fn.ts'
+import { hostQueryKeys } from '@web/entities/host/host-queries.ts'
+import { pairingQueries, pairingQueryKeys } from '@web/entities/pairing/pairing-queries.ts'
+import { PairPage } from '@web/pages/pair/pair-page.tsx'
 
 /**
  * Decide the claimed code.

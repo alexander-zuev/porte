@@ -1,9 +1,8 @@
 import { ArrowLeftIcon, FolderSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react'
-
-import { repoName } from '#/entities/conversation/group-conversations.ts'
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { repoName } from '@web/entities/conversation/group-conversations.ts'
+import { HostStatus } from '@web/ui/components/host-status.tsx'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Empty,
   EmptyContent,
@@ -11,8 +10,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '#/ui/components/ui/empty.tsx'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
+} from '@web/ui/components/ui/empty.tsx'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@web/ui/components/ui/field.tsx'
 import {
   Select,
   SelectContent,
@@ -20,10 +19,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '#/ui/components/ui/select.tsx'
-import { Skeleton } from '#/ui/components/ui/skeleton.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
-import { Textarea } from '#/ui/components/ui/textarea.tsx'
+} from '@web/ui/components/ui/select.tsx'
+import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
+import { Textarea } from '@web/ui/components/ui/textarea.tsx'
 
 type ConversationFormState =
   | { readonly status: 'ready' }

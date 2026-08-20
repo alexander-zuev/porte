@@ -1,5 +1,5 @@
-import { cn } from '#/lib/utils.ts'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
+import { cn } from '@web/lib/utils.ts'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 
 type HostStatusProps = {
   readonly status: 'loading' | 'online' | 'offline' | 'reconnecting'

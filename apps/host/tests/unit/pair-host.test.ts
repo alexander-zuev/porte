@@ -1,18 +1,14 @@
-import { Result, type Result as ResultType } from 'better-result'
-import { describe, expect, it } from 'vitest'
-
-import { CredentialStoreError } from '../../src/application/host-error.ts'
-import { pairHost } from '../../src/application/pair-host.ts'
-import { PairingError } from '../../src/application/pairing-error.ts'
-import type {
-  CredentialStore,
-  StoredCredential,
-} from '../../src/application/ports/credential-store.ts'
+import { CredentialStoreError } from '@host/application/host-error.ts'
+import { pairHost } from '@host/application/pair-host.ts'
+import { PairingError } from '@host/application/pairing-error.ts'
+import type { CredentialStore, StoredCredential } from '@host/application/ports/credential-store.ts'
 import type {
   DeviceAuthorizer,
   DeviceCodeGrant,
   DevicePollResult,
-} from '../../src/application/ports/device-authorizer.ts'
+} from '@host/application/ports/device-authorizer.ts'
+import { Result, type Result as ResultType } from 'better-result'
+import { describe, expect, it } from 'vitest'
 
 const GRANT: DeviceCodeGrant = {
   deviceCode: 'device-secret',

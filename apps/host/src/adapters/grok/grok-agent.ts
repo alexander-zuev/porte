@@ -1,3 +1,23 @@
+import { startAcpClient, type AcpClient, type StartAcpClient } from '@host/adapters/acp/client.ts'
+import {
+  answerIncomingRequest,
+  parsePermissionRequest,
+} from '@host/adapters/acp/incoming-request.ts'
+import type { JsonRpcError, JsonValue } from '@host/adapters/acp/message.ts'
+import { applyConversationEvents } from '@host/application/conversation-view-reducer.ts'
+import {
+  CodingAgentError,
+  type AnswerPermission,
+  type CancelTurn,
+  type CodingAgent,
+  type ConversationEvent,
+  type ConversationId,
+  type ConversationSnapshot,
+  type ConversationSummary,
+  type CreateConversation,
+  type OpenConversation,
+  type StartTurn,
+} from '@host/application/ports/coding-agent.ts'
 import {
   IsoDateTimeSchema,
   ConversationIdSchema,
@@ -16,23 +36,6 @@ import {
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
-import { applyConversationEvents } from '../../application/conversation-view-reducer.ts'
-import {
-  CodingAgentError,
-  type AnswerPermission,
-  type CancelTurn,
-  type CodingAgent,
-  type ConversationEvent,
-  type ConversationId,
-  type ConversationSnapshot,
-  type ConversationSummary,
-  type CreateConversation,
-  type OpenConversation,
-  type StartTurn,
-} from '../../application/ports/coding-agent.ts'
-import { startAcpClient, type AcpClient, type StartAcpClient } from '../acp/client.ts'
-import { answerIncomingRequest, parsePermissionRequest } from '../acp/incoming-request.ts'
-import type { JsonRpcError, JsonValue } from '../acp/message.ts'
 import { findGrokConversation, listGrokConversations } from './grok-conversation-files.ts'
 import {
   GrokEventMapper,

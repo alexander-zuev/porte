@@ -1,12 +1,12 @@
-import { matchError, TaggedError } from 'better-result'
-
 import type {
   ConfigError,
   CredentialStoreError,
   HostRelayError,
-} from '../application/host-error.ts'
-import type { PairingError } from '../application/pairing-error.ts'
-import type { CodingAgentError } from '../application/ports/coding-agent.ts'
+} from '@host/application/host-error.ts'
+import type { PairingError } from '@host/application/pairing-error.ts'
+import type { CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import { matchError, TaggedError } from 'better-result'
+
 import { VERSION } from './version.ts'
 
 /** Bad arguments or missing required flags. */

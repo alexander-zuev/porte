@@ -1,6 +1,5 @@
+import { PublicShell } from '@web/ui/components/public-shell.tsx'
 import type { ReactNode } from 'react'
-
-import { PublicShell } from '#/ui/components/public-shell.tsx'
 
 /** Props for a legal document page. */
 export type LegalPageProps = {

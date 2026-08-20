@@ -1,9 +1,8 @@
 import { LaptopIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
-
-import { PAIR_COMMAND } from '#/lib/product.ts'
-import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 
 /** Why the account has no Mac to control. */
 export type PairPromptReason = 'unpaired' | 'revoked'

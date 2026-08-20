@@ -1,9 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 
+import { VERSION } from '@host/cli/version.ts'
 import { describe, expect, it } from 'vitest'
-
-import { VERSION } from '../../src/cli/version.ts'
 
 const main = join(import.meta.dirname, '../../src/main.ts')
 

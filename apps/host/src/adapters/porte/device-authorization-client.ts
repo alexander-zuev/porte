@@ -1,4 +1,10 @@
 import { createFetch, createSchema } from '@better-fetch/fetch'
+import { PairingError } from '@host/application/pairing-error.ts'
+import type {
+  DeviceAuthorizer,
+  DeviceCodeGrant,
+  DevicePollResult,
+} from '@host/application/ports/device-authorizer.ts'
 import {
   DEVICE_CODE_GRANT_TYPE,
   DeviceCodeRequestSchema,
@@ -11,13 +17,6 @@ import {
   type DeviceTokenError,
 } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
-
-import { PairingError } from '../../application/pairing-error.ts'
-import type {
-  DeviceAuthorizer,
-  DeviceCodeGrant,
-  DevicePollResult,
-} from '../../application/ports/device-authorizer.ts'
 
 /** The token exchange stays the plugin's own endpoint, under its base path. */
 const DEVICE_TOKEN_PATH = '/api/auth/device/token'

@@ -1,8 +1,7 @@
+import { cn } from '@web/lib/utils.ts'
+import { resolveColorChannels } from '@web/ui/components/react-bits/resolve-color.ts'
 import { Color, Mesh, Program, Renderer, Triangle } from 'ogl'
 import { useEffect, useMemo, useRef } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { resolveColorChannels } from '#/ui/components/react-bits/resolve-color.ts'
 
 /**
  * CRT terminal field rendered with WebGL.

@@ -1,4 +1,13 @@
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@web/ui/components/ui/select.tsx'
 import type { ComponentProps, CSSProperties, HTMLAttributes } from 'react'
 import {
   createContext,
@@ -12,16 +21,6 @@ import {
 } from 'react'
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki'
 import { createHighlighter } from 'shiki'
-
-import { cn } from '#/lib/utils.ts'
-import { Button } from '#/ui/components/ui/button.tsx'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '#/ui/components/ui/select.tsx'
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)

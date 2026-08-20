@@ -1,7 +1,6 @@
 import { ArrowLeftIcon, DesktopIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { HostDescriptor } from '@porte/core'
-
-import { Logo } from '#/ui/components/logo.tsx'
+import { Logo } from '@web/ui/components/logo.tsx'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,9 +11,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '#/ui/components/ui/alert-dialog.tsx'
-import { Badge } from '#/ui/components/ui/badge.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+} from '@web/ui/components/ui/alert-dialog.tsx'
+import { Badge } from '@web/ui/components/ui/badge.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Card,
   CardContent,
@@ -22,9 +21,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '#/ui/components/ui/card.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+} from '@web/ui/components/ui/card.tsx'
+import { Separator } from '@web/ui/components/ui/separator.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 type ManagedHost = {
   readonly host: HostDescriptor

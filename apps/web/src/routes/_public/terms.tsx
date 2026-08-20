@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-
-import { createSeoHead } from '#/lib/seo.ts'
-import { TermsPage } from '#/pages/legal/terms-page.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { TermsPage } from '@web/pages/legal/terms-page.tsx'
 
 export const Route = createFileRoute('/_public/terms')({
   head: () =>

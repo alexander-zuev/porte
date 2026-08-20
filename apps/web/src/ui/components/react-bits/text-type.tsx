@@ -1,8 +1,7 @@
+import { cn } from '@web/lib/utils.ts'
+import { useReducedMotion } from '@web/ui/hooks/use-reduced-motion.ts'
 import { gsap } from 'gsap'
 import { useEffect, useRef, useState } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { useReducedMotion } from '#/ui/hooks/use-reduced-motion.ts'
 
 /**
  * Type one string out once, then leave it in place.

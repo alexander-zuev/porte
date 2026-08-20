@@ -1,8 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react'
-
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Logo } from '#/ui/components/logo.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { HostStatus } from '@web/ui/components/host-status.tsx'
+import { Logo } from '@web/ui/components/logo.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 
 type ConversationHomeHeaderProps = {
   readonly hostName: string

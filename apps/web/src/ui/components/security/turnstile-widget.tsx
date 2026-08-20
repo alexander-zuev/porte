@@ -1,7 +1,6 @@
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+import { settings } from '@web/lib/env/env.ts'
 import type { Ref } from 'react'
-
-import { settings } from '#/lib/env/env.ts'
 
 type TurnstileWidgetProps = {
   readonly size?: 'normal' | 'compact' | 'flexible' | 'invisible'

@@ -1,7 +1,6 @@
 import type { PairedHost } from '@porte/core'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { AccountPage } from '#/pages/account/account-page.tsx'
+import { AccountPage } from '@web/pages/account/account-page.tsx'
 
 const identity = { name: 'Alexander Zuev', email: 'azuevpersonal@gmail.com' }
 

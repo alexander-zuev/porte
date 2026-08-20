@@ -6,6 +6,38 @@ import {
   SquareIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@web/ui/components/ui/command.tsx'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@web/ui/components/ui/dropdown-menu.tsx'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@web/ui/components/ui/hover-card.tsx'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from '@web/ui/components/ui/input-group.tsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@web/ui/components/ui/select.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@web/ui/components/ui/tooltip.tsx'
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from 'ai'
 import { nanoid } from 'nanoid'
 import type {
@@ -31,39 +63,6 @@ import {
   useRef,
   useState,
 } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '#/ui/components/ui/command.tsx'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/ui/components/ui/dropdown-menu.tsx'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '#/ui/components/ui/hover-card.tsx'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from '#/ui/components/ui/input-group.tsx'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '#/ui/components/ui/select.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/ui/components/ui/tooltip.tsx'
 
 // ============================================================================
 // Helpers

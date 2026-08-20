@@ -1,15 +1,14 @@
 import { ArrowElbowDownLeftIcon, SquareIcon, WarningCircleIcon } from '@phosphor-icons/react'
-
-import type { ConversationControl } from '#/entities/conversation/conversation-control.ts'
-import type { ConversationConnection } from '#/features/conversation/components/conversation-header.tsx'
+import type { ConversationControl } from '@web/entities/conversation/conversation-control.ts'
+import type { ConversationConnection } from '@web/features/conversation/components/conversation-header.tsx'
 import {
   PromptInput,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-} from '#/ui/components/ai-elements/prompt-input.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+} from '@web/ui/components/ai-elements/prompt-input.tsx'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 type ComposerControl = Exclude<ConversationControl, { state: 'permission' | 'elicitation' }>
 

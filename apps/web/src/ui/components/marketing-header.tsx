@@ -1,8 +1,7 @@
 import { Link } from '@tanstack/react-router'
+import { HeaderAccount } from '@web/features/auth/components/header-account.tsx'
+import { Logo } from '@web/ui/components/logo.tsx'
 import type { ReactNode } from 'react'
-
-import { HeaderAccount } from '#/features/auth/components/header-account.tsx'
-import { Logo } from '#/ui/components/logo.tsx'
 
 /** Stable reference: a JSX default would be a new element on every render. */
 const DEFAULT_ACTION = <HeaderAccount />

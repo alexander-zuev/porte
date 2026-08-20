@@ -1,3 +1,4 @@
+import type { AcpSessionNotification, AcpSessionUpdate } from '@host/adapters/acp/message.ts'
 import {
   MessageIdSchema,
   type EventId,
@@ -26,8 +27,6 @@ import {
 } from '@porte/core/conversation-event'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import type { z } from 'zod'
-
-import type { AcpSessionNotification, AcpSessionUpdate } from '../acp/message.ts'
 
 type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'eventId' | 'conversationId'> : never
 type EventData = WithoutEnvelope<z.input<typeof ConversationEventSchema>>

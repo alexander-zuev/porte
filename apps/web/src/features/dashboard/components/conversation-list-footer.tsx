@@ -1,4 +1,4 @@
-import { UserMenu, type MenuUser } from '#/features/auth/components/user-menu.tsx'
+import { UserMenu, type MenuUser } from '@web/features/auth/components/user-menu.tsx'
 
 /** Account entry pinned to the base of the list pane. */
 export function ConversationListFooter({ user }: { readonly user: MenuUser }) {

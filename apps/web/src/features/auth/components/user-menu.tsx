@@ -1,15 +1,14 @@
 import { SignOutIcon, UserIcon } from '@phosphor-icons/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-
-import { authService } from '#/lib/auth/auth-service.ts'
+import { authService } from '@web/lib/auth/auth-service.ts'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/ui/components/ui/dropdown-menu.tsx'
-import { toast } from '#/ui/components/ui/sonner.tsx'
+} from '@web/ui/components/ui/dropdown-menu.tsx'
+import { toast } from '@web/ui/components/ui/sonner.tsx'
 
 import { UserAvatar, type MenuUser } from './user-avatar.tsx'
 

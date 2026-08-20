@@ -1,7 +1,6 @@
 import { makeConversationSummary } from '@porte/core'
 import { createFileRoute } from '@tanstack/react-router'
-
-import { ConversationPage } from '#/pages/conversation/conversation-page.tsx'
+import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 
 export const Route = createFileRoute('/_auth/c/$conversationId')({
   component: ConversationRoute,

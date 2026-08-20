@@ -1,6 +1,5 @@
+import { getPairingClaim } from '@server/entrypoints/functions/pairing.fn.ts'
 import { queryOptions } from '@tanstack/react-query'
-
-import { getPairingClaim } from '#/server/entrypoints/functions/pairing.fn.ts'
 
 /**
  * Query factory for the claim awaiting a decision.

@@ -1,9 +1,8 @@
 import { CaretDownIcon } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { RefObject } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { Avatar, AvatarFallback, AvatarImage } from '#/ui/components/ui/avatar.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 /** What the header and the sidebar footer need to draw an account. */
 export type MenuUser = {

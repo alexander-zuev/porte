@@ -1,8 +1,7 @@
+import { ApiRouteError } from '@server/errors/api-route.error.ts'
+import { routeErrorMiddleware } from '@server/middleware/error.middleware.ts'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-
-import { ApiRouteError } from '#/server/errors/api-route.error.ts'
-import { routeErrorMiddleware } from '#/server/middleware/error.middleware.ts'
 
 const bearerSchema = z.string().regex(/^Bearer\s+(.+)$/i)
 

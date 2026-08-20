@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-
-import { createSeoHead } from '#/lib/seo.ts'
-import { LandingPage } from '#/pages/landing/landing-page.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { LandingPage } from '@web/pages/landing/landing-page.tsx'
 
 export const Route = createFileRoute('/_public/')({
   head: () =>

@@ -1,24 +1,30 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { NewConversationPage } from '@web/pages/new-conversation/new-conversation-page.tsx'
 import { useState } from 'react'
-
-import { NewSessionPage } from '#/pages/new-session/new-session-page.tsx'
 
 const HOST_NAME = "Alexander's MacBook Pro"
 const REPOSITORIES = ['/Users/az/projects/porte', '/Users/az/projects/typist'] as const
 
 const meta = {
-  title: 'Pages/New Session',
-  component: NewSessionPage,
-} satisfies Meta<typeof NewSessionPage>
+  title: 'Pages/New Conversation',
+  component: NewConversationPage,
+} satisfies Meta<typeof NewConversationPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-function SessionFormStory({ state }: { readonly state: 'ready' | 'offline' | 'creating' | 'opening' | 'failed' | 'unknown' }) {
+// The wrapper owns its own state, so the args exist only to satisfy the props.
+const UNUSED = { hostName: HOST_NAME, view: 'loading', onBack: () => undefined } as const
+
+function ConversationFormStory({
+  state,
+}: {
+  readonly state: 'ready' | 'offline' | 'creating' | 'opening' | 'failed' | 'unknown'
+}) {
   const [cwd, setCwd] = useState<string>(REPOSITORIES[0])
   const [prompt, setPrompt] = useState('Review the authentication flow and fix the failing tests')
   return (
-    <NewSessionPage
+    <NewConversationPage
       cwd={cwd}
       hostName={HOST_NAME}
       prompt={prompt}
@@ -26,7 +32,7 @@ function SessionFormStory({ state }: { readonly state: 'ready' | 'offline' | 'cr
       state={{ status: state }}
       view="form"
       onBack={() => undefined}
-      onCheckSessions={() => undefined}
+      onCheckConversations={() => undefined}
       onPromptChange={setPrompt}
       onRepositoryChange={setCwd}
       onSubmit={() => undefined}
@@ -35,7 +41,8 @@ function SessionFormStory({ state }: { readonly state: 'ready' | 'offline' | 'cr
 }
 
 export const Ready: Story = {
-  render: () => <SessionFormStory state="ready" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="ready" />,
 }
 
 export const LoadingRepositories: Story = {
@@ -47,21 +54,26 @@ export const NoKnownRepositories: Story = {
 }
 
 export const HostOffline: Story = {
-  render: () => <SessionFormStory state="offline" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="offline" />,
 }
 
 export const Creating: Story = {
-  render: () => <SessionFormStory state="creating" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="creating" />,
 }
 
 export const CreatedAndOpening: Story = {
-  render: () => <SessionFormStory state="opening" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="opening" />,
 }
 
 export const CreationFailed: Story = {
-  render: () => <SessionFormStory state="failed" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="failed" />,
 }
 
 export const CreationUnknown: Story = {
-  render: () => <SessionFormStory state="unknown" />,
+  args: UNUSED,
+  render: () => <ConversationFormStory state="unknown" />,
 }

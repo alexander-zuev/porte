@@ -1,11 +1,10 @@
 import { ArrowDownIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { UIMessage } from 'ai'
 import type { ComponentProps } from 'react'
 import { useCallback } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
-
-import { cn } from '#/lib/utils.ts'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
 

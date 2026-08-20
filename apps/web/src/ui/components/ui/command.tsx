@@ -1,16 +1,15 @@
 import { MagnifyingGlassIcon, CheckIcon } from '@phosphor-icons/react'
-import { Command as CommandPrimitive } from 'cmdk'
-import * as React from 'react'
-
-import { cn } from '#/lib/utils.ts'
+import { cn } from '@web/lib/utils.ts'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '#/ui/components/ui/dialog.tsx'
-import { InputGroup, InputGroupAddon } from '#/ui/components/ui/input-group.tsx'
+} from '@web/ui/components/ui/dialog.tsx'
+import { InputGroup, InputGroupAddon } from '@web/ui/components/ui/input-group.tsx'
+import { Command as CommandPrimitive } from 'cmdk'
+import * as React from 'react'
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (

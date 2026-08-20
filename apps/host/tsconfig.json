@@ -5,7 +5,10 @@
     "lib": ["ESNext"],
     "rootDir": ".",
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@host/*": ["./src/*"]
+    }
   },
   "include": ["src", "tests", "package.json"]
 }

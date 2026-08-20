@@ -1,8 +1,7 @@
 import { ShieldCheckIcon } from '@phosphor-icons/react'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
-
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
 
 /**
  * Explain why pairing sent the person here.

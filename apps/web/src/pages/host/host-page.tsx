@@ -1,7 +1,7 @@
 import {
   HostManagement,
   type HostManagementProps,
-} from '#/features/host/components/host-management.tsx'
+} from '@web/features/host/components/host-management.tsx'
 
 /** Props for the paired-host management page. */
 export type HostPageProps = HostManagementProps

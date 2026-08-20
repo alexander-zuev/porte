@@ -1,8 +1,7 @@
 import { createLogger } from '@porte/core'
 import { createClientOnlyFn } from '@tanstack/react-start'
-
-import type { SocialProvider } from '#/lib/auth/social-provider.ts'
-import { authClient } from '#/lib/clients/auth.client.ts'
+import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
+import { authClient } from '@web/lib/clients/auth.client.ts'
 
 const logger = createLogger('auth-service')
 

@@ -1,6 +1,5 @@
+import { parseAcpLine } from '@host/adapters/acp/message.ts'
 import { describe, expect, it } from 'vitest'
-
-import { parseAcpLine } from '../../src/adapters/acp/message.ts'
 
 describe('parseAcpLine', () => {
   it('parses a session update', () => {

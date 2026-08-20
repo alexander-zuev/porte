@@ -1,9 +1,8 @@
 import { DeviceCodeRequestSchema } from '@porte/core'
+import { issuePairingCode } from '@server/application/commands/issue-pairing-code.command.ts'
+import { ApiRouteError } from '@server/errors/api-route.error.ts'
+import { routeErrorMiddleware } from '@server/middleware/error.middleware.ts'
 import { createFileRoute } from '@tanstack/react-router'
-
-import { issuePairingCode } from '#/server/application/commands/issue-pairing-code.command.ts'
-import { ApiRouteError } from '#/server/errors/api-route.error.ts'
-import { routeErrorMiddleware } from '#/server/middleware/error.middleware.ts'
 
 /**
  * Where a device asks for a pairing code.

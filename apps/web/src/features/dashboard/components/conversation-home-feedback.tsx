@@ -1,8 +1,7 @@
 import { FolderSimpleIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
-
-import { PAIR_COMMAND } from '#/lib/product.ts'
-import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Empty,
   EmptyContent,
@@ -10,8 +9,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '#/ui/components/ui/empty.tsx'
-import { Skeleton } from '#/ui/components/ui/skeleton.tsx'
+} from '@web/ui/components/ui/empty.tsx'
+import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
 
 export function ConversationHomeLoading() {
   return (

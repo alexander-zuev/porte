@@ -1,9 +1,8 @@
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import { TextType } from '@web/ui/components/react-bits/text-type.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import { useEffect, useRef, useState } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { TextType } from '#/ui/components/react-bits/text-type.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 const COPIED_RESET_MS = 2000
 

@@ -1,33 +1,35 @@
+import { PairingOriginSchema, type PairingOrigin } from '@porte/core'
+import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
+import type { ConversationListProps } from '@web/features/dashboard/components/conversation-list.tsx'
+import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
+import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
+import { DashboardPage } from '@web/pages/dashboard/dashboard-page.tsx'
+import { PairPage } from '@web/pages/pair/pair-page.tsx'
+import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
 import { useEffect, useRef, useState } from 'react'
 
-import { PairingSignInNotice } from '#/features/auth/components/pairing-sign-in-notice.tsx'
-import type { SessionListProps } from '#/features/dashboard/components/session-list.tsx'
-import type { SocialProvider } from '#/lib/auth/social-provider.ts'
-import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
-import { PairPage } from '#/pages/pair/pair-page.tsx'
-import { SignInPage } from '#/pages/sign-in/sign-in-page.tsx'
+import { conversations } from '../fixtures/conversations.ts'
 
-import { sessions } from '../fixtures/sessions.ts'
-
-const HOST = {
-  name: "Alex's MacBook Pro",
-  platform: 'macOS',
-} as const
-
+const HOST_NAME = "Alex's MacBook Pro"
 const ACCOUNT = 'a•••@example.com'
-const PHRASE = 'quiet cedar seven'
-const INVALID_CODE = 'ZZZZZZ'
+const EXPIRED_CODE = 'ZZZZZZZZ'
 
-/** Where every pairing journey lands. Only a paired Mac has sessions to list. */
-function homeList(paired: boolean): SessionListProps {
+/** The code was asked for on the machine now approving it. */
+const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
+  origin: 'this-device',
+  requestedAt: '2026-08-20T15:23:00.000Z',
+})
+
+/** Where every pairing journey lands. Only a paired Mac has conversations to list. */
+function homeList(paired: boolean): ConversationListProps {
   return {
     state: 'ready',
-    hostName: HOST.name,
+    hostName: HOST_NAME,
     hostStatus: paired ? 'online' : 'offline',
-    sessions: paired ? sessions : [],
-    runningSessionIds: new Set<string>(),
-    onOpenSession: () => undefined,
-    onStartSession: () => undefined,
+    conversations: paired ? conversations : [],
+    runningConversationIds: new Set<string>(),
+    onOpenConversation: () => undefined,
+    onStartConversation: () => undefined,
     onPair: () => undefined,
     onRetry: () => undefined,
   }
@@ -36,75 +38,49 @@ function homeList(paired: boolean): SessionListProps {
 /** Starting screen for a playable pairing story. */
 export type PairingPlayStart =
   | 'sign-in'
-  | 'validating'
-  | 'confirm'
-  | 'confirming'
-  | 'waiting-for-desktop'
-  | 'success'
-  | 'expired'
   | 'code-entry'
-  | 'invalid-code'
-  | 'confirmation-mismatch'
-  | 'consumed'
-  | 'account-conflict'
-  | 'host-disconnected'
-  | 'server-unavailable'
+  | 'expired-code'
+  | 'confirm'
+  | 'approved'
+  | 'denied'
+  | PairingIssue
 
 type Screen =
   | { readonly kind: 'sign-in'; readonly pendingProvider: SocialProvider | undefined }
-  | { readonly kind: 'validating' }
-  | { readonly kind: 'confirm' }
-  | { readonly kind: 'confirming' }
-  | { readonly kind: 'waiting' }
-  | { readonly kind: 'success' }
-  | { readonly kind: 'expired' }
-  | {
-      readonly kind: 'issue'
-      readonly issue:
-        | 'confirmation-mismatch'
-        | 'consumed'
-        | 'account-conflict'
-        | 'host-disconnected'
-        | 'server-unavailable'
-    }
   | {
       readonly kind: 'code'
       readonly code: string
       readonly error: string | undefined
       readonly pending: boolean
     }
+  | { readonly kind: 'confirm'; readonly pending: boolean }
+  | { readonly kind: 'approved' }
+  | { readonly kind: 'denied' }
+  | { readonly kind: 'issue'; readonly issue: PairingIssue }
   | { readonly kind: 'home'; readonly paired: boolean }
+
+const EMPTY_CODE = { kind: 'code', code: '', error: undefined, pending: false } as const
 
 function initialScreen(start: PairingPlayStart): Screen {
   switch (start) {
     case 'sign-in':
       return { kind: 'sign-in', pendingProvider: undefined }
-    case 'validating':
-      return { kind: 'validating' }
-    case 'confirm':
-      return { kind: 'confirm' }
-    case 'confirming':
-      return { kind: 'confirming' }
-    case 'waiting-for-desktop':
-      return { kind: 'waiting' }
-    case 'success':
-      return { kind: 'success' }
-    case 'expired':
-      return { kind: 'expired' }
     case 'code-entry':
-      return { kind: 'code', code: '', error: undefined, pending: false }
-    case 'invalid-code':
+      return EMPTY_CODE
+    case 'expired-code':
       return {
         kind: 'code',
-        code: INVALID_CODE,
+        code: EXPIRED_CODE,
         error: 'That code is expired or already used',
         pending: false,
       }
-    case 'confirmation-mismatch':
-    case 'consumed':
-    case 'account-conflict':
-    case 'host-disconnected':
-    case 'server-unavailable':
+    case 'confirm':
+      return { kind: 'confirm', pending: false }
+    case 'approved':
+      return { kind: 'approved' }
+    case 'denied':
+      return { kind: 'denied' }
+    default:
       return { kind: 'issue', issue: start }
   }
 }
@@ -118,13 +94,10 @@ export function PairingPlay({
   readonly simulateRemote?: boolean
 }) {
   const [screen, setScreen] = useState<Screen>(() => initialScreen(start))
-  const [allowRemote, setAllowRemote] = useState(simulateRemote)
-  const progressConfirm = useRef(false)
   const timers = useRef<number[]>([])
 
   function later(fn: () => void, ms: number) {
-    const timer = window.setTimeout(fn, ms)
-    timers.current.push(timer)
+    timers.current.push(window.setTimeout(fn, ms))
   }
 
   useEffect(() => {
@@ -133,35 +106,17 @@ export function PairingPlay({
     }
   }, [])
 
+  // The daemon only learns of the approval on its next poll, so the approved
+  // screen holds before the dashboard has a Mac to show.
   useEffect(() => {
-    if (!allowRemote || screen.kind !== 'validating') return
+    if (!simulateRemote || screen.kind !== 'approved') return
     const timer = window.setTimeout(() => {
-      setScreen({ kind: 'confirm' })
-    }, 800)
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [allowRemote, screen])
-
-  useEffect(() => {
-    if (screen.kind !== 'confirming' || !progressConfirm.current) return
-    const timer = window.setTimeout(() => {
-      setScreen({ kind: 'waiting' })
-    }, 600)
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [screen])
-
-  useEffect(() => {
-    if (!allowRemote || screen.kind !== 'waiting') return
-    const timer = window.setTimeout(() => {
-      setScreen({ kind: 'success' })
+      setScreen({ kind: 'home', paired: true })
     }, 1400)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [allowRemote, screen])
+  }, [simulateRemote, screen])
 
   if (screen.kind === 'sign-in') {
     return (
@@ -171,8 +126,7 @@ export function PairingPlay({
         onSocial={(provider) => {
           setScreen({ kind: 'sign-in', pendingProvider: provider })
           later(() => {
-            setAllowRemote(true)
-            setScreen({ kind: 'validating' })
+            setScreen(EMPTY_CODE)
           }, 700)
         }}
       />
@@ -180,82 +134,50 @@ export function PairingPlay({
   }
 
   if (screen.kind === 'home') {
-    return <DashboardPage list={homeList(screen.paired)} view="sessions" />
+    return <DashboardPage list={homeList(screen.paired)} view="conversations" />
   }
 
-  if (screen.kind === 'validating') {
-    return <PairPage view="validating" />
-  }
-
-  if (screen.kind === 'confirm' || screen.kind === 'confirming') {
+  if (screen.kind === 'confirm') {
     return (
       <PairPage
         accountLabel={ACCOUNT}
-        host={HOST}
-        verificationPhrase={PHRASE}
-        view={screen.kind}
-        onCancel={() => {
-          setScreen({ kind: 'home', paired: false })
+        pending={screen.pending}
+        requestedFrom={SAME_DEVICE}
+        view="confirm"
+        onApprove={() => {
+          setScreen({ kind: 'confirm', pending: true })
+          later(() => {
+            setScreen({ kind: 'approved' })
+          }, 600)
         }}
-        onConfirm={() => {
-          progressConfirm.current = true
-          setAllowRemote(true)
-          setScreen({ kind: 'confirming' })
-        }}
-      />
-    )
-  }
-
-  if (screen.kind === 'waiting') {
-    return (
-      <PairPage
-        host={HOST}
-        verificationPhrase={PHRASE}
-        view="waiting-for-desktop"
-        onCancel={() => {
-          setScreen({ kind: 'home', paired: false })
+        onDeny={() => {
+          setScreen({ kind: 'denied' })
         }}
       />
     )
   }
 
-  if (screen.kind === 'success') {
-    return (
-      <PairPage
-        host={HOST}
-        view="success"
-        onContinue={() => {
-          setScreen({ kind: 'home', paired: true })
-        }}
-      />
-    )
-  }
-
-  if (screen.kind === 'expired') {
-    return (
-      <PairPage
-        view="expired"
-        onEnterCode={() => {
-          setScreen({ kind: 'code', code: '', error: undefined, pending: false })
-        }}
-      />
-    )
-  }
+  if (screen.kind === 'approved') return <PairPage view="approved" />
+  if (screen.kind === 'denied') return <PairPage view="denied" />
 
   if (screen.kind === 'issue') {
     return (
       <PairPage
         issue={screen.issue}
-        pending={false}
         view="issue"
-        onCancel={() => undefined}
-        onPrimary={() => undefined}
+        onCancel={() => {
+          setScreen({ kind: 'home', paired: false })
+        }}
+        onRestart={() => {
+          setScreen(EMPTY_CODE)
+        }}
       />
     )
   }
 
   return (
     <PairPage
+      accountLabel={ACCOUNT}
       code={screen.code}
       error={screen.error}
       pending={screen.pending}
@@ -264,18 +186,13 @@ export function PairingPlay({
         setScreen({ kind: 'code', code, error: undefined, pending: false })
       }}
       onSubmit={() => {
-        if (screen.code === INVALID_CODE) {
-          setScreen({
-            kind: 'code',
-            code: screen.code,
-            error: 'That code is expired or already used',
-            pending: false,
-          })
+        if (screen.code === EXPIRED_CODE) {
+          setScreen({ kind: 'issue', issue: 'expired' })
           return
         }
         setScreen({ kind: 'code', code: screen.code, error: undefined, pending: true })
         later(() => {
-          setScreen({ kind: 'confirm' })
+          setScreen({ kind: 'confirm', pending: false })
         }, 600)
       }}
     />
@@ -295,7 +212,7 @@ export function SignInPlay() {
   }, [])
 
   if (signedIn) {
-    return <DashboardPage list={homeList(false)} view="sessions" />
+    return <DashboardPage list={homeList(false)} view="conversations" />
   }
 
   return (

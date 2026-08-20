@@ -1,7 +1,6 @@
 import { CheckCircleIcon, ProhibitIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairingOrigin } from '@porte/core'
-
-import { PairForm, type PairFormProps } from '#/features/pair/components/pair-form.tsx'
+import { PairForm, type PairFormProps } from '@web/features/pair/components/pair-form.tsx'
 import {
   PairingAccount,
   PairingGrants,
@@ -10,9 +9,9 @@ import {
   PairingRequestTime,
   PairingStatusIcon,
   type PairingTone,
-} from '#/features/pair/components/pairing-layout.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import { Spinner } from '#/ui/components/ui/spinner.tsx'
+} from '@web/features/pair/components/pairing-layout.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 /**
  * Dead ends a pairing attempt can reach.

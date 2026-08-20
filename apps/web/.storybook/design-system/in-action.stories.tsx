@@ -12,11 +12,10 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
-import { Avatar, AvatarFallback } from '#/ui/components/ui/avatar.tsx'
-import { Badge } from '#/ui/components/ui/badge.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
+import { Avatar, AvatarFallback } from '@web/ui/components/ui/avatar.tsx'
+import { Badge } from '@web/ui/components/ui/badge.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Card,
   CardAction,
@@ -25,7 +24,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '#/ui/components/ui/card.tsx'
+} from '@web/ui/components/ui/card.tsx'
 import {
   Field,
   FieldDescription,
@@ -34,10 +33,10 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
-} from '#/ui/components/ui/field.tsx'
-import { Input } from '#/ui/components/ui/input.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
-import { Textarea } from '#/ui/components/ui/textarea.tsx'
+} from '@web/ui/components/ui/field.tsx'
+import { Input } from '@web/ui/components/ui/input.tsx'
+import { Separator } from '@web/ui/components/ui/separator.tsx'
+import { Textarea } from '@web/ui/components/ui/textarea.tsx'
 
 const PROJECTS = [
   { name: 'Atlas', owner: 'Product', updated: '2 min ago', status: 'On track' },

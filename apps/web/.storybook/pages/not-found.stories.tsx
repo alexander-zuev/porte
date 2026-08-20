@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { NotFound } from '#/ui/components/feedback/not-found.tsx'
+import { NotFound } from '@web/ui/components/feedback/not-found.tsx'
 
 const meta = {
   title: 'Pages/Not found',

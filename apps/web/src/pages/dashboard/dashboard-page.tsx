@@ -1,11 +1,10 @@
-import type { ReactNode } from 'react'
-
 import {
   ConversationList,
   type ConversationListProps,
-} from '#/features/dashboard/components/conversation-list.tsx'
-import { PairPrompt } from '#/features/dashboard/components/pair-prompt.tsx'
-import { AppShell } from '#/ui/components/app-shell.tsx'
+} from '@web/features/dashboard/components/conversation-list.tsx'
+import { PairPrompt } from '@web/features/dashboard/components/pair-prompt.tsx'
+import { AppShell } from '@web/ui/components/app-shell.tsx'
+import type { ReactNode } from 'react'
 
 /**
  * The dashboard renders one of two shapes.

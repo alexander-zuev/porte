@@ -1,9 +1,8 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { ConfigError } from '@host/application/host-error.ts'
 import { z } from 'zod'
-
-import { ConfigError } from '../application/host-error.ts'
 
 /** Host configuration parsed at the process boundary. */
 export type HostConfig = {

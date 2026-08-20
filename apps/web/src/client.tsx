@@ -1,5 +1,5 @@
 // oxlint-disable-next-line import/no-unassigned-import -- Parse client env before any other boot.
-import '#/lib/env/env.ts'
+import '@web/lib/env/env.ts'
 // oxlint-disable-next-line import/no-unassigned-import -- Sentry must initialize before other imports.
 import './instrument.client.ts'
 import { StartClient } from '@tanstack/react-start/client'

@@ -1,10 +1,9 @@
 import type { PairingClaim } from '@porte/core'
+import { claimPairing } from '@server/entrypoints/functions/pairing.fn.ts'
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate, useRouteContext, useSearch } from '@tanstack/react-router'
+import { PairPage } from '@web/pages/pair/pair-page.tsx'
 import { useState } from 'react'
-
-import { PairPage } from '#/pages/pair/pair-page.tsx'
-import { claimPairing } from '#/server/entrypoints/functions/pairing.fn.ts'
 
 import type { PairingFlowProps } from './pairing-flow.tsx'
 

@@ -1,5 +1,11 @@
 import { BrainIcon, CaretDownIcon } from '@phosphor-icons/react'
 import { useControllableState } from '@radix-ui/react-use-controllable-state'
+import { cn } from '@web/lib/utils.ts'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@web/ui/components/ui/collapsible.tsx'
 import type { ComponentProps, ReactNode } from 'react'
 import {
   createContext,
@@ -12,13 +18,6 @@ import {
   useState,
 } from 'react'
 import { Streamdown } from 'streamdown'
-
-import { cn } from '#/lib/utils.ts'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '#/ui/components/ui/collapsible.tsx'
 
 import { Shimmer } from './shimmer'
 

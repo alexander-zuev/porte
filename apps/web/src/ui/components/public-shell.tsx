@@ -1,12 +1,11 @@
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
+import { REPOSITORY_URL } from '@web/lib/product.ts'
+import { Logo } from '@web/ui/components/logo.tsx'
+import { MarketingBackground } from '@web/ui/components/marketing-background.tsx'
+import { MarketingHeader } from '@web/ui/components/marketing-header.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { ReactNode } from 'react'
-
-import { REPOSITORY_URL } from '#/lib/product.ts'
-import { Logo } from '#/ui/components/logo.tsx'
-import { MarketingBackground } from '#/ui/components/marketing-background.tsx'
-import { MarketingHeader } from '#/ui/components/marketing-header.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 /** Props for the shell wrapped around every public page. */
 export type PublicShellProps = {

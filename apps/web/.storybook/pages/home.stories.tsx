@@ -1,15 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { ConversationPane } from '@web/features/conversation/components/conversation-pane.tsx'
+import { ConversationListFooter } from '@web/features/dashboard/components/conversation-list-footer.tsx'
+import type { ConversationListProps } from '@web/features/dashboard/components/conversation-list.tsx'
+import { DashboardPage } from '@web/pages/dashboard/dashboard-page.tsx'
 
-import { SessionListFooter } from '#/features/dashboard/components/session-list-footer.tsx'
-import type { SessionListProps } from '#/features/dashboard/components/session-list.tsx'
-import { ConversationPane } from '#/features/session/components/conversation-pane.tsx'
-import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
-
-import { sessions, streamingItems } from '../fixtures/sessions.ts'
+import {
+  conversations,
+  hostContract,
+  listResume,
+  storyUser,
+  streamingItems,
+} from '../fixtures/conversations.ts'
 
 const actions = {
-  onOpenSession: () => undefined,
-  onStartSession: () => undefined,
+  onOpenConversation: () => undefined,
+  onStartConversation: () => undefined,
   onPair: () => undefined,
   onRetry: () => undefined,
 }
@@ -21,17 +26,17 @@ const ready = {
   state: 'ready',
   hostName: HOST_NAME,
   hostStatus: 'online',
-  sessions,
-  runningSessionIds: new Set<string>([sessions[0].id]),
-} satisfies SessionListProps
+  conversations,
+  runningConversationIds: new Set<string>([listResume.id]),
+} satisfies ConversationListProps
 
-/** Every session story renders the two-pane shape with the account footer. */
-function sessionsView(list: SessionListProps, detail?: React.ReactNode) {
+/** Every conversation story renders the two-pane shape with the account footer. */
+function conversationsView(list: ConversationListProps, detail?: React.ReactNode) {
   return {
-    view: 'sessions',
+    view: 'conversations',
     list,
     detail,
-    footer: <SessionListFooter label="azuevpersonal@gmail.com" />,
+    footer: <ConversationListFooter user={storyUser} />,
   } as const
 }
 
@@ -45,12 +50,12 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const OnlineGrouped: Story = {
-  args: sessionsView(ready),
+  args: conversationsView(ready),
 }
 
 export const DesktopMasterDetail: Story = {
-  args: sessionsView(
-    { ...ready, selectedSessionId: sessions[0].id },
+  args: conversationsView(
+    { ...ready, selectedConversationId: listResume.id },
     <ConversationPane
       actions={{
         onAnswerElicitation: () => undefined,
@@ -69,38 +74,42 @@ export const DesktopMasterDetail: Story = {
       draft=""
       hostName={HOST_NAME}
       items={streamingItems}
-      session={sessions[0]}
+      conversation={listResume}
     />,
   ),
 }
 
-export const OpeningSession: Story = {
-  args: sessionsView({ ...ready, openingSessionId: sessions[1].id }),
+export const OpeningConversation: Story = {
+  args: conversationsView({ ...ready, openingConversationId: hostContract.id }),
 }
 
 export const Loading: Story = {
-  args: sessionsView({ ...actions, state: 'loading', hostName: HOST_NAME }),
+  args: conversationsView({ ...actions, state: 'loading', hostName: HOST_NAME }),
 }
 
 export const Empty: Story = {
-  args: sessionsView({ ...ready, sessions: [], runningSessionIds: new Set<string>() }),
+  args: conversationsView({
+    ...ready,
+    conversations: [],
+    runningConversationIds: new Set<string>(),
+  }),
 }
 
 export const Offline: Story = {
-  args: sessionsView({
+  args: conversationsView({
     ...ready,
     hostStatus: 'offline',
     lastSeen: '12 minutes ago',
-    runningSessionIds: new Set<string>(),
+    runningConversationIds: new Set<string>(),
   }),
 }
 
 export const Reconnecting: Story = {
-  args: sessionsView({ ...ready, hostStatus: 'reconnecting' }),
+  args: conversationsView({ ...ready, hostStatus: 'reconnecting' }),
 }
 
 export const LoadFailure: Story = {
-  args: sessionsView({ ...actions, state: 'error', hostName: HOST_NAME }),
+  args: conversationsView({ ...actions, state: 'error', hostName: HOST_NAME }),
 }
 
 /** No Mac: the pairing prompt takes the page instead of an empty two-pane shell. */

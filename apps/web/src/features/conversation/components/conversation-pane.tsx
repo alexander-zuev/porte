@@ -1,25 +1,24 @@
 import type { ElicitationAnswer, ConversationSummary } from '@porte/core'
-
 import type {
   ElicitationDraftValue,
   ConversationControl,
-} from '#/entities/conversation/conversation-control.ts'
-import type { TranscriptItem } from '#/entities/conversation/transcript.ts'
-import { ConversationComposer } from '#/features/conversation/components/conversation-composer.tsx'
+} from '@web/entities/conversation/conversation-control.ts'
+import type { TranscriptItem } from '@web/entities/conversation/transcript.ts'
+import { ConversationComposer } from '@web/features/conversation/components/conversation-composer.tsx'
 import {
   ConversationHeader,
   type ConversationConnection,
-} from '#/features/conversation/components/conversation-header.tsx'
-import { ConversationTranscript } from '#/features/conversation/components/conversation-transcript.tsx'
-import { ElicitationDecision } from '#/features/conversation/components/elicitation-decision.tsx'
-import { PermissionDecision } from '#/features/conversation/components/permission-decision.tsx'
+} from '@web/features/conversation/components/conversation-header.tsx'
+import { ConversationTranscript } from '@web/features/conversation/components/conversation-transcript.tsx'
+import { ElicitationDecision } from '@web/features/conversation/components/elicitation-decision.tsx'
+import { PermissionDecision } from '@web/features/conversation/components/permission-decision.tsx'
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-} from '#/ui/components/ai-elements/conversation.tsx'
-import { Alert, AlertDescription, AlertTitle } from '#/ui/components/ui/alert.tsx'
+} from '@web/ui/components/ai-elements/conversation.tsx'
+import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 
 /** User actions available from one ready conversation pane. */
 export type ConversationActions = {

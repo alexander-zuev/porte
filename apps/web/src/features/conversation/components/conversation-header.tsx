@@ -1,9 +1,8 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import type { ConversationSummary } from '@porte/core'
-
-import { HostStatus } from '#/ui/components/host-status.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
-import { Separator } from '#/ui/components/ui/separator.tsx'
+import { HostStatus } from '@web/ui/components/host-status.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import { Separator } from '@web/ui/components/ui/separator.tsx'
 
 /** Connection states visible while one conversation is selected. */
 export type ConversationConnection = 'online' | 'offline' | 'reconnecting'

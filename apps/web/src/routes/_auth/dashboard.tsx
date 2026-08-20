@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-
-import { hostQueries } from '#/entities/host/host-queries.ts'
-import { ConversationListFooter } from '#/features/dashboard/components/conversation-list-footer.tsx'
-import { createSeoHead } from '#/lib/seo.ts'
-import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
+import { hostQueries } from '@web/entities/host/host-queries.ts'
+import { ConversationListFooter } from '@web/features/dashboard/components/conversation-list-footer.tsx'
+import { createSeoHead } from '@web/lib/seo.ts'
+import { DashboardPage } from '@web/pages/dashboard/dashboard-page.tsx'
 
 export const Route = createFileRoute('/_auth/dashboard')({
   loader: ({ context }) => context.queryClient.ensureQueryData(hostQueries.view()),

@@ -2,9 +2,8 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-
-import { Toaster } from '#/ui/components/ui/sonner.tsx'
-import { TooltipProvider } from '#/ui/components/ui/tooltip.tsx'
+import { Toaster } from '@web/ui/components/ui/sonner.tsx'
+import { TooltipProvider } from '@web/ui/components/ui/tooltip.tsx'
 
 import PostHogProvider from '../integrations/posthog/provider'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'

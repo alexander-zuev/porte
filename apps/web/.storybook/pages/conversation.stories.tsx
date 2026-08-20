@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
+import type { ConversationPageProps } from '@web/pages/conversation/conversation-page.tsx'
 import { useState } from 'react'
-
-import { ConversationPage } from '#/pages/conversation/conversation-page.tsx'
-import type { ConversationPageProps } from '#/pages/conversation/conversation-page.tsx'
 
 import {
   formElicitation,
@@ -10,22 +9,23 @@ import {
   markdownItems,
   pendingPermission,
   reasoningItems,
-  sessions,
+  conversations,
+  listResume,
   streamingItems,
   toolsItems,
   urlElicitation,
   userOnlyItems,
-} from '../fixtures/sessions.ts'
+} from '../fixtures/conversations.ts'
 
 const meta = {
-  title: 'Pages/Session',
+  title: 'Pages/Conversation',
   component: ConversationPage,
 } satisfies Meta<typeof ConversationPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-function SessionHarness(
+function ConversationHarness(
   props: Pick<
     Extract<ConversationPageProps, { view: 'ready' }>,
     'connection' | 'control' | 'items' | 'draft'
@@ -43,7 +43,7 @@ function SessionHarness(
       draft={draft}
       hostName="Alexander's MacBook Pro"
       items={props.items}
-      session={sessions[0]}
+      conversation={listResume}
       view="ready"
     />
   )
@@ -65,7 +65,7 @@ const actions = {
 const idleArgs = {
   actions,
   view: 'ready' as const,
-  session: sessions[0],
+  conversation: listResume,
   hostName: "Alexander's MacBook Pro",
   connection: 'online' as const,
   control: { state: 'idle' as const },
@@ -76,19 +76,14 @@ const idleArgs = {
 export const Empty: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
-      connection="online"
-      control={{ state: 'idle' }}
-      draft=""
-      items={[]}
-    />
+    <ConversationHarness connection="online" control={{ state: 'idle' }} draft="" items={[]} />
   ),
 }
 
 export const UserOnly: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'idle' }}
       draft=""
@@ -100,7 +95,7 @@ export const UserOnly: Story = {
 export const MarkdownReply: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'idle' }}
       draft=""
@@ -112,7 +107,7 @@ export const MarkdownReply: Story = {
 export const ReasoningOpen: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'idle' }}
       draft=""
@@ -124,7 +119,7 @@ export const ReasoningOpen: Story = {
 export const Tools: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'running' }}
       draft=""
@@ -136,7 +131,7 @@ export const Tools: Story = {
 export const StreamingTurn: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       draft=""
       connection="online"
       control={{ state: 'running' }}
@@ -148,7 +143,7 @@ export const StreamingTurn: Story = {
 export const Permission: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       draft=""
       connection="online"
       control={{
@@ -163,7 +158,7 @@ export const Permission: Story = {
 export const LongMessage: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'idle' }}
       draft=""
@@ -175,7 +170,7 @@ export const LongMessage: Story = {
 export const Idle: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       draft="Add cancel next."
       connection="online"
       control={{ state: 'idle' }}
@@ -187,7 +182,7 @@ export const Idle: Story = {
 export const Offline: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       draft=""
       connection="offline"
       control={{ state: 'idle' }}
@@ -199,7 +194,7 @@ export const Offline: Story = {
 export const Reconnecting: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="reconnecting"
       control={{ state: 'running' }}
       draft="Keep this draft while the connection returns"
@@ -211,7 +206,7 @@ export const Reconnecting: Story = {
 export const Sending: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'sending' }}
       draft="Add a health check"
@@ -223,7 +218,7 @@ export const Sending: Story = {
 export const DeliveryUnknown: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="reconnecting"
       control={{ state: 'delivery-unknown' }}
       draft="Add a health check"
@@ -235,7 +230,7 @@ export const DeliveryUnknown: Story = {
 export const Stopping: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'stopping' }}
       draft=""
@@ -247,7 +242,7 @@ export const Stopping: Story = {
 export const Completed: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{ state: 'completed' }}
       draft=""
@@ -259,7 +254,7 @@ export const Completed: Story = {
 export const TurnFailed: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{
         state: 'failed',
@@ -274,14 +269,14 @@ export const TurnFailed: Story = {
 export const ElicitationForm: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{
         state: 'elicitation',
         decision: {
           request: formElicitation,
           response: { state: 'pending' },
-          values: { environment: 'Preview', retries: 3, include_logs: false },
+          values: { environment: 'Preview', retries: '3', include_logs: false },
           errors: {},
         },
       }}
@@ -294,7 +289,7 @@ export const ElicitationForm: Story = {
 export const ElicitationUrl: Story = {
   args: idleArgs,
   render: () => (
-    <SessionHarness
+    <ConversationHarness
       connection="online"
       control={{
         state: 'elicitation',
@@ -314,17 +309,17 @@ export const ElicitationUrl: Story = {
 export const Opening: Story = {
   args: {
     hostName: "Alexander's MacBook Pro",
-    session: sessions[0],
+    conversation: listResume,
     view: 'opening',
     onBack: () => undefined,
   },
 }
 
-export const SessionUnavailable: Story = {
+export const ConversationUnavailable: Story = {
   args: {
     hostName: "Alexander's MacBook Pro",
     reason: 'unavailable',
-    session: sessions[0],
+    conversation: listResume,
     view: 'failure',
     onBack: () => undefined,
     onRetry: () => undefined,
@@ -335,7 +330,7 @@ export const AgentFailed: Story = {
   args: {
     hostName: "Alexander's MacBook Pro",
     reason: 'agent-failed',
-    session: sessions[0],
+    conversation: listResume,
     view: 'failure',
     onBack: () => undefined,
     onRetry: () => undefined,
@@ -346,7 +341,7 @@ export const HostDisconnectedWhileOpening: Story = {
   args: {
     hostName: "Alexander's MacBook Pro",
     reason: 'host-offline',
-    session: sessions[0],
+    conversation: listResume,
     view: 'failure',
     onBack: () => undefined,
   },

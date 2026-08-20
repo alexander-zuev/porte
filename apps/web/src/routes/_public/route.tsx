@@ -1,7 +1,6 @@
 import { createLogger } from '@porte/core'
+import { getSession } from '@server/entrypoints/functions/auth.fn.ts'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-
-import { getSession } from '#/server/entrypoints/functions/auth.fn.ts'
 
 const logger = createLogger('public-route')
 

@@ -1,7 +1,6 @@
 import { ScrollArea as ScrollAreaPrimitive } from '@base-ui/react/scroll-area'
+import { cn } from '@web/lib/utils.ts'
 import * as React from 'react'
-
-import { cn } from '#/lib/utils.ts'
 
 function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
   return (

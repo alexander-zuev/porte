@@ -6,17 +6,16 @@ import {
   WrenchIcon,
   XCircleIcon,
 } from '@phosphor-icons/react'
-import type { DynamicToolUIPart, ToolUIPart } from 'ai'
-import type { ComponentProps, ReactNode } from 'react'
-import { isValidElement } from 'react'
-
-import { cn } from '#/lib/utils.ts'
-import { Badge } from '#/ui/components/ui/badge.tsx'
+import { cn } from '@web/lib/utils.ts'
+import { Badge } from '@web/ui/components/ui/badge.tsx'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '#/ui/components/ui/collapsible.tsx'
+} from '@web/ui/components/ui/collapsible.tsx'
+import type { DynamicToolUIPart, ToolUIPart } from 'ai'
+import type { ComponentProps, ReactNode } from 'react'
+import { isValidElement } from 'react'
 
 import { CodeBlock } from './code-block'
 

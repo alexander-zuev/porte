@@ -2,13 +2,12 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
-
 import {
   findGrokConversation,
   listGrokConversations,
-} from '../../src/adapters/grok/grok-conversation-files.ts'
-import type { GrokSummaryFile } from '../../src/adapters/grok/grok-summary.ts'
+} from '@host/adapters/grok/grok-conversation-files.ts'
+import type { GrokSummaryFile } from '@host/adapters/grok/grok-summary.ts'
+import { describe, expect, it } from 'vitest'
 
 describe('Grok conversation files', () => {
   it('returns an empty array when sessions is missing', async () => {

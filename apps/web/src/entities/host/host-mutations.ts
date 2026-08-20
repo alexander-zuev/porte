@@ -1,4 +1,4 @@
-import { deleteAccount, unpairHost } from '#/server/entrypoints/functions/host.fn.ts'
+import { deleteAccount, unpairHost } from '@server/entrypoints/functions/host.fn.ts'
 
 import { hostQueryKeys } from './host-queries.ts'
 

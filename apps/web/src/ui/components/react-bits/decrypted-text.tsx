@@ -1,6 +1,5 @@
+import { useReducedMotion } from '@web/ui/hooks/use-reduced-motion.ts'
 import { useEffect, useRef, useState } from 'react'
-
-import { useReducedMotion } from '#/ui/hooks/use-reduced-motion.ts'
 
 /**
  * Reveal text one character at a time while the rest stays scrambled.

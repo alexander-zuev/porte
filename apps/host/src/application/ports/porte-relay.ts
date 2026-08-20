@@ -1,3 +1,4 @@
+import type { HostRelayError } from '@host/application/host-error.ts'
 import type {
   RoutedRequest,
   RoutedResponse,
@@ -5,8 +6,6 @@ import type {
 } from '@porte/core'
 import type { ConversationEvent } from '@porte/core/conversation-event'
 import type { Result } from 'better-result'
-
-import type { HostRelayError } from '../host-error.ts'
 
 type SyncedConversations = Extract<ProtocolConversationCatalog, { state: 'synced' }>
 

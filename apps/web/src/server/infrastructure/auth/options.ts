@@ -1,9 +1,8 @@
 import { PAIRING_CODE_LENGTH } from '@porte/core'
+import type { FileRouteTypes } from '@web/lib/router/routeTree.gen.ts'
 import type { BetterAuthOptions } from 'better-auth'
 import { bearer, captcha, deviceAuthorization, lastLoginMethod } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
-
-import type { FileRouteTypes } from '#/lib/router/routeTree.gen.ts'
 
 import { APPLE_ORIGIN, generateAppleClientSecret } from './apple-client-secret.ts'
 

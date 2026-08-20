@@ -1,10 +1,9 @@
 import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { RiGrokAiFill } from '@remixicon/react'
+import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { PublicShell } from '@web/ui/components/public-shell.tsx'
+import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import type { ReactNode } from 'react'
-
-import { PAIR_COMMAND } from '#/lib/product.ts'
-import { PublicShell } from '#/ui/components/public-shell.tsx'
-import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
 
 const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
   { icon: <ShieldCheckIcon aria-hidden />, label: 'Adds no new permissions' },

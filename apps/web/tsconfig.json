@@ -7,10 +7,18 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "node"],
     "paths": {
-      "#/*": ["./src/*"],
-      "@/*": ["./src/*"],
-      "@porte/core": ["../../packages/core/src/index.ts"]
+      "@web/*": ["./src/*"],
+      "@server/*": ["./src/server/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "drizzle.config.ts", "worker-configuration.d.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    // Stories stay in the main pass so `@web/*` resolves and a rename that
+    // misses them fails the build instead of the browser.
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx",
+    "drizzle.config.ts",
+    "worker-configuration.d.ts"
+  ]
 }

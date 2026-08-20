@@ -1,11 +1,10 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
 import type { ConversationSummary } from '@porte/core'
-
 import {
   ConversationHeader,
   type ConversationConnection,
-} from '#/features/conversation/components/conversation-header.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+} from '@web/features/conversation/components/conversation-header.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import {
   Empty,
   EmptyContent,
@@ -13,8 +12,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '#/ui/components/ui/empty.tsx'
-import { Skeleton } from '#/ui/components/ui/skeleton.tsx'
+} from '@web/ui/components/ui/empty.tsx'
+import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
 
 /** Data required while Porte opens one conversation. */
 export type ConversationOpeningProps = {

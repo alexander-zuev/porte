@@ -5,11 +5,10 @@ import {
   SpinnerGapIcon,
   XLogoIcon,
 } from '@phosphor-icons/react'
+import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
+import { Badge } from '@web/ui/components/ui/badge.tsx'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { ComponentType } from 'react'
-
-import type { SocialProvider } from '#/lib/auth/social-provider.ts'
-import { Badge } from '#/ui/components/ui/badge.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 const PROVIDERS: {
   readonly provider: SocialProvider

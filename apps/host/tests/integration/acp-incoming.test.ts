@@ -2,12 +2,11 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
-
 import {
   answerIncomingRequest,
   parsePermissionRequest,
-} from '../../src/adapters/acp/incoming-request.ts'
+} from '@host/adapters/acp/incoming-request.ts'
+import { describe, expect, it } from 'vitest'
 
 describe('answerIncomingRequest', () => {
   it('parses a permission request', () => {

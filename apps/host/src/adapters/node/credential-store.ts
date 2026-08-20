@@ -1,11 +1,10 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
+import { CredentialStoreError } from '@host/application/host-error.ts'
+import type { CredentialStore, StoredCredential } from '@host/application/ports/credential-store.ts'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
-
-import { CredentialStoreError } from '../../application/host-error.ts'
-import type { CredentialStore, StoredCredential } from '../../application/ports/credential-store.ts'
 
 const StoredCredentialSchema = z.object({
   // Matches the config schema: a local Worker is a legitimate origin to pair with.

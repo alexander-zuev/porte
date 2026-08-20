@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-
-import { Logo } from '#/ui/components/logo.tsx'
+import { Logo } from '@web/ui/components/logo.tsx'
 
 const SIZES = [
   { size: 'sm', note: '18px — page headers, next to 14px nav text' },
