@@ -34,23 +34,62 @@ delivery without becoming the execution owner.
 The first release supports one paired host for each account. One account controls one Mac. Every
 surface that names the host names that single Mac, never a list.
 
+### Two facts, never one
+
+Porte tracks two independent facts about a Mac. They are never merged into one status.
+
+| Fact       | Meaning                   | Where the answer lives                    |
+| ---------- | ------------------------- | ----------------------------------------- |
+| **paired** | The account owns this Mac | A `host` row exists and is not revoked    |
+| **online** | The Mac is reachable now  | The relay Durable Object holds the socket |
+
+Paired is durable and survives reboots. It ends only at `porte unpair`. Online is a live question,
+so it is never stored in the database. `lastSeenAt` is stored, because it records an observation
+Porte actually made, which stays true after the Mac goes away.
+
+Paired decides whether the user sees anything. Online decides whether the user can act. An offline
+Mac still lists its conversations; it just cannot accept a turn.
+
 ### Account states
 
-Porte has no onboarding wizard, no tour, and no checklist. An account is in exactly one of three
-states, and every surface resolves to the same next action.
+| State              | Meaning                         | Next action                   |
+| ------------------ | ------------------------------- | ----------------------------- |
+| Unpaired           | The account owns no Mac         | Redirect to `/pair`           |
+| Paired, never seen | Paired, no daemon has connected | Run `npx porte up` on the Mac |
+| Paired, offline    | Seen before, not reachable now  | Read-only, show last seen     |
+| Paired, online     | Reachable now                   | Open or start a conversation  |
+| Revoked            | Pairing ended                   | Redirect to `/pair`           |
 
-| State    | Meaning                              | Next action                     |
-| -------- | ------------------------------------ | ------------------------------- |
-| Unpaired | The account controls no Mac          | Run `npx porte pair` on the Mac |
-| Pairing  | A code is open and awaiting approval | Approve the code in a browser   |
-| Paired   | The account controls one Mac         | Open or start a conversation    |
+### Onboarding
 
-A fourth condition, failed, is a recoverable variant of pairing. It always returns the user to the
-unpaired next action.
+Two doors reach the same screens. The user runs `porte pair` first, or opens `/dashboard` first.
 
-The whole product funnel is one line: install the CLI, sign in, approve the code. Nothing else is
-taught before first use. Capability is discovered inside the conversation surfaces, not in an
-introduction.
+1. `porte pair` on the Mac prints a code and opens the browser.
+2. The user confirms the code at `/pair/confirm`.
+3. `porte up` on the Mac connects it, and the dashboard fills in.
+
+Steps 1 and 3 happen in the terminal, so the web carries two steps, not three. Each `/pair` screen
+names its position: step 1 is the command, step 2 is the confirmation.
+
+`/dashboard` never renders a pairing screen. It redirects, so one route never has to describe two
+different pages.
+
+Nothing else is taught before first use. Capability is discovered inside the conversation surfaces,
+not in an introduction.
+
+### Next slice
+
+Ordered. Each item unblocks the one after it.
+
+1. Write the `host` row when the user approves, not on first daemon connect. Nothing records
+   pairing today, which is why a paired account still sees "Pair your Mac".
+2. The CLI sends `x-porte-host-name` and `x-porte-host-platform` with the device-code request, so
+   the confirm screen can name the Mac instead of showing a bare code.
+3. Delete the `lastSeenAt ?? createdAt` fallback. It invents an observation Porte never made.
+4. `/dashboard` redirects to `/pair` when the account owns no Mac.
+5. Split `/pair` into step 1 (the command) and `/pair/code` (code entry), and label both.
+6. `porte up` installs a launchd agent so the daemon survives logout and reboot. `porte stop` ends
+   it; `porte unpair` ends the pairing. `porte up --foreground` stays for development.
 
 ## Experience Contract
 
