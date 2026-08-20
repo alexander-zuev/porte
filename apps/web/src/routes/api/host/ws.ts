@@ -1,40 +1,41 @@
+import { connectHost } from '@server/application/commands/connect-host.command.ts'
+import { requireAuthRequest } from '@server/entrypoints/middleware/auth.middleware.ts'
+import { routeErrorMiddleware } from '@server/entrypoints/middleware/error.middleware.ts'
+import { requireWebSocketUpgrade } from '@server/entrypoints/middleware/websocket.middleware.ts'
 import { ApiRouteError } from '@server/errors/api-route.error.ts'
-import { routeErrorMiddleware } from '@server/middleware/error.middleware.ts'
 import { createFileRoute } from '@tanstack/react-router'
-import { z } from 'zod'
 
-const bearerSchema = z.string().regex(/^Bearer\s+(.+)$/i)
-
+/**
+ * Where a daemon and a browser both reach the relay.
+ *
+ * The middleware turns a credential into an account and refuses anything that
+ * is not an upgrade. The command turns an account into its Mac. This maps the
+ * answer and nothing else.
+ */
 export const Route = createFileRoute('/api/host/ws')({
   server: {
-    middleware: [routeErrorMiddleware],
+    middleware: [routeErrorMiddleware, requireAuthRequest, requireWebSocketUpgrade],
     handlers: {
       GET: async ({ request, context }) => {
-        if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
+        const connected = await connectHost(context.deps.hosts, context.deps.hostCoordinator, {
+          userId: context.userId,
+          request,
+        })
+
+        if (!connected.ok) {
           throw new ApiRouteError({
-            error: { code: 'INVALID_REQUEST', message: 'WebSocket upgrade required' },
-            status: 426,
+            error: {
+              code: 'NOT_AUTHORIZED',
+              message:
+                connected.reason === 'unpaired'
+                  ? 'This account has no paired Mac'
+                  : 'This pairing was revoked',
+            },
           })
         }
 
-        const authenticated = await context.deps.hostAuthenticator.authenticate(
-          bearerCredential(request),
-        )
-        if (!authenticated.success) {
-          throw new ApiRouteError({ error: authenticated.error })
-        }
-
-        return context.deps.hostCoordinator.connect({
-          hostId: authenticated.data.hostId,
-          role: authenticated.data.role,
-          request,
-        })
+        return connected.response
       },
     },
   },
 })
-
-function bearerCredential(request: Request): string | undefined {
-  const parsed = bearerSchema.safeParse(request.headers.get('authorization'))
-  return parsed.success ? parsed.data.replace(/^Bearer\s+/i, '') : undefined
-}

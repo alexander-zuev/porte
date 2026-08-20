@@ -1,14 +1,15 @@
 import { z } from 'zod'
 
-import { ConversationSummarySchema } from './conversation.ts'
 import { HostDescriptorSchema } from './host.ts'
-import { IsoDateTimeSchema, ConversationIdSchema } from './identity.ts'
+import { IsoDateTimeSchema } from './identity.ts'
 
 /**
- * Contract for what a signed-in account controls right now.
+ * Which Mac an account owns, if any.
  *
- * Loading and error are absent by design. They describe a request, not the
- * account, and belong to whichever client layer performs the fetch.
+ * Durable facts only. Nothing here says whether the Mac can be reached or what
+ * is on it, because the database cannot see either; the relay answers both.
+ * Loading and error are absent for the same reason: they describe a request,
+ * not the account.
  */
 
 /**
@@ -25,14 +26,14 @@ export const PairedHostSchema = HostDescriptorSchema.extend({
 export type PairedHost = z.infer<typeof PairedHostSchema>
 
 /** The account's single Mac, or none. The first release pairs at most one. */
-export const HostViewSchema = z.discriminatedUnion('state', [
+export const AccountHostSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('unpaired') }),
   // No conversations here. They live on the Mac and arrive over the relay, so a
   // copy in this read would be a second list that can disagree with the first.
   z.object({ state: z.literal('paired'), host: PairedHostSchema }),
   z.object({ state: z.literal('revoked'), host: PairedHostSchema }),
 ])
-export type HostView = z.infer<typeof HostViewSchema>
+export type AccountHost = z.infer<typeof AccountHostSchema>
 
 /** Outcome of unpairing, or of deleting the account. */
 export const AccountActionResultSchema = z.discriminatedUnion('ok', [

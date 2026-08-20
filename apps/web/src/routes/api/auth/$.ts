@@ -1,4 +1,4 @@
-import { routeErrorMiddleware } from '@server/middleware/error.middleware.ts'
+import { routeErrorMiddleware } from '@server/entrypoints/middleware/error.middleware.ts'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/api/auth/$')({

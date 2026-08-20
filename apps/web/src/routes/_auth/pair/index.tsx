@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_auth/pair/')({
     createSeoHead({
       title: 'Pair your Mac | Porte',
       description: 'Run porte pair on the Mac that runs Grok, then enter the code it prints.',
-      path: '/pair',
+      path: '/pair/',
       noIndex: true,
     }),
   component: PairStart,

@@ -9,6 +9,8 @@ import { z } from 'zod'
 const signInSearchSchema = z.object({
   returnTo: z.string().optional(),
   intent: z.enum(['pair']).optional(),
+  /** Why the person is back here, when they did not come on purpose. */
+  reason: z.enum(['session-expired']).optional(),
 })
 
 export const Route = createFileRoute('/_public/sign-in')({

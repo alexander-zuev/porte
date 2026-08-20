@@ -1,4 +1,4 @@
-import { IsoDateTimeSchema, type HostView, type PairedHost, type UserId } from '@porte/core'
+import { IsoDateTimeSchema, type AccountHost, type PairedHost, type UserId } from '@porte/core'
 import { eq } from 'drizzle-orm'
 
 import { host, type DbHost } from '../../infrastructure/persistence/database/schema/host.schema.ts'
@@ -25,7 +25,7 @@ function toPairedHost(row: DbHost): PairedHost {
   }
 }
 
-export async function getHostView(db: ReadDb, userId: UserId): Promise<HostView> {
+export async function getAccountHost(db: ReadDb, userId: UserId): Promise<AccountHost> {
   const row = await db.select().from(host).where(eq(host.userId, userId)).get()
   if (!row) return { state: 'unpaired' }
 

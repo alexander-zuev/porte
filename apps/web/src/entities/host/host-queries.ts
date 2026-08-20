@@ -1,12 +1,12 @@
-import { getHostView } from '@server/entrypoints/functions/host.fn.ts'
+import { getAccountHost } from '@server/entrypoints/functions/host.fn.ts'
 import { queryOptions } from '@tanstack/react-query'
 
 /** Query factory for the account's paired Mac. */
 export const hostQueries = {
-  view: () =>
+  forAccount: () =>
     queryOptions({
-      queryKey: ['host', 'view'] as const,
-      queryFn: () => getHostView(),
+      queryKey: ['host', 'account'] as const,
+      queryFn: () => getAccountHost(),
     }),
 }
 

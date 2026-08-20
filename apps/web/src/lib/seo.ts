@@ -1,3 +1,5 @@
+import type { FileRouteTypes } from '@web/lib/router/routeTree.gen.ts'
+
 export const CANONICAL_ORIGIN = 'https://useporte.dev'
 export const SITE_NAME = 'Porte'
 
@@ -16,8 +18,8 @@ const BRAND_SUFFIX = ` | ${SITE_NAME}`
 export type SeoHeadInput = {
   readonly title: string
   readonly description: string
-  /** Route path, always starting with a slash. */
-  readonly path: string
+  /** A real route, so a canonical cannot point at a page that does not exist. */
+  readonly path: FileRouteTypes['fullPaths']
   /** Keep the page out of search results. Use for utility pages. */
   readonly noIndex?: boolean
 }

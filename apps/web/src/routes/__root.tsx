@@ -33,6 +33,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         rel: 'stylesheet',
         href: appCss,
       },
+      // The emoji is drawn by the reader's own font, so the file stays 3 lines.
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicon.svg',
+      },
     ],
   }),
   shellComponent: RootDocument,

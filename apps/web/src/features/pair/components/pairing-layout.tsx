@@ -1,5 +1,5 @@
 import { CheckIcon, WarningIcon } from '@phosphor-icons/react'
-import type { PairingOrigin } from '@porte/core'
+import { buildImageProxyUrl, type PairingOrigin } from '@porte/core'
 import { cn } from '@web/lib/utils.ts'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'
@@ -153,10 +153,12 @@ export function PairingAccount({
   readonly label: string
   readonly image?: string | null
 }) {
+  const imageUrl = buildImageProxyUrl('', image ?? null)
+
   return (
     <p className="flex items-center justify-center gap-2 text-muted-foreground">
       <Avatar className="size-6">
-        {image ? <AvatarImage alt="" src={image} /> : null}
+        {imageUrl ? <AvatarImage alt="" src={imageUrl} /> : null}
         <AvatarFallback>{label.slice(0, 1).toUpperCase()}</AvatarFallback>
       </Avatar>
       <span>

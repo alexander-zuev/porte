@@ -29,8 +29,6 @@
       },
       "secrets": {
         "required": [
-          "PORTE_DEV_DAEMON_TOKEN",
-          "PORTE_DEV_CLIENT_TOKEN",
           "BETTER_AUTH_SECRET",
           "TURNSTILE_SECRET_KEY",
           "GOOGLE_CLIENT_SECRET",
@@ -81,8 +79,6 @@
       },
       "secrets": {
         "required": [
-          "PORTE_DEV_DAEMON_TOKEN",
-          "PORTE_DEV_CLIENT_TOKEN",
           "BETTER_AUTH_SECRET",
           "TURNSTILE_SECRET_KEY",
           "GOOGLE_CLIENT_SECRET",
@@ -119,8 +115,6 @@
         "ENVIRONMENT": "test",
         "LOG_LEVEL": "ERROR",
         "BETTER_AUTH_URL": "http://localhost:3000",
-        "PORTE_DEV_DAEMON_TOKEN": "test-daemon-token",
-        "PORTE_DEV_CLIENT_TOKEN": "test-client-token",
         "BETTER_AUTH_SECRET": "test-better-auth-secret-with-32-characters",
         "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
         "GOOGLE_CLIENT_ID": "test",

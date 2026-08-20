@@ -1,8 +1,8 @@
-import type { AccountActionResult, HostView } from '@porte/core'
+import type { AccountActionResult, AccountHost } from '@porte/core'
 import { createServerFn } from '@tanstack/react-start'
 
 import { unpairHost as unpairHostCommand } from '../../application/commands/unpair-host.command.ts'
-import { getHostView as getHostViewQuery } from '../../application/queries/get-host-view.query.ts'
+import { getAccountHost as getAccountHostQuery } from '../../application/queries/get-account-host.query.ts'
 import { requireAuth } from '../middleware/auth.middleware.ts'
 
 /**
@@ -13,10 +13,10 @@ import { requireAuth } from '../middleware/auth.middleware.ts'
  */
 
 /** Read what the signed-in account controls. One Mac, or none. */
-export const getHostView = createServerFn({ method: 'GET' })
+export const getAccountHost = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
-  .handler(async ({ context }): Promise<HostView> => {
-    return getHostViewQuery(context.deps.db(), context.userId)
+  .handler(async ({ context }): Promise<AccountHost> => {
+    return getAccountHostQuery(context.deps.db(), context.userId)
   })
 
 /** Release the paired Mac. Local sessions and files on that Mac are untouched. */

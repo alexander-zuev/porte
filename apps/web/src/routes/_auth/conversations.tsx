@@ -14,15 +14,15 @@ export const Route = createFileRoute('/_auth/conversations')({
    * keeps one route from having to describe two situations.
    */
   beforeLoad: async ({ context }) => {
-    const view = await context.queryClient.ensureQueryData(hostQueries.view())
-    if (view.state !== 'paired') {
+    const owned = await context.queryClient.ensureQueryData(hostQueries.forAccount())
+    if (owned.state !== 'paired') {
       // oxlint-disable-next-line typescript/only-throw-error -- TanStack Router performs redirects by throwing this value.
       throw redirect({ to: '/pair' })
     }
 
     // Handed down rather than read again below, so the component receives a Mac
     // that exists instead of one it has to check for.
-    return { host: view.host }
+    return { host: owned.host }
   },
   head: () =>
     createSeoHead({
@@ -37,7 +37,7 @@ export const Route = createFileRoute('/_auth/conversations')({
 function ConversationsRoute() {
   const { user, host } = Route.useRouteContext()
   const navigate = useNavigate()
-  const view = useQuery(hostQueries.view())
+  const owned = useQuery(hostQueries.forAccount())
   const connection = useHostConnection(host)
 
   return (
@@ -56,7 +56,7 @@ function ConversationsRoute() {
       }}
       onStartConversation={() => undefined}
       onRetry={() => {
-        void view.refetch()
+        void owned.refetch()
       }}
     />
   )

@@ -1,4 +1,5 @@
 import { CaretDownIcon } from '@phosphor-icons/react'
+import { buildImageProxyUrl } from '@porte/core'
 import { cn } from '@web/lib/utils.ts'
 import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -34,9 +35,11 @@ export function UserAvatar({
   className,
   ...triggerProps
 }: UserAvatarProps) {
+  const imageUrl = buildImageProxyUrl('', user.image ?? null)
+
   const picture = (
     <Avatar className="size-8 shrink-0">
-      {user.image ? <AvatarImage alt="" src={user.image} /> : null}
+      {imageUrl ? <AvatarImage alt="" src={imageUrl} /> : null}
       <AvatarFallback>{initial(user)}</AvatarFallback>
     </Avatar>
   )

@@ -25,15 +25,33 @@ async function resolveRequiredSession(deps: AppDeps): Promise<ResolvedSession> {
 }
 
 /**
+ * The account, ready to hand to a handler.
+ *
+ * Better Auth reports `user.id` as a bare string, so the branded id is parsed
+ * here, at the boundary it arrives through, and no handler re-derives it.
+ */
+async function resolveAccount(deps: AppDeps) {
+  const { user, session } = await resolveRequiredSession(deps)
+
+  return { user, session, userId: UserIdSchema.parse(user.id) }
+}
+
+/**
  * Require an account, and hand its identity to the handler.
  *
- * Attach with `.middleware([requireAuth])`. The branded id is parsed once here,
- * so no handler re-derives it from `user.id`.
+ * Attach with `.middleware([requireAuth])`.
  */
 export const requireAuth = createMiddleware({ type: 'function' }).server(
-  async ({ next, context }) => {
-    const { user, session } = await resolveRequiredSession(context.deps)
+  async ({ next, context }) => next({ context: await resolveAccount(context.deps) }),
+)
 
-    return next({ context: { user, session, userId: UserIdSchema.parse(user.id) } })
-  },
+/**
+ * The same requirement, for an API route.
+ *
+ * Two adapters, one resolution. Route middleware and server function
+ * middleware are separate kinds in TanStack, so neither can attach where the
+ * other does, but both go through the same two functions above.
+ */
+export const requireAuthRequest = createMiddleware({ type: 'request' }).server(
+  async ({ next, context }) => next({ context: await resolveAccount(context.deps) }),
 )

@@ -1,11 +1,9 @@
-import type { HostAuthenticator } from '../application/ports/host-authenticator'
 import type { HostCoordinator } from '../application/ports/host-coordinator'
 import type { PairingAuthority } from '../application/ports/pairing-authority.ts'
 import type { PairingOrigins } from '../application/ports/pairing-origins.ts'
 import type { HostRepository } from '../domain/host/host.repository.ts'
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
-import { DevelopmentHostAuthenticator } from './auth/development-host-authenticator'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
 import { HostCoordinatorClient } from './cloudflare/host-coordinator-client'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
@@ -40,7 +38,6 @@ export type AppDeps = {
   pairingAuthority: PairingAuthority
   /** Where each pairing code was asked for. Written when one is issued. */
   pairingOrigins: PairingOrigins
-  hostAuthenticator: HostAuthenticator
   hostCoordinator: HostCoordinator
   executionCtx: ExecutionContext
 }
@@ -69,10 +66,6 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
     pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
-    hostAuthenticator: new DevelopmentHostAuthenticator(
-      env.PORTE_DEV_DAEMON_TOKEN,
-      env.PORTE_DEV_CLIENT_TOKEN,
-    ),
     hostCoordinator: new HostCoordinatorClient(env.HOST),
   }
 

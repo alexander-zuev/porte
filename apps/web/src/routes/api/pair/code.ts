@@ -3,8 +3,8 @@ import {
   issuePairingCode,
   type PairingCodeRequest,
 } from '@server/application/commands/issue-pairing-code.command.ts'
+import { routeErrorMiddleware } from '@server/entrypoints/middleware/error.middleware.ts'
 import { ApiRouteError } from '@server/errors/api-route.error.ts'
-import { routeErrorMiddleware } from '@server/middleware/error.middleware.ts'
 import { createFileRoute } from '@tanstack/react-router'
 
 /**

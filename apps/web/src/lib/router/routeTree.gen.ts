@@ -24,6 +24,7 @@ import { Route as AuthPairCodeRouteImport } from './../../routes/_auth/pair/code
 import { Route as AuthPairConfirmRouteImport } from './../../routes/_auth/pair/confirm'
 import { Route as AuthPairSuccessRouteImport } from './../../routes/_auth/pair/success'
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
+import { Route as ApiCacheImagesRouteImport } from './../../routes/api/cache/images'
 import { Route as ApiHostWsRouteImport } from './../../routes/api/host/ws'
 import { Route as ApiPairCodeRouteImport } from './../../routes/api/pair/code'
 
@@ -100,6 +101,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCacheImagesRoute = ApiCacheImagesRouteImport.update({
+  id: '/api/cache/images',
+  path: '/api/cache/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHostWsRoute = ApiHostWsRouteImport.update({
   id: '/api/host/ws',
   path: '/api/host/ws',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/pair/': typeof AuthPairIndexRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/pair': typeof AuthPairIndexRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_auth/pair/confirm': typeof AuthPairConfirmRoute
   '/_auth/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/_auth/pair/': typeof AuthPairIndexRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/pair/confirm'
     | '/pair/success'
     | '/api/auth/$'
+    | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
     | '/pair/'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/pair/confirm'
     | '/pair/success'
     | '/api/auth/$'
+    | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
     | '/pair'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/_auth/pair/confirm'
     | '/_auth/pair/success'
     | '/api/auth/$'
+    | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
     | '/_auth/pair/'
@@ -225,6 +237,7 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCacheImagesRoute: typeof ApiCacheImagesRoute
   ApiHostWsRoute: typeof ApiHostWsRoute
   ApiPairCodeRoute: typeof ApiPairCodeRoute
 }
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cache/images': {
+      id: '/api/cache/images'
+      path: '/api/cache/images'
+      fullPath: '/api/cache/images'
+      preLoaderRoute: typeof ApiCacheImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/host/ws': {
       id: '/api/host/ws'
       path: '/api/host/ws'
@@ -401,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   PublicRouteRoute: PublicRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCacheImagesRoute: ApiCacheImagesRoute,
   ApiHostWsRoute: ApiHostWsRoute,
   ApiPairCodeRoute: ApiPairCodeRoute,
 }
