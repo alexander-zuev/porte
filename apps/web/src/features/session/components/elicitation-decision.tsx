@@ -192,8 +192,8 @@ function ElicitationField({
         <Select
           items={items}
           value={selected}
-          onValueChange={(selected) => {
-            if (selected !== null) onChange(field.id, selected)
+          onValueChange={(next) => {
+            if (next !== null) onChange(field.id, next)
           }}
         >
           <SelectTrigger aria-invalid={error === undefined ? undefined : true} className="w-full">
