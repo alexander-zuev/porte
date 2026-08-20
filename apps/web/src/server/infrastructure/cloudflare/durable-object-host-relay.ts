@@ -1,12 +1,12 @@
 import type { HostId } from '@porte/core'
 
-import type { ConnectHost, HostCoordinator } from '../../application/ports/host-coordinator'
-import type { HostCoordinatorDO } from '../durable-objects/host-coordinator-do.ts'
+import type { ConnectHost, HostRelay } from '../../application/ports/host-relay'
+import type { HostRelayDO } from '../durable-objects/host-relay-do.ts'
 import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from '../durable-objects/relay/relay-headers.ts'
 
 /** Typed client for the Host Durable Object binding. */
-export class HostCoordinatorClient implements HostCoordinator {
-  constructor(private readonly hosts: DurableObjectNamespace<HostCoordinatorDO>) {}
+export class DurableObjectHostRelay implements HostRelay {
+  constructor(private readonly hosts: DurableObjectNamespace<HostRelayDO>) {}
 
   connect(input: ConnectHost): Promise<Response> {
     const headers = new Headers(input.request.headers)

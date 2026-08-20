@@ -1,7 +1,7 @@
 import type { UserId } from '@porte/core'
 
 import type { HostRepository } from '../../domain/host/host.repository.ts'
-import type { HostCoordinator, HostRole } from '../ports/host-coordinator.ts'
+import type { HostRelay, HostRole } from '../ports/host-relay.ts'
 
 /** Who is connecting, and the upgrade the relay must answer. */
 export type ConnectHostRequest = {
@@ -17,7 +17,7 @@ export type ConnectHostRequest = {
  * fault, so both come back as data. Turning either into a status code belongs
  * to the entrypoint.
  */
-export type HostConnection =
+export type ConnectHostResult =
   | { readonly ok: true; readonly response: Response }
   | { readonly ok: false; readonly reason: 'unpaired' | 'revoked' }
 
@@ -33,14 +33,14 @@ export type HostConnection =
  */
 export async function connectHost(
   hosts: HostRepository,
-  coordinator: HostCoordinator,
+  relay: HostRelay,
   input: ConnectHostRequest,
-): Promise<HostConnection> {
+): Promise<ConnectHostResult> {
   const host = await hosts.findByUserId(input.userId)
   if (host === null) return { ok: false, reason: 'unpaired' }
   if (host.isRevoked) return { ok: false, reason: 'revoked' }
 
-  const response = await coordinator.connect({
+  const response = await relay.connect({
     hostId: host.id,
     role: roleOf(input.request),
     request: input.request,

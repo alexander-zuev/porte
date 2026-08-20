@@ -17,7 +17,7 @@ export type ConnectHost = {
 }
 
 /** Cloudflare binding capability required for one host connection. */
-export interface HostCoordinator {
+export interface HostRelay {
   connect(input: ConnectHost): Promise<Response>
 
   /**

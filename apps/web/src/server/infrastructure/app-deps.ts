@@ -1,11 +1,11 @@
-import type { HostCoordinator } from '../application/ports/host-coordinator'
+import type { HostRelay } from '../application/ports/host-relay'
 import type { PairingAuthority } from '../application/ports/pairing-authority.ts'
 import type { PairingOrigins } from '../application/ports/pairing-origins.ts'
 import type { HostRepository } from '../domain/host/host.repository.ts'
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
-import { HostCoordinatorClient } from './cloudflare/host-coordinator-client'
+import { DurableObjectHostRelay } from './cloudflare/durable-object-host-relay'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
 import { createDatabase } from './persistence/database/connection.ts'
 import type { Db } from './persistence/database/types.ts'
@@ -38,7 +38,7 @@ export type AppDeps = {
   pairingAuthority: PairingAuthority
   /** Where each pairing code was asked for. Written when one is issued. */
   pairingOrigins: PairingOrigins
-  hostCoordinator: HostCoordinator
+  hostRelay: HostRelay
   executionCtx: BackgroundWork
 }
 
@@ -75,7 +75,7 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): Ap
     pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
-    hostCoordinator: new HostCoordinatorClient(env.HOST),
+    hostRelay: new DurableObjectHostRelay(env.HOST),
   }
 
   return deps

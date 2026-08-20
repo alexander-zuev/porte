@@ -39,7 +39,7 @@ export async function handleRelayUpgrade(request: Request, deps: AppDeps): Promi
     throw cause
   }
 
-  const connected = await connectHost(deps.hosts, deps.hostCoordinator, { userId, request })
+  const connected = await connectHost(deps.hosts, deps.hostRelay, { userId, request })
   if (connected.ok) return connected.response
 
   return apiErrorResponse(

@@ -1,5 +1,6 @@
 import { PairingOriginSchema, type PairingOrigin } from '@porte/core'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { PairedHost } from '@porte/core'
+import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
@@ -23,23 +24,19 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
 function homeList(paired: boolean) {
-  const connection: HostConnection = paired
-    ? { state: 'ready', conversations }
-    : { state: 'offline', lastSeenAt: null }
+  const host = { name: HOST_NAME, platform: 'darwin', lastSeenAt: null } as PairedHost
+  const relay: RelayState = {
+    relay: 'open',
+    mac: { online: paired, lastSeenAt: null },
+    conversations: paired ? conversations : [],
+  }
 
   return {
-    connection,
-    header: (
-      <ConversationsHeader
-        connection={connection}
-        hostName={HOST_NAME}
-        onStartConversation={() => undefined}
-      />
-    ),
+    relay,
+    header: <ConversationsHeader host={host} relay={relay} onStartConversation={() => undefined} />,
     footer: null,
     onOpenConversation: () => undefined,
     onStartConversation: () => undefined,
-    onRetry: () => undefined,
   }
 }
 

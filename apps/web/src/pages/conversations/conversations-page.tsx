@@ -1,10 +1,5 @@
-import {
-  ArrowsClockwiseIcon,
-  DesktopIcon,
-  FolderIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import { DesktopIcon, FolderIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationGroupList } from '@web/features/conversations/components/conversation-group-list.tsx'
 import { EmptyState } from '@web/features/conversations/components/empty-state.tsx'
 import { UP_COMMAND } from '@web/lib/product.ts'
@@ -15,52 +10,46 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 import type { ReactNode } from 'react'
 
 export type ConversationsPageProps = {
-  readonly connection: HostConnection
+  readonly relay: RelayState
   readonly header: ReactNode
   readonly footer: ReactNode
   readonly onOpenConversation: (conversationId: string) => void
   readonly onStartConversation: () => void
-  readonly onRetry: () => void
 }
 
 /**
  * Everything a signed-in account with a paired Mac sees.
  *
- * One shell, one body decided by one value. The page holds no state of its own,
- * so a Mac appearing or going away is a re-render rather than a navigation.
+ * The page reads one value and returns one screen. Nothing here waits, retries,
+ * or reconnects: by the time this renders, the answer is already whatever it is.
  */
 export function ConversationsPage(props: ConversationsPageProps) {
   return (
     <AppShell footer={props.footer} header={props.header}>
-      {renderBody(props)}
+      {body(props)}
     </AppShell>
   )
 }
 
-function renderBody(props: ConversationsPageProps) {
-  const { connection } = props
-
-  if (connection.state === 'connecting') {
+function body({ relay, onStartConversation, onOpenConversation }: ConversationsPageProps) {
+  // Never heard from the relay yet. Not offline: saying so would send someone
+  // to their Mac while the line is still opening.
+  if (relay.mac === null) {
     return <EmptyState body="Looking for your Mac." icon={<Spinner />} title="Connecting" />
   }
 
-  if (connection.state === 'failed') {
+  if (relay.relay === 'failed') {
     return (
       <EmptyState
-        body={connection.reason}
+        body="Porte could not keep a connection open. Your Mac may still be running."
         icon={<WarningCircleIcon aria-hidden />}
-        title="Porte could not reach the relay"
-        action={
-          <Button className="min-h-11" variant="outline" onClick={props.onRetry}>
-            <ArrowsClockwiseIcon aria-hidden />
-            Try again
-          </Button>
-        }
+        title="Cannot reach Porte"
       />
     )
   }
 
-  if (connection.state === 'offline') {
+  // The Mac is away, and this is the one screen that asks something of anyone.
+  if (!relay.mac.online) {
     return (
       <EmptyState
         action={<TerminalCommand command={UP_COMMAND} />}
@@ -71,14 +60,14 @@ function renderBody(props: ConversationsPageProps) {
     )
   }
 
-  if (connection.state === 'empty') {
+  if (relay.conversations.length === 0) {
     return (
       <EmptyState
         body="Open Porte from a repository on the Mac to start your first one."
         icon={<FolderIcon aria-hidden />}
         title="No conversations yet"
         action={
-          <Button className="min-h-11" onClick={props.onStartConversation}>
+          <Button className="min-h-11" onClick={onStartConversation}>
             New conversation
           </Button>
         }
@@ -88,12 +77,12 @@ function renderBody(props: ConversationsPageProps) {
 
   return (
     <ConversationGroupList
-      conversations={connection.conversations}
-      runningConversationIds={EMPTY_IDS}
-      onOpenConversation={props.onOpenConversation}
+      conversations={relay.conversations}
+      runningConversationIds={NONE_RUNNING}
+      onOpenConversation={onOpenConversation}
     />
   )
 }
 
-/** Turns arrive with the conversation flows; nothing is running from here yet. */
-const EMPTY_IDS: ReadonlySet<string> = new Set()
+/** Turns arrive with the conversation flows; nothing runs from this page yet. */
+const NONE_RUNNING: ReadonlySet<string> = new Set()

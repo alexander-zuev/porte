@@ -23,12 +23,7 @@ export const getAccountHost = createServerFn({ method: 'GET' })
 export const unpairHost = createServerFn({ method: 'POST' })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AccountActionResult> => {
-    return unpairHostCommand(
-      context.deps.hosts,
-      context.deps.hostCoordinator,
-      context.userId,
-      new Date(),
-    )
+    return unpairHostCommand(context.deps.hosts, context.deps.hostRelay, context.userId, new Date())
   })
 
 /**

@@ -7,13 +7,13 @@ import { handleRelayUpgrade, isRelayUpgrade } from './server/entrypoints/relay-u
 import { scheduled as runScheduled } from './server/entrypoints/scheduled/scheduled-handler.ts'
 import { createAppDeps } from './server/infrastructure/app-deps'
 import type { AppDeps } from './server/infrastructure/app-deps'
-import { HostCoordinatorDO as HostCoordinatorDOBase } from './server/infrastructure/durable-objects/host-coordinator-do'
+import { HostRelayDO as HostRelayDOBase } from './server/infrastructure/durable-objects/host-relay-do'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
 
-export const HostCoordinatorDO = Sentry.instrumentDurableObjectWithSentry(
+export const HostRelayDO = Sentry.instrumentDurableObjectWithSentry(
   createSentryOptions,
-  HostCoordinatorDOBase,
+  HostRelayDOBase,
 )
 
 setLoggerErrorHook(({ error, distinctId, context }) => {

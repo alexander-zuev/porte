@@ -1,0 +1,58 @@
+import { RelayConnection } from '@web/entities/host/relay-connection.ts'
+import { INITIAL_RELAY_STATE, type RelayState } from '@web/entities/host/relay-state.ts'
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
+import type { ReactNode } from 'react'
+
+const RelayContext = createContext<RelayConnection | null>(null)
+
+/**
+ * One line to the Mac, for as long as the person is signed in.
+ *
+ * Held here rather than in the page, because two components asking for a
+ * connection would open two sockets and the relay would count two browsers
+ * where there is one.
+ */
+export function RelayProvider({ children }: { readonly children: ReactNode }) {
+  const client = useMemo(() => new RelayConnection(), [])
+
+  useEffect(() => {
+    client.connect()
+    return () => {
+      client.close()
+    }
+  }, [client])
+
+  return <RelayContext value={client}>{children}</RelayContext>
+}
+
+/**
+ * What the browser currently knows about the Mac.
+ *
+ * The server render has no socket, so it answers with the state before one
+ * exists. That is why `relay` starts as connecting rather than offline: a
+ * healthy Mac must never flash "run porte up" while the line is opening.
+ */
+export function useRelay(): RelayState {
+  const client = useContext(RelayContext)
+  if (client === null) throw new RelayProviderMissing()
+
+  return useSyncExternalStore(client.subscribe, client.getState, serverState)
+}
+
+/** The client itself, for sending. Reading state goes through `useRelay`. */
+export function useRelayConnection(): RelayConnection {
+  const client = useContext(RelayContext)
+  if (client === null) throw new RelayProviderMissing()
+
+  return client
+}
+
+const serverState = (): RelayState => INITIAL_RELAY_STATE
+
+/** A programmer error: the tree was assembled without the provider. */
+class RelayProviderMissing extends Error {
+  constructor() {
+    super('useRelay was called outside RelayProvider')
+    this.name = 'RelayProviderMissing'
+  }
+}

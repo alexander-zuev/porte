@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useHostConnection } from '@web/entities/host/host-connection.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
+import { useRelay } from '@web/entities/host/relay-context.tsx'
 import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import { createSeoHead } from '@web/lib/seo.ts'
@@ -37,27 +36,19 @@ export const Route = createFileRoute('/_auth/conversations')({
 function ConversationsRoute() {
   const { user, host } = Route.useRouteContext()
   const navigate = useNavigate()
-  const owned = useQuery(hostQueries.forAccount())
-  const connection = useHostConnection(host)
+  const relay = useRelay()
 
   return (
     <ConversationsPage
-      connection={connection}
       footer={<ConversationListFooter user={user} />}
+      relay={relay}
       header={
-        <ConversationsHeader
-          connection={connection}
-          hostName={host.name}
-          onStartConversation={() => undefined}
-        />
+        <ConversationsHeader host={host} relay={relay} onStartConversation={() => undefined} />
       }
       onOpenConversation={(conversationId) => {
         void navigate({ to: '/c/$conversationId', params: { conversationId } })
       }}
       onStartConversation={() => undefined}
-      onRetry={() => {
-        void owned.refetch()
-      }}
     />
   )
 }

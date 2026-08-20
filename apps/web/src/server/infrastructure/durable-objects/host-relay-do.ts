@@ -26,7 +26,7 @@ import type { ClientAttachment } from './relay/socket-attachment.ts'
 
 const roleSchema = z.enum(['daemon', 'client'])
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
-const logger = createLogger('host-coordinator')
+const logger = createLogger('host-relay')
 
 /**
  * The switchboard for one Mac.
@@ -41,7 +41,7 @@ const logger = createLogger('host-coordinator')
  * It hibernates, so nothing lives in a field. State is on the sockets, or in
  * storage; `RelaySockets` and `RelayCatalog` own that distinction.
  */
-export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
+export class HostRelayDO extends DurableObject<RuntimeEnv> {
   private readonly sockets: RelaySockets
   private readonly catalog: RelayCatalog
   private readonly deps: AppDeps

@@ -1,33 +1,33 @@
+import { IsoDateTimeSchema, type PairedHost } from '@porte/core'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
 
 import { conversations, storyUser } from '../fixtures/conversations.ts'
 
-const HOST_NAME = "Alexander's MacBook Pro"
+const SEEN = IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z')
+
+const HOST = {
+  name: "Alexander's MacBook Pro",
+  platform: 'darwin',
+  lastSeenAt: '2026-08-19T14:02:00.000Z',
+} as PairedHost
 
 /**
- * One story for each state the page can be in.
+ * One story per situation the page can be in.
  *
- * The union has six members, so this file has six stories. A state that cannot
- * be seen here is a state nobody has designed.
+ * The state has three independent facts, so these are the combinations worth
+ * designing rather than every combination that types.
  */
-function page(connection: HostConnection) {
+function page(relay: RelayState) {
   return {
-    connection,
-    header: (
-      <ConversationsHeader
-        connection={connection}
-        hostName={HOST_NAME}
-        onStartConversation={() => undefined}
-      />
-    ),
+    relay,
+    header: <ConversationsHeader host={HOST} relay={relay} onStartConversation={() => undefined} />,
     footer: <ConversationListFooter user={storyUser} />,
     onOpenConversation: () => undefined,
     onStartConversation: () => undefined,
-    onRetry: () => undefined,
   }
 }
 
@@ -40,35 +40,43 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The socket is opening. A healthy Mac must never flash the offline screen. */
+/** The line is opening. A healthy Mac must never flash the offline screen here. */
 export const Connecting: Story = {
-  args: page({ state: 'connecting' }),
+  args: page({ relay: 'connecting', mac: null, conversations: [] }),
 }
 
-/** Paired moments ago, and no daemon has ever arrived. */
+/** Paired, and no daemon has ever arrived. */
 export const NeverConnected: Story = {
-  args: page({ state: 'offline', lastSeenAt: null }),
+  args: page({
+    relay: 'open',
+    mac: { online: false, lastSeenAt: null },
+    conversations: [],
+  }),
 }
 
-/** Seen before, gone now, and nothing was ever synced to show. */
-export const Offline: Story = {
-  args: page({ state: 'offline', lastSeenAt: '2026-08-19T14:02:00.000Z' }),
-}
-
-/** Unreachable, but the relay still holds the last list it was told about. */
-export const Stale: Story = {
-  args: page({ state: 'stale', lastSeenAt: '2026-08-19T14:02:00.000Z', conversations }),
+export const MacOffline: Story = {
+  args: page({
+    relay: 'open',
+    mac: { online: false, lastSeenAt: SEEN },
+    conversations: [],
+  }),
 }
 
 /** Reachable, with nothing on it yet. */
-export const Empty: Story = {
-  args: page({ state: 'empty' }),
+export const NoConversations: Story = {
+  args: page({ relay: 'open', mac: { online: true, lastSeenAt: null }, conversations: [] }),
 }
 
 export const Ready: Story = {
-  args: page({ state: 'ready', conversations }),
+  args: page({ relay: 'open', mac: { online: true, lastSeenAt: null }, conversations }),
 }
 
-export const Failed: Story = {
-  args: page({ state: 'failed', reason: 'The connection closed before it opened.' }),
+/** Our line dropped. The list stays, and the action goes quiet. */
+export const Reconnecting: Story = {
+  args: page({ relay: 'reconnecting', mac: { online: true, lastSeenAt: null }, conversations }),
+}
+
+/** Long enough to be worth saying out loud. */
+export const RelayFailed: Story = {
+  args: page({ relay: 'failed', mac: { online: true, lastSeenAt: null }, conversations }),
 }
