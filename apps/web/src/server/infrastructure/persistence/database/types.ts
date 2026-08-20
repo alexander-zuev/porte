@@ -6,6 +6,14 @@ import type { user } from './schema'
 export type Db = DrizzleD1Database<typeof schema>
 
 /**
+ * The connection a query handler gets.
+ *
+ * Omitting the mutating methods makes a write from a read handler a type error
+ * rather than a review comment.
+ */
+export type ReadDb = Pick<Db, 'select' | 'selectDistinct' | 'query'>
+
+/**
  * Row type for the generated auth tables.
  *
  * It lives here rather than beside the table because `auth.schema.ts` is
