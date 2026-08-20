@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 
 import type {
   PairingOrigins,
@@ -43,6 +43,15 @@ export class DrizzlePairingOrigins implements PairingOrigins {
 
   async forget(userCode: string): Promise<void> {
     await this.db().delete(pairingRequest).where(eq(pairingRequest.userCode, userCode))
+  }
+
+  async forgetRequestedBefore(moment: Date): Promise<number> {
+    const dropped = await this.db()
+      .delete(pairingRequest)
+      .where(lt(pairingRequest.requestedAt, moment))
+      .returning({ userCode: pairingRequest.userCode })
+
+    return dropped.length
   }
 }
 

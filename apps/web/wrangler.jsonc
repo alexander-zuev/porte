@@ -12,6 +12,8 @@
   "env": {
     "dev": {
       "name": "porte-dev",
+      // Values must match the CRON registry, which is what the handler routes on.
+      "triggers": { "crons": ["*/15 * * * *"] },
       "vars": {
         "ENVIRONMENT": "dev",
         "LOG_LEVEL": "DEBUG",
@@ -63,6 +65,7 @@
     },
     "prod": {
       "name": "porte",
+      "triggers": { "crons": ["*/15 * * * *"] },
       "vars": {
         "ENVIRONMENT": "prod",
         "LOG_LEVEL": "INFO",
@@ -111,6 +114,7 @@
     },
     "test": {
       "name": "porte-test",
+      "triggers": { "crons": ["*/15 * * * *"] },
       "vars": {
         "ENVIRONMENT": "test",
         "LOG_LEVEL": "ERROR",

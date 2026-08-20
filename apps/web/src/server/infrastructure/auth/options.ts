@@ -1,4 +1,4 @@
-import { PAIRING_CODE_LENGTH } from '@porte/core'
+import { PAIRING_CODE_LENGTH, PAIRING_CODE_LIFETIME_SECONDS } from '@porte/core'
 import type { FileRouteTypes } from '@web/lib/router/routeTree.gen.ts'
 import type { BetterAuthOptions } from 'better-auth'
 import { bearer, captcha, deviceAuthorization, lastLoginMethod } from 'better-auth/plugins'
@@ -36,8 +36,8 @@ const DEV_ORIGINS = ['http://localhost:3000']
 /** The only OAuth client Porte authorizes. Nothing else may claim a device code. */
 export const PORTE_CLI_CLIENT_ID = 'porte-cli'
 
-/** Long enough to walk to a phone and sign in, short enough that a seen code dies. */
-const PAIRING_EXPIRES_IN = '10m'
+/** The authority's own spelling of the lifetime core declares. */
+const PAIRING_EXPIRES_IN = `${PAIRING_CODE_LIFETIME_SECONDS}s`
 /** The CLI honours this between polls. Kept at the default so polling stays under the limiter. */
 const PAIRING_POLL_INTERVAL = '5s'
 /** Where the CLI sends the user. Typed, so renaming the route breaks the build. */

@@ -10,6 +10,13 @@ import { IsoDateTimeSchema } from './identity.ts'
  */
 export const PAIRING_CODE_LENGTH = 8
 
+/**
+ * Ten minutes: long enough to walk to a phone and sign in, short enough that a
+ * seen code dies. Seconds, so the authority's time string and the sweep that
+ * forgets a stale request both derive from one number.
+ */
+export const PAIRING_CODE_LIFETIME_SECONDS = 600
+
 /** The dash is optional: it is printed for readability and stripped on arrival. */
 export const PairingCodeSchema = z
   .string()
@@ -18,6 +25,9 @@ export const PairingCodeSchema = z
   .regex(/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/, {
     error: 'Enter the eight characters shown in the terminal',
   })
+  // The terminal shows the code split in half, so a person types the dash that
+  // the authority never stored. One spelling reaches everything downstream.
+  .transform((code) => code.replace('-', ''))
 export type PairingCode = z.infer<typeof PairingCodeSchema>
 
 /** Split the code in half so the eye can hold it between screen and keyboard. */

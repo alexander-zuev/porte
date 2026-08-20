@@ -87,7 +87,12 @@ export const decidePairing = createServerFn({ method: 'POST' })
     const claimed = PairingCodeSchema.safeParse(getCookie(CLAIM_COOKIE))
     if (!claimed.success) return { state: 'expired' }
 
-    const decision = await decidePairingCommand(context.deps.pairingAuthority, claimed.data, data)
+    const decision = await decidePairingCommand(
+      context.deps.pairingAuthority,
+      context.deps.pairingOrigins,
+      context.deps.hosts,
+      { code: claimed.data, verdict: data, userId: context.userId },
+    )
     deleteCookie(CLAIM_COOKIE, { path: '/' })
     return decision
   })

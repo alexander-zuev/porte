@@ -3,10 +3,9 @@ import type { HostId, HostPlatform, UserId } from '@porte/core'
 /**
  * The Mac one account controls.
  *
- * Pairing and registration are separate moments. The device grant proves which
- * person owns the Mac; only the daemon knows what the Mac is called and what it
- * runs. So this record comes into being when the daemon first announces itself,
- * never at approval, and it is correct from the moment it exists.
+ * Comes into being at approval, which is the only moment both halves are known:
+ * the grant proves which person owns the Mac, and the request that asked for the
+ * code says what the Mac is called. A daemon connecting later refreshes both.
  */
 /** The aggregate flattened to data. What a repository stores and restores from. */
 export type HostSnapshot = {
@@ -41,13 +40,17 @@ export class Host {
     return new Host(snapshot)
   }
 
-  /** First contact from a daemon whose owner has approved the device grant. */
+  /**
+   * The account takes ownership of a Mac, at the moment it approves the grant.
+   *
+   * `lastSeenAt` is null because nothing has been seen yet. The daemon may
+   * connect a second later or never, and only its announcement can say.
+   */
   static register(input: {
     id: HostId
     userId: UserId
     name: string
     platform: HostPlatform
-    at: Date
   }): Host {
     return new Host({
       id: input.id,
@@ -55,7 +58,7 @@ export class Host {
       name: input.name,
       platform: input.platform,
       revokedAt: null,
-      lastSeenAt: input.at,
+      lastSeenAt: null,
     })
   }
 

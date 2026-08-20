@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/cloudflare'
 import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
+import { scheduled as runScheduled } from './server/entrypoints/scheduled/scheduled-handler.ts'
 import { createAppDeps } from './server/infrastructure/app-deps'
 import type { AppDeps } from './server/infrastructure/app-deps'
 import { HostCoordinatorDO as HostCoordinatorDOBase } from './server/infrastructure/durable-objects/host-coordinator-do'
@@ -27,6 +28,9 @@ const serverEntry = createServerEntry(wrapFetchWithSentry(handler))
 export default Sentry.withSentry(createSentryOptions, {
   fetch(request, env, ctx) {
     return serverEntry.fetch(request, { context: { deps: createAppDeps(env, ctx) } })
+  },
+  scheduled(controller, env, ctx) {
+    return runScheduled(controller, createAppDeps(env, ctx))
   },
 }) satisfies ExportedHandler<RuntimeEnv>
 

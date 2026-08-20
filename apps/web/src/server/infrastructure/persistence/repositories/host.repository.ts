@@ -41,8 +41,10 @@ export class DrizzleHostRepository implements HostRepository {
   /**
    * Insert the account's Mac, or overwrite the one already there.
    *
-   * Conflict targets `user_id`, not the primary key: re-registering a Mac keeps
-   * the row the account already owns instead of failing on its unique owner.
+   * Conflict targets `user_id`, not the primary key: an account holds one Mac,
+   * so the owner is what collides. `id` is overwritten with the rest, because
+   * re-pairing after unpair is a new host and must not inherit the relay object
+   * the revoked one left behind.
    */
   async save(hostToSave: Host): Promise<void> {
     const snapshot = hostToSave.toPlainObject()
@@ -50,15 +52,7 @@ export class DrizzleHostRepository implements HostRepository {
     await this.db()
       .insert(host)
       .values(snapshot)
-      .onConflictDoUpdate({
-        target: host.userId,
-        set: {
-          name: snapshot.name,
-          platform: snapshot.platform,
-          revokedAt: snapshot.revokedAt,
-          lastSeenAt: snapshot.lastSeenAt,
-        },
-      })
+      .onConflictDoUpdate({ target: host.userId, set: snapshot })
   }
 
   async deleteByUserId(userId: UserId): Promise<void> {

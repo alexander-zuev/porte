@@ -27,4 +27,7 @@ export interface PairingOrigins {
   record(userCode: string, request: PairingRequestRecord): Promise<void>
   find(userCode: string): Promise<PairingRequestRecord | null>
   forget(userCode: string): Promise<void>
+
+  /** Drop every request made before this moment. Answers how many it dropped. */
+  forgetRequestedBefore(moment: Date): Promise<number>
 }
