@@ -52,8 +52,8 @@
   --popover-foreground: var(--foreground);
   --border: var(--border-non-interactive);
   --input: var(--border-interactive);
-  /* Alpha halo blends over any background, unlike a solid step. Radix puts rings on step 7. */
-  --ring: var(--gray-a7);
+  /* Alpha halo blends over any background, unlike a solid step. Step 9, not Radix's 7: a focus indicator needs 3:1. */
+  --ring: var(--gray-a9);
 
   --sidebar: var(--surface);
   --sidebar-foreground: var(--foreground);
