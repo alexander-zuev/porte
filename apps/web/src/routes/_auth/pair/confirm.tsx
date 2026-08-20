@@ -11,7 +11,7 @@ export const Route = createFileRoute('/_auth/pair/confirm')({
     const claim = await context.queryClient.ensureQueryData(pairingQueries.claim())
     if (!claim.claimed) {
       // oxlint-disable-next-line typescript/only-throw-error -- TanStack Router performs redirects by throwing this value.
-      throw redirect({ to: '/pair' })
+      throw redirect({ to: '/pair/code' })
     }
   },
   head: () =>
@@ -39,7 +39,7 @@ function ConfirmUnavailable() {
         void navigate({ to: '/conversations' })
       }}
       onRestart={() => {
-        void navigate({ to: '/pair' })
+        void navigate({ to: '/pair/code' })
       }}
     />
   )

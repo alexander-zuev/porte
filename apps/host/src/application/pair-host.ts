@@ -13,7 +13,8 @@ import type { DeviceAuthorizer, DeviceCodeGrant } from './ports/device-authorize
  * is kept for a server this Mac could not reach or could not understand.
  */
 export type PairingOutcome =
-  | { readonly status: 'paired' }
+  /** `account` names whoever approved. Null when the server would not say. */
+  | { readonly status: 'paired'; readonly account: string | null }
   | { readonly status: 'denied' }
   | { readonly status: 'expired' }
 
@@ -66,7 +67,12 @@ export async function pairHost(
     baseUrl: input.baseUrl,
     token: answered.value.token,
   })
-  return written.isErr() ? Result.err(written.error) : Result.ok({ status: 'paired' })
+  if (written.isErr()) return Result.err(written.error)
+
+  // Asked after the credential is safe, so a server that will not name the
+  // account cannot undo a pairing that already worked.
+  const account = await input.authorizer.accountOf(answered.value.token)
+  return Result.ok({ status: 'paired', account })
 }
 
 /**

@@ -1,7 +1,7 @@
 import { HostIdSchema, UserIdSchema, type HostId, type UserId } from '@porte/core'
 import { eq } from 'drizzle-orm'
 
-import { Host } from '../../../domain/host/host.aggregate.ts'
+import { Host, type HostSnapshot } from '../../../domain/host/host.aggregate.ts'
 import type { HostRepository } from '../../../domain/host/host.repository.ts'
 import { host, type DbHost } from '../database/schema/host.schema.ts'
 import type { Db } from '../database/types.ts'
@@ -20,6 +20,7 @@ function toDomain(row: DbHost): Host {
     platform: row.platform,
     revokedAt: row.revokedAt,
     lastSeenAt: row.lastSeenAt,
+    pairedAt: row.createdAt,
   })
 }
 
@@ -56,11 +57,17 @@ export class DrizzleHostRepository implements HostRepository {
 
     await this.db()
       .insert(host)
-      .values(snapshot)
-      .onConflictDoUpdate({ target: host.userId, set: snapshot })
+      .values(toRow(snapshot))
+      .onConflictDoUpdate({ target: host.userId, set: toRow(snapshot) })
   }
 
   async deleteByUserId(userId: UserId): Promise<void> {
     await this.db().delete(host).where(eq(host.userId, userId))
   }
+}
+
+/** `pairedAt` is stored in `created_at`, which the column was already for. */
+function toRow(snapshot: HostSnapshot) {
+  const { pairedAt, ...rest } = snapshot
+  return { ...rest, createdAt: pairedAt }
 }

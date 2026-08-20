@@ -1,4 +1,5 @@
 import { createColors } from 'picocolors'
+import { z } from 'zod'
 
 /**
  * Everything the CLI writes for a person to read.
@@ -16,6 +17,10 @@ const CURSOR_UP = '\u001b[1A'
 
 /** Return to column zero and erase what is there. */
 const CLEAR_LINE = '\r\u001b[2K'
+/** Clears everything from the cursor down, however many rows that turns out to be. */
+const CLEAR_BELOW = '\r\u001b[0J'
+/** Assumed width when a stream is not a terminal and reports none. */
+const FALLBACK_COLUMNS = 80
 
 /**
  * Marks for one moment each, never decoration.
@@ -107,7 +112,13 @@ export function createOutput(stream: NodeJS.WritableStream): Output {
     raw: (text) => line(text),
     prompt: (text) => stream.write(text),
     rewrite: (above, prompt) => {
-      stream.write(`${CURSOR_UP}${CLEAR_LINE}${above}\n${CLEAR_LINE}${prompt}`)
+      // Both lines may have wrapped, and the cursor sits at the end of the last
+      // row of the prompt. Counting rows is what keeps a long URL from leaving
+      // the line it was meant to replace on screen.
+      const columns = terminalColumns(stream)
+      const up = rowsUsed(above, columns) + rowsUsed(prompt, columns) - 1
+
+      stream.write(`${CURSOR_UP.repeat(up)}${CLEAR_BELOW}${above}\n${prompt}`)
     },
     emphasis: {
       code: (text) => c.bold(c.cyan(text)),
@@ -129,4 +140,23 @@ function isColorAllowed(stream: NodeJS.WritableStream): boolean {
   if (process.env.FORCE_COLOR !== undefined && process.env.FORCE_COLOR !== '') return true
 
   return 'isTTY' in stream && stream.isTTY === true
+}
+
+/** How many rows a line takes once the terminal wraps it. */
+function rowsUsed(text: string, columns: number): number {
+  return Math.max(1, Math.ceil(visibleLength(text) / columns))
+}
+
+/** Colour codes occupy no columns, so they cannot count towards the width. */
+function visibleLength(text: string): number {
+  // oxlint-disable-next-line no-control-regex -- Matching the escape sequences is the point.
+  return text.replace(/\u001b\[[0-9;]*m/g, '').length
+}
+
+/** A terminal reports its width. A pipe reports none and wraps at nothing. */
+const widthSchema = z.object({ columns: z.number().int().positive() })
+
+function terminalColumns(stream: NodeJS.WritableStream): number {
+  const parsed = widthSchema.safeParse(stream)
+  return parsed.success ? parsed.data.columns : FALLBACK_COLUMNS
 }

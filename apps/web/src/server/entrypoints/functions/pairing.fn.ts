@@ -91,7 +91,7 @@ export const decidePairing = createServerFn({ method: 'POST' })
       context.deps.pairingAuthority,
       context.deps.pairingOrigins,
       context.deps.hosts,
-      { code: claimed.data, verdict: data, userId: context.userId },
+      { code: claimed.data, verdict: data, userId: context.userId, decidedAt: new Date() },
     )
     deleteCookie(CLAIM_COOKIE, { path: '/' })
     return decision

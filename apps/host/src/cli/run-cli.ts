@@ -222,10 +222,17 @@ async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<
     return 1
   }
 
-  // Three separate facts: what happened, what to do, when it lapses.
-  out.done(`Paired with ${strong(new URL(baseUrl).host)}`)
+  // Names both sides, so the person can see the pairing is the one they meant.
+  // The account is a courtesy the server may withhold; the Mac never is.
+  const { account } = paired.value
+  const machine = strong(describeThisMachine().name)
+  out.done(
+    account === null
+      ? `Paired ${machine} with Porte`
+      : `Paired ${machine} with ${strong(account)} on Porte`,
+  )
   out.blank()
-  out.raw(`  Run ${code('porte up')} to control this Mac's Grok sessions from anywhere`)
+  out.raw(`  Run ${code('porte up')} to control this Mac's Grok conversations from anywhere`)
   out.note('Expires in 7 days if it never connects')
   return 0
 }

@@ -15,6 +15,8 @@ export type HostSnapshot = {
   readonly platform: HostPlatform
   readonly revokedAt: Date | null
   readonly lastSeenAt: Date | null
+  /** When this pairing began. A re-pair is a new host, so it carries a new one. */
+  readonly pairedAt: Date
 }
 
 export class Host {
@@ -36,6 +38,7 @@ export class Host {
     userId: UserId
     name: string
     platform: HostPlatform
+    at: Date
   }): Host {
     return new Host({
       id: input.id,
@@ -44,6 +47,7 @@ export class Host {
       platform: input.platform,
       revokedAt: null,
       lastSeenAt: null,
+      pairedAt: input.at,
     })
   }
 

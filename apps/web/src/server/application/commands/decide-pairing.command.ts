@@ -16,6 +16,7 @@ export type PairingDecisionRequest = {
   readonly code: PairingCode
   readonly verdict: PairingVerdict
   readonly userId: UserId
+  readonly decidedAt: Date
 }
 
 /**
@@ -46,7 +47,14 @@ export async function decidePairing(
   const approved = await authority.approve(decision.code)
   if (approved.state !== 'done') return approved
 
-  await hosts.save(Host.register({ id: createHostId(), userId: decision.userId, ...asked.host }))
+  await hosts.save(
+    Host.register({
+      id: createHostId(),
+      userId: decision.userId,
+      at: decision.decidedAt,
+      ...asked.host,
+    }),
+  )
   await origins.forget(decision.code)
   return approved
 }

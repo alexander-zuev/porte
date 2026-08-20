@@ -28,6 +28,7 @@ function authorizerReturning(
     requestCode: () => Promise.resolve(Result.ok(GRANT)),
     poll: () => Promise.resolve(polls[index++] ?? Result.ok({ status: 'pending' })),
     revoke: () => Promise.resolve(Result.ok()),
+    accountOf: () => Promise.resolve('someone@example.com'),
   }
 }
 

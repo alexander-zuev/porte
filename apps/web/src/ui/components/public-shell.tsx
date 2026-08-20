@@ -21,6 +21,13 @@ export type PublicShellProps = {
    * `brand` centres it large above a single focused card.
    */
   readonly header?: 'bar' | 'brand'
+  /**
+   * Offer the way back to the marketing page.
+   *
+   * Off inside pairing: the person is partway through a task started in a
+   * terminal, and leaving loses a code that expires either way.
+   */
+  readonly back?: boolean
 }
 
 /** Header and footer shared by every page outside the app. */
@@ -30,6 +37,7 @@ export function PublicShell({
   background = false,
   footer = 'full',
   header = 'bar',
+  back = true,
 }: PublicShellProps) {
   return (
     <main className="dark relative isolate flex min-h-svh w-full flex-col overflow-hidden bg-background text-foreground">
@@ -39,14 +47,23 @@ export function PublicShell({
         built around one decision carries only the way back: an account control
         beside a sign-in form, or beside a pairing card, is noise.
       */}
-      <MarketingHeader
-        action={header === 'brand' ? null : action}
-        lead={header === 'brand' ? <HomeLink /> : undefined}
-      />
+      <MarketingHeader action={header === 'brand' ? null : action} lead={brandLead(header, back)} />
       {header === 'brand' ? <BrandColumn>{children}</BrandColumn> : children}
       {footer === 'full' ? <FullFooter /> : <LegalFooter />}
     </main>
   )
+}
+
+/**
+ * What sits at the header's left edge.
+ *
+ * Null rather than nothing when there is no way back: leaving it unset lets the
+ * header fall back to its own wordmark, which the brand column below is already
+ * showing.
+ */
+function brandLead(header: 'bar' | 'brand', back: boolean): ReactNode | undefined {
+  if (header !== 'brand') return undefined
+  return back ? <HomeLink /> : null
 }
 
 /** The way back, where the wordmark sits on every other page. */

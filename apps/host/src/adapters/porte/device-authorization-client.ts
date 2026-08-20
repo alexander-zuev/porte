@@ -18,9 +18,16 @@ import {
   type HostDescriptor,
 } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
+import { z } from 'zod'
 
 /** The token exchange stays the plugin's own endpoint, under its base path. */
 const DEVICE_TOKEN_PATH = '/api/auth/device/token'
+/** Better Auth's own route. The grant never says who approved. */
+const SESSION_PATH = '/api/auth/get-session'
+
+const sessionAccountSchema = z.object({
+  user: z.object({ email: z.email().nullish(), name: z.string().nullish() }),
+})
 
 /**
  * The two calls the grant is made of, and the shapes each side may send.
@@ -48,7 +55,7 @@ const grantSchema = createSchema({
 export class DeviceAuthorizationClient implements DeviceAuthorizer {
   private readonly fetch: ReturnType<typeof createFetch>
 
-  constructor(baseUrl: string) {
+  constructor(private readonly baseUrl: string) {
     // Errors come back as values, so a refusal never unwinds the poll loop.
     this.fetch = createFetch({ baseURL: baseUrl, schema: grantSchema, throw: false })
   }
@@ -104,6 +111,29 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
    */
   revoke(_token: string): Promise<ResultType<void, PairingError>> {
     return Promise.resolve(Result.ok())
+  }
+
+  /**
+   * Ask who the new token belongs to.
+   *
+   * Better Auth's own route rather than the grant's, so it stays outside the
+   * schema above. Outside `Result` too: a name is a courtesy, and pairing has
+   * already succeeded by the time anyone asks for it.
+   */
+  async accountOf(token: string): Promise<string | null> {
+    try {
+      const response = await fetch(new URL(SESSION_PATH, this.baseUrl), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) return null
+
+      const parsed = sessionAccountSchema.safeParse(await response.json())
+      if (!parsed.success) return null
+
+      return parsed.data.user.email ?? parsed.data.user.name ?? null
+    } catch {
+      return null
+    }
   }
 }
 

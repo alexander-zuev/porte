@@ -7,7 +7,7 @@ export type PairPageProps = PairingFlowProps
 /** Wordmark above, one card, and the legal links. Nothing else competes. */
 export function PairPage(props: PairPageProps) {
   return (
-    <PublicShell footer="legal" header="brand">
+    <PublicShell footer="legal" header="brand" back={false}>
       <div className="w-full max-w-md">
         <PairingFlow {...props} />
       </div>

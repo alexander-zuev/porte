@@ -24,7 +24,7 @@ export function PairConfirmation() {
     onSuccess: async (result, verdict) => {
       // Anything the code cannot answer sends them back to the form to retype.
       if (result.state !== 'done') {
-        await navigate({ to: '/pair', search: { issue: result.state } })
+        await navigate({ to: '/pair/code', search: { issue: result.state } })
         return
       }
       if (verdict === 'deny') {
@@ -36,7 +36,7 @@ export function PairConfirmation() {
       await navigate({ to: '/pair/success' })
     },
     onError: async () => {
-      await navigate({ to: '/pair', search: { issue: 'unavailable' } })
+      await navigate({ to: '/pair/code', search: { issue: 'unavailable' } })
     },
     // Decided either way, the claim is spent and its cookie gone.
     onSettled: async () => {

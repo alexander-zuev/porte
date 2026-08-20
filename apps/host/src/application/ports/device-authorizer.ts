@@ -50,4 +50,13 @@ export interface DeviceAuthorizer {
 
   /** End the pairing this token belongs to. Succeeds when it was already gone. */
   revoke(token: string): Promise<Result<void, PairingError>>
+
+  /**
+   * Who approved, so the Mac can say whose account it now answers to.
+   *
+   * The grant hands back a token and nothing else, so this is the only way the
+   * daemon learns the account. Null when the server will not say, which is not
+   * worth failing a pairing over.
+   */
+  accountOf(token: string): Promise<string | null>
 }
