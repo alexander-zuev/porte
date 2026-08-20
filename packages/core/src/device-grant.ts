@@ -28,6 +28,14 @@ export const DeviceCodeRequestSchema = z.object({
 })
 export type DeviceCodeRequest = z.infer<typeof DeviceCodeRequestSchema>
 
+/** What a device sends to exchange an approved code for a session. */
+export const DeviceTokenRequestSchema = z.object({
+  grant_type: z.literal(DEVICE_CODE_GRANT_TYPE),
+  device_code: z.string().min(1),
+  client_id: z.string().min(1),
+})
+export type DeviceTokenRequest = z.infer<typeof DeviceTokenRequestSchema>
+
 export const DeviceCodeResponseSchema = z.object({
   device_code: z.string().min(1),
   user_code: z.string().min(1),

@@ -19,14 +19,19 @@ export type DeviceCodeGrant = {
 /**
  * Outcome of one poll.
  *
- * Pending is the normal answer for most of the flow, so it is a state rather
- * than an error. Anything terminal comes back as a failed Result instead.
+ * Every answer the grant defines is a state, including the two that end it.
+ * Being refused or running out of time is how pairing finishes, not a fault,
+ * so a failed Result is left for a server we cannot reach or cannot parse.
  */
 export type DevicePollResult =
   | { readonly status: 'pending' }
   /** The server asked us to back off; the new interval replaces the old one. */
   | { readonly status: 'slow-down'; readonly intervalSeconds: number }
   | { readonly status: 'granted'; readonly token: string }
+  /** The person said no. */
+  | { readonly status: 'denied' }
+  /** Nobody answered before the code died. */
+  | { readonly status: 'expired' }
 
 /**
  * This Mac's pairing with Porte, over its whole life.

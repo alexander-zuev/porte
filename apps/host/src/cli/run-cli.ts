@@ -211,6 +211,19 @@ async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<
   stopWatching?.()
   if (paired.isErr()) return writeError(io, paired.error)
 
+  // Refusal and expiry are answers, not faults, so neither is printed as one.
+  // The exit code still says pairing did not happen, for whoever scripted it.
+  if (paired.value.status === 'denied') {
+    out.warned('Pairing was refused. Nothing was connected.')
+    out.note(`Run ${code('porte pair')} again to retry`)
+    return 1
+  }
+  if (paired.value.status === 'expired') {
+    out.warned('The code expired before anyone answered it.')
+    out.note(`Run ${code('porte pair')} for a new one`)
+    return 1
+  }
+
   // Three separate facts: what happened, what to do, when it lapses.
   out.done(`Paired with ${strong(new URL(baseUrl).host)}`)
   out.blank()

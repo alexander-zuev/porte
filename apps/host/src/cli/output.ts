@@ -94,13 +94,14 @@ export function createOutput(stream: NodeJS.WritableStream): Output {
     },
     step: (position, text) => line(`${INDENT}${c.dim(`${String(position)}.`)} ${text}`),
     note: (text) => line(`${INDENT}${c.dim(text)}`),
+    // The mark carries the outcome, so the sentence stays plain and readable.
     done: (text) => {
       stream.write('\n')
-      line(`${EMOJI.done} ${c.green(text)}`)
+      line(`${c.green(EMOJI.done)} ${text}`)
     },
     failed: (text) => {
       stream.write('\n')
-      line(`${EMOJI.failed} ${c.red(text)}`)
+      line(`${c.red(EMOJI.failed)} ${text}`)
     },
     warned: (text) => line(`${EMOJI.warned} ${c.yellow(text)}`),
     raw: (text) => line(text),

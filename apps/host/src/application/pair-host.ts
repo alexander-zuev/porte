@@ -5,6 +5,17 @@ import { PairingError } from './pairing-error.ts'
 import type { CredentialStore } from './ports/credential-store.ts'
 import type { DeviceAuthorizer, DeviceCodeGrant } from './ports/device-authorizer.ts'
 
+/**
+ * How pairing ended.
+ *
+ * All three are ordinary endings, so none of them is an error. A failed Result
+ * is kept for a server this Mac could not reach or could not understand.
+ */
+export type PairingOutcome =
+  | { readonly status: 'paired' }
+  | { readonly status: 'denied' }
+  | { readonly status: 'expired' }
+
 /** What the caller shows the person while the daemon waits. */
 export type PairingPrompt = {
   readonly userCode: string
@@ -33,7 +44,7 @@ export type PairHostInput = {
  */
 export async function pairHost(
   input: PairHostInput,
-): Promise<ResultType<void, PairingError | CredentialStoreError>> {
+): Promise<ResultType<PairingOutcome, PairingError | CredentialStoreError>> {
   const requested = await input.authorizer.requestCode()
   if (requested.isErr()) return Result.err(requested.error)
 
@@ -44,10 +55,15 @@ export async function pairHost(
     expiresInSeconds: grant.expiresInSeconds,
   })
 
-  const token = await waitForApproval(input, grant)
-  if (token.isErr()) return Result.err(token.error)
+  const answered = await waitForApproval(input, grant)
+  if (answered.isErr()) return Result.err(answered.error)
+  if (answered.value.status !== 'paired') return Result.ok(answered.value)
 
-  return input.credentials.write({ baseUrl: input.baseUrl, token: token.value })
+  const written = await input.credentials.write({
+    baseUrl: input.baseUrl,
+    token: answered.value.token,
+  })
+  return written.isErr() ? Result.err(written.error) : Result.ok({ status: 'paired' })
 }
 
 /**
@@ -59,7 +75,7 @@ export async function pairHost(
 async function waitForApproval(
   input: PairHostInput,
   grant: DeviceCodeGrant,
-): Promise<ResultType<string, PairingError>> {
+): Promise<ResultType<Answer, PairingError>> {
   const deadline = input.now() + grant.expiresInSeconds * 1000
   let intervalSeconds = grant.intervalSeconds
 
@@ -71,9 +87,19 @@ async function waitForApproval(
     const polled = await input.authorizer.poll(grant.deviceCode)
     if (polled.isErr()) return Result.err(polled.error)
 
-    if (polled.value.status === 'granted') return Result.ok(polled.value.token)
-    if (polled.value.status === 'slow-down') intervalSeconds += polled.value.intervalSeconds
+    const answer = polled.value
+    if (answer.status === 'granted') return Result.ok({ status: 'paired', token: answer.token })
+    if (answer.status === 'denied') return Result.ok({ status: 'denied' })
+    if (answer.status === 'expired') return Result.ok({ status: 'expired' })
+    if (answer.status === 'slow-down') intervalSeconds += answer.intervalSeconds
   }
 
-  return Result.err(new PairingError({ reason: 'expired' }))
+  // The local deadline passed, which means the same thing the server would say.
+  return Result.ok({ status: 'expired' })
 }
+
+/** The outcome as waiting sees it, with the token still attached to approval. */
+type Answer =
+  | { readonly status: 'paired'; readonly token: string }
+  | { readonly status: 'denied' }
+  | { readonly status: 'expired' }

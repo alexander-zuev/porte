@@ -39,9 +39,11 @@ const NEVER_SENT =
  * to this account may drive it remotely.
  */
 const MAC_GRANTS = [
-  'Start and resume Grok sessions on this Mac',
-  'Read its session history and file diffs',
-  'Answer its permission prompts',
+  'See your Grok sessions and the files they change',
+  'Start a new session in any folder on this Mac',
+  'Send prompts to a running session',
+  'Stop a session that is working',
+  'Approve or refuse what Grok asks to do',
 ] as const
 
 /** Complete presentational states for the pairing flow. */

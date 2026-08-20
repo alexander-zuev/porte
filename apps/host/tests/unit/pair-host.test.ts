@@ -129,11 +129,13 @@ describe('pairHost', () => {
 
   it('stores nothing when the person declines', async () => {
     const credentials = credentialSpy()
-    const authorizer = authorizerReturning([Result.err(new PairingError({ reason: 'denied' }))])
+    const authorizer = authorizerReturning([Result.ok({ status: 'denied' })])
 
     const result = await pair(authorizer, credentials)
 
-    expect(result.isErr()).toBe(true)
+    // Being refused is how pairing ends, not a fault, so it comes back a value.
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value).toEqual({ status: 'denied' })
     expect(credentials.written()).toBeNull()
   })
 
@@ -143,8 +145,9 @@ describe('pairHost', () => {
 
     const result = await pair(authorizer, credentialSpy())
 
-    expect(result.isErr()).toBe(true)
-    if (result.isErr()) expect(result.error).toBeInstanceOf(PairingError)
+    // Nobody answering is how pairing ends, not a fault, so it is a value.
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value).toEqual({ status: 'expired' })
   })
 
   it('reports a credential that cannot be written', async () => {
