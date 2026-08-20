@@ -91,6 +91,8 @@ catalog:
   sonner: ^2.0.8
   picocolors: ^1.1.1
   '@remixicon/react': ^4.9.0
+  ws: ^8.21.3
+  '@types/ws': ^8.18.1
 
 allowBuilds:
   '@sentry/cli': true

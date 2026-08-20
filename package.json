@@ -17,6 +17,7 @@
     "format:check": "oxfmt --check .",
     "preview": "pnpm --filter @porte/web preview",
     "deploy": "pnpm --filter @porte/web deploy",
+    "versions:upload": "pnpm --filter @porte/web versions:upload",
     "cf-typegen": "turbo run cf-typegen",
     "db:generate": "pnpm --filter @porte/web run db:generate",
     "db:generate:custom": "pnpm --filter @porte/web run db:generate:custom",
@@ -48,14 +49,8 @@
       "oxfmt --write --no-error-on-unmatched-pattern"
     ]
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.20.0",
-      "onFail": "download"
-    }
-  },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "packageManager": "pnpm@11.22.0"
 }

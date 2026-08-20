@@ -15,8 +15,7 @@ type ResolvedSession = NonNullable<Awaited<ReturnType<AuthInstance['api']['getSe
  * A presented-but-dead cookie is reported apart from no cookie at all, so the
  * client can say the session expired rather than that the person is a stranger.
  */
-async function resolveRequiredSession(deps: AppDeps): Promise<ResolvedSession> {
-  const headers = getRequestHeaders()
+async function resolveRequiredSession(deps: AppDeps, headers: Headers): Promise<ResolvedSession> {
   const result = await deps.auth().api.getSession({ headers })
   if (result) return result
 
@@ -27,11 +26,14 @@ async function resolveRequiredSession(deps: AppDeps): Promise<ResolvedSession> {
 /**
  * The account, ready to hand to a handler.
  *
+ * Takes headers rather than reading the ambient request, so a caller outside a
+ * TanStack request context resolves an account the same way as one inside it.
+ *
  * Better Auth reports `user.id` as a bare string, so the branded id is parsed
  * here, at the boundary it arrives through, and no handler re-derives it.
  */
-async function resolveAccount(deps: AppDeps) {
-  const { user, session } = await resolveRequiredSession(deps)
+export async function resolveAccount(deps: AppDeps, headers: Headers) {
+  const { user, session } = await resolveRequiredSession(deps, headers)
 
   return { user, session, userId: UserIdSchema.parse(user.id) }
 }
@@ -42,7 +44,8 @@ async function resolveAccount(deps: AppDeps) {
  * Attach with `.middleware([requireAuth])`.
  */
 export const requireAuth = createMiddleware({ type: 'function' }).server(
-  async ({ next, context }) => next({ context: await resolveAccount(context.deps) }),
+  async ({ next, context }) =>
+    next({ context: await resolveAccount(context.deps, getRequestHeaders()) }),
 )
 
 /**
@@ -53,5 +56,6 @@ export const requireAuth = createMiddleware({ type: 'function' }).server(
  * other does, but both go through the same two functions above.
  */
 export const requireAuthRequest = createMiddleware({ type: 'request' }).server(
-  async ({ next, context }) => next({ context: await resolveAccount(context.deps) }),
+  async ({ next, context }) =>
+    next({ context: await resolveAccount(context.deps, getRequestHeaders()) }),
 )

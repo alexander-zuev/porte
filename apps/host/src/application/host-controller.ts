@@ -9,7 +9,7 @@ import {
 import { ConversationEventSchema } from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
 
-import { HostRelayError } from './host-error.ts'
+import { HostRelayError, type RelayHandshakeRefused } from './host-error.ts'
 import {
   type CodingAgent,
   type CodingAgentError,
@@ -31,7 +31,9 @@ export class HostController {
   ) {}
 
   /** Connect the host and handle requests until the signal stops. */
-  connect(command: ConnectHost): Promise<ResultType<void, HostRelayError | CodingAgentError>> {
+  connect(
+    command: ConnectHost,
+  ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | CodingAgentError>> {
     return this.relay.run({
       ...command,
       handlers: {

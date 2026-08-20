@@ -2,6 +2,7 @@ import type {
   ConfigError,
   CredentialStoreError,
   HostRelayError,
+  RelayHandshakeRefused,
 } from '@host/application/host-error.ts'
 import type { PairingError } from '@host/application/pairing-error.ts'
 import type { CodingAgentError } from '@host/application/ports/coding-agent.ts'
@@ -18,6 +19,7 @@ export type CliError =
   | ConfigError
   | CodingAgentError
   | HostRelayError
+  | RelayHandshakeRefused
   | PairingError
   | CredentialStoreError
 
@@ -30,6 +32,7 @@ export function exitCodeFor(error: CliError): number {
     CodingAgentError: (failed) =>
       failed.code === 'CONVERSATION_NOT_FOUND' || failed.code === 'PERMISSION_NOT_FOUND' ? 2 : 1,
     HostRelayError: () => 1,
+    RelayHandshakeRefused: (failed) => (failed.status === 401 || failed.status === 403 ? 2 : 1),
     // Declining or letting the code expire is a choice, not a fault: exit clean
     // enough to retry, but non-zero so a script knows nothing was paired.
     PairingError: () => 1,
@@ -47,6 +50,10 @@ export function formatError(error: CliError): string {
         ? 'Error (ENOTFOUND): conversation not found. Run `porte list` to see ids.'
         : `Error (EAGENT): ${failed.message}`,
     HostRelayError: () => 'Error (ERELAY): host relay stopped. Restart `porte up`.',
+    RelayHandshakeRefused: (failed) =>
+      failed.status === 401 || failed.status === 403
+        ? `Error (EAUTH): ${failed.message} Run \`porte pair\` to pair this Mac again.`
+        : `Error (ERELAY): ${failed.message}`,
     PairingError: (failed) => `Error (EPAIR): ${failed.message} Run \`porte pair\` to try again.`,
     CredentialStoreError: (failed) => `Error (ECRED): ${failed.message}`,
   })

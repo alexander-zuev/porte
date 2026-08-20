@@ -26,10 +26,12 @@
     "@porte/core": "workspace:*",
     "better-result": "catalog:",
     "picocolors": "catalog:",
+    "ws": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/ws": "catalog:",
     "tsdown": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

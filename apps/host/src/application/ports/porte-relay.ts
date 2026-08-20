@@ -1,4 +1,4 @@
-import type { HostRelayError } from '@host/application/host-error.ts'
+import type { HostRelayError, RelayHandshakeRefused } from '@host/application/host-error.ts'
 import type {
   RoutedRequest,
   RoutedResponse,
@@ -42,5 +42,5 @@ export interface PorteRelay {
   /** Keep one authenticated connection active until it stops. */
   run<THandlerError>(
     input: RunPorteRelay<THandlerError>,
-  ): Promise<Result<void, HostRelayError | THandlerError>>
+  ): Promise<Result<void, HostRelayError | RelayHandshakeRefused | THandlerError>>
 }

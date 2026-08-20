@@ -1,4 +1,4 @@
-import { HostRelayError } from '@host/application/host-error.ts'
+import { HostRelayError, RelayHandshakeRefused } from '@host/application/host-error.ts'
 import type {
   PorteConnection,
   PorteRelay,
@@ -13,12 +13,16 @@ import {
 } from '@porte/core'
 import type { ConversationEvent } from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
+// Node's own WebSocket follows the browser constructor, whose second argument is
+// the subprotocol list. It drops an options object without a word, so the bearer
+// token never left this machine. `ws` is the client that can carry a header.
+import { WebSocket, type ClientOptions } from 'ws'
 import { z } from 'zod'
 
 const MAX_RETRY_DELAY_MS = 5_000
 const textFrameSchema = z.string()
 
-type SocketFactory = (url: string, init: WebSocketInit) => WebSocket
+type SocketFactory = (url: string, init: ClientOptions) => WebSocket
 type ConnectionEnd = 'aborted' | 'closed'
 
 /** Optional connection status output owned by the WebSocket adapter. */
@@ -68,14 +72,14 @@ export class WebSocketPorteRelay implements PorteRelay {
 
   async run<THandlerError>(
     input: RunPorteRelay<THandlerError>,
-  ): Promise<ResultType<void, HostRelayError | THandlerError>> {
+  ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | THandlerError>> {
     return this.connectWithRetry(input, 0)
   }
 
   private async connectWithRetry<THandlerError>(
     input: RunPorteRelay<THandlerError>,
     attempt: number,
-  ): Promise<ResultType<void, HostRelayError | THandlerError>> {
+  ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | THandlerError>> {
     if (input.signal.aborted) return Result.ok()
     const connected = await this.connectOnce(input)
     if (connected.isErr()) return Result.err(connected.error)
@@ -89,7 +93,7 @@ export class WebSocketPorteRelay implements PorteRelay {
 
   private connectOnce<THandlerError>(
     input: RunPorteRelay<THandlerError>,
-  ): Promise<ResultType<ConnectionEnd, HostRelayError | THandlerError>> {
+  ): Promise<ResultType<ConnectionEnd, HostRelayError | RelayHandshakeRefused | THandlerError>> {
     return new Promise((resolve) => {
       let socket: WebSocket
       try {
@@ -102,7 +106,9 @@ export class WebSocketPorteRelay implements PorteRelay {
       }
 
       let settled = false
-      const settle = (result: ResultType<ConnectionEnd, HostRelayError | THandlerError>): void => {
+      const settle = (
+        result: ResultType<ConnectionEnd, HostRelayError | RelayHandshakeRefused | THandlerError>,
+      ): void => {
         if (settled) return
         settled = true
         input.signal.removeEventListener('abort', onAbort)
@@ -154,6 +160,13 @@ export class WebSocketPorteRelay implements PorteRelay {
             .catch(fail)
         })
       })
+      // The server answered the handshake with a status instead of upgrading.
+      // A refused credential never becomes accepted by asking again, so this
+      // stops rather than joining the reconnect loop.
+      socket.on('unexpected-response', (_request, response) => {
+        socket.close()
+        settle(Result.err(new RelayHandshakeRefused({ status: response.statusCode ?? 0 })))
+      })
       socket.addEventListener('error', () => {
         socket.close()
       })
@@ -184,16 +197,23 @@ export function retryDelayMs(attempt: number): number {
   return Math.min(250 * 2 ** attempt, MAX_RETRY_DELAY_MS)
 }
 
+/**
+ * Hold for the backoff, or stop early when the caller aborts.
+ *
+ * A plain timer rather than `AbortSignal.timeout`, whose timer Node does not
+ * count as work: with nothing else pending, the loop drained mid-backoff and
+ * the process exited on an unsettled await instead of reconnecting.
+ */
 function waitForAbort(signal: AbortSignal, delayMs: number): Promise<void> {
   if (signal.aborted) return Promise.resolve()
   return new Promise((resolve) => {
-    const completed = AbortSignal.any([signal, AbortSignal.timeout(delayMs)])
-    completed.addEventListener(
-      'abort',
-      () => {
-        resolve()
-      },
-      { once: true },
-    )
+    const timer = setTimeout(finish, delayMs)
+    signal.addEventListener('abort', finish, { once: true })
+
+    function finish(): void {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', finish)
+      resolve()
+    }
   })
 }

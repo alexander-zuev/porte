@@ -20,7 +20,14 @@ function handleRouteError(cause: unknown): Response {
   if (isNotFound(cause) || isRedirect(cause)) throw cause
   if (cause instanceof ApiRouteError) return apiErrorResponse(cause.error, cause.status)
 
-  logger.error('api_route_failed', { error: cause })
+  // An API caller is a program, so both refusals answer with a status it can
+  // read. Never a redirect: a fetch follows one and gets the HTML app shell
+  // back, which no client here can parse.
+  if (cause instanceof AuthenticationError || cause instanceof StaleSessionError) {
+    return apiErrorResponse({ code: 'NOT_AUTHENTICATED', message: cause.message }, 401)
+  }
+
+  logger.error('unhandled error occured', { error: cause })
   return apiErrorResponse({ code: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500)
 }
 
