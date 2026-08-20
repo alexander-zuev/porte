@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Logo } from '#/ui/components/logo.tsx'
-import { MarketingFrame } from '#/ui/components/marketing-frame.tsx'
 
 const SIZES = [
   { size: 'sm', note: '18px — page headers, next to 14px nav text' },
@@ -12,7 +11,7 @@ const SIZES = [
 /** Every wordmark size on one board, so the caret can be judged across the scale. */
 function LogoBoard() {
   return (
-    <MarketingFrame className="flex min-h-svh flex-col justify-center gap-12 px-10 py-16">
+    <div className="dark flex min-h-svh flex-col justify-center gap-12 bg-background px-10 py-16 text-foreground">
       {SIZES.map(({ size, note }) => (
         <div key={size} className="flex flex-col gap-2">
           <Logo size={size} />
@@ -31,7 +30,7 @@ function LogoBoard() {
           Against nav text, where the caret is smallest and most likely to break
         </small>
       </div>
-    </MarketingFrame>
+    </div>
   )
 }
 

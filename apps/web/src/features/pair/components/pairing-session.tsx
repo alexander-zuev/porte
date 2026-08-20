@@ -1,83 +1,64 @@
-import type { PairingClaim } from '@porte/core'
+import type { PairingCode, PairingVerdict } from '@porte/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { hostQueryKeys } from '#/entities/host/host-queries.ts'
 import { PairPage } from '#/pages/pair/pair-page.tsx'
-import { claimPairing, confirmPairing } from '#/server/entrypoints/functions/pairing.fn.ts'
+import { claimPairing, decidePairing } from '#/server/entrypoints/functions/pairing.fn.ts'
 
-import type { PairingFlowProps } from './pairing-flow.tsx'
-
-/** Claim outcomes that are shown as an issue rather than a confirmation. */
-const ISSUE_STATE = {
-  consumed: 'consumed',
-  'account-conflict': 'account-conflict',
-  'host-disconnected': 'host-disconnected',
-  'server-unavailable': 'server-unavailable',
-} as const
+import type { PairingFlowProps, PairingIssue } from './pairing-flow.tsx'
 
 type Screen =
   | { readonly kind: 'code'; readonly code: string; readonly error?: string }
-  | { readonly kind: 'expired' }
-  | { readonly kind: 'confirm'; readonly claim: Extract<PairingClaim, { state: 'confirm' }> }
-  | { readonly kind: 'waiting'; readonly claim: Extract<PairingClaim, { state: 'confirm' }> }
-  | { readonly kind: 'issue'; readonly issue: keyof typeof ISSUE_STATE }
-  | { readonly kind: 'success'; readonly claim: Extract<PairingClaim, { state: 'confirm' }> }
+  | { readonly kind: 'confirm'; readonly code: PairingCode }
+  | { readonly kind: 'approved' }
+  | { readonly kind: 'denied' }
+  | { readonly kind: 'issue'; readonly issue: PairingIssue }
 
-/** Drive one pairing attempt from code entry to a paired Mac. */
+/** Drive one pairing attempt from code entry to an answered code. */
 export function PairingSession() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useRouteContext({ from: '/_auth' })
   const [screen, setScreen] = useState<Screen>({ kind: 'code', code: '' })
 
   const claim = useMutation({
-    mutationFn: (code: string) => claimPairing({ data: { code } }),
-    onSuccess: (result) => {
-      if (result.state === 'confirm') {
-        setScreen({ kind: 'confirm', claim: result })
-        return
-      }
-      if (result.state === 'expired') {
-        setScreen({ kind: 'expired' })
+    mutationFn: (code: string) => claimPairing({ data: code }),
+    onSuccess: (result, code) => {
+      if (result.state === 'claimed') {
+        setScreen({ kind: 'confirm', code })
         return
       }
       if (result.state === 'invalid') {
-        setScreen((current) => ({
-          kind: 'code',
-          code: current.kind === 'code' ? current.code : '',
-          error: 'That code is expired or already used',
-        }))
+        setScreen({ kind: 'code', code, error: 'That code is expired or already used' })
         return
       }
-      setScreen({ kind: 'issue', issue: ISSUE_STATE[result.state] })
+      setScreen({ kind: 'issue', issue: result.state })
     },
     onError: () => {
-      setScreen({ kind: 'issue', issue: 'server-unavailable' })
+      setScreen({ kind: 'issue', issue: 'unavailable' })
     },
   })
 
-  const confirm = useMutation({
-    mutationFn: () => confirmPairing(),
-    onSuccess: async (result) => {
-      if (screen.kind !== 'confirm' && screen.kind !== 'waiting') return
-      if (result.state === 'paired') {
-        await queryClient.invalidateQueries({ queryKey: hostQueryKeys.all })
-        setScreen({ kind: 'success', claim: screen.claim })
+  const decide = useMutation({
+    mutationFn: (input: { code: PairingCode; verdict: PairingVerdict }) =>
+      decidePairing({ data: input }),
+    onSuccess: async (result, input) => {
+      if (result.state !== 'done') {
+        setScreen({ kind: 'issue', issue: result.state })
         return
       }
-      if (result.state === 'waiting-for-desktop') {
-        setScreen({ kind: 'waiting', claim: screen.claim })
+      if (input.verdict === 'deny') {
+        setScreen({ kind: 'denied' })
         return
       }
-      if (result.state === 'confirmation-mismatch') {
-        setScreen({ kind: 'issue', issue: 'consumed' })
-        return
-      }
-      setScreen({ kind: 'issue', issue: ISSUE_STATE[result.state] })
+      // The row appears only once the daemon connects, so refetch on return.
+      await queryClient.invalidateQueries({ queryKey: hostQueryKeys.all })
+      setScreen({ kind: 'approved' })
     },
     onError: () => {
-      setScreen({ kind: 'issue', issue: 'server-unavailable' })
+      setScreen({ kind: 'issue', issue: 'unavailable' })
     },
   })
 
@@ -92,46 +73,33 @@ export function PairingSession() {
   return <PairPage {...toFlowProps()} />
 
   function toFlowProps(): PairingFlowProps {
-    if (screen.kind === 'expired') return { view: 'expired', onEnterCode: restart }
+    if (screen.kind === 'approved') return { view: 'approved', onContinue: leave }
+    if (screen.kind === 'denied') return { view: 'denied', onDone: leave }
 
     if (screen.kind === 'issue') {
-      return {
-        view: 'issue',
-        issue: screen.issue,
-        pending: false,
-        onPrimary: screen.issue === 'consumed' ? leave : restart,
-        onCancel: leave,
-      }
-    }
-
-    if (screen.kind === 'success') {
-      return { view: 'success', host: screen.claim.host, onContinue: leave }
-    }
-
-    if (screen.kind === 'waiting') {
-      return {
-        view: 'waiting-for-desktop',
-        host: screen.claim.host,
-        verificationPhrase: screen.claim.verificationPhrase,
-        onCancel: leave,
-      }
+      return { view: 'issue', issue: screen.issue, onRestart: restart, onCancel: leave }
     }
 
     if (screen.kind === 'confirm') {
+      const { code } = screen
       return {
-        view: confirm.isPending ? 'confirming' : 'confirm',
-        host: screen.claim.host,
-        accountLabel: screen.claim.accountLabel,
-        verificationPhrase: screen.claim.verificationPhrase,
-        onConfirm: () => {
-          confirm.mutate()
+        view: 'confirm',
+        accountLabel: user.email,
+        accountImage: user.image,
+        pending: decide.isPending,
+        onApprove: () => {
+          decide.mutate({ code, verdict: 'approve' })
         },
-        onCancel: leave,
+        onDeny: () => {
+          decide.mutate({ code, verdict: 'deny' })
+        },
       }
     }
 
     return {
       view: 'code-entry',
+      accountLabel: user.email,
+      accountImage: user.image,
       code: screen.code,
       error: screen.error,
       pending: claim.isPending,

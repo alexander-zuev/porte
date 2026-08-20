@@ -1,16 +1,17 @@
 import { PairingFlow, type PairingFlowProps } from '#/features/pair/components/pairing-flow.tsx'
-import { MarketingFrame } from '#/ui/components/marketing-frame.tsx'
+import { PublicShell } from '#/ui/components/public-shell.tsx'
 
-/** Props for one mobile pairing page state. */
+/** Props for one pairing page state. */
 export type PairPageProps = PairingFlowProps
 
-/** Place a pairing state in the shared mobile-first marketing frame. */
+/** Wordmark above, one card, and the legal links. Nothing else competes. */
 export function PairPage(props: PairPageProps) {
   return (
-    <MarketingFrame className="flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-sm">
+    <PublicShell footer="legal" header="brand">
+      {/* One wrapper: centres the card and caps it at a readable width. */}
+      <div className="mx-auto w-full max-w-[36rem] flex-1 px-5 pb-10">
         <PairingFlow {...props} />
       </div>
-    </MarketingFrame>
+    </PublicShell>
   )
 }

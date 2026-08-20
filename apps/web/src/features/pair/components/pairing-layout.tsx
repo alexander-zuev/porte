@@ -1,37 +1,58 @@
-import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
-import type { HostDescriptor } from '@porte/core'
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 import { cn } from '#/lib/utils.ts'
-import { Logo } from '#/ui/components/logo.tsx'
-import { DecryptedText } from '#/ui/components/react-bits/decrypted-text.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
+import { Avatar, AvatarFallback, AvatarImage } from '#/ui/components/ui/avatar.tsx'
+import { Card, CardContent, CardFooter } from '#/ui/components/ui/card.tsx'
 
-/** Semantic color for a pairing status icon. */
-export type PairingTone = 'info' | 'success' | 'warning'
+/**
+ * Semantic color for a pairing status icon.
+ *
+ * Tone says what a screen means for the person, not whether it is the happy
+ * path. Routine outcomes stay neutral so that the one screen worth alarming
+ * them about still reads as an alarm.
+ */
+export type PairingTone = 'neutral' | 'success' | 'warning' | 'destructive'
 
 const TONE_CLASS = {
-  info: 'text-status-info-muted-foreground',
+  neutral: 'text-muted-foreground',
   success: 'text-status-success-muted-foreground',
   warning: 'text-status-warning-muted-foreground',
+  destructive: 'text-destructive-muted-foreground',
 } as const
 
-/** Shared centered pairing scaffold so states occupy the same column. */
+/**
+ * One card, the same on every pairing screen.
+ *
+ * Three sizes and no more: a card title, body text, and a footnote. Weight is
+ * carried by the element, so nothing here decides its own type scale.
+ */
 export function PairingLayout({
+  title,
+  icon,
   children,
   actions,
+  footnote,
 }: {
-  readonly children: ReactNode
+  readonly title: string
+  readonly icon?: ReactNode
+  readonly children?: ReactNode
   readonly actions?: ReactNode
+  readonly footnote?: string
 }) {
   return (
-    <section className="flex w-full flex-col items-center gap-10 text-center">
-      <Logo />
-      <div className="flex min-h-44 w-full flex-col items-center justify-center gap-3">
+    <Card className="text-center">
+      <CardContent className="flex flex-col items-center gap-4">
+        {icon}
+        <h3>{title}</h3>
         {children}
-      </div>
-      <div className="flex min-h-28 w-full flex-col items-center justify-end gap-3">{actions}</div>
-    </section>
+      </CardContent>
+      {actions || footnote ? (
+        <CardFooter className="flex-col gap-3">
+          {actions}
+          {footnote ? <small className="w-full text-muted-foreground">{footnote}</small> : null}
+        </CardFooter>
+      ) : null}
+    </Card>
   )
 }
 
@@ -46,50 +67,23 @@ export function PairingStatusIcon({
   return <div className={cn('flex items-center justify-center', TONE_CLASS[tone])}>{children}</div>
 }
 
-/** Host identity as the primary pairing object. */
-export function PairingHost({ host }: { readonly host: HostDescriptor }) {
+/** The account a decision will be made on behalf of, with its picture. */
+export function PairingAccount({
+  label,
+  image,
+}: {
+  readonly label: string
+  readonly image?: string | null
+}) {
   return (
-    <div className="flex flex-col gap-1">
-      <h1>{host.name}</h1>
-      <p className="text-muted-foreground">{host.platform}</p>
-    </div>
-  )
-}
-
-/** Shared verification phrase shown on phone and in the CLI. */
-export function VerificationPhrase({ value }: { readonly value: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function copyPhrase() {
-    try {
-      await navigator.clipboard.writeText(value)
-    } catch {
-      return
-    }
-    setCopied(true)
-    window.setTimeout(() => {
-      setCopied(false)
-    }, 2000)
-  }
-
-  return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex items-center gap-1 rounded-lg bg-muted py-2 pr-2 pl-4">
-        <code className="min-w-0 flex-1 bg-transparent p-0">
-          <DecryptedText encryptedClassName="text-muted-foreground" text={value} />
-        </code>
-        <Button
-          aria-label={copied ? 'Copied' : 'Copy phrase'}
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => {
-            void copyPhrase()
-          }}
-        >
-          {copied ? <CheckIcon /> : <CopyIcon />}
-        </Button>
-      </div>
-      <small className="text-muted-foreground">Also shown in the terminal</small>
-    </div>
+    <p className="flex items-center justify-center gap-2 text-muted-foreground">
+      <Avatar className="size-6">
+        {image ? <AvatarImage alt="" src={image} /> : null}
+        <AvatarFallback>{label.slice(0, 1).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <span>
+        Signed in as <strong className="text-foreground">{label}</strong>
+      </span>
+    </p>
   )
 }

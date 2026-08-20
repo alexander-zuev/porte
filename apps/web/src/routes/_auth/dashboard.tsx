@@ -3,10 +3,18 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { hostQueries } from '#/entities/host/host-queries.ts'
 import { SessionListFooter } from '#/features/dashboard/components/session-list-footer.tsx'
+import { createSeoHead } from '#/lib/seo.ts'
 import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
 
 export const Route = createFileRoute('/_auth/dashboard')({
   loader: ({ context }) => context.queryClient.ensureQueryData(hostQueries.view()),
+  head: () =>
+    createSeoHead({
+      title: 'Sessions | Porte',
+      description: 'The Grok sessions running on your paired Mac, ready to pick up from anywhere.',
+      path: '/dashboard',
+      noIndex: true,
+    }),
   component: DashboardRoute,
 })
 

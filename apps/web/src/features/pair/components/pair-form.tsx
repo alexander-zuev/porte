@@ -1,12 +1,19 @@
-import { LinkIcon } from '@phosphor-icons/react'
 import { PAIRING_CODE_LENGTH } from '@porte/core'
 
 import { Button } from '#/ui/components/ui/button.tsx'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '#/ui/components/ui/input-otp.tsx'
+import { Field, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from '#/ui/components/ui/input-otp.tsx'
 import { Spinner } from '#/ui/components/ui/spinner.tsx'
 
-/** Controlled fallback-code form for claiming a desktop pairing attempt. */
+/** Half the code. The terminal prints the dash in the same place. */
+const GROUP_LENGTH = PAIRING_CODE_LENGTH / 2
+
+/** Controlled code form for claiming a pairing attempt. */
 export type PairFormProps = {
   readonly code: string
   readonly pending: boolean
@@ -15,13 +22,13 @@ export type PairFormProps = {
   readonly onSubmit: () => void
 }
 
-/** OTP submit control used inside the pairing scaffold. */
+/** Code entry and its submit control, sized to be typed on a phone. */
 export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairFormProps) {
   const invalid = error !== undefined
 
   return (
     <form
-      className="flex w-full flex-col gap-6"
+      className="flex w-full flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit()
@@ -33,27 +40,24 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
             Pairing code
           </FieldLabel>
           <InputOTP
-            autoComplete="one-time-code"
-            containerClassName="w-full justify-center"
+            autoComplete="off"
+            containerClassName="justify-center"
+            data-1p-ignore
+            data-lpignore="true"
             disabled={pending}
             id="pair-code"
             maxLength={PAIRING_CODE_LENGTH}
             value={code}
             aria-invalid={invalid || undefined}
             onChange={(value) => {
-              onCodeChange(value.toUpperCase())
+              // The terminal prints the code with a dash; the slots hold eight.
+              onCodeChange(value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
             }}
           >
-            {/* Slots follow the shared length, so the form cannot drift from the code. */}
-            <InputOTPGroup className="justify-center">
-              {Array.from({ length: PAIRING_CODE_LENGTH }, (_, index) => (
-                <InputOTPSlot index={index} key={index} />
-              ))}
-            </InputOTPGroup>
+            <CodeGroup start={0} />
+            <InputOTPSeparator />
+            <CodeGroup start={GROUP_LENGTH} />
           </InputOTP>
-          <FieldDescription className="text-center">
-            Eight characters from porte pair
-          </FieldDescription>
         </Field>
       </FieldGroup>
       {error ? (
@@ -61,10 +65,29 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
           {error}
         </p>
       ) : null}
-      <Button className="w-full" disabled={pending || code.length !== 6} type="submit">
-        {pending ? <Spinner data-icon="inline-start" /> : <LinkIcon data-icon="inline-start" />}
-        Pair Mac
+      <Button
+        className="w-full"
+        disabled={pending || code.length !== PAIRING_CODE_LENGTH}
+        type="submit"
+      >
+        {pending ? <Spinner data-icon="inline-start" /> : null}
+        Continue
       </Button>
     </form>
+  )
+}
+
+/** Four separated boxes, large enough for a thumb. */
+function CodeGroup({ start }: { readonly start: number }) {
+  return (
+    <InputOTPGroup className="gap-2">
+      {Array.from({ length: GROUP_LENGTH }, (_, offset) => (
+        <InputOTPSlot
+          className="size-11 shrink-0 rounded-md border font-mono"
+          index={start + offset}
+          key={start + offset}
+        />
+      ))}
+    </InputOTPGroup>
   )
 }
