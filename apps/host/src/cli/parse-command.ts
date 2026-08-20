@@ -19,12 +19,14 @@ Options:
 Commands:
   list             Print conversations as a JSON array
   resume           Load a conversation and send one prompt
+  pair             Link this Mac to your Porte account
   up               Connect this host to Porte
 
 Examples:
   porte list
   porte resume 01a00e6b-2f90-7e61-9288-7c75e3509921 --prompt "What is left?"
-  PORTE_DAEMON_TOKEN=secret porte up --url wss://example.com/api/host/ws
+  porte pair
+  porte up
 `
 
 /** Help for `porte resume`. */
@@ -53,19 +55,35 @@ Options:
   -v, --verbose    Print debug detail on stderr
 `
 
-/** Help for `porte up`. */
-export const UP_HELP = `Usage:
-  porte up [--url <websocket-url>]
+/** Help for `porte pair`. */
+export const PAIR_HELP = `Usage:
+  porte pair
 
-Connect this host to Porte and stay connected.
+Link this Mac to your Porte account. Prints a code to approve in any browser,
+then waits. Run this once; \`porte up\` uses what it stores.
 
 Options:
-  --url <url>       Worker WebSocket URL. Defaults to PORTE_URL.
+  -h, --help        Show this help
+  -v, --verbose     Print debug detail on stderr
+
+Environment:
+  PORTE_URL             Porte origin. Defaults to https://useporte.dev
+  PORTE_CREDENTIAL_PATH Where to keep the credential. Defaults to ~/.porte/credentials.json
+`
+
+/** Help for `porte up`. */
+export const UP_HELP = `Usage:
+  porte up
+
+Connect this host to Porte and stay connected. Run \`porte pair\` first.
+
+Options:
   -h, --help        Show this help
   -v, --verbose     Print connection status on stderr
 
 Environment:
-  PORTE_DAEMON_TOKEN  Development daemon credential
+  PORTE_URL             Porte origin. Defaults to https://useporte.dev
+  PORTE_CREDENTIAL_PATH Where to read the credential from
 `
 
 /** Parsed argv. */
@@ -73,11 +91,8 @@ export type Command =
   | { readonly kind: 'help'; readonly text: string }
   | { readonly kind: 'version' }
   | { readonly kind: 'list'; readonly verbose: boolean }
-  | {
-      readonly kind: 'up'
-      readonly relayUrl: string | undefined
-      readonly verbose: boolean
-    }
+  | { readonly kind: 'pair'; readonly verbose: boolean }
+  | { readonly kind: 'up'; readonly verbose: boolean }
   | {
       readonly kind: 'resume'
       readonly conversationId: string
@@ -111,6 +126,9 @@ export function parseCommand(argv: readonly string[]): Command {
     if (verb === 'up') {
       return { kind: 'help', text: UP_HELP }
     }
+    if (verb === 'pair') {
+      return { kind: 'help', text: PAIR_HELP }
+    }
     return { kind: 'help', text: HELP }
   }
   if (values.version) {
@@ -122,7 +140,7 @@ export function parseCommand(argv: readonly string[]): Command {
     throw new UsageError({ message: HELP.trimEnd() })
   }
   if (verb === 'list') {
-    if (positionals.length !== 1 || values.prompt !== undefined || values.url !== undefined) {
+    if (positionals.length !== 1 || values.prompt !== undefined) {
       throw new UsageError({ message: LIST_HELP.trimEnd() })
     }
     return { kind: 'list', verbose }
@@ -131,17 +149,18 @@ export function parseCommand(argv: readonly string[]): Command {
     if (positionals.length !== 1 || values.prompt !== undefined) {
       throw new UsageError({ message: UP_HELP.trimEnd() })
     }
-    return { kind: 'up', relayUrl: values.url, verbose }
+    return { kind: 'up', verbose }
+  }
+  if (verb === 'pair') {
+    if (positionals.length !== 1 || values.prompt !== undefined) {
+      throw new UsageError({ message: PAIR_HELP.trimEnd() })
+    }
+    return { kind: 'pair', verbose }
   }
   if (verb === 'resume') {
     const conversationId = positionals[1]
     const prompt = values.prompt
-    if (
-      conversationId === undefined ||
-      prompt === undefined ||
-      positionals.length !== 2 ||
-      values.url !== undefined
-    ) {
+    if (conversationId === undefined || prompt === undefined || positionals.length !== 2) {
       throw new UsageError({ message: RESUME_HELP.trimEnd() })
     }
     return { kind: 'resume', conversationId, prompt, verbose }
@@ -157,7 +176,6 @@ function parseCommandArgs(argv: readonly string[]) {
       version: { type: 'boolean', short: 'V', default: false },
       verbose: { type: 'boolean', short: 'v', default: false },
       prompt: { type: 'string' },
-      url: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,

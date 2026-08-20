@@ -1,0 +1,50 @@
+import { z } from 'zod'
+
+/**
+ * The device authorization grant, shared by the daemon and the Worker.
+ *
+ * These are wire names from RFC 8628, so they stay snake_case here and are
+ * renamed only once each side has parsed them.
+ */
+
+/** The only OAuth client Porte authorizes. Nothing else may claim a device code. */
+export const PORTE_CLI_CLIENT_ID = 'porte-cli'
+
+/** RFC 8628 fixes this value; the token request is invalid without it. */
+export const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
+
+export const DeviceCodeResponseSchema = z.object({
+  device_code: z.string().min(1),
+  user_code: z.string().min(1),
+  verification_uri: z.string().min(1),
+  verification_uri_complete: z.string().min(1),
+  expires_in: z.number().int().positive(),
+  interval: z.number().int().positive(),
+})
+export type DeviceCodeResponse = z.infer<typeof DeviceCodeResponseSchema>
+
+export const DeviceTokenResponseSchema = z.object({
+  access_token: z.string().min(1),
+  token_type: z.string().min(1),
+})
+export type DeviceTokenResponse = z.infer<typeof DeviceTokenResponseSchema>
+
+/**
+ * The error codes a token poll can answer with.
+ *
+ * `authorization_pending` and `slow_down` are the ordinary path, not faults:
+ * the daemon polls a live code many times before anyone approves it.
+ */
+export const DeviceTokenErrorSchema = z.object({
+  error: z.enum([
+    'authorization_pending',
+    'slow_down',
+    'access_denied',
+    'expired_token',
+    'invalid_request',
+    'invalid_grant',
+    'invalid_client',
+    'device_code_already_processed',
+  ]),
+})
+export type DeviceTokenError = z.infer<typeof DeviceTokenErrorSchema>

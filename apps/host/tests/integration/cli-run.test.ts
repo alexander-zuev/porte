@@ -7,12 +7,15 @@ import { VERSION } from '../../src/cli/version.ts'
 
 const main = join(import.meta.dirname, '../../src/main.ts')
 
-function runCli(args: readonly string[]) {
+function runCli(args: readonly string[], env: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, ['--import', 'tsx', main, ...args], {
     encoding: 'utf8',
-    env: process.env,
+    env: { ...process.env, ...env },
   })
 }
+
+/** A path nothing can have written, so the run cannot see a real credential. */
+const UNPAIRED = join(import.meta.dirname, 'no-such-directory', 'credentials.json')
 
 describe('porte process', () => {
   it('prints version and exits 0', () => {
@@ -43,10 +46,10 @@ describe('porte process', () => {
     expect(result.stderr).toContain('porte list')
   })
 
-  it('exits 2 when host configuration is missing', () => {
-    const result = runCli(['up'])
+  it('exits 2 when this machine has not paired', () => {
+    const result = runCli(['up'], { PORTE_CREDENTIAL_PATH: UNPAIRED })
     expect(result.status).toBe(2)
-    expect(result.stderr).toContain('PORTE_DAEMON_TOKEN')
+    expect(result.stderr).toContain('porte pair')
     expect(result.stdout).toBe('')
   })
 })

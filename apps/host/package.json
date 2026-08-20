@@ -24,6 +24,7 @@
   "dependencies": {
     "@porte/core": "workspace:*",
     "better-result": "catalog:",
+    "picocolors": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

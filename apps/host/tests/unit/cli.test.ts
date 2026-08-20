@@ -26,12 +26,13 @@ describe('parseCommand', () => {
   })
 
   it('parses the host command', () => {
-    expect(parseCommand(['up'])).toEqual({ kind: 'up', relayUrl: undefined, verbose: false })
-    expect(parseCommand(['up', '--url', 'ws://localhost:8787/api/host/ws'])).toEqual({
-      kind: 'up',
-      relayUrl: 'ws://localhost:8787/api/host/ws',
-      verbose: false,
-    })
+    expect(parseCommand(['up'])).toEqual({ kind: 'up', verbose: false })
+    expect(parseCommand(['up', '--verbose'])).toEqual({ kind: 'up', verbose: true })
+  })
+
+  it('parses the pair command', () => {
+    expect(parseCommand(['pair'])).toEqual({ kind: 'pair', verbose: false })
+    expect(parseCommand(['pair', '--verbose'])).toEqual({ kind: 'pair', verbose: true })
   })
 
   it('rejects unknown argv', () => {

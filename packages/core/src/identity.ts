@@ -9,6 +9,10 @@ export const HostIdSchema = z.uuidv7().brand<'HostId'>()
 export type HostId = z.infer<typeof HostIdSchema>
 export const createHostId = (): HostId => HostIdSchema.parse(uuidv7())
 
+/** Issued by Better Auth, so accept any non-empty string rather than a format. */
+export const UserIdSchema = z.string().min(1).brand<'UserId'>()
+export type UserId = z.infer<typeof UserIdSchema>
+
 export const RequestIdSchema = z.uuidv7().brand<'RequestId'>()
 export type RequestId = z.infer<typeof RequestIdSchema>
 export const createRequestId = (): RequestId => RequestIdSchema.parse(uuidv7())

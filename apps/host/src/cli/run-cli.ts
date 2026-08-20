@@ -1,13 +1,13 @@
 import { SessionIdSchema as ConversationIdSchema, createTurnId } from '@porte/core'
-import { z } from 'zod'
 
-import { createHost } from '../composition/create-host.ts'
-import { loadConfig } from '../composition/host-config.ts'
+import { ConfigError } from '../application/host-error.ts'
+import { pairHost } from '../application/pair-host.ts'
+import { createHost, type HostComposition } from '../composition/create-host.ts'
+import { loadConfig, relayUrlFor } from '../composition/host-config.ts'
 import { UsageError, exitCodeFor, formatError, type CliError } from './cli-error.ts'
 import { CliRelayObserver } from './cli-relay-observer.ts'
-import { UP_HELP, VERSION, parseCommand } from './parse-command.ts'
-
-const relayUrlSchema = z.url({ protocol: /^wss?:$/ })
+import { PAIR_EMOJI, WAITING_EMOJI, createOutput } from './output.ts'
+import { VERSION, parseCommand } from './parse-command.ts'
 
 /** Streams the CLI writes to. */
 export type CliIo = {
@@ -27,7 +27,9 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
   try {
     return await dispatch(args, io)
   } catch (cause) {
-    if (cause instanceof UsageError) {
+    // Both are thrown rather than returned, because they abort before a command
+    // has a result to report.
+    if (cause instanceof UsageError || cause instanceof ConfigError) {
       return writeError(io, cause)
     }
     const detail = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause)
@@ -63,11 +65,20 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
     return 0
   }
 
+  if (command.kind === 'pair') {
+    return pair(host, config.baseUrl, io)
+  }
+
   if (command.kind === 'up') {
-    const relayUrl = relayUrlSchema.safeParse(command.relayUrl ?? config.relayUrl)
-    if (!relayUrl.success || config.daemonToken === undefined || config.daemonToken.length === 0) {
-      throw new UsageError({ message: UP_HELP.trimEnd() })
+    const stored = await host.credentials.read()
+    if (stored.isErr()) return writeError(io, stored.error)
+    if (stored.value === null) {
+      throw new UsageError({ message: 'Not paired yet. Run `porte pair` first.' })
     }
+
+    // The stored base URL is validated when the credential is read, so the
+    // relay endpoint derived from it needs no second check.
+    const relayUrl = relayUrlFor(stored.value.baseUrl)
     const controller = new AbortController()
     const stop = (): void => {
       controller.abort()
@@ -76,8 +87,8 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
     process.once('SIGTERM', stop)
     try {
       const connected = await host.controller.connect({
-        relayUrl: relayUrl.data,
-        token: config.daemonToken,
+        relayUrl,
+        token: stored.value.token,
         signal: controller.signal,
       })
       if (connected.isErr()) return writeError(io, connected.error)
@@ -120,7 +131,57 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   return closed.isErr() ? writeError(io, closed.error) : 0
 }
 
+/**
+ * Link this Mac to an account.
+ *
+ * Progress goes to stderr so stdout stays a clean stream, matching the other
+ * commands. Nothing here is machine-readable; the credential is the output.
+ */
+async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<number> {
+  const out = createOutput(io.stderr)
+  const { code, url } = out.emphasis
+
+  const paired = await pairHost({
+    authorizer: host.authorizer,
+    credentials: host.credentials,
+    baseUrl,
+    onPrompt: (prompt) => {
+      const minutes = Math.round(prompt.expiresInSeconds / 60)
+
+      out.title(PAIR_EMOJI, 'Pair this Mac with Porte')
+      out.step(1, `Open ${url(prompt.verificationUri)} in any browser`)
+      out.step(2, `Sign in, then enter this code:  ${code(prompt.userCode)}`)
+      out.blank()
+      out.note(
+        `${WAITING_EMOJI} Waiting for approval — the code expires in ${String(minutes)} minutes.`,
+      )
+    },
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    now: () => Date.now(),
+  })
+
+  if (paired.isErr()) return writeError(io, paired.error)
+
+  out.done('This Mac is paired.')
+  out.blank()
+  out.raw(`  Run ${code('porte up')} to connect it.`)
+  out.note('The pairing lapses after 7 days without connecting.')
+  return 0
+}
+
+/**
+ * The one place an error reaches a person.
+ *
+ * Usage text is printed plain: it is help, not a failure, and colouring it red
+ * would tell the reader the wrong thing.
+ */
 function writeError(io: CliIo, error: CliError): number {
-  io.stderr.write(`${formatError(error)}\n`)
+  const out = createOutput(io.stderr)
+  const body = formatError(error)
+
+  // Usage text is help, not a failure. Marking it as one would mislead.
+  if (error._tag === 'UsageError') out.raw(body)
+  else out.failed(body)
+
   return exitCodeFor(error)
 }
