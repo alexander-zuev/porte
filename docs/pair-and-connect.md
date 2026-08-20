@@ -12,7 +12,7 @@ secret that maps every account to one hardcoded host.
 ## Success
 
 1. On a clean account, `porte pair` then `porte up` connects with no `PORTE_*` secret set.
-2. `/dashboard` names the Mac and its platform.
+2. `/conversations` names the Mac and its platform, and `/dashboard` no longer exists.
 3. `porte unpair` closes the running daemon's socket, not only its next connection.
 4. `grep -r "DEVELOPMENT_HOST_ID\|daemonToken"` returns nothing.
 5. Each step leaves typecheck, lint, and tests green on its own commit.
@@ -20,9 +20,9 @@ secret that maps every account to one hardcoded host.
 ## Scope
 
 **In.** The `host` table, the pairing decision, the host WebSocket route and its authenticator, the
-relay's record of liveness, and the `HostView` contract both doors read.
+relay's record of liveness, the `HostView` contract both doors read, and what the route is called.
 
-**Out.** The `/pair` route split, the launchd agent, conversation persistence, dashboard layout.
+**Out.** The `/pair` route split, the launchd agent, conversation persistence, page layout.
 
 ## Target design
 
@@ -50,30 +50,51 @@ The Worker holds no state and never reads a frame. D1 never answers whether a Ma
 
 ## Steps
 
-### 2. Approval registers the Mac
+Steps 1 to 3 have landed and are deleted. What remains:
 
-`decidePairing` writes nothing today and says so in its own comment. Approval is when both facts are
-in hand: who the owner is, and what the machine is called.
+### 4. `/conversations` replaces the dashboard
 
-- On approve: `authority.approve`, read the pairing request, `Host.register` with a fresh `hostId`,
-  save, forget the request. On deny: `authority.deny`, forget the request.
-- `save` must overwrite `id` on conflict. It sets everything except `id` today, so re-pairing after
-  unpair reuses the old relay object and its cached catalog.
+The route lists conversations, so it is named for them. `/dashboard` stops existing rather than
+redirecting: one name, or the old one lives on in links and history.
 
-**Proof.** Approving on a clean account leaves one `host` row named after the Mac.
+**A route for a durable fact, an early return for a live one.** A URL should name a place a person
+can act. At `/pair` they read an account and approve. A `/connect` route would hold nothing to do,
+because the action is in a terminal; it would watch a socket and bounce them back, and invert itself
+the moment the daemon arrived. So pairing redirects and connection does not.
 
-### 3. `HostView` stops inventing availability
+- `beforeLoad` redirects to `/pair` when the account is unpaired or revoked, so one route never
+  describes two things.
+- `/pair` splits in two. It becomes the command and the way in; `/pair/code` takes the code. Today
+  `/pair` renders the field alone and the command lives on the dashboard, so redirecting to it
+  would land a new account on a field asking for something nothing told them how to get.
+- One authed layout, centred and width-capped, for every authed route. The two-pane shell and its
+  mobile pane switch go.
+- Surfaces are `/conversations`, `/c/$conversationId`, and `/account`. The detail route keeps its
+  short path: it is what a person sends someone, and renaming it buys nothing here.
 
-`getHostView` hardcodes `availability: 'offline'` while the relay holds the real answer, and falls
-back to `createdAt` for a Mac it has never seen. Both claim a fact the read cannot know.
+`HostView` loses `availability` in the same step, because a query cannot answer it. It carries
+`name`, `platform`, and a nullable `lastSeenAt`, where null means paired and never seen.
 
-- `PairedHostSchema` loses `availability`. It carries `name`, `platform`, and a nullable
-  `lastSeenAt`. Null means paired and never seen.
-- The page learns online or offline from the relay socket it opens anyway.
+The route holds no state. It reads one union and returns one component:
 
-**Proof.** A fresh pairing reads as paired and never seen.
+```
+connecting | offline | stale | empty | ready | failed
+```
 
-### 4. The daemon authenticates as itself
+`connecting` exists so a healthy daemon never flashes "run porte up" while its socket opens.
+`stale` is offline with a catalog the relay still holds: shown read-only, because discarding a list
+we already have makes the page poorer than the data behind it. `offline` is offline with nothing
+ever synced.
+
+**Two fetches, not three.** The loader reads paired from D1, server-rendered. One `host.snapshot`
+over the socket answers connected and which conversations together, then `host.status` and
+`conversations.changed` push every later change. Conversations never enter the query cache: they
+arrive by push, and a second copy is a second thing that can disagree.
+
+**Proof.** No `/dashboard` outside git history. A paired Mac with no daemon shows "run porte up"
+without a flash. Starting the daemon moves the page to a list with no reload.
+
+### 5. The daemon authenticates as itself
 
 - New `SessionHostAuthenticator`: resolve the Better Auth session from a bearer token or a cookie,
   find the host row, refuse a revoked one, return `hostId` and the derived role.
@@ -82,7 +103,7 @@ back to `createdAt` for a Mac it has never seen. Both claim a fact the read cann
 **Proof.** `porte up` connects with the paired credential. An unknown bearer gets 401, a revoked
 host 403. The browser reaches its own host through the cookie.
 
-### 5. The relay records what it sees
+### 6. The relay records what it sees
 
 The Durable Object knows both the connect and the disconnect moment, so it owns `lastSeenAt`.
 
@@ -92,7 +113,7 @@ The Durable Object knows both the connect and the disconnect moment, so it owns 
 
 **Proof.** Connecting sets `lastSeenAt`. Killing the daemon updates it.
 
-### 6. Unpair ends the live connection
+### 7. Unpair ends the live connection
 
 Checking at connect time enforces revocation on the next connection only, so unpair looks failed.
 
@@ -109,6 +130,9 @@ Checking at connect time enforces revocation on the next connection only, so unp
 4. **Role is derived from the credential kind.** A declared role is a claim; a credential is proof.
 5. **Platforms are a closed enum, declared at the schema.** `text(name, { enum })` types the column,
    so no application code parses a platform out of storage.
+6. **A durable fact gets a route, a live fact gets an early return.** Pairing redirects because it
+   is server-known and stable while the page is open. Connection never does: it is only knowable
+   once a socket exists, and it flips while a person is looking at it.
 
 ## Open question
 

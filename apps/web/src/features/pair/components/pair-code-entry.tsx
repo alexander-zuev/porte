@@ -23,7 +23,7 @@ const CLAIM_MESSAGE = {
  */
 export function PairCodeEntry() {
   const navigate = useNavigate()
-  const { issue } = useSearch({ from: '/_auth/pair/' })
+  const { issue } = useSearch({ from: '/_auth/pair/code' })
   const { user } = useRouteContext({ from: '/_auth' })
   const [code, setCode] = useState('')
 
@@ -43,10 +43,10 @@ export function PairCodeEntry() {
         view: 'issue',
         issue,
         onRestart: () => {
-          void navigate({ to: '/pair', search: {} })
+          void navigate({ to: '/pair/code', search: {} })
         },
         onCancel: () => {
-          void navigate({ to: '/dashboard' })
+          void navigate({ to: '/conversations' })
         },
       }
     }

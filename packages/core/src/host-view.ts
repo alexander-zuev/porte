@@ -12,30 +12,24 @@ import { IsoDateTimeSchema, ConversationIdSchema } from './identity.ts'
  */
 
 /**
- * A paired Mac.
+ * A paired Mac, as the database knows it.
  *
- * `lastSeenAt` exists only while offline, so a live host cannot carry a stale
- * timestamp and an offline host cannot omit one.
+ * There is no availability here. Whether a Mac is reachable is a live question
+ * the relay answers, and a read that guessed at it would be a second version of
+ * a fact it cannot see. `lastSeenAt` is null until a daemon has announced
+ * itself, because approving a grant is not an observation of one.
  */
-export const PairedHostSchema = z.discriminatedUnion('availability', [
-  HostDescriptorSchema.extend({ availability: z.literal('online') }),
-  HostDescriptorSchema.extend({
-    availability: z.literal('offline'),
-    lastSeenAt: IsoDateTimeSchema,
-  }),
-])
+export const PairedHostSchema = HostDescriptorSchema.extend({
+  lastSeenAt: IsoDateTimeSchema.nullable(),
+})
 export type PairedHost = z.infer<typeof PairedHostSchema>
 
 /** The account's single Mac, or none. The first release pairs at most one. */
 export const HostViewSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('unpaired') }),
-  z.object({
-    state: z.literal('paired'),
-    host: PairedHostSchema,
-    conversations: z.array(ConversationSummarySchema),
-    /** Conversations with a turn in flight. */
-    runningConversationIds: z.array(ConversationIdSchema),
-  }),
+  // No conversations here. They live on the Mac and arrive over the relay, so a
+  // copy in this read would be a second list that can disagree with the first.
+  z.object({ state: z.literal('paired'), host: PairedHostSchema }),
   z.object({ state: z.literal('revoked'), host: PairedHostSchema }),
 ])
 export type HostView = z.infer<typeof HostViewSchema>

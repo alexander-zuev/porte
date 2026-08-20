@@ -24,7 +24,7 @@ export function HeaderAccount() {
     // Account first, then the way in: the button is the primary action here.
     <div className="flex items-center gap-3">
       <UserMenu user={user} />
-      <Button nativeButton={false} size="sm" render={<Link to="/dashboard" />}>
+      <Button nativeButton={false} size="sm" render={<Link to="/conversations" />}>
         Dashboard
       </Button>
     </div>

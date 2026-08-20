@@ -1,6 +1,5 @@
 import { platformLabel, type PairedHost } from '@porte/core'
 import { formatDateTime } from '@web/lib/format-date.ts'
-import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -61,17 +60,19 @@ export function AccountPanel({
           <>
             <div className="flex flex-col gap-1.5">
               <strong className="break-words">{host.name}</strong>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <HostStatus status={host.availability} />
-                {host.availability === 'offline' ? (
-                  <small className="text-muted-foreground">
+              {/* No status dot: this page opens no relay socket, so it cannot say. */}
+              <small className="text-muted-foreground">
+                {host.lastSeenAt === null ? (
+                  'Never connected'
+                ) : (
+                  <>
                     Last seen{' '}
                     <time dateTime={host.lastSeenAt} suppressHydrationWarning>
                       {formatDateTime(host.lastSeenAt)}
                     </time>
-                  </small>
-                ) : null}
-              </div>
+                  </>
+                )}
+              </small>
               <small className="text-muted-foreground">{platformLabel(host.platform)}</small>
             </div>
             <p className="text-muted-foreground">

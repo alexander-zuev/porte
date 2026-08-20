@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './../../routes/__root'
 import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
 import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
 import { Route as AuthAccountRouteImport } from './../../routes/_auth/account'
-import { Route as AuthDashboardRouteImport } from './../../routes/_auth/dashboard'
+import { Route as AuthConversationsRouteImport } from './../../routes/_auth/conversations'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
 import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
 import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
@@ -20,6 +20,7 @@ import { Route as PublicTermsRouteImport } from './../../routes/_public/terms'
 import { Route as AuthCConversationIdRouteImport } from './../../routes/_auth/c/$conversationId'
 import { Route as AuthPairIndexRouteImport } from './../../routes/_auth/pair/index'
 import { Route as AuthPairCancelledRouteImport } from './../../routes/_auth/pair/cancelled'
+import { Route as AuthPairCodeRouteImport } from './../../routes/_auth/pair/code'
 import { Route as AuthPairConfirmRouteImport } from './../../routes/_auth/pair/confirm'
 import { Route as AuthPairSuccessRouteImport } from './../../routes/_auth/pair/success'
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
@@ -39,9 +40,9 @@ const AuthAccountRoute = AuthAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthDashboardRoute = AuthDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthConversationsRoute = AuthConversationsRouteImport.update({
+  id: '/conversations',
+  path: '/conversations',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
@@ -79,6 +80,11 @@ const AuthPairCancelledRoute = AuthPairCancelledRouteImport.update({
   path: '/pair/cancelled',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthPairCodeRoute = AuthPairCodeRouteImport.update({
+  id: '/pair/code',
+  path: '/pair/code',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const AuthPairConfirmRoute = AuthPairConfirmRouteImport.update({
   id: '/pair/confirm',
   path: '/pair/confirm',
@@ -108,12 +114,13 @@ const ApiPairCodeRoute = ApiPairCodeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/account': typeof AuthAccountRoute
-  '/dashboard': typeof AuthDashboardRoute
+  '/conversations': typeof AuthConversationsRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
   '/c/$conversationId': typeof AuthCConversationIdRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
+  '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -124,12 +131,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/account': typeof AuthAccountRoute
-  '/dashboard': typeof AuthDashboardRoute
+  '/conversations': typeof AuthConversationsRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
   '/c/$conversationId': typeof AuthCConversationIdRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
+  '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -142,13 +150,14 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_public': typeof PublicRouteRouteWithChildren
   '/_auth/account': typeof AuthAccountRoute
-  '/_auth/dashboard': typeof AuthDashboardRoute
+  '/_auth/conversations': typeof AuthConversationsRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/terms': typeof PublicTermsRoute
   '/_public/': typeof PublicIndexRoute
   '/_auth/c/$conversationId': typeof AuthCConversationIdRoute
   '/_auth/pair/cancelled': typeof AuthPairCancelledRoute
+  '/_auth/pair/code': typeof AuthPairCodeRoute
   '/_auth/pair/confirm': typeof AuthPairConfirmRoute
   '/_auth/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -161,12 +170,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
-    | '/dashboard'
+    | '/conversations'
     | '/privacy'
     | '/sign-in'
     | '/terms'
     | '/c/$conversationId'
     | '/pair/cancelled'
+    | '/pair/code'
     | '/pair/confirm'
     | '/pair/success'
     | '/api/auth/$'
@@ -177,12 +187,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
-    | '/dashboard'
+    | '/conversations'
     | '/privacy'
     | '/sign-in'
     | '/terms'
     | '/c/$conversationId'
     | '/pair/cancelled'
+    | '/pair/code'
     | '/pair/confirm'
     | '/pair/success'
     | '/api/auth/$'
@@ -194,13 +205,14 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_public'
     | '/_auth/account'
-    | '/_auth/dashboard'
+    | '/_auth/conversations'
     | '/_public/privacy'
     | '/_public/sign-in'
     | '/_public/terms'
     | '/_public/'
     | '/_auth/c/$conversationId'
     | '/_auth/pair/cancelled'
+    | '/_auth/pair/code'
     | '/_auth/pair/confirm'
     | '/_auth/pair/success'
     | '/api/auth/$'
@@ -240,11 +252,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAccountRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_auth/dashboard': {
-      id: '/_auth/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthDashboardRouteImport
+    '/_auth/conversations': {
+      id: '/_auth/conversations'
+      path: '/conversations'
+      fullPath: '/conversations'
+      preLoaderRoute: typeof AuthConversationsRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_public/': {
@@ -296,6 +308,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPairCancelledRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_auth/pair/code': {
+      id: '/_auth/pair/code'
+      path: '/pair/code'
+      fullPath: '/pair/code'
+      preLoaderRoute: typeof AuthPairCodeRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/_auth/pair/confirm': {
       id: '/_auth/pair/confirm'
       path: '/pair/confirm'
@@ -336,9 +355,10 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteRouteChildren {
   AuthAccountRoute: typeof AuthAccountRoute
-  AuthDashboardRoute: typeof AuthDashboardRoute
+  AuthConversationsRoute: typeof AuthConversationsRoute
   AuthCConversationIdRoute: typeof AuthCConversationIdRoute
   AuthPairCancelledRoute: typeof AuthPairCancelledRoute
+  AuthPairCodeRoute: typeof AuthPairCodeRoute
   AuthPairConfirmRoute: typeof AuthPairConfirmRoute
   AuthPairSuccessRoute: typeof AuthPairSuccessRoute
   AuthPairIndexRoute: typeof AuthPairIndexRoute
@@ -346,9 +366,10 @@ interface AuthRouteRouteChildren {
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthAccountRoute: AuthAccountRoute,
-  AuthDashboardRoute: AuthDashboardRoute,
+  AuthConversationsRoute: AuthConversationsRoute,
   AuthCConversationIdRoute: AuthCConversationIdRoute,
   AuthPairCancelledRoute: AuthPairCancelledRoute,
+  AuthPairCodeRoute: AuthPairCodeRoute,
   AuthPairConfirmRoute: AuthPairConfirmRoute,
   AuthPairSuccessRoute: AuthPairSuccessRoute,
   AuthPairIndexRoute: AuthPairIndexRoute,

@@ -1,9 +1,10 @@
 import { PairingOriginSchema, type PairingOrigin } from '@porte/core'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
-import type { ConversationListProps } from '@web/features/dashboard/components/conversation-list.tsx'
+import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
-import { DashboardPage } from '@web/pages/dashboard/dashboard-page.tsx'
+import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
 import { PairPage } from '@web/pages/pair/pair-page.tsx'
 import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
 import { useEffect, useRef, useState } from 'react'
@@ -21,16 +22,23 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 })
 
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
-function homeList(paired: boolean): ConversationListProps {
+function homeList(paired: boolean) {
+  const connection: HostConnection = paired
+    ? { state: 'ready', conversations }
+    : { state: 'offline', lastSeenAt: null }
+
   return {
-    state: 'ready',
-    hostName: HOST_NAME,
-    hostStatus: paired ? 'online' : 'offline',
-    conversations: paired ? conversations : [],
-    runningConversationIds: new Set<string>(),
+    connection,
+    header: (
+      <ConversationsHeader
+        connection={connection}
+        hostName={HOST_NAME}
+        onStartConversation={() => undefined}
+      />
+    ),
+    footer: null,
     onOpenConversation: () => undefined,
     onStartConversation: () => undefined,
-    onPair: () => undefined,
     onRetry: () => undefined,
   }
 }
@@ -134,7 +142,7 @@ export function PairingPlay({
   }
 
   if (screen.kind === 'home') {
-    return <DashboardPage list={homeList(screen.paired)} view="conversations" />
+    return <ConversationsPage {...homeList(screen.paired)} />
   }
 
   if (screen.kind === 'confirm') {
@@ -212,7 +220,7 @@ export function SignInPlay() {
   }, [])
 
   if (signedIn) {
-    return <DashboardPage list={homeList(false)} view="conversations" />
+    return <ConversationsPage {...homeList(false)} />
   }
 
   return (

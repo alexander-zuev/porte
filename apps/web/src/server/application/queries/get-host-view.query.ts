@@ -5,40 +5,32 @@ import { host, type DbHost } from '../../infrastructure/persistence/database/sch
 import type { ReadDb } from '../../infrastructure/persistence/database/types.ts'
 
 /**
- * What the signed-in account controls right now.
+ * What Mac the signed-in account owns, if any.
  *
  * Reads the row directly rather than through the repository: this answers a
  * question, it does not act, so rebuilding an aggregate would buy nothing.
- */
-
-/**
- * Availability is a live relay connection, which the Durable Object owns rather
- * than D1. Until the query asks the coordinator, report offline and let the
- * client show when the Mac was last seen.
+ *
+ * Nothing here says whether the Mac is reachable. That is a live question the
+ * relay answers, and a read that guessed would be a second version of a fact it
+ * cannot see.
  */
 function toPairedHost(row: DbHost): PairedHost {
-  // A host that has never connected falls back to when we first recorded it,
-  // which is the earliest moment we can honestly claim to have known about it.
-  const lastSeen = row.lastSeenAt ?? row.createdAt
-
   return {
     name: row.name,
     platform: row.platform,
-    availability: 'offline',
-    lastSeenAt: IsoDateTimeSchema.parse(lastSeen.toISOString()),
+    // Null until a daemon has announced itself. There is no earlier moment we
+    // can honestly call an observation.
+    lastSeenAt:
+      row.lastSeenAt === null ? null : IsoDateTimeSchema.parse(row.lastSeenAt.toISOString()),
   }
 }
 
 export async function getHostView(db: ReadDb, userId: UserId): Promise<HostView> {
   const row = await db.select().from(host).where(eq(host.userId, userId)).get()
-
-  // No row means no daemon has ever announced itself, which is what the phone
-  // sees between approving the grant and the Mac reconnecting.
   if (!row) return { state: 'unpaired' }
 
   const paired = toPairedHost(row)
-  if (row.revokedAt !== null) return { state: 'revoked', host: paired }
-
-  // Conversations are not persisted yet, so a paired host reports none.
-  return { state: 'paired', host: paired, conversations: [], runningConversationIds: [] }
+  return row.revokedAt === null
+    ? { state: 'paired', host: paired }
+    : { state: 'revoked', host: paired }
 }

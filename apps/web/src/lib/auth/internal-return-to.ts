@@ -1,4 +1,4 @@
-const DEFAULT_RETURN_TO = '/dashboard'
+const DEFAULT_RETURN_TO = '/conversations'
 const RETURN_TO_BASE = 'https://porte.invalid'
 
 /** Sign-in search preserved through OAuth. */

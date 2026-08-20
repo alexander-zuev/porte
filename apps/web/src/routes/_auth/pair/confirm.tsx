@@ -36,7 +36,7 @@ function ConfirmUnavailable() {
       issue="unavailable"
       view="issue"
       onCancel={() => {
-        void navigate({ to: '/dashboard' })
+        void navigate({ to: '/conversations' })
       }}
       onRestart={() => {
         void navigate({ to: '/pair' })
