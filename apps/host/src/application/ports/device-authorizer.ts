@@ -29,10 +29,12 @@ export type DevicePollResult =
   | { readonly status: 'granted'; readonly token: string }
 
 /**
- * The device authorization grant, from the daemon's side.
+ * This Mac's pairing with Porte, over its whole life.
  *
  * The daemon starts the flow and waits. Approval happens on a different device
  * entirely, which is the whole point: this machine never sees a password.
+ * Ending the pairing belongs here too, because the same server that granted it
+ * is the only one that can take it back.
  */
 export interface DeviceAuthorizer {
   /** Ask for a code the person can approve elsewhere. */
@@ -40,4 +42,7 @@ export interface DeviceAuthorizer {
 
   /** Ask once whether approval has happened yet. */
   poll(deviceCode: string): Promise<Result<DevicePollResult, PairingError>>
+
+  /** End the pairing this token belongs to. Succeeds when it was already gone. */
+  revoke(token: string): Promise<Result<void, PairingError>>
 }

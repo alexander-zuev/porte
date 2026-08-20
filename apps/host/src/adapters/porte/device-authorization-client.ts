@@ -82,6 +82,16 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
     }
   }
 
+  /**
+   * End the pairing.
+   *
+   * Stubbed: the route it needs does not exist yet, so unpairing currently only
+   * clears the local credential. Wiring the request is a change to this method.
+   */
+  revoke(_token: string): Promise<ResultType<void, PairingError>> {
+    return Promise.resolve(Result.ok())
+  }
+
   /** One JSON round trip. Transport faults become `unreachable`, never a throw. */
   private async post(
     path: string,

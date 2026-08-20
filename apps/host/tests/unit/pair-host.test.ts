@@ -31,6 +31,7 @@ function authorizerReturning(
     pollCount: () => index,
     requestCode: () => Promise.resolve(Result.ok(GRANT)),
     poll: () => Promise.resolve(polls[index++] ?? Result.ok({ status: 'pending' })),
+    revoke: () => Promise.resolve(Result.ok()),
   }
 }
 

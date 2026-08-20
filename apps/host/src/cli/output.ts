@@ -11,25 +11,32 @@ import { createColors } from 'picocolors'
 /** Two spaces. Deep enough to group a line under its heading, shallow enough to scan. */
 const INDENT = '  '
 
+/** Move the cursor to the start of the previous line. */
+const CURSOR_UP = '\u001b[1A'
+
+/** Return to column zero and erase what is there. */
+const CLEAR_LINE = '\r\u001b[2K'
+
 /**
- * Emoji mark one moment each, never decorate.
+ * Marks for one moment each, never decoration.
  *
- * They are double-width, so they sit at the start of a line where nothing has
- * to line up beneath them.
+ * Placement follows width, not habit. A single-width glyph can lead a line
+ * because it shifts nothing after it; an emoji is double-width and would push
+ * its text out of column, so emoji trail the line they mark instead.
  */
 const EMOJI = {
-  pair: '🔗',
+  pair: '🚪',
   waiting: '⏳',
-  done: '✅',
-  failed: '❌',
-  warned: '⚠️',
+  done: '✓',
+  failed: '✗',
+  warned: '!',
 } as const
 
 export type Output = {
   /** A blank line. Paragraphs are made here, not with stray newlines. */
   blank: () => void
-  /** Opens a section, preceded by space and set in bold. */
-  title: (emoji: string, text: string) => void
+  /** Opens a section, preceded by space and set in bold. Any mark trails it. */
+  title: (text: string, mark?: string) => void
   /** One numbered instruction in a sequence the reader follows in order. */
   step: (position: number, text: string) => void
   /** Secondary text that supports the line above it. */
@@ -42,12 +49,26 @@ export type Output = {
   warned: (text: string) => void
   /** Plain text with no styling, for output that is already formatted. */
   raw: (text: string) => void
+  /** A line awaiting a keypress. No newline, so the cursor rests after it. */
+  prompt: (text: string) => void
+  /**
+   * Redraw the line above the prompt, and the prompt under it.
+   *
+   * Lets a hint answer a keypress in place instead of pushing a new line and
+   * leaving the stale one above it. Terminal only: the escapes it writes are
+   * noise anywhere else, so call it only where `prompt` was used.
+   */
+  rewrite: (above: string, prompt: string) => void
   /** Inline emphasis, for composing into the lines above. */
   emphasis: {
     /** A code the person types or reads aloud. */
     code: (text: string) => string
     url: (text: string) => string
     quiet: (text: string) => string
+    /** A name inside a sentence, such as the server or account acted on. */
+    strong: (text: string) => string
+    /** A small thing that just succeeded, inside a line that continues. */
+    ok: (text: string) => string
   }
 }
 
@@ -66,9 +87,9 @@ export function createOutput(stream: NodeJS.WritableStream): Output {
 
   return {
     blank: () => stream.write('\n'),
-    title: (emoji, text) => {
+    title: (text, mark) => {
       stream.write('\n')
-      line(`${emoji}  ${c.bold(text)}`)
+      line(mark === undefined ? c.bold(text) : `${c.bold(text)}  ${mark}`)
       stream.write('\n')
     },
     step: (position, text) => line(`${INDENT}${c.dim(`${String(position)}.`)} ${text}`),
@@ -81,12 +102,18 @@ export function createOutput(stream: NodeJS.WritableStream): Output {
       stream.write('\n')
       line(`${EMOJI.failed} ${c.red(text)}`)
     },
-    warned: (text) => line(`${EMOJI.warned}  ${c.yellow(text)}`),
+    warned: (text) => line(`${EMOJI.warned} ${c.yellow(text)}`),
     raw: (text) => line(text),
+    prompt: (text) => stream.write(text),
+    rewrite: (above, prompt) => {
+      stream.write(`${CURSOR_UP}${CLEAR_LINE}${above}\n${CLEAR_LINE}${prompt}`)
+    },
     emphasis: {
       code: (text) => c.bold(c.cyan(text)),
       url: (text) => c.underline(c.cyan(text)),
       quiet: (text) => c.dim(text),
+      strong: (text) => c.bold(text),
+      ok: (text) => c.green(text),
     },
   }
 }

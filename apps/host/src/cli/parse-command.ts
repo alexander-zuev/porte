@@ -20,6 +20,7 @@ Commands:
   list             Print conversations as a JSON array
   resume           Load a conversation and send one prompt
   pair             Link this Mac to your Porte account
+  unpair           End this Mac's pairing
   up               Connect this host to Porte
 
 Examples:
@@ -71,6 +72,21 @@ Environment:
   PORTE_CREDENTIAL_PATH Where to keep the credential. Defaults to ~/.porte/credentials.json
 `
 
+/** Help for `porte unpair`. */
+export const UNPAIR_HELP = `Usage:
+  porte unpair
+
+End this Mac's pairing. Porte stops accepting it, and the local credential is
+deleted. Run \`porte pair\` to connect it again.
+
+Options:
+  -h, --help        Show this help
+  -v, --verbose     Print debug detail on stderr
+
+Environment:
+  PORTE_CREDENTIAL_PATH Where the credential is kept
+`
+
 /** Help for `porte up`. */
 export const UP_HELP = `Usage:
   porte up
@@ -92,6 +108,7 @@ export type Command =
   | { readonly kind: 'version' }
   | { readonly kind: 'list'; readonly verbose: boolean }
   | { readonly kind: 'pair'; readonly verbose: boolean }
+  | { readonly kind: 'unpair'; readonly verbose: boolean }
   | { readonly kind: 'up'; readonly verbose: boolean }
   | {
       readonly kind: 'resume'
@@ -129,6 +146,9 @@ export function parseCommand(argv: readonly string[]): Command {
     if (verb === 'pair') {
       return { kind: 'help', text: PAIR_HELP }
     }
+    if (verb === 'unpair') {
+      return { kind: 'help', text: UNPAIR_HELP }
+    }
     return { kind: 'help', text: HELP }
   }
   if (values.version) {
@@ -156,6 +176,12 @@ export function parseCommand(argv: readonly string[]): Command {
       throw new UsageError({ message: PAIR_HELP.trimEnd() })
     }
     return { kind: 'pair', verbose }
+  }
+  if (verb === 'unpair') {
+    if (positionals.length !== 1 || values.prompt !== undefined) {
+      throw new UsageError({ message: UNPAIR_HELP.trimEnd() })
+    }
+    return { kind: 'unpair', verbose }
   }
   if (verb === 'resume') {
     const conversationId = positionals[1]

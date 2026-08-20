@@ -27,8 +27,8 @@ export class PairingError extends TaggedError('PairingError')<{
 }
 
 const MESSAGES = {
-  denied: 'Pairing was declined on your phone.',
-  expired: 'The pairing code expired before it was approved.',
-  unreachable: 'Could not reach Porte.',
+  denied: 'Pairing was cancelled in the browser. Run porte pair again to retry.',
+  expired: 'The code expired before anyone approved it. Run porte pair for a new one.',
+  unreachable: 'Could not reach Porte. Check the connection, then run porte pair again.',
   unexpected: 'Porte returned an unexpected response.',
 } satisfies Record<PairingFailure, string>

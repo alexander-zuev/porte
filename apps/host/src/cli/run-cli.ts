@@ -1,11 +1,18 @@
-import { SessionIdSchema as ConversationIdSchema, createTurnId } from '@porte/core'
+import {
+  SessionIdSchema as ConversationIdSchema,
+  createTurnId,
+  formatPairingCode,
+} from '@porte/core'
 
+import { copyToClipboard } from '../adapters/node/clipboard.ts'
+import { openUrl } from '../adapters/node/open-url.ts'
 import { ConfigError } from '../application/host-error.ts'
 import { pairHost } from '../application/pair-host.ts'
 import { createHost, type HostComposition } from '../composition/create-host.ts'
 import { loadConfig, relayUrlFor } from '../composition/host-config.ts'
 import { UsageError, exitCodeFor, formatError, type CliError } from './cli-error.ts'
 import { CliRelayObserver } from './cli-relay-observer.ts'
+import { ENTER, onKey } from './key-press.ts'
 import { PAIR_EMOJI, WAITING_EMOJI, createOutput } from './output.ts'
 import { VERSION, parseCommand } from './parse-command.ts'
 
@@ -67,6 +74,10 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
 
   if (command.kind === 'pair') {
     return pair(host, config.baseUrl, io)
+  }
+
+  if (command.kind === 'unpair') {
+    return unpair(host, io)
   }
 
   if (command.kind === 'up') {
@@ -139,33 +150,97 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
  */
 async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<number> {
   const out = createOutput(io.stderr)
-  const { code, url } = out.emphasis
+  const { code, url, quiet, strong, ok } = out.emphasis
+  const interactive =  process.stdin.isTTY
+  let stopWatching: (() => void) | undefined
 
   const paired = await pairHost({
     authorizer: host.authorizer,
     credentials: host.credentials,
     baseUrl,
     onPrompt: (prompt) => {
-      const minutes = Math.round(prompt.expiresInSeconds / 60)
+      const shown = formatPairingCode(prompt.userCode)
+      const waiting = `Waiting for approval — the code expires in ${String(
+        Math.round(prompt.expiresInSeconds / 60),
+      )} minutes.  ${WAITING_EMOJI}`
 
-      out.title(PAIR_EMOJI, 'Pair this Mac with Porte')
-      out.step(1, `Open ${url(prompt.verificationUri)} in any browser`)
-      out.step(2, `Sign in, then enter this code:  ${code(prompt.userCode)}`)
-      out.blank()
-      out.note(
-        `${WAITING_EMOJI} Waiting for approval — the code expires in ${String(minutes)} minutes.`,
-      )
+      out.title('Pair this Mac with Porte', PAIR_EMOJI)
+
+      // Piped output cannot deliver a keypress, so it gets the URL and nothing
+      // to press. Everything below this line is for a person at a terminal.
+      if (!interactive) {
+        out.raw(`First copy your pairing code:  ${code(shown)}`)
+        out.raw(`Then open ${url(prompt.verificationUri)} in your browser.`)
+        out.blank()
+        out.raw(quiet(waiting))
+        return
+      }
+
+      // Both lines are rebuilt from these, so a hint can answer a keypress in place.
+      const codeLine = (hint: string) => `First copy your pairing code:  ${code(shown)}   ${hint}`
+      const promptLine = `${strong('Press Enter')} to open ${url(
+        prompt.verificationUri,
+      )} in your browser...`
+
+      out.raw(codeLine(quiet('(press c to copy)')))
+      out.prompt(promptLine)
+
+      stopWatching = onKey((key) => {
+        if (key === ENTER) {
+          stopWatching?.()
+          out.blank()
+          out.blank()
+          out.raw(quiet(waiting))
+          void openUrl(prompt.verificationUri)
+          return
+        }
+        if (key.toLowerCase() === 'c') {
+          void copyToClipboard(shown).then((copied) => {
+            // A missing clipboard tool is a small miss, so it stays quiet.
+            const hint = copied ? `${ok('✓')} ${quiet('copied')}` : quiet('✗ no clipboard')
+            out.rewrite(codeLine(hint), promptLine)
+          })
+        }
+      })
     },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     now: () => Date.now(),
   })
 
+  stopWatching?.()
   if (paired.isErr()) return writeError(io, paired.error)
 
-  out.done('This Mac is paired.')
-  out.blank()
-  out.raw(`  Run ${code('porte up')} to connect it.`)
-  out.note('The pairing lapses after 7 days without connecting.')
+  out.done(`Paired. Run ${code('porte up')} to connect this Mac.`)
+  out.note('Unused pairings lapse after 7 days.')
+  return 0
+}
+
+/**
+ * End this Mac's pairing, on Porte and on disk.
+ *
+ * Revoking runs first: if it fails the credential stays, so the person can try
+ * again rather than being left holding a pairing they can no longer end.
+ */
+async function unpair(host: HostComposition, io: CliIo): Promise<number> {
+  const out = createOutput(io.stderr)
+  const { strong } = out.emphasis
+
+  const stored = await host.credentials.read()
+  if (stored.isErr()) return writeError(io, stored.error)
+
+  // Already unpaired is the state the person asked for, so it is not a failure.
+  if (stored.value === null) {
+    out.done('This Mac is not paired.')
+    return 0
+  }
+
+  const revoked = await host.authorizer.revoke(stored.value.token)
+  if (revoked.isErr()) return writeError(io, revoked.error)
+
+  const cleared = await host.credentials.clear()
+  if (cleared.isErr()) return writeError(io, cleared.error)
+
+  out.done(`Unpaired this Mac from ${strong(new URL(stored.value.baseUrl).host)}`)
   return 0
 }
 
