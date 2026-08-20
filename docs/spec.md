@@ -213,7 +213,7 @@ Zod schemas in `packages/core/src` define the published HTTP and WebSocket contr
 
 | Identifier      | Owner                                     |
 | --------------- | ----------------------------------------- |
-| `hostId`        | Worker during pairing                     |
+| `hostId`        | Worker when the daemon first connects     |
 | `connectionId`  | Durable Object for each client socket     |
 | `requestId`     | Client for one logical request            |
 | `turnId`        | Client for one logical turn               |
@@ -269,7 +269,7 @@ The Worker derives the host and connection role from verified credentials. The W
 
 The host validates each workspace path against its current session catalog. The Worker treats local paths as opaque strings.
 
-The daemon token is returned once during pairing. The daemon stores the token, and the server stores only its hash.
+Pairing uses the OAuth device authorization grant. The daemon receives a session, not a bespoke token, so there is no separate credential for the server to hash. [UX Flows](./ux-flows.md) holds the pairing design.
 
 WSS protects transport data. End-to-end encryption is outside the first release.
 

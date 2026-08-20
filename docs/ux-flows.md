@@ -8,18 +8,25 @@ design, responsive behavior, Storybook states, CLI output, and acceptance criter
 Implementation details can change. The experience contract should change only through an explicit
 product decision.
 
+Nothing here is settled because it is written down. Replace a section when a better design appears,
+and delete the part that no longer holds in the same edit. A document nobody finishes reading is a
+document that keeps requirements nobody can build.
+
 ## Product Model
 
 Porte is a secure remote control for coding-agent sessions that continue to run on a local machine.
 
-The primary journey crosses two devices:
+The primary journey crosses two devices, but pairing itself does not:
 
-1. The user starts pairing from the Porte CLI on the desktop.
-2. The CLI displays a QR code and short-code fallback.
-3. The user scans the QR code with a phone.
-4. The user authenticates on the phone.
-5. The phone confirms the desktop host.
+1. The user runs `porte pair` on the Mac.
+2. The CLI prints a URL and an eight-character code.
+3. The user opens that URL in any browser already signed in to Porte, on any device.
+4. The user checks the account named on screen and approves.
+5. The Mac receives its credential and connects.
 6. The user browses, opens, creates, and controls local sessions from the phone.
+
+Step 3 is deliberately not "scan this with your phone". The person is sitting at the Mac, and any
+signed-in browser can approve. The phone is what Porte is *for*, not what pairing needs.
 
 The desktop owns local execution. The phone owns remote control. Porte coordinates trust and
 delivery without becoming the execution owner.
@@ -32,18 +39,18 @@ surface that names the host names that single Mac, never a list.
 Porte has no onboarding wizard, no tour, and no checklist. An account is in exactly one of three
 states, and every surface resolves to the same next action.
 
-| State    | Meaning                                      | Next action                        |
-| -------- | -------------------------------------------- | ---------------------------------- |
-| Unpaired | The account controls no Mac                  | Run `npx porte pair` on the Mac    |
-| Pairing  | An attempt is open and awaiting confirmation | Confirm the phrase on both devices |
-| Paired   | The account controls one Mac                 | Open or start a session            |
+| State    | Meaning                                      | Next action                     |
+| -------- | -------------------------------------------- | ------------------------------- |
+| Unpaired | The account controls no Mac                  | Run `npx porte pair` on the Mac |
+| Pairing  | A code is open and awaiting approval         | Approve the code in a browser   |
+| Paired   | The account controls one Mac                 | Open or start a session         |
 
 A fourth condition, failed, is a recoverable variant of pairing. It always returns the user to the
 unpaired next action.
 
-The whole product funnel is one line: install the CLI, sign in on the phone, confirm the phrase.
-Nothing else is taught before first use. Capability is discovered inside the session surfaces, not
-in an introduction.
+The whole product funnel is one line: install the CLI, sign in, approve the code. Nothing else is
+taught before first use. Capability is discovered inside the session surfaces, not in an
+introduction.
 
 ## Experience Contract
 
@@ -160,11 +167,9 @@ careful typography in a terminal—not decoration at the expense of scanning or 
 - Keep machine-readable output available for automation.
 - Print stable exit codes and actionable recovery instructions.
 - Stop spinners and animations immediately when state changes or output is not interactive.
-- Display the pairing URL and short code in copyable plain text.
-- Give the QR code a standards-compliant quiet zone and high contrast.
-- Encode only the minimum-lived pairing claim in the QR destination.
+- Display the pairing URL and code in copyable plain text.
 - Show expiry and regenerate without requiring the daemon to be reinstalled.
-- Confirm the host name and paired account after completion.
+- Say that the pairing lapses after a period without connecting.
 - Keep daemon credentials out of stdout, logs, URLs, screenshots, and shell history.
 - Make start, status, stop, restart, and logs discoverable from root help.
 - Distinguish the one host daemon from the coding-agent processes it manages.
@@ -177,7 +182,6 @@ careful typography in a terminal—not decoration at the expense of scanning or 
 
 ### Avoid
 
-- Modifying the QR matrix to draw a logo, wordmark, or decorative shape.
 - Relying on terminal color for meaning.
 - Large ASCII art that pushes the actual instruction below the fold.
 - Animated output in CI, redirected output, or unsupported terminals.
@@ -194,22 +198,19 @@ careful typography in a terminal—not decoration at the expense of scanning or 
 
 ### Pairing composition
 
-The pairing QR code can be surrounded by Porte branding, spacing, and status content. The QR matrix
-itself remains conventional and scannable.
+The terminal composition contains:
 
-The terminal composition should contain:
+1. A task heading naming what is about to happen.
+2. The verification URL.
+3. The eight-character code, set apart so it can be read off the screen.
+4. Remaining validity.
+5. Waiting, completed, expired, or failed status.
 
-1. Porte identity.
-2. “Pair this Mac” task heading.
-3. One-sentence trust explanation.
-4. QR code.
-5. Short URL and six-character fallback code.
-6. Expiration or remaining validity.
-7. Waiting, completed, expired, or failed status.
+No QR code. The person is at the Mac and can open the URL in the browser in front of them; a QR
+would only help if approval had to happen on a second device, and it does not.
 
-After the phone authenticates, both devices display the same short verification phrase. The phone
-confirms the Mac, and the CLI confirms the masked account identity. The server does not bind the
-host or issue a daemon credential until both approvals are recorded.
+The CLI shows the code and waits. It has no second confirmation step, because nothing reaches the
+daemon between requesting the code and receiving the credential except the credential itself.
 
 ### Daemon management composition
 
@@ -293,27 +294,52 @@ and no detail, so it receives a single full-page surface instead.
 Pairing runs on the OAuth 2.0 Device Authorization Grant, RFC 8628, through the Better Auth
 `device-authorization` plugin. Porte does not implement its own attempt lifecycle.
 
-The plugin owns the transport:
+### Why a device grant at all
 
-| Step                             | Plugin                                |
-| -------------------------------- | ------------------------------------- |
-| Create the attempt               | `deviceAuthorization`                 |
-| Six-character code               | `userCode`, sized by `userCodeLength` |
-| Claim by code                    | `deviceVerify`                        |
-| Approve or refuse                | `deviceApprove`, `deviceDeny`         |
-| Desktop waits for its credential | `deviceToken`, polled at `interval`   |
-| Expiry, single use, replay       | `expiresIn` and the specification     |
+The Mac has no browser and must never handle a password. The grant moves the authorising step to a
+browser that already holds a session, and hands the Mac a credential belonging to whoever approved.
 
-Porte owns what the specification does not cover:
+### What the plugin owns
 
-1. **The verification phrase.** RFC 8628 proves that a signed-in person approved a device code. It
-   does not prove that the approved machine is the machine in front of that person. The phrase shown
-   on both screens is the step that binds the two devices, and it is deliberate Porte behavior.
-2. **The host record.** Name, platform, availability, and last seen.
-3. **The one-host rule.** The first release binds at most one Mac to one account.
+| Step                              | Endpoint          | Notes                                    |
+| --------------------------------- | ----------------- | ---------------------------------------- |
+| Request a code pair               | `/device/code`    | Returns `device_code` and `user_code`    |
+| Validate and claim by code        | `/device`         | Claims the code for the signed-in person |
+| Approve or refuse                 | `/device/approve`, `/device/deny` | Requires the claim first |
+| Daemon waits for its credential   | `/device/token`   | Polled at `interval`                     |
+| Expiry, single use, replay        | `expiresIn`       | Per the specification                    |
 
-`PairingClaim` maps onto verify and `PairingConfirmation` onto approve. Web handlers call the plugin
-rather than reimplementing attempt storage, code generation, or single-use enforcement.
+Two codes exist for a reason: the daemon polls with the long secret one, and shows the short one.
+Displaying the polling secret would let anyone reading the screen take the session.
+
+The daemon receives a **Better Auth session token**, not a bespoke credential. There is no Porte
+daemon token and no token hash stored anywhere.
+
+### What Porte owns
+
+1. **The host record.** Name, platform, availability, last seen.
+2. **The one-host rule.** The first release binds at most one Mac to one account.
+3. **The approval screen.** Which account is about to gain a Mac.
+
+### What Porte deliberately does not do
+
+**There is no verification phrase shown on both screens.** Between requesting a code and receiving
+a credential, the only channel from server to daemon is the token poll, which carries a credential
+or an error and nothing else. The Mac cannot be told a phrase, so it cannot display one.
+
+What the grant proves is that a signed-in person approved a specific code. What it does not prove
+is that the machine holding that code is the machine in front of them. The mitigation is the code's
+short life, its single use, and the account named on the approval screen, which is where a person
+notices they are signed in as someone they did not expect.
+
+### Where the host record is created
+
+At the daemon's **first connection**, not at approval. Only the daemon knows its name and platform,
+so creating the row earlier would mean writing a placeholder and correcting it moments later.
+
+One consequence to design for: between approval and first connect, a valid session exists with no
+host row. That window is what an account with no paired Mac looks like, and it is honest — no Mac
+has connected yet.
 
 ## Flow 1: Initiate Pairing on Desktop
 
@@ -331,97 +357,74 @@ credential.
 
 ### Happy path
 
-1. CLI checks local prerequisites and network reachability.
-2. CLI creates a short-lived pairing attempt.
-3. CLI displays the Porte pairing composition.
-4. CLI waits for the phone to claim the attempt.
-5. CLI receives the authenticated account claim and shared verification phrase.
-6. CLI shows the masked account identity and asks for explicit confirmation.
-7. User confirms the account from the CLI.
-8. Server completes the binding after the phone also confirms the host.
-9. CLI receives the one-time daemon credential.
-10. CLI stores the credential using the approved local credential mechanism.
-11. CLI starts or clearly offers to start the managed host.
-12. CLI reports “Paired and connected.”
+1. CLI requests a code pair.
+2. CLI displays the URL and the code, then waits.
+3. CLI polls at the interval the server set.
+4. Someone approves the code in a signed-in browser.
+5. CLI receives the session token and stores it, readable only by this user.
+6. CLI reports success and names the next command.
 
 ### Required states
 
-- Checking prerequisites.
-- Creating pairing attempt.
-- Waiting for phone.
-- Phone opened the attempt.
-- Waiting for authentication.
-- Waiting for phone confirmation.
-- Waiting for CLI confirmation.
-- Confirmations do not match.
-- Paired and connecting.
-- Paired and connected.
-- Attempt expired.
-- Network unavailable.
-- Server rejected the attempt.
-- Already paired.
-- Re-pair confirmation required.
-- Pairing succeeded but host connection failed.
+- Requesting a code.
+- Waiting for approval, with remaining validity.
+- Paired.
+- Code expired without approval.
+- Approval declined.
+- Porte unreachable.
+- Porte answered with something the grant does not define.
 
 ### Acceptance criteria
 
-- The QR destination opens the exact pairing attempt.
-- The short code can complete the same attempt.
-- The attempt expires and cannot be reused.
-- An authenticated phone claim alone cannot pair the host.
-- Both devices display the same verification phrase.
-- The CLI confirms a masked account identity before the server binds the host.
-- Restarting the command does not create two active host identities.
+- The code expires and cannot be reused.
+- The polling secret never appears on screen.
+- Polling stays within the server's rate limit at the interval the server set.
+- Repeating the command does not create two host identities.
 - No credential appears in normal output or shell history.
 - Non-interactive mode prints stable text without cursor control.
 - The user always receives a next action after failure.
+- Success states that the pairing lapses after a period without connecting.
 
-## Flow 2: Claim Pairing on Mobile
+## Flow 2: Approve Pairing in a Browser
 
 ### Entry
 
-The QR code opens a short-lived pairing URL. The URL preserves pairing intent through
-authentication without exposing the daemon credential.
+`/pair`, opened from the URL the CLI printed. The code can arrive in the URL or be typed.
+
+Any browser, on any device. Usually the Mac's own, since that is where the person is standing.
 
 ### Happy path
 
-1. Phone validates the pairing attempt after authentication.
-2. If signed out, the pairing route redirects to sign-in with pairing intent preserved.
-3. Sign-in shows why pairing needs an account, then OAuth returns to the same pairing URL.
-4. Phone shows the host identity and the shared verification phrase.
-5. User confirms the host from the phone.
-6. Phone waits for explicit CLI confirmation of the account.
-7. Phone reports success after both confirmations.
-8. Phone continues directly to the session home.
+1. If signed out, the route sends the user to sign-in and returns to `/pair` afterwards.
+2. The user enters the eight-character code, or it arrives prefilled.
+3. Porte validates the code and claims it for this session.
+4. The screen names the account that is about to gain a Mac, and asks for approval.
+5. The user approves.
+6. The screen confirms, and says the Mac will appear once it connects.
 
-The user does not re-enter the pairing code after authentication.
+The user does not re-enter the code after signing in.
 
 ### Required states
 
-- Validating pairing link.
-- Signed out with preserved intent.
-- Authentication pending.
-- Authentication cancelled or failed.
-- Ready to confirm host.
-- Waiting for CLI confirmation.
-- Confirmations do not match.
-- Paired successfully.
-- Attempt expired.
-- Attempt already consumed.
-- Attempt belongs to another account.
-- Host disconnected during pairing.
-- Server temporarily unavailable.
+- Entering the code.
+- Validating.
+- Ready to approve, naming the account.
+- Approving.
+- Approved.
+- Code not recognised.
+- Code expired.
+- Code already used.
+- Porte temporarily unavailable.
 
 ### Acceptance criteria
 
-- Refreshing or returning from OAuth preserves the attempt.
-- Back navigation does not silently pair the host.
-- Confirmation identifies the Mac in human language.
-- The phone shows the same verification phrase as the CLI.
-- The account and host remain unpaired until both endpoints approve.
+- Returning from sign-in preserves the code.
+- Back navigation does not silently approve.
+- The approval screen names the account, so a wrong sign-in is visible before approving.
+- Nothing is approved until the user acts; arriving at the page is not consent.
+- Expired and used codes cannot be retried as if still valid.
 - Success has a direct path to sessions.
-- Expired and consumed attempts cannot be retried as if still valid.
-- The fallback code route reaches the same confirmation state.
+- Success does not claim a Mac is paired before one has connected.
 
 ## Flow 3: Session Home
 
@@ -899,7 +902,8 @@ Each premium mobile flow must include stories for:
 
 Required page story families:
 
-- Mobile pairing: validating, sign-in required, confirm, success, expired, consumed, host lost.
+- Pairing: entering code, validating, sign-in required, ready to approve, approving, approved,
+  not recognised, expired, already used.
 - Session home: online grouped, online empty, offline, reconnecting, load failure, no paired host.
 - Account: paired, unpaired, unpairing, delete confirmation, deleting, delete failed.
 - New session: repository list, no repositories, creating, unknown result, failed.
@@ -920,9 +924,8 @@ Test:
 - Non-interactive and redirected output.
 - 80-column layout.
 - Wide terminal layout.
-- Pairing waiting, success, expiry, and failure.
-- QR data round trip.
-- Short-code fallback.
+- Pairing waiting, success, expiry, decline, and unreachable.
+- Polling interval honoured, including a server asking for a slower one.
 - Start when stopped and when already running.
 - Status for every daemon and relay state.
 - Status counts for sessions, turns, and managed processes.
@@ -957,11 +960,8 @@ A premium flow is complete only when:
 
 ## Decisions Still Required
 
-- Where the verification phrase is derived, given the plugin owns the device and user codes.
-- Whether the desktop confirmation reuses `deviceApprove` or needs a second Porte-side step.
-- Pairing attempt lifetime and refresh behavior, expressed as plugin `expiresIn` and `interval`.
 - Source and editability of the host display name.
-- Local credential storage mechanism by operating system.
+- Whether the stored credential moves from a `0600` file to the macOS Keychain.
 - First-release daemon supervisor: macOS LaunchAgent, portable process manager, or both.
 - Local lifecycle/status interface that a future macOS menu-bar helper will consume.
 - Repository discovery rules for new sessions.
