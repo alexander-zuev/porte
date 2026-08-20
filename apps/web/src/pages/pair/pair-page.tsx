@@ -8,8 +8,7 @@ export type PairPageProps = PairingFlowProps
 export function PairPage(props: PairPageProps) {
   return (
     <PublicShell footer="legal" header="brand">
-      {/* One wrapper: centres the card and caps it at a readable width. */}
-      <div className="mx-auto w-full max-w-[36rem] flex-1 px-5 pb-10">
+      <div className="w-full max-w-md">
         <PairingFlow {...props} />
       </div>
     </PublicShell>

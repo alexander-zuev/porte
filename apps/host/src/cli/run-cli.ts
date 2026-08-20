@@ -151,7 +151,7 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
 async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<number> {
   const out = createOutput(io.stderr)
   const { code, url, quiet, strong, ok } = out.emphasis
-  const interactive =  process.stdin.isTTY
+  const interactive = process.stdin.isTTY
   let stopWatching: (() => void) | undefined
 
   const paired = await pairHost({
@@ -195,7 +195,8 @@ async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<
           return
         }
         if (key.toLowerCase() === 'c') {
-          void copyToClipboard(shown).then((copied) => {
+          // The bare code, not the dashed one on screen: it is what the field takes.
+          void copyToClipboard(prompt.userCode).then((copied) => {
             // A missing clipboard tool is a small miss, so it stays quiet.
             const hint = copied ? `${ok('✓')} ${quiet('copied')}` : quiet('✗ no clipboard')
             out.rewrite(codeLine(hint), promptLine)

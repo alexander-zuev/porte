@@ -29,21 +29,27 @@ const TONE_CLASS = {
 export function PairingLayout({
   title,
   icon,
+  account,
   children,
   actions,
   footnote,
 }: {
   readonly title: string
   readonly icon?: ReactNode
+  /** Who the decision acts for. Sits with the title, not with the body. */
+  readonly account?: ReactNode
   readonly children?: ReactNode
   readonly actions?: ReactNode
   readonly footnote?: string
 }) {
   return (
     <Card className="text-center">
-      <CardContent className="flex flex-col items-center gap-4">
-        {icon}
-        <h3>{title}</h3>
+      <CardContent className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-2">
+          {icon}
+          <h3>{title}</h3>
+          {account}
+        </div>
         {children}
       </CardContent>
       {actions || footnote ? (

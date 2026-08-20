@@ -33,21 +33,22 @@ export function PublicShell({
   return (
     <main className="dark relative isolate flex min-h-svh w-full flex-col overflow-hidden bg-background text-foreground">
       {background ? <MarketingBackground /> : null}
-      {header === 'bar' ? <MarketingHeader action={action} /> : <BrandHeader />}
-      {children}
+      {header === 'bar' ? <MarketingHeader action={action} /> : null}
+      {header === 'brand' ? <BrandColumn>{children}</BrandColumn> : children}
       {footer === 'full' ? <FullFooter /> : <LegalFooter />}
     </main>
   )
 }
 
-/** The wordmark alone, centred, for a page that is one decision. */
-function BrandHeader() {
+/** Wordmark and content as one column, centred in whatever height is left. */
+function BrandColumn({ children }: { readonly children: ReactNode }) {
   return (
-    <header className="flex justify-center px-6 pt-16 pb-10">
+    <div className="flex flex-1 flex-col items-center justify-center gap-10 px-5">
       <Link aria-label="Porte home" to="/">
         <Logo size="lg" />
       </Link>
-    </header>
+      {children}
+    </div>
   )
 }
 

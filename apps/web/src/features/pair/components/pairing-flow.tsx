@@ -62,8 +62,11 @@ export function PairingFlow(props: PairingFlowProps) {
 
 function CodePairing(props: Extract<PairingFlowProps, { view: 'code-entry' }>) {
   return (
-    <PairingLayout footnote={NEVER_SENT} title="Authorize your Mac">
-      <PairingAccount image={props.accountImage} label={props.accountLabel} />
+    <PairingLayout
+      footnote={NEVER_SENT}
+      title="Authorize your Mac"
+      account={<PairingAccount image={props.accountImage} label={props.accountLabel} />}
+    >
       <p className="text-muted-foreground">
         Enter the code shown in the terminal you are pairing. Never use a code sent by someone else.
       </p>
@@ -83,6 +86,7 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
     <PairingLayout
       footnote="Your Grok login stays on the Mac. Porte never receives it."
       title="Connect this Mac?"
+      account={<PairingAccount image={props.accountImage} label={props.accountLabel} />}
       actions={
         <>
           {/* Never focused on mount: a held Enter from the code form would approve. */}
@@ -101,7 +105,6 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
         </>
       }
     >
-      <PairingAccount image={props.accountImage} label={props.accountLabel} />
       <p className="text-muted-foreground">
         A terminal asked to control coding sessions from your account. Only continue if you started
         this on your own Mac.

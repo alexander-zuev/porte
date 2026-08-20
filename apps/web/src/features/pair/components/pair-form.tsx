@@ -41,7 +41,7 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
           </FieldLabel>
           <InputOTP
             autoComplete="off"
-            containerClassName="justify-center"
+            containerClassName="w-full justify-between"
             data-1p-ignore
             data-lpignore="true"
             disabled={pending}
@@ -49,10 +49,9 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
             maxLength={PAIRING_CODE_LENGTH}
             value={code}
             aria-invalid={invalid || undefined}
-            onChange={(value) => {
-              // The terminal prints the code with a dash; the slots hold eight.
-              onCodeChange(value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
-            }}
+            // Runs before the length check, so a pasted dash cannot cost the last character.
+            pasteTransformer={(pasted) => pasted.replace(/-/g, '')}
+            onChange={onCodeChange}
           >
             <CodeGroup start={0} />
             <InputOTPSeparator />
@@ -83,7 +82,7 @@ function CodeGroup({ start }: { readonly start: number }) {
     <InputOTPGroup className="gap-2">
       {Array.from({ length: GROUP_LENGTH }, (_, offset) => (
         <InputOTPSlot
-          className="size-11 shrink-0 rounded-md border font-mono"
+          className="size-10 shrink-0 rounded-md border font-mono"
           index={start + offset}
           key={start + offset}
         />
