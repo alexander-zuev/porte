@@ -2,16 +2,15 @@ import {
   ClientEventSchemas,
   ClientMethodSchemas,
   DaemonMessageSchema,
-  ErrorMessageSchema,
-  EventMessageSchema,
   HostIdSchema,
   RequestIdSchema,
   RequestMessageSchema,
   RoutedEventSchema,
-  RoutedRequestSchema,
   RoutedResponseSchema,
   createLogger,
   sendableCloseCode,
+  type DaemonMessage,
+  type RoutedRequest,
 } from '@porte/core'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
@@ -21,7 +20,8 @@ import { createAppDeps, type AppDeps } from '../app-deps.ts'
 import type { RuntimeEnv } from '../runtime-env.ts'
 import { RelayCatalog } from './relay/relay-catalog.ts'
 import { readFrame, type JsonValue } from './relay/relay-frame.ts'
-import { RelaySockets } from './relay/relay-sockets.ts'
+import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from './relay/relay-headers.ts'
+import { RelaySockets, type ClientMessage } from './relay/relay-sockets.ts'
 import type { ClientAttachment } from './relay/socket-attachment.ts'
 
 const roleSchema = z.enum(['daemon', 'client'])
@@ -57,8 +57,8 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
   }
 
   async fetch(request: Request): Promise<Response> {
-    const role = roleSchema.safeParse(request.headers.get('x-porte-host-role'))
-    const hostId = HostIdSchema.safeParse(request.headers.get('x-porte-host-id'))
+    const role = roleSchema.safeParse(request.headers.get(RELAY_ROLE_HEADER))
+    const hostId = HostIdSchema.safeParse(request.headers.get(RELAY_HOST_ID_HEADER))
     if (!role.success || !hostId.success) return new Response('Forbidden', { status: 403 })
 
     const pair = new WebSocketPair()
@@ -107,7 +107,16 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
         await this.handleClientMessage(socket, attachment, read.json)
         return
       }
-      await this.handleDaemonMessage(read.json)
+
+      // The Mac speaks a different vocabulary, and only its own is legal here.
+      const message = DaemonMessageSchema.safeParse(read.json)
+      if (!message.success) {
+        logger.error('daemon_message_invalid', { details: { issues: message.error.message } })
+        socket.close(1007, 'invalid daemon message')
+        return
+      }
+
+      await this.handleDaemonMessage(message.data)
     } catch (error) {
       logger.error('host_message_failed', { error })
       socket.close(1011, 'host message failed')
@@ -147,14 +156,20 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     // The only question the relay can answer on its own: it holds the socket
     // and it holds the catalog, so both halves are already here.
     if (request.data.method === 'host.snapshot') {
+      // The catalog is read first, and the status only once nothing else can
+      // run. Reading the status before that await let a daemon arrive during
+      // it: the client took the online event, then this answer saying offline,
+      // and settled on the wrong one.
+      const catalog = await this.catalog.read()
+
       this.sockets.send(socket, {
         v: 1,
         type: 'result',
         requestId: request.data.requestId,
-        result: ClientMethodSchemas['host.snapshot'].result.parse({
+        result: {
           status: this.sockets.daemon() === undefined ? 'offline' : 'online',
-          catalog: await this.catalog.read(),
-        }),
+          catalog,
+        },
       })
       return
     }
@@ -171,20 +186,15 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     }
 
     // Tagged with who asked, so the answer can find its way back.
-    daemon.send(
-      JSON.stringify(
-        RoutedRequestSchema.parse({
-          route: { connectionId: attachment.connectionId },
-          message: request.data,
-        }),
-      ),
-    )
+    const routed: RoutedRequest = {
+      route: { connectionId: attachment.connectionId },
+      message: request.data,
+    }
+    daemon.send(JSON.stringify(routed))
   }
 
   /** The Mac answers or reports; the relay decides who hears it. */
-  private async handleDaemonMessage(value: JsonValue): Promise<void> {
-    const message = DaemonMessageSchema.parse(value)
-
+  private async handleDaemonMessage(message: DaemonMessage): Promise<void> {
     const response = RoutedResponseSchema.safeParse(message)
     if (response.success) {
       this.routeResponse(response.data)
@@ -244,15 +254,12 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
       return
     }
 
-    this.sockets.send(
-      socket,
-      ErrorMessageSchema.parse({
-        v: 1,
-        type: 'error',
-        requestId: identity.data.requestId,
-        error: { code: 'INVALID_REQUEST', message: 'Invalid request' },
-      }),
-    )
+    this.sockets.send(socket, {
+      v: 1,
+      type: 'error',
+      requestId: identity.data.requestId,
+      error: { code: 'INVALID_REQUEST', message: 'Invalid request' },
+    })
   }
 
   /** The one durable fact this relay produces. Nothing else here reaches D1. */
@@ -261,11 +268,7 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
   }
 }
 
-function hostStatus(status: 'online' | 'offline') {
-  return EventMessageSchema.parse({
-    v: 1,
-    type: 'event',
-    event: 'host.status',
-    data: ClientEventSchemas['host.status'].parse({ status }),
-  })
+/** Built, not parsed: the type is the contract on the way out. */
+function hostStatus(status: 'online' | 'offline'): ClientMessage {
+  return { v: 1, type: 'event', event: 'host.status', data: { status } }
 }

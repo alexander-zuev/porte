@@ -1,6 +1,6 @@
 import {
-  ClientMessageSchema,
   createConnectionId,
+  type ClientMessageSchema,
   type ConnectionId,
   type ConversationId,
   type HostId,
@@ -109,10 +109,16 @@ export class RelaySockets {
     for (const client of this.ctx.getWebSockets('client')) this.send(client, message)
   }
 
-  /** Send one message, and never to a socket that is already gone. */
+  /**
+   * Send one message, and never to a socket that is already gone.
+   *
+   * No schema on the way out. `ClientMessage` is the contract, and a message
+   * this relay built itself cannot fail it: parsing here would only re-check
+   * what the compiler already proved, on every frame.
+   */
   send(socket: WebSocket, message: ClientMessage): void {
     if (socket.readyState !== WebSocket.OPEN) return
-    socket.send(JSON.stringify(ClientMessageSchema.parse(message)))
+    socket.send(JSON.stringify(message))
   }
 
   /** Turn everyone out. The relay keeps nothing worth reconnecting to. */

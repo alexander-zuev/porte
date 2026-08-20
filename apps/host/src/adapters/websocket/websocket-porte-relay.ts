@@ -5,7 +5,6 @@ import type {
   RunPorteRelay,
 } from '@host/application/ports/porte-relay.ts'
 import {
-  DaemonMessageSchema,
   RoutedRequestSchema,
   type RoutedEvent,
   type RoutedRequest,
@@ -55,11 +54,12 @@ export class WebSocketPorteConnection implements PorteConnection {
   }
 
   sendResponse(response: RoutedResponse): void {
-    this.send(JSON.stringify(DaemonMessageSchema.parse(response)))
+    this.send(JSON.stringify(response))
   }
 
+  /** No schema on the way out: the type is the contract, and this built it. */
   private sendEvent(event: RoutedEvent): void {
-    this.send(JSON.stringify(DaemonMessageSchema.parse(event)))
+    this.send(JSON.stringify(event))
   }
 }
 
