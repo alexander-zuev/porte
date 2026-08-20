@@ -1,3 +1,4 @@
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
@@ -5,6 +6,7 @@ import { REPOSITORY_URL } from '#/lib/product.ts'
 import { Logo } from '#/ui/components/logo.tsx'
 import { MarketingBackground } from '#/ui/components/marketing-background.tsx'
 import { MarketingHeader } from '#/ui/components/marketing-header.tsx'
+import { Button } from '#/ui/components/ui/button.tsx'
 
 /** Props for the shell wrapped around every public page. */
 export type PublicShellProps = {
@@ -33,10 +35,34 @@ export function PublicShell({
   return (
     <main className="dark relative isolate flex min-h-svh w-full flex-col overflow-hidden bg-background text-foreground">
       {background ? <MarketingBackground /> : null}
-      {header === 'bar' ? <MarketingHeader action={action} /> : null}
+      {/*
+        One bar on every public page, so the outer padding never changes. A page
+        built around one decision carries only the way back: an account control
+        beside a sign-in form, or beside a pairing card, is noise.
+      */}
+      <MarketingHeader
+        action={header === 'brand' ? null : action}
+        lead={header === 'brand' ? <HomeLink /> : undefined}
+      />
       {header === 'brand' ? <BrandColumn>{children}</BrandColumn> : children}
       {footer === 'full' ? <FullFooter /> : <LegalFooter />}
     </main>
+  )
+}
+
+/** The way back, where the wordmark sits on every other page. */
+function HomeLink() {
+  return (
+    <Button
+      className="text-muted-foreground"
+      nativeButton={false}
+      size="sm"
+      variant="ghost"
+      render={<Link to="/" />}
+    >
+      <CaretLeftIcon data-icon="inline-start" />
+      Home
+    </Button>
   )
 }
 

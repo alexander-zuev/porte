@@ -37,7 +37,7 @@ function DashboardRoute() {
     },
   }
 
-  const footer = <SessionListFooter label={user.email} />
+  const footer = <SessionListFooter user={user} />
 
   if (view.isPending) {
     return (

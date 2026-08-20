@@ -32,7 +32,12 @@ const signInWithOAuth = createClientOnlyFn(
   },
 )
 
+const signOut = createClientOnlyFn(async () => {
+  await authClient.signOut()
+  logger.info('sign_out_completed')
+})
+
 /** Provide browser authentication operations. */
 export function authService() {
-  return { signInWithOAuth }
+  return { signInWithOAuth, signOut }
 }

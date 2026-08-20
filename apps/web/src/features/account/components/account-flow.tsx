@@ -5,7 +5,7 @@ import { useState } from 'react'
 
 import { hostMutations } from '#/entities/host/host-mutations.ts'
 import { hostQueryKeys } from '#/entities/host/host-queries.ts'
-import { authClient } from '#/lib/clients/auth.client.ts'
+import { authService } from '#/lib/auth/auth-service.ts'
 import { AccountPage } from '#/pages/account/account-page.tsx'
 
 import type { AccountIdentity, AccountPending } from './account-panel.tsx'
@@ -23,11 +23,18 @@ export function AccountFlow({ identity, host }: AccountFlowProps) {
   const [failure, setFailure] = useState<string>()
   const [pending, setPending] = useState<AccountPending>('none')
 
-  /** Sign-out must clear cached account state, or the next route reads a dead session. */
+  /**
+   * Sign out, then drop the cache once nothing is watching it.
+   *
+   * Invalidating here would refetch every live query under a session that no
+   * longer exists, so the page waits on its own 401s before it can leave.
+   * Clearing after the route changes has nothing left to refetch.
+   */
   async function endSession(to: '/sign-in' | '/') {
-    await authClient.signOut()
-    await queryClient.invalidateQueries()
+    await queryClient.cancelQueries()
+    await authService().signOut()
     await navigate({ to })
+    queryClient.clear()
   }
 
   const unpair = useMutation({
