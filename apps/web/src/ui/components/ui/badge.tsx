@@ -13,6 +13,14 @@ const badgeVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
         destructive:
           'bg-destructive/10 text-destructive-muted-foreground focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
+        // Muted fills: a step 3 surface behind step 11 text, bordered in its own tint.
+        // Opaque, so a badge stays legible where it straddles an edge.
+        neutral: 'border-border bg-muted text-muted-foreground',
+        success:
+          'border-status-success-muted bg-status-success-muted text-status-success-muted-foreground',
+        warning:
+          'border-status-warning-muted bg-status-warning-muted text-status-warning-muted-foreground',
+        info: 'border-status-info-muted bg-status-info-muted text-status-info-muted-foreground',
         outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
         ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
         link: 'text-primary underline-offset-4 hover:underline',

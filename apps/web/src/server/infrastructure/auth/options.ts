@@ -1,6 +1,6 @@
 import { PAIRING_CODE_LENGTH } from '@porte/core'
 import type { BetterAuthOptions } from 'better-auth'
-import { bearer, captcha, deviceAuthorization } from 'better-auth/plugins'
+import { bearer, captcha, deviceAuthorization, lastLoginMethod } from 'better-auth/plugins'
 import { v7 as uuidv7 } from 'uuid'
 
 import type { FileRouteTypes } from '#/lib/router/routeTree.gen.ts'
@@ -148,6 +148,8 @@ export function createBetterAuthOptions(
         secretKey: config?.turnstileSecretKey ?? '',
         endpoints: ['/sign-in/social'],
       }),
+      // Cookie only. Nothing reads a stored column, so the user table stays as it is.
+      lastLoginMethod(),
       // The Mac daemon has no browser, so it earns a session through RFC 8628.
       deviceAuthorization(buildDeviceAuthorization(config)),
       // The daemon holds that session as a token, not a cookie.

@@ -9,17 +9,30 @@ export type SignInPageProps = {
   /** Context shown above the providers, such as a pending pairing request. */
   readonly notice?: ReactNode
   readonly children?: ReactNode
+  /** The provider this browser signed in with last, read from the Better Auth cookie. */
+  readonly lastMethod?: string | null
   readonly onSocial: (provider: SocialProvider) => void
 }
 
 /** Sign-in screen. Failures surface as a toast, so nothing here reserves space for them. */
-export function SignInPage({ pendingProvider, notice, children, onSocial }: SignInPageProps) {
+export function SignInPage({
+  pendingProvider,
+  notice,
+  children,
+  lastMethod,
+  onSocial,
+}: SignInPageProps) {
   return (
     <SignInLayout>
+      {/* Why you are here comes before what to do about it. */}
       <div className="flex flex-col gap-6">
-        <h1 className="text-center">Sign in</h1>
         {notice}
-        <SocialSignInButtons pendingProvider={pendingProvider} onSocial={onSocial} />
+        <h1 className="text-center">Sign in to Porte</h1>
+        <SocialSignInButtons
+          lastMethod={lastMethod}
+          pendingProvider={pendingProvider}
+          onSocial={onSocial}
+        />
         {children}
       </div>
     </SignInLayout>

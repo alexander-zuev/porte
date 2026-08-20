@@ -8,6 +8,7 @@ import {
 import type { ComponentType } from 'react'
 
 import type { SocialProvider } from '#/lib/auth/social-provider.ts'
+import { Badge } from '#/ui/components/ui/badge.tsx'
 import { Button } from '#/ui/components/ui/button.tsx'
 
 const PROVIDERS: {
@@ -24,33 +25,49 @@ const PROVIDERS: {
 /** Props for the social sign-in provider list. */
 export type SocialSignInButtonsProps = {
   readonly pendingProvider: SocialProvider | undefined
+  /** The provider this browser signed in with last, read from the Better Auth cookie. */
+  readonly lastMethod?: string | null
   readonly onSocial: (provider: SocialProvider) => void
 }
 
 /** Render Google, Apple, GitHub, and X as full-width sign-in actions. */
-export function SocialSignInButtons({ pendingProvider, onSocial }: SocialSignInButtonsProps) {
+export function SocialSignInButtons({
+  pendingProvider,
+  lastMethod,
+  onSocial,
+}: SocialSignInButtonsProps) {
   const pending = pendingProvider !== undefined
 
   return (
     <div className="flex w-full flex-col gap-3">
       {PROVIDERS.map(({ provider, label, Icon }) => (
-        <Button
-          key={provider}
-          className="w-full"
-          disabled={pending}
-          type="button"
-          variant="outline"
-          onClick={() => {
-            onSocial(provider)
-          }}
-        >
-          {pendingProvider === provider ? (
-            <SpinnerGapIcon className="animate-spin" data-icon="inline-start" />
-          ) : (
-            <Icon data-icon="inline-start" />
+        <div key={provider} className="relative">
+          <Button
+            className="w-full"
+            disabled={pending}
+            type="button"
+            variant="outline"
+            onClick={() => {
+              onSocial(provider)
+            }}
+          >
+            {pendingProvider === provider ? (
+              <SpinnerGapIcon className="animate-spin" data-icon="inline-start" />
+            ) : (
+              <Icon data-icon="inline-start" />
+            )}
+            {label}
+          </Button>
+          {/* Centred on the top-right corner, astride both borders. */}
+          {lastMethod === provider && (
+            <Badge
+              className="pointer-events-none absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 animate-in duration-200 fade-in"
+              variant="neutral"
+            >
+              Last used
+            </Badge>
           )}
-          {label}
-        </Button>
+        </div>
       ))}
     </div>
   )

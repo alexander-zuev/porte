@@ -12,6 +12,8 @@ import { toast } from '#/ui/components/ui/sonner.tsx'
 export type SignInFlowProps = {
   readonly redirectTo: string
   readonly notice?: React.ReactNode
+  /** The provider this browser signed in with last, read from the Better Auth cookie. */
+  readonly lastMethod?: string | null
 }
 
 type OAuthVariables = {
@@ -30,7 +32,7 @@ function signInFailureDetail(cause: unknown): string {
 }
 
 /** Run the social sign-in interaction and preserve its validated destination. */
-export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
+export function SignInFlow({ redirectTo, notice, lastMethod }: SignInFlowProps) {
   const [verifyingProvider, setVerifyingProvider] = useState<SocialProvider>()
   const turnstileRef = useRef<TurnstileInstance | null>(null)
 
@@ -69,6 +71,7 @@ export function SignInFlow({ redirectTo, notice }: SignInFlowProps) {
 
   return (
     <SignInPage
+      lastMethod={lastMethod}
       notice={notice}
       pendingProvider={oauth.isPending ? oauth.variables.provider : verifyingProvider}
       onSocial={(provider) => {

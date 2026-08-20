@@ -45,6 +45,11 @@
   --status-info-muted-foreground: var(--blue-11);
   --status-warning-muted-foreground: var(--amber-11);
   --status-success-muted-foreground: var(--green-11);
+  /* Step 3 is the tinted surface that carries step 11 text at full contrast. */
+  --status-info-muted: var(--blue-3);
+  --status-warning-muted: var(--amber-3);
+  --status-success-muted: var(--green-3);
+  --destructive-muted: var(--red-3);
   --overlay: var(--black-a9);
 
   --card: var(--surface);
@@ -99,6 +104,10 @@
   --color-status-info-muted-foreground: var(--status-info-muted-foreground);
   --color-status-warning-muted-foreground: var(--status-warning-muted-foreground);
   --color-status-success-muted-foreground: var(--status-success-muted-foreground);
+  --color-status-info-muted: var(--status-info-muted);
+  --color-status-warning-muted: var(--status-warning-muted);
+  --color-status-success-muted: var(--status-success-muted);
+  --color-destructive-muted: var(--destructive-muted);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

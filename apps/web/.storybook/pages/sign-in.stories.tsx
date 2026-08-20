@@ -30,6 +30,15 @@ export const Pending: Story = {
   },
 }
 
+/** A returning visitor: the cookie from the last sign-in marks the provider to reuse. */
+export const LastUsed: Story = {
+  args: {
+    lastMethod: 'google',
+    pendingProvider: undefined,
+    onSocial: () => undefined,
+  },
+}
+
 export const WithPairingNotice: Story = {
   args: {
     notice: <PairingSignInNotice />,
