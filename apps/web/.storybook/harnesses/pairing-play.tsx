@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { PairingSignInNotice } from '#/features/auth/components/pairing-sign-in-notice.tsx'
+import type { SessionListProps } from '#/features/dashboard/components/session-list.tsx'
 import type { SocialProvider } from '#/lib/auth/social-provider.ts'
 import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
 import { PairPage } from '#/pages/pair/pair-page.tsx'
@@ -16,6 +17,21 @@ const HOST = {
 const ACCOUNT = 'a•••@example.com'
 const PHRASE = 'quiet cedar seven'
 const INVALID_CODE = 'ZZZZZZ'
+
+/** Where every pairing journey lands. Only a paired Mac has sessions to list. */
+function homeList(paired: boolean): SessionListProps {
+  return {
+    state: 'ready',
+    hostName: HOST.name,
+    hostStatus: paired ? 'online' : 'offline',
+    sessions: paired ? sessions : [],
+    runningSessionIds: new Set<string>(),
+    onOpenSession: () => undefined,
+    onStartSession: () => undefined,
+    onPair: () => undefined,
+    onRetry: () => undefined,
+  }
+}
 
 /** Starting screen for a playable pairing story. */
 export type PairingPlayStart =
@@ -164,14 +180,7 @@ export function PairingPlay({
   }
 
   if (screen.kind === 'home') {
-    return (
-      <DashboardPage
-        online={screen.paired}
-        sessions={screen.paired ? sessions : []}
-        onOpenSession={() => undefined}
-        onStartSession={() => undefined}
-      />
-    )
+    return <DashboardPage list={homeList(screen.paired)} view="sessions" />
   }
 
   if (screen.kind === 'validating') {
@@ -286,14 +295,7 @@ export function SignInPlay() {
   }, [])
 
   if (signedIn) {
-    return (
-      <DashboardPage
-        online={false}
-        sessions={[]}
-        onOpenSession={() => undefined}
-        onStartSession={() => undefined}
-      />
-    )
+    return <DashboardPage list={homeList(false)} view="sessions" />
   }
 
   return (
