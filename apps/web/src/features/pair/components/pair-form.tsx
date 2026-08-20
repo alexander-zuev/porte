@@ -1,4 +1,5 @@
 import { LinkIcon } from '@phosphor-icons/react'
+import { PAIRING_CODE_LENGTH } from '@porte/core'
 
 import { Button } from '#/ui/components/ui/button.tsx'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#/ui/components/ui/field.tsx'
@@ -36,24 +37,22 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
             containerClassName="w-full justify-center"
             disabled={pending}
             id="pair-code"
-            maxLength={6}
+            maxLength={PAIRING_CODE_LENGTH}
             value={code}
             aria-invalid={invalid || undefined}
             onChange={(value) => {
               onCodeChange(value.toUpperCase())
             }}
           >
+            {/* Slots follow the shared length, so the form cannot drift from the code. */}
             <InputOTPGroup className="justify-center">
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
+              {Array.from({ length: PAIRING_CODE_LENGTH }, (_, index) => (
+                <InputOTPSlot index={index} key={index} />
+              ))}
             </InputOTPGroup>
           </InputOTP>
           <FieldDescription className="text-center">
-            Six characters from porte pair
+            Eight characters from porte pair
           </FieldDescription>
         </Field>
       </FieldGroup>

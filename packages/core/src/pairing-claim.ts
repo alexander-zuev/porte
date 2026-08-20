@@ -2,12 +2,19 @@ import { z } from 'zod'
 
 import { HostDescriptorSchema } from './host.ts'
 
-/** Six characters printed beside the QR code. */
+/**
+ * The code the CLI prints and the person types.
+ *
+ * Eight characters is the plugin's own default. It leaves a space large enough
+ * that guessing stays impractical even if a rate limiter were to fail open.
+ */
+export const PAIRING_CODE_LENGTH = 8
+
 export const PairingCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[A-Z0-9]{6}$/, { error: 'Enter the six characters shown in the terminal' })
+  .regex(/^[A-Z0-9]{8}$/, { error: 'Enter the eight characters shown in the terminal' })
 export type PairingCode = z.infer<typeof PairingCodeSchema>
 
 /**

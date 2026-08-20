@@ -3,6 +3,7 @@ import type { HostCoordinator } from '../application/ports/host-coordinator'
 import type { HostRepository } from '../domain/host/host.repository.ts'
 import { getAuthInstance } from './auth/auth.ts'
 import { DevelopmentHostAuthenticator } from './auth/development-host-authenticator'
+import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
 import { HostCoordinatorClient } from './cloudflare/host-coordinator-client'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
 import { createDatabase } from './persistence/database/connection.ts'
@@ -27,6 +28,8 @@ export type AppDeps = {
   auth: () => AuthInstance
   /** Short-lived auth records, kept out of D1. */
   authStorage: ReturnType<typeof createKvSecondaryStorage>
+  /** Counts auth requests per address and path. */
+  authRateLimit: ReturnType<typeof createAuthRateLimitStorage>
   /** Command-side persistence for the host aggregate. Queries read directly. */
   hosts: HostRepository
   hostAuthenticator: HostAuthenticator
@@ -51,6 +54,7 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
     // long after deps is built, so reading deps here is safe.
     auth: once(() => getAuthInstance(deps)),
     authStorage: createKvSecondaryStorage(env.AUTH_KV),
+    authRateLimit: createAuthRateLimitStorage(env.AUTH_RATE_LIMIT),
     // Takes the getter, not the connection, so it follows a middleware rebind.
     hosts: new DrizzleHostRepository(() => current()),
     executionCtx,

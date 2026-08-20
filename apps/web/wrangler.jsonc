@@ -48,6 +48,15 @@
       ],
       // Sessions live here, so an authenticated request does not read D1.
       "kv_namespaces": [{ "binding": "AUTH_KV", "id": "local-porte-auth-kv" }],
+      // Better Auth keys its limiter by address and path, so one bucket per
+      // endpoint. Generous for a person, useless for guessing a pairing code.
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "2001",
+          "simple": { "limit": 30, "period": 10 },
+        },
+      ],
       "durable_objects": {
         "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
       },
@@ -89,6 +98,13 @@
         },
       ],
       "kv_namespaces": [{ "binding": "AUTH_KV", "id": "7da1c30d74e34d9987cc8789fdda0e2c" }],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "2001",
+          "simple": { "limit": 30, "period": 10 },
+        },
+      ],
       "durable_objects": {
         "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
       },
@@ -125,6 +141,13 @@
         },
       ],
       "kv_namespaces": [{ "binding": "AUTH_KV", "id": "test-porte-auth-kv" }],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "2001",
+          "simple": { "limit": 30, "period": 10 },
+        },
+      ],
       "durable_objects": {
         "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
       },

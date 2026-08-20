@@ -40,6 +40,7 @@ export function getAuthInstance(deps: AppDeps) {
         turnstileSecretKey: env.TURNSTILE_SECRET_KEY,
         isDevelopment: env.ENVIRONMENT === 'dev',
         secondaryStorage: deps.authStorage,
+        rateLimitStorage: deps.authRateLimit,
         waitUntil: (promise) => {
           deps.executionCtx.waitUntil(promise)
         },
