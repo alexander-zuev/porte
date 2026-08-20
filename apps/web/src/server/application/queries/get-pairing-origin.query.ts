@@ -1,6 +1,10 @@
 import { IsoDateTimeSchema, type PairingOrigin } from '@porte/core'
 
-import type { PairingOrigins, PairingRequestRecord } from '../ports/pairing-origins.ts'
+import type {
+  PairingOrigins,
+  PairingRequestRecord,
+  RequestOrigin,
+} from '../ports/pairing-origins.ts'
 
 /** Where a code was asked for, judged against where it is being answered. */
 export async function getPairingOrigin(
@@ -25,20 +29,20 @@ export function resolveOrigin(
   if (request === null) return { origin: 'unknown' }
 
   const requestedAt = IsoDateTimeSchema.parse(request.requestedAt.toISOString())
-  if (approvingFrom !== null && request.ipAddress === approvingFrom) {
+  if (approvingFrom !== null && request.origin.ipAddress === approvingFrom) {
     return { origin: 'this-device', requestedAt }
   }
 
   return {
     origin: 'elsewhere',
-    location: describe(request),
-    ipAddress: request.ipAddress,
+    location: describe(request.origin),
+    ipAddress: request.origin.ipAddress,
     requestedAt,
   }
 }
 
 /** City and country when both are known, whichever exists when one is not. */
-function describe(request: PairingRequestRecord): string {
-  if (request.city && request.country) return `${request.city}, ${request.country}`
-  return request.city ?? request.country ?? 'an unknown location'
+function describe(origin: RequestOrigin): string {
+  if (origin.city && origin.country) return `${origin.city}, ${origin.country}`
+  return origin.city ?? origin.country ?? 'an unknown location'
 }

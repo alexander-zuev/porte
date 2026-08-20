@@ -1,5 +1,5 @@
 import { ArrowLeftIcon, DesktopIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import type { HostDescriptor } from '@porte/core'
+import { platformLabel, type HostDescriptor } from '@porte/core'
 import { Logo } from '@web/ui/components/logo.tsx'
 import {
   AlertDialog,
@@ -79,7 +79,7 @@ function ActiveHost(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 flex-col gap-1">
               <CardTitle className="truncate">{props.host.name}</CardTitle>
-              <CardDescription>{props.host.platform}</CardDescription>
+              <CardDescription>{platformLabel(props.host.platform)}</CardDescription>
             </div>
             <Badge variant={status.variant}>{status.label}</Badge>
           </div>

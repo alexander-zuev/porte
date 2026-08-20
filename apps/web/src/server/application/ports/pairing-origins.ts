@@ -1,15 +1,25 @@
-/** Where and when a pairing code was asked for. */
-export type PairingRequestRecord = {
+import type { HostDescriptor } from '@porte/core'
+
+/** Where a request reached Porte from, as the edge resolved it. */
+export type RequestOrigin = {
   readonly ipAddress: string
+  /** Two-letter code and city. Either may be absent. */
   readonly country: string | null
   readonly city: string | null
+}
+
+/** What asked for a pairing code, from where, and when. */
+export type PairingRequestRecord = {
+  /** As the machine named itself. */
+  readonly host: HostDescriptor
+  readonly origin: RequestOrigin
   readonly requestedAt: Date
 }
 
 /**
- * Remembers where each pairing code came from.
+ * Remembers what asked for each pairing code and where it came from.
  *
- * Only the request moment can answer that: by the time someone approves, the
+ * Only the request moment can answer either: by the time someone approves, the
  * headers describe whoever is approving. A record is written when the code is
  * issued and dropped once the code is decided.
  */

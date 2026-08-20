@@ -15,6 +15,7 @@ import {
   PAIRING_CODE_PATH,
   PORTE_CLI_CLIENT_ID,
   type DeviceTokenError,
+  type HostDescriptor,
 } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
@@ -52,9 +53,13 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
     this.fetch = createFetch({ baseURL: baseUrl, schema: grantSchema, throw: false })
   }
 
-  async requestCode(): Promise<ResultType<DeviceCodeGrant, PairingError>> {
+  async requestCode(host: HostDescriptor): Promise<ResultType<DeviceCodeGrant, PairingError>> {
     const { data, error } = await this.fetch(`@post${PAIRING_CODE_PATH}`, {
-      body: { client_id: PORTE_CLI_CLIENT_ID },
+      body: {
+        client_id: PORTE_CLI_CLIENT_ID,
+        host_name: host.name,
+        host_platform: host.platform,
+      },
       output: DeviceCodeResponseSchema,
     })
     if (error) return Result.err(transportError(error))

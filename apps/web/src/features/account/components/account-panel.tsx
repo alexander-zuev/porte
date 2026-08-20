@@ -1,4 +1,4 @@
-import type { PairedHost } from '@porte/core'
+import { platformLabel, type PairedHost } from '@porte/core'
 import { formatDateTime } from '@web/lib/format-date.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -72,7 +72,7 @@ export function AccountPanel({
                   </small>
                 ) : null}
               </div>
-              <small className="text-muted-foreground">{host.platform}</small>
+              <small className="text-muted-foreground">{platformLabel(host.platform)}</small>
             </div>
             <p className="text-muted-foreground">
               Unpairing stops remote control. The Mac keeps its sessions and files.

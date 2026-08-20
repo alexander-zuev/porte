@@ -1,3 +1,4 @@
+import { HOST_PLATFORMS } from '@porte/core'
 import { relations, sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -22,7 +23,7 @@ export const host = sqliteTable(
       .unique()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    platform: text('platform').notNull(),
+    platform: text('platform', { enum: HOST_PLATFORMS }).notNull(),
     /** Set by unpairing. A revoked host is refused even with a valid session. */
     revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
     /** Last time the relay held a live connection. Availability is derived, never stored. */

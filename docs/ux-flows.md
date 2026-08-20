@@ -81,14 +81,12 @@ not in an introduction.
 
 Ordered. Each item unblocks the one after it.
 
-1. Write the `host` row when the user approves, not on first daemon connect. Nothing records
-   pairing today, which is why a paired account still sees "Pair your Mac".
-2. The CLI sends `x-porte-host-name` and `x-porte-host-platform` with the device-code request, so
-   the confirm screen can name the Mac instead of showing a bare code.
-3. Delete the `lastSeenAt ?? createdAt` fallback. It invents an observation Porte never made.
-4. `/dashboard` redirects to `/pair` when the account owns no Mac.
-5. Split `/pair` into step 1 (the command) and `/pair/code` (code entry), and label both.
-6. `porte up` installs a launchd agent so the daemon survives logout and reboot. `porte stop` ends
+1. Close the pairing loop end to end, from the code request to a live relay connection. Nothing
+   records pairing today, which is why a paired account still sees "Pair your Mac", and the relay
+   still authenticates with a development secret. Specified in `pair-and-connect.md`.
+2. `/dashboard` redirects to `/pair` when the account owns no Mac.
+3. Split `/pair` into step 1 (the command) and `/pair/code` (code entry), and label both.
+4. `porte up` installs a launchd agent so the daemon survives logout and reboot. `porte stop` ends
    it; `porte unpair` ends the pairing. `porte up --foreground` stays for development.
 
 ## Experience Contract

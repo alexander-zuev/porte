@@ -1,4 +1,5 @@
 import { copyToClipboard } from '@host/adapters/node/clipboard.ts'
+import { describeThisMachine } from '@host/adapters/node/machine.ts'
 import { openUrl } from '@host/adapters/node/open-url.ts'
 import { ConfigError } from '@host/application/host-error.ts'
 import { pairHost } from '@host/application/pair-host.ts'
@@ -154,6 +155,7 @@ async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<
     authorizer: host.authorizer,
     credentials: host.credentials,
     baseUrl,
+    host: describeThisMachine(),
     onPrompt: (prompt) => {
       const shown = formatPairingCode(prompt.userCode)
       const waiting = `Waiting for approval — the code expires in ${String(

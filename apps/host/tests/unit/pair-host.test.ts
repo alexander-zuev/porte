@@ -66,6 +66,7 @@ function pair(
     authorizer,
     credentials,
     baseUrl: 'https://useporte.dev',
+    host: { name: 'a-mac', platform: 'darwin' },
     onPrompt,
     sleep: clock.sleep,
     now: clock.now,

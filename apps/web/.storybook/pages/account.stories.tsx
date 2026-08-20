@@ -6,13 +6,13 @@ const identity = { name: 'Alexander Zuev', email: 'azuevpersonal@gmail.com' }
 
 const onlineHost = {
   name: "Alexander's MacBook Pro",
-  platform: 'macOS 15.5',
+  platform: 'darwin',
   availability: 'online',
 } satisfies PairedHost
 
 const offlineHost = {
   name: "Alexander's MacBook Pro",
-  platform: 'macOS 15.5',
+  platform: 'darwin',
   availability: 'offline',
   lastSeenAt: '2026-08-19T14:02:00.000Z',
 } as PairedHost

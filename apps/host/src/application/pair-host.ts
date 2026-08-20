@@ -1,3 +1,4 @@
+import type { HostDescriptor } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { CredentialStoreError } from './host-error.ts'
@@ -27,6 +28,8 @@ export type PairHostInput = {
   readonly authorizer: DeviceAuthorizer
   readonly credentials: CredentialStore
   readonly baseUrl: string
+  /** What this Mac is called. Only the machine asking for a code knows it. */
+  readonly host: HostDescriptor
   /** Called once, as soon as there is a code worth showing. */
   readonly onPrompt: (prompt: PairingPrompt) => void
   /** Injected so tests do not wait in real time. */
@@ -45,7 +48,7 @@ export type PairHostInput = {
 export async function pairHost(
   input: PairHostInput,
 ): Promise<ResultType<PairingOutcome, PairingError | CredentialStoreError>> {
-  const requested = await input.authorizer.requestCode()
+  const requested = await input.authorizer.requestCode(input.host)
   if (requested.isErr()) return Result.err(requested.error)
 
   const grant = requested.value

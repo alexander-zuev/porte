@@ -1,4 +1,4 @@
-import type { HostId, UserId } from '@porte/core'
+import type { HostId, HostPlatform, UserId } from '@porte/core'
 
 /**
  * The Mac one account controls.
@@ -13,7 +13,7 @@ export type HostSnapshot = {
   readonly id: HostId
   readonly userId: UserId
   readonly name: string
-  readonly platform: string
+  readonly platform: HostPlatform
   readonly revokedAt: Date | null
   readonly lastSeenAt: Date | null
 }
@@ -21,7 +21,7 @@ export type HostSnapshot = {
 /** What a daemon tells us about itself when it connects. */
 export type HostAnnouncement = {
   readonly name: string
-  readonly platform: string
+  readonly platform: HostPlatform
   readonly at: Date
 }
 
@@ -46,7 +46,7 @@ export class Host {
     id: HostId
     userId: UserId
     name: string
-    platform: string
+    platform: HostPlatform
     at: Date
   }): Host {
     return new Host({

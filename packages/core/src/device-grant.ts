@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { HostPlatformSchema } from './host.ts'
+
 /**
  * The device authorization grant, shared by the daemon and the Worker.
  *
@@ -22,9 +24,18 @@ export const PAIRING_CODE_PATH = '/api/pair/code' as const
 /** RFC 8628 fixes this value; the token request is invalid without it. */
 export const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
-/** What a device sends to ask for a code. RFC 8628 names the field. */
+/**
+ * What a device sends to ask for a code.
+ *
+ * `client_id` is RFC 8628's. The two host fields are Porte's own extension,
+ * which the grant allows: only the machine asking knows what it is called, and
+ * by approval time the request describes whoever approves. They travel in the
+ * body because a name may hold any character and a header may not.
+ */
 export const DeviceCodeRequestSchema = z.object({
   client_id: z.string().min(1),
+  host_name: z.string().min(1),
+  host_platform: HostPlatformSchema,
 })
 export type DeviceCodeRequest = z.infer<typeof DeviceCodeRequestSchema>
 

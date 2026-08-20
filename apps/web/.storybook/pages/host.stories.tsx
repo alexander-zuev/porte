@@ -3,7 +3,7 @@ import { HostPage } from '@web/pages/host/host-page.tsx'
 
 const HOST = {
   name: "Alexander's MacBook Pro",
-  platform: 'macOS',
+  platform: 'darwin',
 } as const
 
 const actions = {

@@ -1,4 +1,5 @@
 import type { PairingError } from '@host/application/pairing-error.ts'
+import type { HostDescriptor } from '@porte/core'
 import type { Result } from 'better-result'
 
 /** What the server hands back when a device asks to be authorized. */
@@ -41,8 +42,8 @@ export type DevicePollResult =
  * is the only one that can take it back.
  */
 export interface DeviceAuthorizer {
-  /** Ask for a code the person can approve elsewhere. */
-  requestCode(): Promise<Result<DeviceCodeGrant, PairingError>>
+  /** Ask for a code the person can approve elsewhere, naming the Mac that asked. */
+  requestCode(host: HostDescriptor): Promise<Result<DeviceCodeGrant, PairingError>>
 
   /** Ask once whether approval has happened yet. */
   poll(deviceCode: string): Promise<Result<DevicePollResult, PairingError>>
