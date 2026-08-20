@@ -41,6 +41,7 @@
     "@posthog/react": "catalog:",
     "@radix-ui/colors": "catalog:",
     "@radix-ui/react-use-controllable-state": "catalog:",
+    "@remixicon/react": "catalog:",
     "@sentry/cloudflare": "catalog:",
     "@sentry/tanstackstart-react": "catalog:",
     "@tailwindcss/vite": "catalog:",

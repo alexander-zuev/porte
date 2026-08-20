@@ -90,6 +90,7 @@ catalog:
   ogl: ^1.0.11
   sonner: ^2.0.8
   picocolors: ^1.1.1
+  '@remixicon/react': ^4.9.0
 
 allowBuilds:
   '@sentry/cli': true

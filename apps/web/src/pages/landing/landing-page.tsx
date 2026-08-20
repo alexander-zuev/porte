@@ -1,11 +1,10 @@
 import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
-import { Link } from '@tanstack/react-router'
+import { RiGrokAiFill } from '@remixicon/react'
 import type { ReactNode } from 'react'
 
 import { PAIR_COMMAND } from '#/lib/product.ts'
 import { PublicShell } from '#/ui/components/public-shell.tsx'
 import { TerminalCommand } from '#/ui/components/terminal-command.tsx'
-import { Button } from '#/ui/components/ui/button.tsx'
 
 const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
   { icon: <ShieldCheckIcon aria-hidden />, label: 'Adds no new permissions' },
@@ -16,10 +15,17 @@ const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
 /** Single-screen marketing entry that sends visitors to the pairing command. */
 export function LandingPage() {
   return (
-    <PublicShell background action={<SignInAction />}>
+    <PublicShell background>
       <div className="flex flex-1 flex-col justify-center">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-14 md:px-10">
           <h1 className="text-display-hero max-w-[16ch]">
+            {/* The icon writes its own width attribute, so em sizing goes through
+                `size`, not a class. A shade over cap height, so the mark leads. */}
+            <RiGrokAiFill
+              aria-hidden
+              className="mr-[0.18em] inline-block align-baseline"
+              size="0.8em"
+            />
             Grok stays on your Mac.
             <br />
             <span className="text-muted-foreground">You do not have to.</span>
@@ -44,13 +50,5 @@ export function LandingPage() {
         </div>
       </div>
     </PublicShell>
-  )
-}
-
-function SignInAction() {
-  return (
-    <Button nativeButton={false} size="sm" variant="ghost" render={<Link to="/sign-in" />}>
-      Sign in
-    </Button>
   )
 }

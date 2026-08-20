@@ -250,6 +250,9 @@ catalogs:
     '@radix-ui/react-use-controllable-state':
       specifier: ^1.2.6
       version: 1.2.6
+    '@remixicon/react':
+      specifier: ^4.9.0
+      version: 4.9.0
     '@sentry/cloudflare':
       specifier: ^10.70.0
       version: 10.70.0
@@ -532,6 +535,9 @@ importers:
       '@radix-ui/react-use-controllable-state':
         specifier: 'catalog:'
         version: 1.2.6(@types/react@19.2.18)(react@19.2.8)
+      '@remixicon/react':
+        specifier: 'catalog:'
+        version: 4.9.0(react@19.2.8)
       '@sentry/cloudflare':
         specifier: 'catalog:'
         version: 10.70.0(supports-color@10.2.2)(wrangler@4.123.0)
@@ -2891,6 +2897,11 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  '@remixicon/react@4.9.0':
+    resolution: {integrity: sha512-5/jLDD4DtKxH2B4QVXTobvV1C2uL8ab9D5yAYNtFt+w80O0Ys1xFOrspqROL3fjrZi+7ElFUWE37hBfaAl6U+Q==}
+    peerDependencies:
+      react: '>=18.2.0'
 
   '@rolldown/binding-android-arm64@1.0.0-rc.17':
     resolution: {integrity: sha512-s70pVGhw4zqGeFnXWvAzJDlvxhlRollagdCCKRgOsgUOH3N1l0LIxf83AtGzmb5SiVM4Hjl5HyarMRfdfj3DaQ==}
@@ -8518,6 +8529,10 @@ snapshots:
       react: 19.2.8
     optionalDependencies:
       '@types/react': 19.2.18
+
+  '@remixicon/react@4.9.0(react@19.2.8)':
+    dependencies:
+      react: 19.2.8
 
   '@rolldown/binding-android-arm64@1.0.0-rc.17':
     optional: true
