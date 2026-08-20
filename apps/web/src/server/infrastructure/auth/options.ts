@@ -87,12 +87,16 @@ function buildDeviceAuthorization(
  * Shared Better Auth options for the Worker and `better-auth-generate`.
  *
  * Omit `config` in CLI mode so schema generation does not need Worker bindings.
+ *
+ * The return type is inferred, never annotated. `betterAuth` reads the plugin
+ * list to type `auth.api`, so declaring `BetterAuthOptions` here would widen
+ * the list and leave every plugin endpoint missing from the instance.
  */
 export function createBetterAuthOptions(
   database: NonNullable<BetterAuthOptions['database']>,
   config?: AuthRuntimeConfig,
   additionalPlugins?: BetterAuthOptions['plugins'],
-): BetterAuthOptions {
+) {
   return {
     appName: 'Porte',
     secret: config?.secret,

@@ -1,7 +1,9 @@
 import type { HostAuthenticator } from '../application/ports/host-authenticator'
 import type { HostCoordinator } from '../application/ports/host-coordinator'
+import type { PairingAuthority } from '../application/ports/pairing-authority.ts'
 import type { HostRepository } from '../domain/host/host.repository.ts'
 import { getAuthInstance } from './auth/auth.ts'
+import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
 import { DevelopmentHostAuthenticator } from './auth/development-host-authenticator'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
 import { HostCoordinatorClient } from './cloudflare/host-coordinator-client'
@@ -32,6 +34,8 @@ export type AppDeps = {
   authRateLimit: ReturnType<typeof createAuthRateLimitStorage>
   /** Command-side persistence for the host aggregate. Queries read directly. */
   hosts: HostRepository
+  /** Pairing codes, run by the device authorization plugin. Request-scoped. */
+  pairingAuthority: PairingAuthority
   hostAuthenticator: HostAuthenticator
   hostCoordinator: HostCoordinator
   executionCtx: ExecutionContext
@@ -57,6 +61,8 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
     authRateLimit: createAuthRateLimitStorage(env.AUTH_RATE_LIMIT),
     // Takes the getter, not the connection, so it follows a middleware rebind.
     hosts: new DrizzleHostRepository(() => current()),
+    // Same reason it takes the getter: the auth instance is built on first use.
+    pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
     executionCtx,
     hostAuthenticator: new DevelopmentHostAuthenticator(
       env.PORTE_DEV_DAEMON_TOKEN,

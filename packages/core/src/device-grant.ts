@@ -41,10 +41,21 @@ export const DeviceTokenErrorSchema = z.object({
     'slow_down',
     'access_denied',
     'expired_token',
-    'invalid_request',
     'invalid_grant',
-    'invalid_client',
-    'device_code_already_processed',
   ]),
 })
 export type DeviceTokenError = z.infer<typeof DeviceTokenErrorSchema>
+
+/**
+ * How the browser-facing endpoints report a refusal.
+ *
+ * Every code `/device`, `/device/approve`, and `/device/deny` can send. Only
+ * the code is listed: the `error_description` beside it on the wire is prose
+ * for a person, and deciding from it would tie a branch to the wording. A code
+ * outside this set does not parse, so it stays an error rather than being
+ * silently read as one of these.
+ */
+export const DeviceDecisionErrorSchema = z.object({
+  error: z.enum(['invalid_request', 'expired_token', 'access_denied', 'unauthorized']),
+})
+export type DeviceDecisionError = z.infer<typeof DeviceDecisionErrorSchema>

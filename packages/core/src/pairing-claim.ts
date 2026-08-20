@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-import { HostDescriptorSchema } from './host.ts'
-
 /**
  * The code the CLI prints and the person types.
  *
@@ -10,42 +8,59 @@ import { HostDescriptorSchema } from './host.ts'
  */
 export const PAIRING_CODE_LENGTH = 8
 
+/** The dash is optional: it is printed for readability and stripped on arrival. */
 export const PairingCodeSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[A-Z0-9]{8}$/, { error: 'Enter the eight characters shown in the terminal' })
+  .regex(/^[A-Z0-9]{4}-?[A-Z0-9]{4}$/, {
+    error: 'Enter the eight characters shown in the terminal',
+  })
 export type PairingCode = z.infer<typeof PairingCodeSchema>
 
+/** Split the code in half so the eye can hold it between screen and keyboard. */
+export function formatPairingCode(code: string): string {
+  return `${code.slice(0, 4)}-${code.slice(4)}`
+}
+
 /**
- * What claiming a pairing attempt returns.
+ * What claiming a pairing code returns.
  *
- * A claim never pairs on its own. The best case is a request to confirm, which
- * still needs the phrase to match on both devices.
+ * Claiming binds a pending code to the signed-in account and nothing more. The
+ * person still has to decide, which is the whole reason the two steps are
+ * separate. Which account they are signed in as is already on the page, so a
+ * claim does not repeat it.
  */
 export const PairingClaimSchema = z.discriminatedUnion('state', [
-  z.object({
-    state: z.literal('confirm'),
-    host: HostDescriptorSchema,
-    /** The Porte account doing the pairing, shown so the user can check it. */
-    accountLabel: z.string().min(1),
-    verificationPhrase: z.string().min(1),
-  }),
+  z.object({ state: z.literal('claimed') }),
   z.object({ state: z.literal('invalid') }),
   z.object({ state: z.literal('expired') }),
-  z.object({ state: z.literal('consumed') }),
-  z.object({ state: z.literal('account-conflict') }),
-  z.object({ state: z.literal('host-disconnected') }),
-  z.object({ state: z.literal('server-unavailable') }),
+  z.object({ state: z.literal('already-decided') }),
 ])
 export type PairingClaim = z.infer<typeof PairingClaimSchema>
 
-/** What confirming the phrase returns. */
-export const PairingConfirmationSchema = z.discriminatedUnion('state', [
-  z.object({ state: z.literal('paired'), host: HostDescriptorSchema }),
-  z.object({ state: z.literal('waiting-for-desktop') }),
-  z.object({ state: z.literal('confirmation-mismatch') }),
-  z.object({ state: z.literal('host-disconnected') }),
-  z.object({ state: z.literal('server-unavailable') }),
+/** What the person chose about a Mac that is waiting on a code. */
+export const PairingVerdictSchema = z.enum(['approve', 'deny'])
+export type PairingVerdict = z.infer<typeof PairingVerdictSchema>
+
+/** One claimed code and one answer to it. */
+export const PairingDecisionInputSchema = z.object({
+  code: PairingCodeSchema,
+  verdict: PairingVerdictSchema,
+})
+export type PairingDecisionInput = z.infer<typeof PairingDecisionInputSchema>
+
+/**
+ * What approving or denying a claimed code returns.
+ *
+ * One shape for both, because the two decisions can fail in exactly the same
+ * ways. `not-yours` is the race where another account claimed the code first;
+ * claiming cannot detect it, so it surfaces here.
+ */
+export const PairingDecisionSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('done') }),
+  z.object({ state: z.literal('expired') }),
+  z.object({ state: z.literal('already-decided') }),
+  z.object({ state: z.literal('not-yours') }),
 ])
-export type PairingConfirmation = z.infer<typeof PairingConfirmationSchema>
+export type PairingDecision = z.infer<typeof PairingDecisionSchema>
