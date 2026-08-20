@@ -18,18 +18,18 @@ export type PairPromptProps = {
 const COPY = {
   unpaired: {
     title: 'Pair your Mac',
-    body: 'Porte controls Grok sessions on one Mac. Run this there to connect it.',
+    body: 'Porte controls Grok conversations on one Mac. Run this there to connect it.',
   },
   revoked: {
     title: 'Pairing was revoked',
-    body: 'This Mac no longer accepts remote control. Its sessions and files are untouched.',
+    body: 'This Mac no longer accepts remote control. Its conversations and files are untouched.',
   },
 } satisfies Record<PairPromptReason, { title: string; body: string }>
 
 /**
  * The whole page when an account controls no Mac.
  *
- * An account without a host has no session list and no session detail, so it
+ * An account without a host has no conversation list and no conversation detail, so it
  * gets one surface with one next action instead of an empty two-pane shell.
  */
 export function PairPrompt({ reason, hostName, onEnterCode }: PairPromptProps) {
@@ -56,7 +56,7 @@ export function PairPrompt({ reason, hostName, onEnterCode }: PairPromptProps) {
         <div className="flex flex-col gap-3">
           <TerminalCommand command={PAIR_COMMAND} />
           <small className="text-muted-foreground">
-            Open the link it prints on your phone, then confirm the phrase shown on both devices.
+            It prints a link and an eight-character code. Open the link and confirm the code.
           </small>
         </div>
 

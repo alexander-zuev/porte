@@ -1,20 +1,20 @@
 import type {
   PermissionId,
-  SessionId as ProtocolSessionId,
-  SessionSummary as ProtocolSessionSummary,
+  ConversationId as ProtocolConversationId,
+  ConversationSummary as ProtocolConversationSummary,
   TurnId,
 } from '@porte/core'
 import type {
-  CodingSessionEvent as ProtocolConversationEvent,
-  SessionView as ProtocolConversationView,
-} from '@porte/core/coding-session-event'
+  ConversationEvent as ProtocolConversationEvent,
+  ConversationView as ProtocolConversationView,
+} from '@porte/core/conversation-event'
 import { TaggedError, type Result } from 'better-result'
 
 /** Porte identifier for one persisted agent conversation. */
-export type ConversationId = ProtocolSessionId
+export type ConversationId = ProtocolConversationId
 
 /** Provider-independent summary for one persisted conversation. */
-export type ConversationSummary = ProtocolSessionSummary
+export type ConversationSummary = ProtocolConversationSummary
 
 /** Provider-independent event from one conversation. */
 export type ConversationEvent = ProtocolConversationEvent

@@ -1,9 +1,9 @@
 import {
-  SessionViewSchema,
-  type CodingSessionEvent,
+  ConversationViewSchema,
+  type ConversationEvent,
   type ConversationItem,
-  type SessionView,
-} from '@porte/core/coding-session-event'
+  type ConversationView,
+} from '@porte/core/conversation-event'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 
 /** A canonical event cannot update the current conversation view. */
@@ -13,27 +13,27 @@ export class ConversationViewError extends TaggedError('ConversationViewError')<
 
 /** Applies canonical events and returns a validated conversation view. */
 export function applyConversationEvents(
-  current: SessionView,
-  events: readonly CodingSessionEvent[],
-): ResultType<SessionView, ConversationViewError> {
-  let view = SessionViewSchema.parse(current)
+  current: ConversationView,
+  events: readonly ConversationEvent[],
+): ResultType<ConversationView, ConversationViewError> {
+  let view = ConversationViewSchema.parse(current)
   for (const event of events) {
-    if (event.type === 'session.snapshot') {
-      view = SessionViewSchema.parse(event.view)
+    if (event.type === 'conversation.snapshot') {
+      view = ConversationViewSchema.parse(event.view)
       continue
     }
     const applied = applyEvent(view, event)
     if (applied.isErr()) return applied
   }
-  const parsed = SessionViewSchema.safeParse(view)
+  const parsed = ConversationViewSchema.safeParse(view)
   return parsed.success
     ? Result.ok(parsed.data)
     : Result.err(new ConversationViewError({ message: 'The conversation view is invalid' }))
 }
 
 function applyEvent(
-  view: SessionView,
-  event: Exclude<CodingSessionEvent, { type: 'session.snapshot' }>,
+  view: ConversationView,
+  event: Exclude<ConversationEvent, { type: 'conversation.snapshot' }>,
 ): ResultType<void, ConversationViewError> {
   switch (event.type) {
     case 'message.started':
@@ -62,16 +62,16 @@ function applyEvent(
     case 'plan.updated':
       view.plan = [...event.entries]
       return Result.ok()
-    case 'session.usage.updated':
+    case 'conversation.usage.updated':
       view.usage = event.usage
       return Result.ok()
-    case 'session.configuration.updated':
+    case 'conversation.configuration.updated':
       view.configuration = [...event.options]
       return Result.ok()
-    case 'session.commands.updated':
+    case 'conversation.commands.updated':
       view.commands = [...event.commands]
       return Result.ok()
-    case 'session.mode.updated':
+    case 'conversation.mode.updated':
       view.modeId = event.modeId
       return Result.ok()
     case 'permission.requested':
@@ -105,8 +105,8 @@ function applyEvent(
     case 'turn.finished':
     case 'message.completed':
     case 'reasoning.completed':
-    case 'session.metadata.updated':
-    case 'session.failed':
+    case 'conversation.metadata.updated':
+    case 'conversation.failed':
       return Result.ok()
   }
   const exhaustive: never = event
@@ -114,7 +114,7 @@ function applyEvent(
 }
 
 function addItem(
-  view: SessionView,
+  view: ConversationView,
   item: Exclude<ConversationItem, { type: 'tool' }>,
 ): ResultType<void, ConversationViewError> {
   const exists = view.items.some(
@@ -128,10 +128,10 @@ function addItem(
 }
 
 function appendContent(
-  view: SessionView,
+  view: ConversationView,
   messageId: string,
   type: 'message' | 'reasoning',
-  content: Extract<CodingSessionEvent, { type: 'message.delta' }>['content'],
+  content: Extract<ConversationEvent, { type: 'message.delta' }>['content'],
 ): ResultType<void, ConversationViewError> {
   const item = view.items.find(
     (current) => current.type !== 'tool' && current.messageId === messageId,

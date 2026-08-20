@@ -14,7 +14,7 @@ document that keeps requirements nobody can build.
 
 ## Product Model
 
-Porte is a secure remote control for coding-agent sessions that continue to run on a local machine.
+Porte is a secure remote control for coding-agent conversations that continue to run on a local machine.
 
 The primary journey crosses two devices, but pairing itself does not:
 
@@ -23,10 +23,10 @@ The primary journey crosses two devices, but pairing itself does not:
 3. The user opens that URL in any browser already signed in to Porte, on any device.
 4. The user checks the account named on screen and approves.
 5. The Mac receives its credential and connects.
-6. The user browses, opens, creates, and controls local sessions from the phone.
+6. The user browses, opens, creates, and controls local conversations from the phone.
 
 Step 3 is deliberately not "scan this with your phone". The person is sitting at the Mac, and any
-signed-in browser can approve. The phone is what Porte is *for*, not what pairing needs.
+signed-in browser can approve. The phone is what Porte is _for_, not what pairing needs.
 
 The desktop owns local execution. The phone owns remote control. Porte coordinates trust and
 delivery without becoming the execution owner.
@@ -39,17 +39,17 @@ surface that names the host names that single Mac, never a list.
 Porte has no onboarding wizard, no tour, and no checklist. An account is in exactly one of three
 states, and every surface resolves to the same next action.
 
-| State    | Meaning                                      | Next action                     |
-| -------- | -------------------------------------------- | ------------------------------- |
-| Unpaired | The account controls no Mac                  | Run `npx porte pair` on the Mac |
-| Pairing  | A code is open and awaiting approval         | Approve the code in a browser   |
-| Paired   | The account controls one Mac                 | Open or start a session         |
+| State    | Meaning                              | Next action                     |
+| -------- | ------------------------------------ | ------------------------------- |
+| Unpaired | The account controls no Mac          | Run `npx porte pair` on the Mac |
+| Pairing  | A code is open and awaiting approval | Approve the code in a browser   |
+| Paired   | The account controls one Mac         | Open or start a conversation    |
 
 A fourth condition, failed, is a recoverable variant of pairing. It always returns the user to the
 unpaired next action.
 
 The whole product funnel is one line: install the CLI, sign in, approve the code. Nothing else is
-taught before first use. Capability is discovered inside the session surfaces, not in an
+taught before first use. Capability is discovered inside the conversation surfaces, not in an
 introduction.
 
 ## Experience Contract
@@ -60,7 +60,7 @@ The following surfaces must feel deliberate, complete, and trustworthy:
 
 - Desktop CLI onboarding, pairing, connection, and recovery.
 - Mobile authentication and pairing handoff.
-- Mobile session home and repository selection.
+- Mobile conversation home and repository selection.
 - Mobile conversation and turn control.
 - Mobile permission and elicitation decisions.
 - Mobile offline, reconnecting, and failure recovery.
@@ -72,11 +72,11 @@ master-detail layout rather than receiving the same level of viewport-specific p
 
 ### Product experience principles
 
-1. **Trust before novelty.** Show what machine, repository, session, and operation the user controls.
+1. **Trust before novelty.** Show what machine, repository, conversation, and operation the user controls.
 2. **State before action.** The user should understand connection and execution state before acting.
 3. **No ambiguous delivery.** Distinguish queued, sent, running, completed, cancelled, and failed.
 4. **Recovery is a primary flow.** Remote connectivity failures are expected product states.
-5. **One action, one result.** Retry and reconnect must not duplicate prompts or sessions.
+5. **One action, one result.** Retry and reconnect must not duplicate prompts or conversations.
 6. **Safe interruption.** Stop, deny, and cancel must remain understandable and reachable.
 7. **Meaning is never color-only.** Labels, icons, placement, and state text carry the message.
 8. **Responsive means adapted.** Mobile is not a scaled-down desktop composition.
@@ -86,7 +86,7 @@ master-detail layout rather than receiving the same level of viewport-specific p
 ### Ensure
 
 - Give every screen one clear primary purpose.
-- Keep the current host, repository, and session identifiable wherever they affect an action.
+- Keep the current host, repository, and conversation identifiable wherever they affect an action.
 - Show visible progress for operations that do not complete immediately.
 - Use stable action labels while an operation is pending.
 - Explain why an action is unavailable when the reason is not obvious.
@@ -120,17 +120,17 @@ physically out of reach.
 
 ### Ensure
 
-- Use one primary pane at a time: session list, session detail, or focused decision.
-- Provide an explicit back path from every session to the session home.
+- Use one primary pane at a time: conversation list, conversation detail, or focused decision.
+- Provide an explicit back path from every conversation to the conversation home.
 - Keep primary touch targets at least 44 by 44 CSS pixels.
 - Place frequent and time-sensitive actions within comfortable thumb reach.
 - Keep Stop available while a turn is running.
 - Keep permission actions visible without requiring transcript scrolling.
 - Respect safe-area insets around fixed headers, bottom controls, and the software keyboard.
 - Use dynamic viewport units so browser chrome and the keyboard do not hide controls.
-- Let long repository paths, session titles, tool output, and code wrap or scroll intentionally.
+- Let long repository paths, conversation titles, tool output, and code wrap or scroll intentionally.
 - Keep the composer stable while transcript content streams.
-- Restore the latest confirmed session snapshot before applying live events.
+- Restore the latest confirmed conversation snapshot before applying live events.
 - Show explicit sent, running, permission, reconnecting, cancelled, and failed states.
 - Preserve an unsent draft through temporary disconnection.
 - Test reflow at 320 CSS pixels and text resizing at 200 percent.
@@ -173,11 +173,11 @@ careful typography in a terminal—not decoration at the expense of scanning or 
 - Keep daemon credentials out of stdout, logs, URLs, screenshots, and shell history.
 - Make start, status, stop, restart, and logs discoverable from root help.
 - Distinguish the one host daemon from the coding-agent processes it manages.
-- Report daemon state, relay state, uptime, remote sessions, active turns, and agent process count.
+- Report daemon state, relay state, uptime, remote conversations, active turns, and agent process count.
 - Prevent duplicate host daemons from starting for the same local identity.
 - Keep lifecycle commands idempotent: starting an active host and stopping an inactive host are safe.
 - Explain whether stopping will cancel active work before it changes process state.
-- Preserve local session files when the host stops or is unpaired.
+- Preserve local conversation files when the host stops or is unpaired.
 - Offer structured `--json` status for scripts and a composed summary for people.
 
 ### Avoid
@@ -191,7 +191,7 @@ careful typography in a terminal—not decoration at the expense of scanning or 
 - Reporting “connected” before the server confirms the authenticated host.
 - Erasing useful error output while redrawing an interactive terminal region.
 - Requiring PID discovery or operating-system process commands for normal management.
-- Conflating sessions stored on disk with active agent processes.
+- Conflating conversations stored on disk with active agent processes.
 - Killing active turns without an explicit warning and deliberate force option.
 - Making `stop`, `restart`, or `status` depend on cloud availability.
 - Using a stale PID file as the only proof that the daemon is alive.
@@ -235,7 +235,7 @@ Porte is running
 Host             Alex's MacBook Pro
 Connection       Connected
 Uptime           2h 14m
-Remote sessions  3 open
+Remote conversations  3 open
 Active turns     1 running
 Agent processes  3 managed
 
@@ -245,10 +245,10 @@ Run `porte stop` to stop when current work is idle.
 This is a content hierarchy, not fixed copy or spacing. Status must distinguish:
 
 - The single Porte host daemon.
-- Remote sessions currently opened by Porte.
+- Remote conversations currently opened by Porte.
 - Turns currently executing.
 - Child coding-agent processes owned by the daemon.
-- Local session records that exist on disk but are not running.
+- Local conversation records that exist on disk but are not running.
 
 `porte status --json` exposes the same model with stable field names.
 
@@ -261,21 +261,21 @@ Desktop web is a supported control surface, but mobile receives the premium view
 
 ### Ensure
 
-- Use a session-list and session-detail master-detail layout when space permits.
+- Use a conversation-list and conversation-detail master-detail layout when space permits.
 - Preserve all mobile capabilities and safety behavior.
 - Support keyboard navigation and visible focus.
 - Keep permission decisions near the relevant transcript event.
-- Show host and session context in both panes.
+- Show host and conversation context in both panes.
 - Collapse predictably to the mobile one-pane model at narrower widths.
 - Carry host status and the account entry in a footer slot at the base of the list pane.
 
 ### Layout decision
 
-Porte uses two panes, not a navigation sidebar. The list pane is the session list. It is not a
+Porte uses two panes, not a navigation sidebar. The list pane is the conversation list. It is not a
 navigation rail.
 
 A navigation sidebar earns its place when a product has several top-level sections. Porte has one:
-sessions. Account and host management are a single leaf surface reached from the list-pane footer,
+conversations. Account and host management are a single leaf surface reached from the list-pane footer,
 not a second navigation level.
 
 The master-detail shell only renders when a paired host exists. An account with no host has no list
@@ -297,20 +297,20 @@ Pairing runs on the OAuth 2.0 Device Authorization Grant, RFC 8628, through the 
 ### Why a device grant at all
 
 The Mac has no browser and must never handle a password. The grant moves the authorising step to a
-browser that already holds a session, and hands the Mac a credential belonging to whoever approved.
+browser that already holds a conversation, and hands the Mac a credential belonging to whoever approved.
 
 ### What the plugin owns
 
-| Step                              | Endpoint          | Notes                                    |
-| --------------------------------- | ----------------- | ---------------------------------------- |
-| Request a code pair               | `/device/code`    | Returns `device_code` and `user_code`    |
-| Validate and claim by code        | `/device`         | Claims the code for the signed-in person |
-| Approve or refuse                 | `/device/approve`, `/device/deny` | Requires the claim first |
-| Daemon waits for its credential   | `/device/token`   | Polled at `interval`                     |
-| Expiry, single use, replay        | `expiresIn`       | Per the specification                    |
+| Step                            | Endpoint                          | Notes                                    |
+| ------------------------------- | --------------------------------- | ---------------------------------------- |
+| Request a code pair             | `/device/code`                    | Returns `device_code` and `user_code`    |
+| Validate and claim by code      | `/device`                         | Claims the code for the signed-in person |
+| Approve or refuse               | `/device/approve`, `/device/deny` | Requires the claim first                 |
+| Daemon waits for its credential | `/device/token`                   | Polled at `interval`                     |
+| Expiry, single use, replay      | `expiresIn`                       | Per the specification                    |
 
 Two codes exist for a reason: the daemon polls with the long secret one, and shows the short one.
-Displaying the polling secret would let anyone reading the screen take the session.
+Displaying the polling secret would let anyone reading the screen take the conversation.
 
 The daemon receives a **Better Auth session token**, not a bespoke credential. There is no Porte
 daemon token and no token hash stored anywhere.
@@ -337,7 +337,7 @@ notices they are signed in as someone they did not expect.
 At the daemon's **first connection**, not at approval. Only the daemon knows its name and platform,
 so creating the row earlier would mean writing a placeholder and correcting it moments later.
 
-One consequence to design for: between approval and first connect, a valid session exists with no
+One consequence to design for: between approval and first connect, a valid conversation exists with no
 host row. That window is what an account with no paired Mac looks like, and it is honest — no Mac
 has connected yet.
 
@@ -361,7 +361,7 @@ credential.
 2. CLI displays the URL and the code, then waits.
 3. CLI polls at the interval the server set.
 4. Someone approves the code in a signed-in browser.
-5. CLI receives the session token and stores it, readable only by this user.
+5. CLI receives the conversation token and stores it, readable only by this user.
 6. CLI reports success and names the next command.
 
 ### Required states
@@ -397,7 +397,7 @@ Any browser, on any device. Usually the Mac's own, since that is where the perso
 
 1. If signed out, the route sends the user to sign-in and returns to `/pair` afterwards.
 2. The user enters the eight-character code, or it arrives prefilled.
-3. Porte validates the code and claims it for this session.
+3. Porte validates the code and claims it for this conversation.
 4. The screen names the account that is about to gain a Mac, and asks for approval.
 5. The user approves.
 6. The screen confirms, and says the Mac will appear once it connects.
@@ -423,14 +423,14 @@ The user does not re-enter the code after signing in.
 - The approval screen names the account, so a wrong sign-in is visible before approving.
 - Nothing is approved until the user acts; arriving at the page is not consent.
 - Expired and used codes cannot be retried as if still valid.
-- Success has a direct path to sessions.
+- Success has a direct path to conversations.
 - Success does not claim a Mac is paired before one has connected.
 
-## Flow 3: Session Home
+## Flow 3: Conversation Home
 
 ### Purpose
 
-The session home answers:
+The conversation home answers:
 
 - Which Mac am I controlling?
 - Is it reachable?
@@ -442,17 +442,17 @@ The session home answers:
 
 1. Load the authenticated host snapshot.
 2. Show host identity and connection state.
-3. Group sessions by repository.
-4. Identify active or recently updated sessions.
-5. Let the user open a session.
-6. Let the user start a session in a known repository.
+3. Group conversations by repository.
+4. Identify active or recently updated conversations.
+5. Let the user open a conversation.
+6. Let the user start a conversation in a known repository.
 
 ### Required states
 
 - Loading initial snapshot.
-- Online with sessions.
-- Online with no sessions.
-- Online with sessions but no known repository for creation.
+- Online with conversations.
+- Online with no conversations.
+- Online with conversations but no known repository for creation.
 - Host offline with last-seen information.
 - Reconnecting.
 - Snapshot failed.
@@ -475,24 +475,24 @@ The same surface serves a revoked pairing, with copy that names the revocation f
 
 ### Acceptance criteria
 
-- Session titles and repository names remain distinguishable on narrow screens.
-- Offline sessions remain visible when safe cached metadata exists.
-- “New session” explains why it is unavailable when the host is offline.
-- Opening a session has one visible pending state and cannot be submitted twice.
-- Phone navigation enters one session pane; desktop can retain the list pane.
+- Conversation titles and repository names remain distinguishable on narrow screens.
+- Offline conversations remain visible when safe cached metadata exists.
+- “New conversation” explains why it is unavailable when the host is offline.
+- Opening a conversation has one visible pending state and cannot be submitted twice.
+- Phone navigation enters one conversation pane; desktop can retain the list pane.
 - An account with no host never renders an empty list pane or an empty detail pane.
 - The unpaired surface states the pairing command without requiring navigation.
 
-## Flow 4: Create a Session
+## Flow 4: Create a Conversation
 
 ### Happy path
 
 1. User chooses a known repository.
 2. Phone shows the selected host and repository.
 3. User optionally enters an initial prompt.
-4. Phone creates the session with one idempotent request.
-5. Phone opens the returned session snapshot.
-6. If an initial prompt exists, it starts only after session creation is confirmed.
+4. Phone creates the conversation with one idempotent request.
+5. Phone opens the returned conversation snapshot.
+6. If an initial prompt exists, it starts only after conversation creation is confirmed.
 
 ### Required states
 
@@ -500,24 +500,24 @@ The same surface serves a revoked pairing, with copy that names the revocation f
 - Repository list ready.
 - No known repositories.
 - Host went offline.
-- Creating session.
-- Session created and opening.
+- Creating conversation.
+- Conversation created and opening.
 - Creation failed safely.
 - Creation result unknown after disconnect.
 
 ### Acceptance criteria
 
-- Retrying cannot create a duplicate session.
+- Retrying cannot create a duplicate conversation.
 - The repository path is recognizable but does not dominate the mobile layout.
 - The user can return without losing an initial prompt.
 - An unknown result is not presented as a confirmed failure or success.
 
-## Flow 5: Open and Restore a Session
+## Flow 5: Open and Restore a Conversation
 
 ### Happy path
 
-1. Phone requests the session snapshot.
-2. Stable session layout appears.
+1. Phone requests the conversation snapshot.
+2. Stable conversation layout appears.
 3. Snapshot replaces any stale local view.
 4. Live events begin only after the snapshot.
 5. Transcript position moves predictably to the latest relevant content.
@@ -529,23 +529,23 @@ The same surface serves a revoked pairing, with copy that names the revocation f
 - Ready and idle.
 - Turn already running.
 - Permission already pending.
-- Session unavailable.
+- Conversation unavailable.
 - Agent failed.
 - Host disconnected while opening.
 
 ### Acceptance criteria
 
 - Snapshot and live events never render duplicate transcript items.
-- The current model, mode, repository, and session remain discoverable.
-- Phone has an explicit route back to session home.
-- Desktop can show session list and detail simultaneously.
+- The current model, mode, repository, and conversation remain discoverable.
+- Phone has an explicit route back to conversation home.
+- Desktop can show conversation list and detail simultaneously.
 
 ## Flow 6: Start and Control a Turn
 
 ### Happy path
 
 1. User composes a prompt.
-2. Phone validates that the session can accept a turn.
+2. Phone validates that the conversation can accept a turn.
 3. Prompt enters a sending state.
 4. Host acknowledges the turn.
 5. UI shows running state and incremental transcript updates.
@@ -617,7 +617,7 @@ approval.
 ### Happy path
 
 1. Agent requests structured input or a URL action.
-2. Phone presents the request in the session context.
+2. Phone presents the request in the conversation context.
 3. User completes, declines, or cancels.
 4. Validation occurs before submission.
 5. Host confirms the response.
@@ -688,7 +688,7 @@ The user must understand what is known, what is stale, and which actions are saf
 ### Acceptance criteria
 
 - Re-pair and revoke explain their effect on remote access.
-- Revocation does not imply deletion of local sessions.
+- Revocation does not imply deletion of local conversations.
 - The account cannot control an old host after credential revocation.
 
 ## Flow 11: Manage the Host Daemon
@@ -726,7 +726,7 @@ Human output reports:
 - Daemon state: stopped, starting, running, stopping, or failed.
 - Relay state: connected, reconnecting, offline, or credential rejected.
 - Process identifier and uptime when useful.
-- Open remote session count.
+- Open remote conversation count.
 - Active turn count.
 - Managed coding-agent process count.
 - Last safe failure summary and next action.
@@ -745,7 +745,7 @@ porte stop --force
 3. Close managed coding-agent processes.
 4. Disconnect the host relay.
 5. Confirm that the daemon stopped.
-6. Preserve local session files and pairing credentials.
+6. Preserve local conversation files and pairing credentials.
 
 If active turns exist, normal `porte stop` refuses to stop and reports their count. It explains
 that `porte stop --force` cancels active turns before shutdown.
@@ -792,11 +792,11 @@ content, tool output, daemon credentials, or pairing claims.
 - A normal user never needs `ps`, `kill`, `launchctl`, or PID-file inspection.
 - At most one managed host daemon runs for one local Porte identity.
 - Status reflects process liveness rather than trusting a PID file alone.
-- Session, turn, and process counts have distinct labels.
+- Conversation, turn, and process counts have distinct labels.
 - Stop cannot silently cancel an active turn.
 - Force stop cancels active turns before terminating child processes.
 - Stop and unpair remain separate operations.
-- Local session data survives start, stop, restart, and unpair.
+- Local conversation data survives start, stop, restart, and unpair.
 - Lifecycle commands work without cloud availability when the action is local.
 - Every command supports non-interactive output and stable exit behavior.
 
@@ -836,12 +836,12 @@ how to leave. It is reached from the list-pane footer and from the unpaired surf
 
 ### Acceptance criteria
 
-- Sign-out ends the session, clears cached account state, and lands on a signed-out surface.
-- Sign-out never leaves the user on an authenticated route with a dead session.
-- Unpair states that the Mac keeps its local sessions and files.
+- Sign-out ends the conversation, clears cached account state, and lands on a signed-out surface.
+- Sign-out never leaves the user on an authenticated route with a dead conversation.
+- Unpair states that the Mac keeps its local conversations and files.
 - Unpair returns the account to the unpaired state, not to an error.
 - Delete states what is removed and that it cannot be undone.
-- Delete removes the identity and session metadata described in the privacy page.
+- Delete removes the identity and conversation metadata described in the privacy page.
 - Delete requires a deliberate confirmation, not a single click.
 - A failed destructive action leaves the previous state intact and says so.
 
@@ -856,21 +856,21 @@ This section defines what each surface reads and writes. It constrains shape, no
 3. Mutations are idempotent and carry the logical identifier of the original request.
 4. Identity comes from the authenticated route context, never from a separate request.
 
-### Session home
+### Conversation home
 
 Reads one host snapshot. The snapshot resolves to exactly one state:
 
-| State    | Carries                                                                                 |
-| -------- | --------------------------------------------------------------------------------------- |
-| Unpaired | Nothing                                                                                 |
-| Loading  | Host name when already known                                                            |
-| Ready    | Host name, availability, last seen, sessions grouped by repository, running session ids |
-| Revoked  | Host name                                                                               |
-| Error    | Host name when already known                                                            |
+| State    | Carries                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| Unpaired | Nothing                                                                                           |
+| Loading  | Host name when already known                                                                      |
+| Ready    | Host name, availability, last seen, conversations grouped by repository, running conversation ids |
+| Revoked  | Host name                                                                                         |
+| Error    | Host name when already known                                                                      |
 
-Host and sessions are one fact. Sessions must never render without the host that owns them.
+Host and conversations are one fact. Conversations must never render without the host that owns them.
 
-Mutations: open session, create session, pair with code.
+Mutations: open conversation, create conversation, pair with code.
 
 ### Account
 
@@ -879,9 +879,9 @@ It issues no separate identity request.
 
 Mutations: unpair, sign out, delete account. Each invalidates the host snapshot on success.
 
-### Session detail
+### Conversation detail
 
-Reads one session snapshot, then applies live events. Live events never precede the snapshot.
+Reads one conversation snapshot, then applies live events. Live events never precede the snapshot.
 
 Mutations: send prompt, stop turn, answer permission, answer elicitation.
 
@@ -904,13 +904,13 @@ Required page story families:
 
 - Pairing: entering code, validating, sign-in required, ready to approve, approving, approved,
   not recognised, expired, already used.
-- Session home: online grouped, online empty, offline, reconnecting, load failure, no paired host.
+- Conversation home: online grouped, online empty, offline, reconnecting, load failure, no paired host.
 - Account: paired, unpaired, unpairing, delete confirmation, deleting, delete failed.
-- New session: repository list, no repositories, creating, unknown result, failed.
-- Session: restoring, idle, running, permission, elicitation, stopping, completed, offline.
+- New conversation: repository list, no repositories, creating, unknown result, failed.
+- Conversation: restoring, idle, running, permission, elicitation, stopping, completed, offline.
 - Host management: online, offline, revoked, re-pair.
 
-Desktop web stories should demonstrate the master-detail form of session home and session detail.
+Desktop web stories should demonstrate the master-detail form of conversation home and conversation detail.
 
 ## CLI Coverage Contract
 
@@ -928,7 +928,7 @@ Test:
 - Polling interval honoured, including a server asking for a slower one.
 - Start when stopped and when already running.
 - Status for every daemon and relay state.
-- Status counts for sessions, turns, and managed processes.
+- Status counts for conversations, turns, and managed processes.
 - Structured status output.
 - Graceful stop while idle.
 - Refused stop while turns are active.
@@ -964,7 +964,7 @@ A premium flow is complete only when:
 - Whether the stored credential moves from a `0600` file to the macOS Keychain.
 - First-release daemon supervisor: macOS LaunchAgent, portable process manager, or both.
 - Local lifecycle/status interface that a future macOS menu-bar helper will consume.
-- Repository discovery rules for new sessions.
-- Whether an initial prompt is part of session creation or a separate confirmed turn.
-- Session-close language and whether it is exposed in the first mobile release.
+- Repository discovery rules for new conversations.
+- Whether an initial prompt is part of conversation creation or a separate confirmed turn.
+- Conversation-close language and whether it is exposed in the first mobile release.
 - Notification behavior for permissions while the PWA is backgrounded.

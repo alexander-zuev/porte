@@ -6,8 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./coding-session-event": "./src/coding-session-event.ts",
-    "./session": "./src/session.ts"
+    "./conversation-event": "./src/conversation-event.ts",
+    "./conversation": "./src/conversation.ts"
   },
   "scripts": {
     "test": "vitest run",

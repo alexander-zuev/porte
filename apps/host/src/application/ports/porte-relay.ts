@@ -1,14 +1,14 @@
 import type {
   RoutedRequest,
   RoutedResponse,
-  SessionCatalog as ProtocolSessionCatalog,
+  ConversationCatalog as ProtocolConversationCatalog,
 } from '@porte/core'
-import type { CodingSessionEvent } from '@porte/core/coding-session-event'
+import type { ConversationEvent } from '@porte/core/conversation-event'
 import type { Result } from 'better-result'
 
 import type { HostRelayError } from '../host-error.ts'
 
-type SyncedConversations = Extract<ProtocolSessionCatalog, { state: 'synced' }>
+type SyncedConversations = Extract<ProtocolConversationCatalog, { state: 'synced' }>
 
 /** One authenticated Porte connection from the host to the Worker. */
 export interface PorteConnection {
@@ -16,7 +16,7 @@ export interface PorteConnection {
   sendConversations(conversations: SyncedConversations): void
 
   /** Send one canonical conversation event. */
-  sendConversationEvent(event: CodingSessionEvent): void
+  sendConversationEvent(event: ConversationEvent): void
 
   /** Send one response to a routed client request. */
   sendResponse(response: RoutedResponse): void

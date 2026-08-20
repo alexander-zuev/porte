@@ -2,14 +2,14 @@ import {
   EventIdSchema,
   MessageIdSchema,
   PermissionIdSchema,
-  SessionIdSchema,
+  ConversationIdSchema,
   TurnIdSchema,
 } from '@porte/core'
 import { describe, expect, it } from 'vitest'
 
 import { GrokEventMapper, GrokReplayMapper } from '../../src/adapters/grok/grok-event-mapper.ts'
 
-const sessionId = SessionIdSchema.parse('session-1')
+const sessionId = ConversationIdSchema.parse('session-1')
 const turnId = TurnIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451b9')
 
 describe('GrokEventMapper', () => {
@@ -81,7 +81,7 @@ describe('GrokEventMapper', () => {
     })
   })
 
-  it('maps ACP controls and session progress', () => {
+  it('maps ACP controls and conversation progress', () => {
     const mapper = createMapper()
     mapper.start('Question')
     const mode = mapper.map({
@@ -93,7 +93,10 @@ describe('GrokEventMapper', () => {
       update: { sessionUpdate: 'usage_update', used: 50, size: 100 },
     })
 
-    expect(eventTypes(mode, usage)).toEqual(['session.mode.updated', 'session.usage.updated'])
+    expect(eventTypes(mode, usage)).toEqual([
+      'conversation.mode.updated',
+      'conversation.usage.updated',
+    ])
   })
 
   it('separates messages around a tool call', () => {
@@ -126,7 +129,7 @@ describe('GrokEventMapper', () => {
     })
   })
 
-  it('rejects updates for another session', () => {
+  it('rejects updates for another conversation', () => {
     const mapper = createMapper()
     mapper.start('Question')
     const mapped = mapper.map({

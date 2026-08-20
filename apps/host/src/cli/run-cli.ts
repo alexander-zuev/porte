@@ -1,8 +1,4 @@
-import {
-  SessionIdSchema as ConversationIdSchema,
-  createTurnId,
-  formatPairingCode,
-} from '@porte/core'
+import { ConversationIdSchema, createTurnId, formatPairingCode } from '@porte/core'
 
 import { copyToClipboard } from '../adapters/node/clipboard.ts'
 import { openUrl } from '../adapters/node/open-url.ts'

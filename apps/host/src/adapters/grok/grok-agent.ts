@@ -1,20 +1,18 @@
 import {
   IsoDateTimeSchema,
-  SessionIdSchema,
+  ConversationIdSchema,
   createEventId,
   createMessageId,
   createPermissionId,
-  makeSessionSummary,
+  makeConversationSummary,
   type PermissionId,
-  type SessionId,
   type TurnId,
 } from '@porte/core'
 import {
-  SessionViewSchema,
+  ConversationViewSchema,
   type CodingAgentError as CanonicalCodingAgentError,
-  type CodingSessionEvent,
-  type SessionView,
-} from '@porte/core/coding-session-event'
+  type ConversationView,
+} from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
@@ -54,7 +52,7 @@ type PendingPermission = {
 }
 type StartedConversation = {
   readonly conversation: GrokConversation
-  readonly view: SessionView
+  readonly view: ConversationView
 }
 
 const ids = {
@@ -62,7 +60,7 @@ const ids = {
   messageId: createMessageId,
   permissionId: createPermissionId,
 }
-const newSessionResponseSchema = z.object({ sessionId: SessionIdSchema })
+const newSessionResponseSchema = z.object({ sessionId: ConversationIdSchema })
 const promptResponseSchema = z.object({
   stopReason: z.enum(['end_turn', 'max_tokens', 'max_turn_requests', 'refusal', 'cancelled']),
 })
@@ -157,7 +155,7 @@ export class GrokAgent implements CodingAgent {
     )
     if (started.isErr()) return started
 
-    const summary = makeSessionSummary({
+    const summary = makeConversationSummary({
       id: started.value.conversation.conversationId,
       cwd: command.cwd,
       title: '',
@@ -214,7 +212,9 @@ export class GrokAgent implements CodingAgent {
     cwd: string,
     onEvent: (event: ConversationEvent) => void,
     operation: 'open' | 'create',
-    selectConversation: (client: AcpProcess) => Promise<ResultType<SessionId, CodingAgentError>>,
+    selectConversation: (
+      client: AcpProcess,
+    ) => Promise<ResultType<ConversationId, CodingAgentError>>,
   ): Promise<ResultType<StartedConversation, CodingAgentError>> {
     let conversation: GrokConversation | undefined
     let replayError: GrokEventMappingError | undefined
@@ -271,7 +271,7 @@ class GrokConversation {
   private mapper: GrokEventMapper | undefined
   private activeTurnId: TurnId | undefined
   private closed = false
-  private currentView: SessionView
+  private currentView: ConversationView
   private listener: (event: ConversationEvent) => void
   private readonly permissions = new Map<PermissionId, PendingPermission>()
 
@@ -280,14 +280,14 @@ class GrokConversation {
     private readonly client: AcpProcess,
     private readonly cwd: string,
     onEvent: (event: ConversationEvent) => void,
-    view: SessionView,
+    view: ConversationView,
   ) {
-    this.currentView = SessionViewSchema.parse(view)
+    this.currentView = ConversationViewSchema.parse(view)
     this.listener = onEvent
   }
 
-  get view(): SessionView {
-    return SessionViewSchema.parse(this.currentView)
+  get view(): ConversationView {
+    return ConversationViewSchema.parse(this.currentView)
   }
 
   setListener(listener: (event: ConversationEvent) => void): void {
@@ -471,7 +471,7 @@ class GrokConversation {
   }
 
   private send(
-    events: readonly CodingSessionEvent[],
+    events: readonly ConversationEvent[],
     operation: CodingAgentError['operation'],
   ): ResultType<void, CodingAgentError> {
     const next = applyConversationEvents(this.currentView, events)
@@ -508,7 +508,7 @@ async function prepareClient(
     : Result.ok()
 }
 
-function snapshot(summary: ConversationSummary, view: SessionView): ConversationSnapshot {
+function snapshot(summary: ConversationSummary, view: ConversationView): ConversationSnapshot {
   return { summary, view }
 }
 

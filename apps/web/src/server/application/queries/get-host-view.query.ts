@@ -39,6 +39,6 @@ export async function getHostView(db: ReadDb, userId: UserId): Promise<HostView>
   const paired = toPairedHost(row)
   if (row.revokedAt !== null) return { state: 'revoked', host: paired }
 
-  // Sessions are not persisted yet, so a paired host reports none.
-  return { state: 'paired', host: paired, sessions: [], runningSessionIds: [] }
+  // Conversations are not persisted yet, so a paired host reports none.
+  return { state: 'paired', host: paired, conversations: [], runningConversationIds: [] }
 }

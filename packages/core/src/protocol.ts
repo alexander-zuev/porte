@@ -1,22 +1,22 @@
 import { z } from 'zod'
 
-import { CodingSessionEventSchema } from './coding-session-event.ts'
+import { ConversationEventSchema } from './conversation-event.ts'
+import {
+  HostSnapshotSchema,
+  ConversationSummarySchema,
+  ConversationTurnStateSchema,
+  SyncedConversationCatalogSchema,
+} from './conversation.ts'
 import {
   ConnectionIdSchema,
   EventIdSchema,
   MessageIdSchema,
   PermissionIdSchema,
   RequestIdSchema,
-  SessionIdSchema,
+  ConversationIdSchema,
   ToolCallIdSchema,
   TurnIdSchema,
 } from './identity.ts'
-import {
-  HostSnapshotSchema,
-  SessionSummarySchema,
-  SessionTurnStateSchema,
-  SyncedSessionCatalogSchema,
-} from './session.ts'
 
 /**
  * These schemas define the published Porte HTTP and WebSocket contract.
@@ -28,8 +28,8 @@ export const ApiErrorCodeSchema = z.enum([
   'NOT_AUTHORIZED',
   'HOST_OFFLINE',
   'WORKSPACE_NOT_ALLOWED',
-  'SESSION_NOT_FOUND',
-  'SESSION_BUSY',
+  'CONVERSATION_NOT_FOUND',
+  'CONVERSATION_BUSY',
   'TURN_NOT_FOUND',
   'PERMISSION_NOT_FOUND',
   'PAIRING_NOT_FOUND',
@@ -65,33 +65,36 @@ export const ClientMethodSchemas = {
     params: EmptyParamsSchema,
     result: HostSnapshotSchema,
   },
-  'session.open': {
-    params: z.object({ sessionId: SessionIdSchema }),
-    result: z.object({ session: SessionSummarySchema, turn: SessionTurnStateSchema }),
+  'conversation.open': {
+    params: z.object({ conversationId: ConversationIdSchema }),
+    result: z.object({
+      conversation: ConversationSummarySchema,
+      turn: ConversationTurnStateSchema,
+    }),
   },
-  'session.close': {
-    params: z.object({ sessionId: SessionIdSchema }),
+  'conversation.close': {
+    params: z.object({ conversationId: ConversationIdSchema }),
     result: EmptyResultSchema,
   },
-  'session.create': {
+  'conversation.create': {
     params: z.object({ cwd: z.string().min(1) }),
-    result: z.object({ session: SessionSummarySchema }),
+    result: z.object({ conversation: ConversationSummarySchema }),
   },
   'turn.start': {
     params: z.object({
-      sessionId: SessionIdSchema,
+      conversationId: ConversationIdSchema,
       turnId: TurnIdSchema,
       prompt: z.string().min(1),
     }),
     result: z.object({ turnId: TurnIdSchema }),
   },
   'turn.cancel': {
-    params: z.object({ sessionId: SessionIdSchema, turnId: TurnIdSchema }),
+    params: z.object({ conversationId: ConversationIdSchema, turnId: TurnIdSchema }),
     result: z.object({ turnId: TurnIdSchema }),
   },
   'permission.answer': {
     params: z.object({
-      sessionId: SessionIdSchema,
+      conversationId: ConversationIdSchema,
       turnId: TurnIdSchema,
       permissionId: PermissionIdSchema,
       optionId: z.string().min(1),
@@ -148,9 +151,9 @@ function createRequestSchema<Method extends ClientMethod, Params extends z.ZodTy
 
 export const RequestMessageSchema = z.discriminatedUnion('method', [
   createRequestSchema('host.snapshot', ClientMethodSchemas['host.snapshot'].params),
-  createRequestSchema('session.open', ClientMethodSchemas['session.open'].params),
-  createRequestSchema('session.close', ClientMethodSchemas['session.close'].params),
-  createRequestSchema('session.create', ClientMethodSchemas['session.create'].params),
+  createRequestSchema('conversation.open', ClientMethodSchemas['conversation.open'].params),
+  createRequestSchema('conversation.close', ClientMethodSchemas['conversation.close'].params),
+  createRequestSchema('conversation.create', ClientMethodSchemas['conversation.create'].params),
   createRequestSchema('turn.start', ClientMethodSchemas['turn.start'].params),
   createRequestSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].params),
   createRequestSchema('permission.answer', ClientMethodSchemas['permission.answer'].params),
@@ -187,11 +190,11 @@ export const ToolContentSchema = z.discriminatedUnion('type', [
 ])
 export type ToolContent = z.infer<typeof ToolContentSchema>
 
-export const SessionUpdateSchema = z.discriminatedUnion('kind', [
+export const ConversationUpdateSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('user_text'), text: z.string() }),
   z.object({ kind: z.literal('agent_text'), text: z.string() }),
   z.object({ kind: z.literal('reasoning_text'), text: z.string() }),
-  z.object({ kind: z.literal('session_title'), title: z.string() }),
+  z.object({ kind: z.literal('conversation_title'), title: z.string() }),
   z.object({
     kind: z.literal('tool_call'),
     toolCallId: ToolCallIdSchema,
@@ -206,23 +209,23 @@ export const SessionUpdateSchema = z.discriminatedUnion('kind', [
     content: z.array(ToolContentSchema),
   }),
 ])
-export type SessionUpdate = z.infer<typeof SessionUpdateSchema>
+export type ConversationUpdate = z.infer<typeof ConversationUpdateSchema>
 
-const SessionUpdateBaseSchema = z.object({
-  sessionId: SessionIdSchema,
+const ConversationUpdateBaseSchema = z.object({
+  conversationId: ConversationIdSchema,
   messageId: MessageIdSchema,
   eventId: EventIdSchema,
-  update: SessionUpdateSchema,
+  update: ConversationUpdateSchema,
 })
 
-export const SessionUpdateEventSchema = z.discriminatedUnion('delivery', [
-  SessionUpdateBaseSchema.extend({ delivery: z.literal('replay') }),
-  SessionUpdateBaseSchema.extend({ delivery: z.literal('live'), turnId: TurnIdSchema }),
+export const ConversationUpdateEventSchema = z.discriminatedUnion('delivery', [
+  ConversationUpdateBaseSchema.extend({ delivery: z.literal('replay') }),
+  ConversationUpdateBaseSchema.extend({ delivery: z.literal('live'), turnId: TurnIdSchema }),
 ])
-export type SessionUpdateEvent = z.infer<typeof SessionUpdateEventSchema>
+export type ConversationUpdateEvent = z.infer<typeof ConversationUpdateEventSchema>
 
 export const TurnFinishedEventSchema = z.intersection(
-  z.object({ sessionId: SessionIdSchema, turnId: TurnIdSchema }),
+  z.object({ conversationId: ConversationIdSchema, turnId: TurnIdSchema }),
   z.discriminatedUnion('outcome', [
     z.object({ outcome: z.enum(['end_turn', 'cancelled']) }),
     z.object({ outcome: z.literal('failed'), error: ApiErrorSchema }),
@@ -231,7 +234,7 @@ export const TurnFinishedEventSchema = z.intersection(
 export type TurnFinishedEvent = z.infer<typeof TurnFinishedEventSchema>
 
 export const PermissionRequestedEventSchema = z.object({
-  sessionId: SessionIdSchema,
+  conversationId: ConversationIdSchema,
   turnId: TurnIdSchema,
   permissionId: PermissionIdSchema,
   toolCall: z.object({
@@ -251,9 +254,9 @@ export type PermissionRequestedEvent = z.infer<typeof PermissionRequestedEventSc
 
 export const ClientEventSchemas = {
   'host.status': z.object({ status: z.enum(['online', 'offline']) }),
-  'sessions.changed': z.object({ catalog: SyncedSessionCatalogSchema }),
-  'session.event': CodingSessionEventSchema,
-  'session.update': SessionUpdateEventSchema,
+  'conversations.changed': z.object({ catalog: SyncedConversationCatalogSchema }),
+  'conversation.event': ConversationEventSchema,
+  'conversation.update': ConversationUpdateEventSchema,
   'turn.finished': TurnFinishedEventSchema,
   'permission.requested': PermissionRequestedEventSchema,
 } as const
@@ -286,9 +289,9 @@ function createEventSchema<Event extends ClientEvent, Data extends z.ZodType>(
 
 export const EventMessageSchema = z.discriminatedUnion('event', [
   createEventSchema('host.status', ClientEventSchemas['host.status']),
-  createEventSchema('sessions.changed', ClientEventSchemas['sessions.changed']),
-  createEventSchema('session.event', ClientEventSchemas['session.event']),
-  createEventSchema('session.update', ClientEventSchemas['session.update']),
+  createEventSchema('conversations.changed', ClientEventSchemas['conversations.changed']),
+  createEventSchema('conversation.event', ClientEventSchemas['conversation.event']),
+  createEventSchema('conversation.update', ClientEventSchemas['conversation.update']),
   createEventSchema('turn.finished', ClientEventSchemas['turn.finished']),
   createEventSchema('permission.requested', ClientEventSchemas['permission.requested']),
 ])
@@ -302,9 +305,9 @@ export const ClientMessageSchema = z.union([
 
 const RouteSchema = z.object({ connectionId: ConnectionIdSchema })
 const DaemonRequestMessageSchema = z.discriminatedUnion('method', [
-  createRequestSchema('session.open', ClientMethodSchemas['session.open'].params),
-  createRequestSchema('session.close', ClientMethodSchemas['session.close'].params),
-  createRequestSchema('session.create', ClientMethodSchemas['session.create'].params),
+  createRequestSchema('conversation.open', ClientMethodSchemas['conversation.open'].params),
+  createRequestSchema('conversation.close', ClientMethodSchemas['conversation.close'].params),
+  createRequestSchema('conversation.create', ClientMethodSchemas['conversation.create'].params),
   createRequestSchema('turn.start', ClientMethodSchemas['turn.start'].params),
   createRequestSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].params),
   createRequestSchema('permission.answer', ClientMethodSchemas['permission.answer'].params),
@@ -339,9 +342,15 @@ function createRoutedResponseSchema<Method extends DaemonMethod, Result extends 
 }
 
 export const RoutedResponseSchema = z.discriminatedUnion('method', [
-  createRoutedResponseSchema('session.open', ClientMethodSchemas['session.open'].result),
-  createRoutedResponseSchema('session.close', ClientMethodSchemas['session.close'].result),
-  createRoutedResponseSchema('session.create', ClientMethodSchemas['session.create'].result),
+  createRoutedResponseSchema('conversation.open', ClientMethodSchemas['conversation.open'].result),
+  createRoutedResponseSchema(
+    'conversation.close',
+    ClientMethodSchemas['conversation.close'].result,
+  ),
+  createRoutedResponseSchema(
+    'conversation.create',
+    ClientMethodSchemas['conversation.create'].result,
+  ),
   createRoutedResponseSchema('turn.start', ClientMethodSchemas['turn.start'].result),
   createRoutedResponseSchema('turn.cancel', ClientMethodSchemas['turn.cancel'].result),
   createRoutedResponseSchema('permission.answer', ClientMethodSchemas['permission.answer'].result),
@@ -358,7 +367,7 @@ export type RoutedResponse<Method extends DaemonMethod = DaemonMethod> = Method 
 export const RoutedAudienceSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('host') }),
   z.object({ type: z.literal('connection'), connectionId: ConnectionIdSchema }),
-  z.object({ type: z.literal('session'), sessionId: SessionIdSchema }),
+  z.object({ type: z.literal('conversation'), conversationId: ConversationIdSchema }),
 ])
 
 export const RoutedEventSchema = z.object({

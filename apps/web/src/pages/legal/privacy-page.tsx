@@ -10,7 +10,7 @@ export function PrivacyPage() {
         <p>
           Your repositories, your files, and your Grok account stay on your Mac. Porte holds the
           account you sign in with, the record of which machines you paired, and enough about each
-          session to list it.
+          conversation to list it.
         </p>
       </LegalSection>
 
@@ -21,7 +21,8 @@ export function PrivacyPage() {
           </li>
           <li>Pairing records: which machines your account controls, and when they connected.</li>
           <li>
-            Session metadata: the session id, its working directory, and when it last changed.
+            Conversation metadata: the conversation id, its working directory, and when it last
+            changed.
           </li>
           <li>Product analytics through PostHog, and error reports through Sentry.</li>
         </ul>
@@ -29,8 +30,9 @@ export function PrivacyPage() {
 
       <LegalSection heading="What passes through">
         <p>
-          Prompts, approvals, and session output travel through the relay so your phone and your Mac
-          can talk. They move through it in transit rather than being kept as a stored transcript.
+          Prompts, approvals, and conversation output travel through the relay so your phone and
+          your Mac can talk. They move through it in transit rather than being kept as a stored
+          transcript.
         </p>
       </LegalSection>
 
@@ -45,7 +47,7 @@ export function PrivacyPage() {
       <LegalSection heading="Deleting your data">
         <p>
           Unpair a machine to remove its pairing record. Delete your account to remove your identity
-          and session metadata. Ask through an issue at{' '}
+          and conversation metadata. Ask through an issue at{' '}
           <a href={REPOSITORY_URL} rel="noreferrer" target="_blank">
             the Porte repository
           </a>{' '}

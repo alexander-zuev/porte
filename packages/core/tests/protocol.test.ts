@@ -4,7 +4,7 @@ import {
   EventMessageSchema,
   RequestMessageSchema,
   RoutedResponseSchema,
-  SessionUpdateEventSchema,
+  ConversationUpdateEventSchema,
 } from '../src/index.ts'
 
 const requestId = '0198b55e-49d4-7c8c-9f53-cd16db07ce5b'
@@ -18,7 +18,7 @@ describe('published protocol schemas', () => {
       type: 'request',
       requestId,
       method: 'turn.start',
-      params: { sessionId: 'session-1', turnId, prompt: 'Continue' },
+      params: { conversationId: 'conversation-1', turnId, prompt: 'Continue' },
     })
 
     expect(result.success).toBe(true)
@@ -35,9 +35,9 @@ describe('published protocol schemas', () => {
   })
 
   it('requires one message id for each update chunk', () => {
-    const result = SessionUpdateEventSchema.safeParse({
+    const result = ConversationUpdateEventSchema.safeParse({
       delivery: 'live',
-      sessionId: 'session-1',
+      conversationId: 'conversation-1',
       turnId,
       eventId: 'event-1',
       update: { kind: 'agent_text', text: 'Done' },
@@ -46,25 +46,25 @@ describe('published protocol schemas', () => {
     expect(result.success).toBe(false)
   })
 
-  it('parses a canonical session event', () => {
+  it('parses a canonical conversation event', () => {
     const result = EventMessageSchema.safeParse({
       v: 1,
       type: 'event',
-      event: 'session.event',
-      data: { eventId: 'event-1', sessionId: 'session-1', type: 'turn.started', turnId },
+      event: 'conversation.event',
+      data: { eventId: 'event-1', conversationId: 'conversation-1', type: 'turn.started', turnId },
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('continues to parse a legacy session update', () => {
+  it('continues to parse a legacy conversation update', () => {
     const result = EventMessageSchema.safeParse({
       v: 1,
       type: 'event',
-      event: 'session.update',
+      event: 'conversation.update',
       data: {
         delivery: 'live',
-        sessionId: 'session-1',
+        conversationId: 'conversation-1',
         turnId,
         eventId: 'event-1',
         messageId: 'message-1',

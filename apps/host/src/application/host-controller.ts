@@ -6,7 +6,7 @@ import {
   type DaemonMethod,
   type RoutedRequest,
 } from '@porte/core'
-import { CodingSessionEventSchema } from '@porte/core/coding-session-event'
+import { ConversationEventSchema } from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
 
 import { HostRelayError } from './host-error.ts'
@@ -48,7 +48,7 @@ export class HostController {
     if (listed.isErr()) return Result.err(listed.error)
     connection.sendConversations({
       state: 'synced',
-      sessions: listed.value,
+      conversations: listed.value,
       observedAt: IsoDateTimeSchema.parse(new Date().toISOString()),
     })
     return Result.ok()
@@ -60,9 +60,9 @@ export class HostController {
   ): Promise<ResultType<void, CodingAgentError>> {
     const message = request.message
     switch (message.method) {
-      case 'session.open': {
+      case 'conversation.open': {
         const opened = await this.agent.openConversation({
-          conversationId: message.params.sessionId,
+          conversationId: message.params.conversationId,
           onEvent: (event) => {
             connection.sendConversationEvent(event)
           },
@@ -70,12 +70,12 @@ export class HostController {
         if (opened.isErr()) return sendError(request, connection, opened.error)
         sendSnapshot(connection, opened.value)
         sendResult(request, connection, {
-          session: opened.value.summary,
+          conversation: opened.value.summary,
           turn: { state: 'idle' },
         })
         return Result.ok()
       }
-      case 'session.create': {
+      case 'conversation.create': {
         const created = await this.agent.createConversation({
           cwd: message.params.cwd,
           onEvent: (event) => {
@@ -84,18 +84,18 @@ export class HostController {
         })
         if (created.isErr()) return sendError(request, connection, created.error)
         sendSnapshot(connection, created.value)
-        sendResult(request, connection, { session: created.value.summary })
+        sendResult(request, connection, { conversation: created.value.summary })
         return Result.ok()
       }
-      case 'session.close': {
-        const closed = await this.agent.closeConversation(message.params.sessionId)
+      case 'conversation.close': {
+        const closed = await this.agent.closeConversation(message.params.conversationId)
         if (closed.isErr()) return sendError(request, connection, closed.error)
         sendResult(request, connection, {})
         return Result.ok()
       }
       case 'turn.start': {
         const started = await this.agent.startTurn({
-          conversationId: message.params.sessionId,
+          conversationId: message.params.conversationId,
           turnId: message.params.turnId,
           prompt: message.params.prompt,
         })
@@ -105,7 +105,7 @@ export class HostController {
       }
       case 'turn.cancel': {
         const cancelled = await this.agent.cancelTurn({
-          conversationId: message.params.sessionId,
+          conversationId: message.params.conversationId,
           turnId: message.params.turnId,
         })
         if (cancelled.isErr()) return sendError(request, connection, cancelled.error)
@@ -114,7 +114,7 @@ export class HostController {
       }
       case 'permission.answer': {
         const answered = await this.agent.answerPermission({
-          conversationId: message.params.sessionId,
+          conversationId: message.params.conversationId,
           turnId: message.params.turnId,
           permissionId: message.params.permissionId,
           optionId: message.params.optionId,
@@ -131,10 +131,10 @@ export class HostController {
 
 function sendSnapshot(connection: PorteConnection, snapshot: ConversationSnapshot): void {
   connection.sendConversationEvent(
-    CodingSessionEventSchema.parse({
+    ConversationEventSchema.parse({
       eventId: createEventId(),
       sessionId: snapshot.summary.id,
-      type: 'session.snapshot',
+      type: 'conversation.snapshot',
       view: snapshot.view,
     }),
   )
@@ -166,9 +166,9 @@ function sendError(
 ): ResultType<void, CodingAgentError> {
   const code =
     error.code === 'CONVERSATION_NOT_FOUND' || error.code === 'CONVERSATION_NOT_OPEN'
-      ? 'SESSION_NOT_FOUND'
+      ? 'CONVERSATION_NOT_FOUND'
       : error.code === 'CONVERSATION_BUSY'
-        ? 'SESSION_BUSY'
+        ? 'CONVERSATION_BUSY'
         : error.code === 'PERMISSION_NOT_FOUND'
           ? 'PERMISSION_NOT_FOUND'
           : 'INTERNAL_ERROR'
@@ -188,8 +188,8 @@ function sendError(
 }
 
 function publicErrorMessage(code: string): string {
-  if (code === 'SESSION_NOT_FOUND') return 'Conversation is not open.'
-  if (code === 'SESSION_BUSY') return 'Conversation already has an active turn.'
+  if (code === 'CONVERSATION_NOT_FOUND') return 'Conversation is not open.'
+  if (code === 'CONVERSATION_BUSY') return 'Conversation already has an active turn.'
   if (code === 'PERMISSION_NOT_FOUND') return 'Permission request is not pending.'
   return 'Coding agent could not complete the request.'
 }

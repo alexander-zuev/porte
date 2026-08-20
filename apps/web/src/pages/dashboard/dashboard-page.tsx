@@ -1,24 +1,24 @@
 import type { ReactNode } from 'react'
 
-import { PairPrompt } from '#/features/dashboard/components/pair-prompt.tsx'
 import {
-  SessionList,
-  type SessionListProps,
-} from '#/features/dashboard/components/session-list.tsx'
+  ConversationList,
+  type ConversationListProps,
+} from '#/features/dashboard/components/conversation-list.tsx'
+import { PairPrompt } from '#/features/dashboard/components/pair-prompt.tsx'
 import { AppShell } from '#/ui/components/app-shell.tsx'
 
 /**
  * The dashboard renders one of two shapes.
  *
- * With a Mac it is a session list beside a session detail. Without one there is
+ * With a Mac it is a conversation list beside a conversation detail. Without one there is
  * nothing to list and nothing to detail, so the pairing prompt takes the page.
  */
 export type DashboardPageProps =
   | {
-      readonly view: 'sessions'
+      readonly view: 'conversations'
       readonly detail?: ReactNode
       readonly footer?: ReactNode
-      readonly list: SessionListProps
+      readonly list: ConversationListProps
     }
   | {
       readonly view: 'pair'
@@ -41,7 +41,7 @@ export function DashboardPage(props: DashboardPageProps) {
   }
 
   return (
-    <AppShell footer={props.footer} list={<SessionList {...props.list} />} mobilePane="list">
+    <AppShell footer={props.footer} list={<ConversationList {...props.list} />} mobilePane="list">
       {props.detail}
     </AppShell>
   )

@@ -1,36 +1,36 @@
-import type { SessionSummary } from '@porte/core'
+import type { ConversationSummary } from '@porte/core'
 
+import {
+  ConversationFailure,
+  type ConversationFailureProps,
+  ConversationOpening,
+} from '#/features/conversation/components/conversation-page-feedback.tsx'
 import {
   ConversationPane,
   type ConversationPaneProps,
-} from '#/features/session/components/conversation-pane.tsx'
-import {
-  SessionFailure,
-  type SessionFailureProps,
-  SessionOpening,
-} from '#/features/session/components/session-page-feedback.tsx'
+} from '#/features/conversation/components/conversation-pane.tsx'
 import { AppShell } from '#/ui/components/app-shell.tsx'
 
-type SessionContext = {
-  readonly session: SessionSummary
+type ConversationContext = {
+  readonly conversation: ConversationSummary
   readonly hostName: string
   readonly onBack: () => void
 }
 
-/** The mutually exclusive states for one session page. */
+/** The mutually exclusive states for one conversation page. */
 export type ConversationPageProps =
   | ({ readonly view: 'ready' } & ConversationPaneProps)
-  | ({ readonly view: 'opening' } & SessionContext)
-  | ({ readonly view: 'failure' } & SessionFailureProps)
+  | ({ readonly view: 'opening' } & ConversationContext)
+  | ({ readonly view: 'failure' } & ConversationFailureProps)
 
-/** Render one session state in the responsive application shell. */
+/** Render one conversation state in the responsive application shell. */
 export function ConversationPage(props: ConversationPageProps) {
   if (props.view === 'opening') {
     return (
       <AppShell>
-        <SessionOpening
+        <ConversationOpening
           hostName={props.hostName}
-          session={props.session}
+          conversation={props.conversation}
           onBack={props.onBack}
         />
       </AppShell>
@@ -40,17 +40,17 @@ export function ConversationPage(props: ConversationPageProps) {
     return (
       <AppShell>
         {props.reason === 'host-offline' ? (
-          <SessionFailure
+          <ConversationFailure
             hostName={props.hostName}
             reason={props.reason}
-            session={props.session}
+            conversation={props.conversation}
             onBack={props.onBack}
           />
         ) : (
-          <SessionFailure
+          <ConversationFailure
             hostName={props.hostName}
             reason={props.reason}
-            session={props.session}
+            conversation={props.conversation}
             onBack={props.onBack}
             onRetry={props.onRetry}
           />
@@ -67,7 +67,7 @@ export function ConversationPage(props: ConversationPageProps) {
         draft={props.draft}
         hostName={props.hostName}
         items={props.items}
-        session={props.session}
+        conversation={props.conversation}
       />
     </AppShell>
   )

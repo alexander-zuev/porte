@@ -1,4 +1,4 @@
-import { CodingSessionEventSchema } from '@porte/core/coding-session-event'
+import { ConversationEventSchema } from '@porte/core/conversation-event'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -13,12 +13,12 @@ describe('retryDelayMs', () => {
 })
 
 describe('WebSocketPorteConnection', () => {
-  it('routes a canonical event to its session audience', () => {
+  it('routes a canonical event to its conversation audience', () => {
     const sent: string[] = []
     const connection = new WebSocketPorteConnection((frame) => sent.push(frame))
-    const event = CodingSessionEventSchema.parse({
+    const event = ConversationEventSchema.parse({
       eventId: 'event-1',
-      sessionId: 'session-1',
+      conversationId: 'conversation-1',
       type: 'turn.started',
       turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
     })
@@ -27,8 +27,8 @@ describe('WebSocketPorteConnection', () => {
 
     expect(sent).toEqual([
       JSON.stringify({
-        audience: { type: 'session', sessionId: 'session-1' },
-        message: { v: 1, type: 'event', event: 'session.event', data: event },
+        audience: { type: 'conversation', conversationId: 'conversation-1' },
+        message: { v: 1, type: 'event', event: 'conversation.event', data: event },
       }),
     ])
   })

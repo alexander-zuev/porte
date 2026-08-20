@@ -17,7 +17,7 @@ import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
 import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
 import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
 import { Route as PublicTermsRouteImport } from './../../routes/_public/terms'
-import { Route as AuthCSessionIdRouteImport } from './../../routes/_auth/c/$sessionId'
+import { Route as AuthCConversationIdRouteImport } from './../../routes/_auth/c/$conversationId'
 import { Route as AuthPairIndexRouteImport } from './../../routes/_auth/pair/index'
 import { Route as AuthPairCancelledRouteImport } from './../../routes/_auth/pair/cancelled'
 import { Route as AuthPairConfirmRouteImport } from './../../routes/_auth/pair/confirm'
@@ -64,9 +64,9 @@ const PublicTermsRoute = PublicTermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => PublicRouteRoute,
 } as any)
-const AuthCSessionIdRoute = AuthCSessionIdRouteImport.update({
-  id: '/c/$sessionId',
-  path: '/c/$sessionId',
+const AuthCConversationIdRoute = AuthCConversationIdRouteImport.update({
+  id: '/c/$conversationId',
+  path: '/c/$conversationId',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthPairIndexRoute = AuthPairIndexRouteImport.update({
@@ -112,7 +112,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
-  '/c/$sessionId': typeof AuthCSessionIdRoute
+  '/c/$conversationId': typeof AuthCConversationIdRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
@@ -128,7 +128,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
-  '/c/$sessionId': typeof AuthCSessionIdRoute
+  '/c/$conversationId': typeof AuthCConversationIdRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
   '/pair/success': typeof AuthPairSuccessRoute
@@ -147,7 +147,7 @@ export interface FileRoutesById {
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/terms': typeof PublicTermsRoute
   '/_public/': typeof PublicIndexRoute
-  '/_auth/c/$sessionId': typeof AuthCSessionIdRoute
+  '/_auth/c/$conversationId': typeof AuthCConversationIdRoute
   '/_auth/pair/cancelled': typeof AuthPairCancelledRoute
   '/_auth/pair/confirm': typeof AuthPairConfirmRoute
   '/_auth/pair/success': typeof AuthPairSuccessRoute
@@ -165,7 +165,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/sign-in'
     | '/terms'
-    | '/c/$sessionId'
+    | '/c/$conversationId'
     | '/pair/cancelled'
     | '/pair/confirm'
     | '/pair/success'
@@ -181,7 +181,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/sign-in'
     | '/terms'
-    | '/c/$sessionId'
+    | '/c/$conversationId'
     | '/pair/cancelled'
     | '/pair/confirm'
     | '/pair/success'
@@ -199,7 +199,7 @@ export interface FileRouteTypes {
     | '/_public/sign-in'
     | '/_public/terms'
     | '/_public/'
-    | '/_auth/c/$sessionId'
+    | '/_auth/c/$conversationId'
     | '/_auth/pair/cancelled'
     | '/_auth/pair/confirm'
     | '/_auth/pair/success'
@@ -275,11 +275,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicTermsRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_auth/c/$sessionId': {
-      id: '/_auth/c/$sessionId'
-      path: '/c/$sessionId'
-      fullPath: '/c/$sessionId'
-      preLoaderRoute: typeof AuthCSessionIdRouteImport
+    '/_auth/c/$conversationId': {
+      id: '/_auth/c/$conversationId'
+      path: '/c/$conversationId'
+      fullPath: '/c/$conversationId'
+      preLoaderRoute: typeof AuthCConversationIdRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/pair/': {
@@ -337,7 +337,7 @@ declare module '@tanstack/react-router' {
 interface AuthRouteRouteChildren {
   AuthAccountRoute: typeof AuthAccountRoute
   AuthDashboardRoute: typeof AuthDashboardRoute
-  AuthCSessionIdRoute: typeof AuthCSessionIdRoute
+  AuthCConversationIdRoute: typeof AuthCConversationIdRoute
   AuthPairCancelledRoute: typeof AuthPairCancelledRoute
   AuthPairConfirmRoute: typeof AuthPairConfirmRoute
   AuthPairSuccessRoute: typeof AuthPairSuccessRoute
@@ -347,7 +347,7 @@ interface AuthRouteRouteChildren {
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthAccountRoute: AuthAccountRoute,
   AuthDashboardRoute: AuthDashboardRoute,
-  AuthCSessionIdRoute: AuthCSessionIdRoute,
+  AuthCConversationIdRoute: AuthCConversationIdRoute,
   AuthPairCancelledRoute: AuthPairCancelledRoute,
   AuthPairConfirmRoute: AuthPairConfirmRoute,
   AuthPairSuccessRoute: AuthPairSuccessRoute,

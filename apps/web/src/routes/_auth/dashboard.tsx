@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { hostQueries } from '#/entities/host/host-queries.ts'
-import { SessionListFooter } from '#/features/dashboard/components/session-list-footer.tsx'
+import { ConversationListFooter } from '#/features/dashboard/components/conversation-list-footer.tsx'
 import { createSeoHead } from '#/lib/seo.ts'
 import { DashboardPage } from '#/pages/dashboard/dashboard-page.tsx'
 
@@ -29,22 +29,22 @@ function DashboardRoute() {
 
   /** Session actions arrive with the session flows. */
   const actions = {
-    onOpenSession: () => undefined,
-    onStartSession: () => undefined,
+    onOpenConversation: () => undefined,
+    onStartConversation: () => undefined,
     onPair: goToPair,
     onRetry: () => {
       void view.refetch()
     },
   }
 
-  const footer = <SessionListFooter user={user} />
+  const footer = <ConversationListFooter user={user} />
 
   if (view.isPending) {
     return (
       <DashboardPage
         footer={footer}
         list={{ ...actions, state: 'loading', hostName: 'Your Mac' }}
-        view="sessions"
+        view="conversations"
       />
     )
   }
@@ -54,7 +54,7 @@ function DashboardRoute() {
       <DashboardPage
         footer={footer}
         list={{ ...actions, state: 'error', hostName: 'Your Mac' }}
-        view="sessions"
+        view="conversations"
       />
     )
   }
@@ -74,19 +74,19 @@ function DashboardRoute() {
     )
   }
 
-  const { host, sessions, runningSessionIds } = view.data
+  const { host, conversations, runningConversationIds } = view.data
   return (
     <DashboardPage
       footer={footer}
-      view="sessions"
+      view="conversations"
       list={{
         ...actions,
         state: 'ready',
         hostName: host.name,
         hostStatus: host.availability,
         lastSeen: host.availability === 'offline' ? host.lastSeenAt : undefined,
-        sessions,
-        runningSessionIds: new Set(runningSessionIds),
+        conversations,
+        runningConversationIds: new Set(runningConversationIds),
       }}
     />
   )

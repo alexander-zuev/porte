@@ -3,34 +3,34 @@ import {
   type EventId,
   type MessageId,
   type PermissionId,
-  type SessionId,
+  type ConversationId,
   type TurnId,
 } from '@porte/core'
 import {
-  CodingSessionEventSchema,
-  SessionViewSchema,
+  ConversationEventSchema,
+  ConversationViewSchema,
   ToolViewSchema,
   type CanonicalContent,
   type CodingAgentError,
-  type CodingSessionEvent,
+  type ConversationEvent,
   type ConversationItem,
   type MessageView,
   type ReasoningView,
-  type SessionCommand,
-  type SessionConfigurationOption,
-  type SessionUsage,
-  type SessionView,
+  type ConversationCommand,
+  type ConversationConfigurationOption,
+  type ConversationUsage,
+  type ConversationView,
   type ToolContent,
   type ToolLocation,
   type ToolView,
-} from '@porte/core/coding-session-event'
+} from '@porte/core/conversation-event'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import type { z } from 'zod'
 
 import type { AcpSessionNotification, AcpSessionUpdate } from '../acp/message.ts'
 
-type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'eventId' | 'sessionId'> : never
-type EventData = WithoutEnvelope<z.input<typeof CodingSessionEventSchema>>
+type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'eventId' | 'conversationId'> : never
+type EventData = WithoutEnvelope<z.input<typeof ConversationEventSchema>>
 type TurnOutcome = Extract<EventData, { type: 'turn.finished' }>['outcome']
 type MessageStream = 'user' | 'assistant' | 'reasoning'
 type MapperState = 'ready' | 'active' | 'finished'
@@ -55,13 +55,13 @@ export class GrokEventMapper {
   private state: MapperState = 'ready'
 
   constructor(
-    private readonly sessionId: SessionId,
+    private readonly conversationId: ConversationId,
     private readonly turnId: TurnId,
     private readonly ids: GrokEventIds,
   ) {}
 
   /** Start the turn and record the submitted user prompt. */
-  start(prompt: string): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  start(prompt: string): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'ready') return invalidSequence('The Grok turn already started')
     this.state = 'active'
     const messageId = this.ids.messageId()
@@ -81,9 +81,9 @@ export class GrokEventMapper {
   /** Convert one ACP update from the active turn. */
   map(
     notification: AcpSessionNotification,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
-    if (notification.sessionId !== this.sessionId) {
+    if (notification.sessionId !== this.conversationId) {
       return Result.err(
         new GrokEventMappingError({
           code: 'SESSION_MISMATCH',
@@ -97,7 +97,7 @@ export class GrokEventMapper {
   /** Complete open content and map the ACP stop reason. */
   finish(
     stopReason: 'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled',
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     let outcome: TurnOutcome
     if (stopReason === 'cancelled') {
       outcome = { type: 'cancelled' }
@@ -114,7 +114,7 @@ export class GrokEventMapper {
   }
 
   /** Complete open content after the active turn fails. */
-  fail(error: CodingAgentError): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  fail(error: CodingAgentError): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     return this.close({ type: 'failed', error })
   }
 
@@ -128,7 +128,7 @@ export class GrokEventMapper {
       readonly name: string
       readonly kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
     }[]
-  }): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  }): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
     return this.events([
       {
@@ -146,7 +146,7 @@ export class GrokEventMapper {
   permissionResolved(
     permissionId: PermissionId,
     optionId: string,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
     return this.events([
       {
@@ -161,7 +161,7 @@ export class GrokEventMapper {
   /** Map cancellation for one pending ACP permission request. */
   permissionCancelled(
     permissionId: PermissionId,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
     return this.events([
       {
@@ -175,7 +175,7 @@ export class GrokEventMapper {
 
   private mapUpdate(
     update: AcpSessionUpdate,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     switch (update.sessionUpdate) {
       case 'user_message_chunk':
         return Result.ok([])
@@ -192,25 +192,25 @@ export class GrokEventMapper {
       case 'available_commands_update':
         return this.events([
           {
-            type: 'session.commands.updated',
+            type: 'conversation.commands.updated',
             commands: update.availableCommands.map(mapCommand),
           },
         ])
       case 'current_mode_update':
-        return this.events([{ type: 'session.mode.updated', modeId: update.currentModeId }])
+        return this.events([{ type: 'conversation.mode.updated', modeId: update.currentModeId }])
       case 'config_option_update':
         return this.events([
           {
-            type: 'session.configuration.updated',
+            type: 'conversation.configuration.updated',
             options: update.configOptions.map(mapConfiguration),
           },
         ])
       case 'session_info_update':
         return this.mapSessionInfo(update)
       case 'usage_update': {
-        const usage: SessionUsage = { usedTokens: update.used, sizeTokens: update.size }
+        const usage: ConversationUsage = { usedTokens: update.used, sizeTokens: update.size }
         if (update.cost !== undefined && update.cost !== null) usage.cost = update.cost
-        return this.events([{ type: 'session.usage.updated', usage }])
+        return this.events([{ type: 'conversation.usage.updated', usage }])
       }
     }
     const exhaustive: never = update
@@ -225,7 +225,7 @@ export class GrokEventMapper {
         sessionUpdate: 'user_message_chunk' | 'agent_message_chunk' | 'agent_thought_chunk'
       }
     >,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     const parsedId =
       update.messageId === undefined || update.messageId === null
         ? Result.ok(this.messages.get(stream) ?? this.ids.messageId())
@@ -274,7 +274,7 @@ export class GrokEventMapper {
 
   private mapToolCall(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call' }>,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     const parsed = ToolViewSchema.safeParse({
       toolCallId: update.toolCallId,
       title: update.title,
@@ -292,7 +292,7 @@ export class GrokEventMapper {
 
   private mapToolCallUpdate(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call_update' }>,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     const current = this.tools.get(update.toolCallId)
     if (current === undefined) return invalidSequence('ACP updated a tool call before it started')
 
@@ -315,17 +315,17 @@ export class GrokEventMapper {
 
   private mapSessionInfo(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'session_info_update' }>,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (update.title === undefined && update.updatedAt === undefined) return Result.ok([])
-    const metadata: Extract<EventData, { type: 'session.metadata.updated' }>['update'] = {}
+    const metadata: Extract<EventData, { type: 'conversation.metadata.updated' }>['update'] = {}
     if (update.title !== undefined) metadata.title = update.title
     if (update.updatedAt !== undefined) metadata.updatedAt = update.updatedAt
-    return this.events([{ type: 'session.metadata.updated', update: metadata }])
+    return this.events([{ type: 'conversation.metadata.updated', update: metadata }])
   }
 
   private close(
     outcome: TurnOutcome,
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
     this.state = 'finished'
     const completed = this.completeMessages()
@@ -348,12 +348,12 @@ export class GrokEventMapper {
 
   private events(
     data: readonly EventData[],
-  ): ResultType<readonly CodingSessionEvent[], GrokEventMappingError> {
-    const events: CodingSessionEvent[] = []
+  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+    const events: ConversationEvent[] = []
     for (const item of data) {
-      const parsed = CodingSessionEventSchema.safeParse({
+      const parsed = ConversationEventSchema.safeParse({
         eventId: this.ids.eventId(),
-        sessionId: this.sessionId,
+        conversationId: this.conversationId,
         ...item,
       })
       if (!parsed.success) return invalidValue('ACP update cannot form a canonical event')
@@ -365,22 +365,22 @@ export class GrokEventMapper {
 
 /** Builds one complete conversation view from ACP load updates. */
 export class GrokReplayMapper {
-  private sessionId: string | undefined
+  private conversationId: string | undefined
   private activeMessage: { stream: MessageStream; messageId: MessageId } | undefined
   private readonly items: ConversationItem[] = []
   private readonly messages = new Map<MessageId, MessageView | ReasoningView>()
   private readonly tools = new Map<string, ToolView>()
-  private plan: SessionView['plan'] = []
-  private usage: SessionUsage | undefined
-  private configuration: SessionConfigurationOption[] | undefined
-  private commands: SessionCommand[] | undefined
+  private plan: ConversationView['plan'] = []
+  private usage: ConversationUsage | undefined
+  private configuration: ConversationConfigurationOption[] | undefined
+  private commands: ConversationCommand[] | undefined
   private modeId: string | undefined
 
   constructor(private readonly ids: GrokEventIds) {}
 
   /** Apply one ACP update received before session load completes. */
   map(notification: AcpSessionNotification): ResultType<void, GrokEventMappingError> {
-    if (this.sessionId !== undefined && notification.sessionId !== this.sessionId) {
+    if (this.conversationId !== undefined && notification.sessionId !== this.conversationId) {
       return Result.err(
         new GrokEventMappingError({
           code: 'SESSION_MISMATCH',
@@ -388,13 +388,15 @@ export class GrokReplayMapper {
         }),
       )
     }
-    this.sessionId = notification.sessionId
+    this.conversationId = notification.sessionId
     return this.mapUpdate(notification.update)
   }
 
   /** Validate and return the complete view after ACP load completes. */
-  snapshot(expectedSessionId: SessionId): ResultType<SessionView, GrokEventMappingError> {
-    if (this.sessionId !== undefined && this.sessionId !== expectedSessionId) {
+  snapshot(
+    expectedConversationId: ConversationId,
+  ): ResultType<ConversationView, GrokEventMappingError> {
+    if (this.conversationId !== undefined && this.conversationId !== expectedConversationId) {
       return Result.err(
         new GrokEventMappingError({
           code: 'SESSION_MISMATCH',
@@ -402,7 +404,7 @@ export class GrokReplayMapper {
         }),
       )
     }
-    const view: SessionView = {
+    const view: ConversationView = {
       items: [...this.items],
       tools: [...this.tools.values()],
       plan: [...this.plan],
@@ -412,7 +414,7 @@ export class GrokReplayMapper {
     if (this.configuration !== undefined) view.configuration = this.configuration
     if (this.commands !== undefined) view.commands = this.commands
     if (this.modeId !== undefined) view.modeId = this.modeId
-    const parsed = SessionViewSchema.safeParse(view)
+    const parsed = ConversationViewSchema.safeParse(view)
     return parsed.success
       ? Result.ok(parsed.data)
       : invalidValue('ACP replay cannot form a complete conversation view')
@@ -555,19 +557,19 @@ type AcpConfiguration = Extract<
   { sessionUpdate: 'config_option_update' }
 >['configOptions'][number]
 type SelectConfigurationValue = Extract<
-  SessionConfigurationOption,
+  ConversationConfigurationOption,
   { type: 'select' }
 >['options'][number]
 
-function mapCommand(command: AcpCommand): SessionCommand {
-  const mapped: SessionCommand = { name: command.name, description: command.description }
+function mapCommand(command: AcpCommand): ConversationCommand {
+  const mapped: ConversationCommand = { name: command.name, description: command.description }
   if (command.input !== undefined && command.input !== null) mapped.inputHint = command.input.hint
   return mapped
 }
 
-function mapConfiguration(option: AcpConfiguration): SessionConfigurationOption {
+function mapConfiguration(option: AcpConfiguration): ConversationConfigurationOption {
   if (option.type === 'boolean') {
-    const mapped: SessionConfigurationOption = {
+    const mapped: ConversationConfigurationOption = {
       type: 'boolean',
       id: option.id,
       name: option.name,
@@ -582,7 +584,7 @@ function mapConfiguration(option: AcpConfiguration): SessionConfigurationOption 
     return mapped
   }
 
-  const mapped: SessionConfigurationOption = {
+  const mapped: ConversationConfigurationOption = {
     type: 'select',
     id: option.id,
     name: option.name,

@@ -11,11 +11,11 @@ import {
   RoutedEventSchema,
   RoutedRequestSchema,
   RoutedResponseSchema,
-  SessionCatalogSchema,
-  SessionIdSchema,
+  ConversationCatalogSchema,
+  ConversationIdSchema,
   createConnectionId,
   createLogger,
-  type SessionCatalog,
+  type ConversationCatalog,
 } from '@porte/core'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
@@ -29,9 +29,9 @@ const jsonValueSchema = z.json()
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
 const logger = createLogger('host-coordinator')
 
-const clientSessionSchema = z.discriminatedUnion('state', [
+const clientConversationSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('closed') }),
-  z.object({ state: z.literal('open'), sessionId: SessionIdSchema }),
+  z.object({ state: z.literal('open'), conversationId: ConversationIdSchema }),
 ])
 
 const socketAttachmentSchema = z.discriminatedUnion('role', [
@@ -39,7 +39,7 @@ const socketAttachmentSchema = z.discriminatedUnion('role', [
   z.object({
     role: z.literal('client'),
     connectionId: ConnectionIdSchema,
-    session: clientSessionSchema,
+    conversation: clientConversationSchema,
   }),
 ])
 type SocketAttachment = z.infer<typeof socketAttachmentSchema>
@@ -66,7 +66,7 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
       const attachment = {
         role: 'client',
         connectionId: createConnectionId(),
-        session: { state: 'closed' },
+        conversation: { state: 'closed' },
       } satisfies SocketAttachment
       this.ctx.acceptWebSocket(server, ['client'])
       server.serializeAttachment(attachment)
@@ -167,8 +167,8 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
 
     const event = RoutedEventSchema.parse(message)
     if (event.audience.type === 'host') {
-      if (event.message.event === 'sessions.changed') {
-        const changed = ClientEventSchemas['sessions.changed'].parse(event.message.data)
+      if (event.message.event === 'conversations.changed') {
+        const changed = ClientEventSchemas['conversations.changed'].parse(event.message.data)
         await this.ctx.storage.put(CATALOG_KEY, changed.catalog)
       }
       this.broadcastClients(event.message)
@@ -179,7 +179,7 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
       if (target !== undefined) this.sendClient(target, event.message)
       return
     }
-    for (const client of this.sessionClients(event.audience.sessionId)) {
+    for (const client of this.conversationClients(event.audience.conversationId)) {
       this.sendClient(client, event.message)
     }
   }
@@ -189,17 +189,19 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     if (target === undefined) return
     if (response.message.type === 'result') {
       const attachment = this.clientAttachment(target)
-      if (attachment !== undefined && response.method === 'session.open') {
-        const opened = ClientMethodSchemas['session.open'].result.parse(response.message.result)
+      if (attachment !== undefined && response.method === 'conversation.open') {
+        const opened = ClientMethodSchemas['conversation.open'].result.parse(
+          response.message.result,
+        )
         target.serializeAttachment({
           ...attachment,
-          session: { state: 'open', sessionId: opened.session.id },
+          conversation: { state: 'open', conversationId: opened.conversation.id },
         } satisfies SocketAttachment)
       }
-      if (attachment !== undefined && response.method === 'session.close') {
+      if (attachment !== undefined && response.method === 'conversation.close') {
         target.serializeAttachment({
           ...attachment,
-          session: { state: 'closed' },
+          conversation: { state: 'closed' },
         } satisfies SocketAttachment)
       }
     }
@@ -223,10 +225,10 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
     )
   }
 
-  private async readCatalog(): Promise<SessionCatalog> {
+  private async readCatalog(): Promise<ConversationCatalog> {
     const stored = await this.ctx.storage.get(CATALOG_KEY)
     if (stored === undefined) return { state: 'never-synced' }
-    return SessionCatalogSchema.parse(stored)
+    return ConversationCatalogSchema.parse(stored)
   }
 
   private daemon(): WebSocket | undefined {
@@ -245,10 +247,13 @@ export class HostCoordinatorDO extends DurableObject<RuntimeEnv> {
       .find((socket) => this.clientAttachment(socket)?.connectionId === connectionId)
   }
 
-  private sessionClients(sessionId: z.infer<typeof SessionIdSchema>): WebSocket[] {
+  private conversationClients(conversationId: z.infer<typeof ConversationIdSchema>): WebSocket[] {
     return this.ctx.getWebSockets('client').filter((socket) => {
       const attachment = this.clientAttachment(socket)
-      return attachment?.session.state === 'open' && attachment.session.sessionId === sessionId
+      return (
+        attachment?.conversation.state === 'open' &&
+        attachment.conversation.conversationId === conversationId
+      )
     })
   }
 

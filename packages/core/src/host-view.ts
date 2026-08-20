@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
+import { ConversationSummarySchema } from './conversation.ts'
 import { HostDescriptorSchema } from './host.ts'
-import { IsoDateTimeSchema, SessionIdSchema } from './identity.ts'
-import { SessionSummarySchema } from './session.ts'
+import { IsoDateTimeSchema, ConversationIdSchema } from './identity.ts'
 
 /**
  * Contract for what a signed-in account controls right now.
@@ -32,9 +32,9 @@ export const HostViewSchema = z.discriminatedUnion('state', [
   z.object({
     state: z.literal('paired'),
     host: PairedHostSchema,
-    sessions: z.array(SessionSummarySchema),
-    /** Sessions with a turn in flight. */
-    runningSessionIds: z.array(SessionIdSchema),
+    conversations: z.array(ConversationSummarySchema),
+    /** Conversations with a turn in flight. */
+    runningConversationIds: z.array(ConversationIdSchema),
   }),
   z.object({ state: z.literal('revoked'), host: PairedHostSchema }),
 ])

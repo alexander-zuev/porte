@@ -5,7 +5,7 @@ import {
   type RoutedRequest,
   type RoutedResponse,
 } from '@porte/core'
-import type { CodingSessionEvent } from '@porte/core/coding-session-event'
+import type { ConversationEvent } from '@porte/core/conversation-event'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
@@ -38,16 +38,16 @@ export class WebSocketPorteConnection implements PorteConnection {
       message: {
         v: 1,
         type: 'event',
-        event: 'sessions.changed',
+        event: 'conversations.changed',
         data: { catalog: conversations },
       },
     })
   }
 
-  sendConversationEvent(event: CodingSessionEvent): void {
+  sendConversationEvent(event: ConversationEvent): void {
     this.sendEvent({
-      audience: { type: 'session', sessionId: event.sessionId },
-      message: { v: 1, type: 'event', event: 'session.event', data: event },
+      audience: { type: 'conversation', conversationId: event.conversationId },
+      message: { v: 1, type: 'event', event: 'conversation.event', data: event },
     })
   }
 

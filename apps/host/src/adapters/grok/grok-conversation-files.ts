@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { makeSessionSummary, type SessionSummary } from '@porte/core'
+import { makeConversationSummary, type ConversationSummary } from '@porte/core'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
@@ -11,7 +11,7 @@ const errnoSchema = z.object({ code: z.string() })
 
 /** One conversation found in Grok's local files. */
 export type GrokStoredConversation = {
-  readonly summary: SessionSummary
+  readonly summary: ConversationSummary
   readonly folderPath: string
 }
 
@@ -124,7 +124,7 @@ async function readDirNames(path: string): Promise<string[] | undefined> {
 async function readSummary(
   folderPath: string,
   encodedCwd: string,
-): Promise<SessionSummary | undefined> {
+): Promise<ConversationSummary | undefined> {
   let raw: string
   try {
     raw = await readFile(join(folderPath, 'summary.json'), 'utf8')
@@ -150,7 +150,7 @@ async function readSummary(
 
   const generated = parsed.data.generated_title
   const fallback = parsed.data.session_summary
-  return makeSessionSummary({
+  return makeConversationSummary({
     id: parsed.data.info.id,
     cwd,
     title: generated !== undefined && generated.length > 0 ? generated : (fallback ?? ''),

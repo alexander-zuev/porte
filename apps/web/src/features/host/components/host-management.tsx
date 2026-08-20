@@ -54,7 +54,7 @@ export function HostManagement(props: HostManagementProps) {
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 px-4 py-3">
           <Button variant="ghost" onClick={props.onBack}>
             <ArrowLeftIcon data-icon="inline-start" />
-            Sessions
+            Conversations
           </Button>
           <Logo size="sm" />
         </div>
@@ -62,7 +62,7 @@ export function HostManagement(props: HostManagementProps) {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
         <header className="flex flex-col gap-2">
           <h1>Paired Mac</h1>
-          <p className="text-muted-foreground">Manage remote access to your local sessions.</p>
+          <p className="text-muted-foreground">Manage remote access to your local conversations.</p>
         </header>
         {props.state === 'revoked' ? <RevokedHost {...props} /> : <ActiveHost {...props} />}
       </main>
@@ -106,7 +106,7 @@ function ActiveHost(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
         <header className="flex flex-col gap-1">
           <h2>Revoke access</h2>
           <p className="text-muted-foreground">
-            This phone will lose remote access. Sessions and files remain on the Mac.
+            This phone will lose remote access. Conversations and files remain on the Mac.
           </p>
         </header>
         <RevokeHostAction hostName={props.host.name} pending={revoking} onRevoke={props.onRevoke} />
@@ -134,12 +134,15 @@ function RevokeHostAction({
   }
   return (
     <AlertDialog>
-      <AlertDialogTrigger render={<Button variant="destructive" />}>Revoke access</AlertDialogTrigger>
+      <AlertDialogTrigger render={<Button variant="destructive" />}>
+        Revoke access
+      </AlertDialogTrigger>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>Revoke access to {hostName}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Porte will reject this host credential. Local sessions and files will remain on the Mac.
+            Porte will reject this host credential. Local conversations and files will remain on the
+            Mac.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -162,7 +165,7 @@ function RevokedHost(props: Extract<HostManagementProps, { state: 'revoked' }>) 
         <CardDescription>{props.hostName} can no longer connect to this account.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground">Local sessions and files remain unchanged.</p>
+        <p className="text-muted-foreground">Local conversations and files remain unchanged.</p>
       </CardContent>
       <CardFooter>
         <Button onClick={props.onPair}>
