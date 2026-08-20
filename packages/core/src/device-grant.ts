@@ -10,8 +10,23 @@ import { z } from 'zod'
 /** The only OAuth client Porte authorizes. Nothing else may claim a device code. */
 export const PORTE_CLI_CLIENT_ID = 'porte-cli'
 
+/**
+ * Where a device asks Porte for a code.
+ *
+ * Porte's own route rather than the plugin's, so issuing a code and recording
+ * where it came from happen together. Shared so the daemon and the route that
+ * serves it cannot drift; the route asserts it against the generated tree.
+ */
+export const PAIRING_CODE_PATH = '/api/pair/code' as const
+
 /** RFC 8628 fixes this value; the token request is invalid without it. */
 export const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
+
+/** What a device sends to ask for a code. RFC 8628 names the field. */
+export const DeviceCodeRequestSchema = z.object({
+  client_id: z.string().min(1),
+})
+export type DeviceCodeRequest = z.infer<typeof DeviceCodeRequestSchema>
 
 export const DeviceCodeResponseSchema = z.object({
   device_code: z.string().min(1),

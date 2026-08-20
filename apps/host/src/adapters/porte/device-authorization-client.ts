@@ -3,6 +3,7 @@ import {
   DeviceCodeResponseSchema,
   DeviceTokenErrorSchema,
   DeviceTokenResponseSchema,
+  PAIRING_CODE_PATH,
   PORTE_CLI_CLIENT_ID,
 } from '@porte/core'
 import { Result, type Result as ResultType } from 'better-result'
@@ -14,8 +15,7 @@ import type {
   DevicePollResult,
 } from '../../application/ports/device-authorizer.ts'
 
-/** Better Auth mounts the grant under its own base path. */
-const DEVICE_CODE_PATH = '/api/auth/device/code'
+/** The token exchange stays the plugin's own endpoint, under its base path. */
 const DEVICE_TOKEN_PATH = '/api/auth/device/token'
 
 /**
@@ -28,7 +28,7 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
   constructor(private readonly baseUrl: string) {}
 
   async requestCode(): Promise<ResultType<DeviceCodeGrant, PairingError>> {
-    const posted = await this.post(DEVICE_CODE_PATH, { client_id: PORTE_CLI_CLIENT_ID })
+    const posted = await this.post(PAIRING_CODE_PATH, { client_id: PORTE_CLI_CLIENT_ID })
     if (posted.isErr()) return Result.err(posted.error)
 
     const parsed = DeviceCodeResponseSchema.safeParse(posted.value.body)

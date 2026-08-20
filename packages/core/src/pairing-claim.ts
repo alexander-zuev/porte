@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { IsoDateTimeSchema } from './identity.ts'
+
 /**
  * The code the CLI prints and the person types.
  *
@@ -31,8 +33,29 @@ export function formatPairingCode(code: string): string {
  * separate. Which account they are signed in as is already on the page, so a
  * claim does not repeat it.
  */
+/**
+ * Where the code was asked for, judged against where it is being answered.
+ *
+ * The server compares, not the screen. Both halves normally happen on one Mac,
+ * so `elsewhere` is the whole signal: someone else's machine asked for a code
+ * you are about to approve.
+ */
+export const PairingOriginSchema = z.discriminatedUnion('origin', [
+  z.object({ origin: z.literal('this-device'), requestedAt: IsoDateTimeSchema }),
+  z.object({
+    origin: z.literal('elsewhere'),
+    /** City and country as far as they are known, else the country alone. */
+    location: z.string().min(1),
+    ipAddress: z.string().min(1),
+    requestedAt: IsoDateTimeSchema,
+  }),
+  /** Nothing was recorded. Never blocks pairing; the screen simply says less. */
+  z.object({ origin: z.literal('unknown') }),
+])
+export type PairingOrigin = z.infer<typeof PairingOriginSchema>
+
 export const PairingClaimSchema = z.discriminatedUnion('state', [
-  z.object({ state: z.literal('claimed') }),
+  z.object({ state: z.literal('claimed'), requestedFrom: PairingOriginSchema }),
   z.object({ state: z.literal('invalid') }),
   z.object({ state: z.literal('expired') }),
   z.object({ state: z.literal('already-decided') }),
@@ -42,13 +65,6 @@ export type PairingClaim = z.infer<typeof PairingClaimSchema>
 /** What the person chose about a Mac that is waiting on a code. */
 export const PairingVerdictSchema = z.enum(['approve', 'deny'])
 export type PairingVerdict = z.infer<typeof PairingVerdictSchema>
-
-/** One claimed code and one answer to it. */
-export const PairingDecisionInputSchema = z.object({
-  code: PairingCodeSchema,
-  verdict: PairingVerdictSchema,
-})
-export type PairingDecisionInput = z.infer<typeof PairingDecisionInputSchema>
 
 /**
  * What approving or denying a claimed code returns.

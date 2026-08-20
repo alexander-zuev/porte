@@ -211,8 +211,11 @@ async function pair(host: HostComposition, baseUrl: string, io: CliIo): Promise<
   stopWatching?.()
   if (paired.isErr()) return writeError(io, paired.error)
 
-  out.done(`Paired. Run ${code('porte up')} to connect this Mac.`)
-  out.note('Unused pairings lapse after 7 days.')
+  // Three separate facts: what happened, what to do, when it lapses.
+  out.done(`Paired with ${strong(new URL(baseUrl).host)}`)
+  out.blank()
+  out.raw(`  Run ${code('porte up')} to control this Mac's Grok sessions from anywhere`)
+  out.note('Expires in 7 days if it never connects')
   return 0
 }
 

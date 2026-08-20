@@ -1,15 +1,15 @@
 import {
   createLogger,
   DeviceDecisionErrorSchema,
+  type DeviceCodeResponse,
   type DeviceDecisionError,
-  type PairingClaim,
   type PairingCode,
   type PairingDecision,
 } from '@porte/core'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { APIError } from 'better-auth/api'
 
-import type { PairingAuthority } from '../../application/ports/pairing-authority'
+import type { PairingAuthority, PairingCodeStatus } from '../../application/ports/pairing-authority'
 import type { AuthInstance } from '../app-deps.ts'
 
 const logger = createLogger('pairing-authority')
@@ -18,8 +18,13 @@ const logger = createLogger('pairing-authority')
 export class BetterAuthPairingAuthority implements PairingAuthority {
   constructor(private readonly auth: () => AuthInstance) {}
 
+  /** Straight delegation. The wire shape is the contract our route republishes. */
+  async issue(clientId: string): Promise<DeviceCodeResponse> {
+    return this.auth().api.deviceCode({ body: { client_id: clientId } })
+  }
+
   /** `deviceVerify` also writes: it binds a pending code to the caller. */
-  async claim(code: PairingCode): Promise<PairingClaim> {
+  async claim(code: PairingCode): Promise<PairingCodeStatus> {
     try {
       const verified = await this.auth().api.deviceVerify({
         query: { user_code: code },

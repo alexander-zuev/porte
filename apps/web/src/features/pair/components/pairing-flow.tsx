@@ -1,9 +1,13 @@
 import { CheckCircleIcon, ProhibitIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import type { PairingOrigin } from '@porte/core'
 
 import { PairForm, type PairFormProps } from '#/features/pair/components/pair-form.tsx'
 import {
   PairingAccount,
+  PairingGrants,
   PairingLayout,
+  PairingRequestOrigin,
+  PairingRequestTime,
   PairingStatusIcon,
   type PairingTone,
 } from '#/features/pair/components/pairing-layout.tsx'
@@ -27,6 +31,19 @@ export type PairingIssue = 'expired' | 'already-decided' | 'not-yours' | 'unavai
 const NEVER_SENT =
   'A real pairing code only ever appears in your own terminal, and expires in minutes'
 
+/**
+ * What approving actually hands over.
+ *
+ * Written as power the account gains over the Mac, not the reverse: the Mac
+ * could always do these things, and the decision is whether anyone signed in
+ * to this account may drive it remotely.
+ */
+const MAC_GRANTS = [
+  'Start and resume Grok sessions on this Mac',
+  'Read its session history and file diffs',
+  'Answer its permission prompts',
+] as const
+
 /** Complete presentational states for the pairing flow. */
 export type PairingFlowProps =
   | ({
@@ -38,12 +55,13 @@ export type PairingFlowProps =
       readonly view: 'confirm'
       readonly accountLabel: string
       readonly accountImage?: string | null
+      readonly requestedFrom: PairingOrigin
       readonly pending: boolean
       readonly onApprove: () => void
       readonly onDeny: () => void
     }
-  | { readonly view: 'approved'; readonly onContinue: () => void }
-  | { readonly view: 'denied'; readonly onDone: () => void }
+  | { readonly view: 'approved' }
+  | { readonly view: 'denied' }
   | {
       readonly view: 'issue'
       readonly issue: PairingIssue
@@ -54,8 +72,8 @@ export type PairingFlowProps =
 /** Render one pairing state without routing or server effects. */
 export function PairingFlow(props: PairingFlowProps) {
   if (props.view === 'confirm') return <ConfirmPairing {...props} />
-  if (props.view === 'approved') return <ApprovedPairing {...props} />
-  if (props.view === 'denied') return <DeniedPairing {...props} />
+  if (props.view === 'approved') return <ApprovedPairing />
+  if (props.view === 'denied') return <DeniedPairing />
   if (props.view === 'issue') return <PairingIssueState {...props} />
   return <CodePairing {...props} />
 }
@@ -84,36 +102,42 @@ function CodePairing(props: Extract<PairingFlowProps, { view: 'code-entry' }>) {
 function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
   return (
     <PairingLayout
-      footnote="Your Grok login stays on the Mac. Porte never receives it."
+      footnote="Your Grok credentials and your code never leave this Mac"
       title="Connect this Mac?"
       account={<PairingAccount image={props.accountImage} label={props.accountLabel} />}
+      alert={<PairingRequestOrigin origin={props.requestedFrom} />}
       actions={
-        <>
-          {/* Never focused on mount: a held Enter from the code form would approve. */}
-          <Button className="w-full" disabled={props.pending} onClick={props.onApprove}>
-            {props.pending ? <Spinner data-icon="inline-start" /> : null}
-            Connect this Mac
-          </Button>
+        // Side by side and equal weight: refusing is as ordinary as approving.
+        <div className="flex w-full gap-3">
           <Button
-            className="w-full"
+            className="flex-1"
             disabled={props.pending}
-            variant="ghost"
+            variant="outline"
             onClick={props.onDeny}
           >
             Cancel
           </Button>
-        </>
+          {/* Never focused on mount: a held Enter from the code form would approve. */}
+          <Button className="flex-1" disabled={props.pending} onClick={props.onApprove}>
+            {props.pending ? <Spinner data-icon="inline-start" /> : null}
+            Connect this Mac
+          </Button>
+        </div>
       }
     >
-      <p className="text-muted-foreground">
-        A terminal asked to control coding sessions from your account. Only continue if you started
-        this on your own Mac.
-      </p>
+      <PairingRequestTime origin={props.requestedFrom} />
+      <PairingGrants grants={MAC_GRANTS} />
     </PairingLayout>
   )
 }
 
-function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>) {
+/**
+ * No action to offer.
+ *
+ * What happens next happens in the terminal, and the dashboard still reads
+ * unpaired until the daemon connects, so a button here would lead nowhere good.
+ */
+function ApprovedPairing() {
   return (
     <PairingLayout
       title="Mac connected"
@@ -122,20 +146,13 @@ function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>)
           <CheckCircleIcon aria-hidden className="size-6" />
         </PairingStatusIcon>
       }
-      actions={
-        <Button className="w-full" onClick={props.onContinue}>
-          Open sessions
-        </Button>
-      }
     >
-      <p className="text-muted-foreground">
-        Return to the terminal. It finishes connecting within a few seconds.
-      </p>
+      <p className="text-muted-foreground">You can close this tab and go back to your terminal</p>
     </PairingLayout>
   )
 }
 
-function DeniedPairing(props: Extract<PairingFlowProps, { view: 'denied' }>) {
+function DeniedPairing() {
   return (
     <PairingLayout
       title="Pairing cancelled"
@@ -143,11 +160,6 @@ function DeniedPairing(props: Extract<PairingFlowProps, { view: 'denied' }>) {
         <PairingStatusIcon tone="neutral">
           <ProhibitIcon aria-hidden className="size-6" />
         </PairingStatusIcon>
-      }
-      actions={
-        <Button className="w-full" variant="outline" onClick={props.onDone}>
-          Done
-        </Button>
       }
     >
       <p className="text-muted-foreground">That code is dead and no Mac was connected</p>

@@ -1,6 +1,7 @@
 import type { HostAuthenticator } from '../application/ports/host-authenticator'
 import type { HostCoordinator } from '../application/ports/host-coordinator'
 import type { PairingAuthority } from '../application/ports/pairing-authority.ts'
+import type { PairingOrigins } from '../application/ports/pairing-origins.ts'
 import type { HostRepository } from '../domain/host/host.repository.ts'
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
@@ -11,6 +12,7 @@ import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
 import { createDatabase } from './persistence/database/connection.ts'
 import type { Db } from './persistence/database/types.ts'
 import { DrizzleHostRepository } from './persistence/repositories/host.repository.ts'
+import { DrizzlePairingOrigins } from './persistence/repositories/pairing-origins.repository.ts'
 import type { RuntimeEnv } from './runtime-env.ts'
 
 export type AuthInstance = ReturnType<typeof getAuthInstance>
@@ -36,6 +38,8 @@ export type AppDeps = {
   hosts: HostRepository
   /** Pairing codes, run by the device authorization plugin. Request-scoped. */
   pairingAuthority: PairingAuthority
+  /** Where each pairing code was asked for. Written when one is issued. */
+  pairingOrigins: PairingOrigins
   hostAuthenticator: HostAuthenticator
   hostCoordinator: HostCoordinator
   executionCtx: ExecutionContext
@@ -63,6 +67,7 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: ExecutionContext): 
     hosts: new DrizzleHostRepository(() => current()),
     // Same reason it takes the getter: the auth instance is built on first use.
     pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
+    pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
     hostAuthenticator: new DevelopmentHostAuthenticator(
       env.PORTE_DEV_DAEMON_TOKEN,

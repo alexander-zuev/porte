@@ -1,6 +1,8 @@
 import type { PairingClaim, PairingCode } from '@porte/core'
 
 import type { PairingAuthority } from '../ports/pairing-authority.ts'
+import type { PairingOrigins } from '../ports/pairing-origins.ts'
+import { getPairingOrigin } from '../queries/get-pairing-origin.query.ts'
 
 /**
  * Bind a pairing code to the account that is signed in.
@@ -11,7 +13,12 @@ import type { PairingAuthority } from '../ports/pairing-authority.ts'
  */
 export async function claimPairing(
   authority: PairingAuthority,
+  origins: PairingOrigins,
   code: PairingCode,
+  approvingFrom: string | null,
 ): Promise<PairingClaim> {
-  return authority.claim(code)
+  const status = await authority.claim(code)
+  if (status.state !== 'claimed') return status
+
+  return { state: 'claimed', requestedFrom: await getPairingOrigin(origins, code, approvingFrom) }
 }

@@ -42,7 +42,7 @@ const PAIRING_EXPIRES_IN = '10m'
 /** The CLI honours this between polls. Kept at the default so polling stays under the limiter. */
 const PAIRING_POLL_INTERVAL = '5s'
 /** Where the CLI sends the user. Typed, so renaming the route breaks the build. */
-const PAIRING_PATH: FileRouteTypes['fullPaths'] = '/pair'
+const PAIRING_PATH: FileRouteTypes['fullPaths'] = '/pair/'
 
 /** Session data rides in a signed cookie for this long before storage is consulted. */
 const SESSION_COOKIE_CACHE = 5 * 60
