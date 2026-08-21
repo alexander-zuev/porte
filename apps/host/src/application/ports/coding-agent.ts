@@ -1,4 +1,5 @@
 import type {
+  ConversationTurnState,
   FailureClassification,
   PermissionId,
   ConversationId as ProtocolConversationId,
@@ -16,6 +17,9 @@ export type ConversationId = ProtocolConversationId
 
 /** Provider-independent summary for one persisted conversation. */
 export type ConversationSummary = ProtocolConversationSummary
+
+/** Whether a conversation is running a turn right now. */
+export type { ConversationTurnState }
 
 /** Provider-independent event from one conversation. */
 export type ConversationEvent = ProtocolConversationEvent
@@ -38,6 +42,7 @@ export type CodingAgentFailure =
 /** Which call it went wrong in. */
 export type CodingAgentOperation =
   | 'list'
+  | 'read'
   | 'open'
   | 'create'
   | 'close'
@@ -73,6 +78,21 @@ export class CodingAgentError extends TaggedError('CodingAgentError')<{
   }
 }
 
+export type ReadConversation = {
+  readonly conversationId: ConversationId
+  readonly cursor: string | null
+  readonly limit: number
+}
+
+/** One page of a stored transcript, newest turn last. */
+export type ConversationTranscript = {
+  readonly conversation: ConversationSummary
+  readonly events: readonly ConversationEvent[]
+  readonly next: string | null
+  /** What the agent is doing now, which the stored file cannot say. */
+  readonly turn: ConversationTurnState
+}
+
 export type OpenConversation = {
   readonly conversationId: ConversationId
   readonly onEvent: (event: ConversationEvent) => void
@@ -105,6 +125,11 @@ export type AnswerPermission = {
 export interface CodingAgent {
   /** List persisted conversations in display order. */
   listConversations(): Promise<Result<ConversationSummary[], CodingAgentError>>
+
+  /** Read one stored conversation without starting an agent process. */
+  readConversation(
+    command: ReadConversation,
+  ): Promise<Result<ConversationTranscript, CodingAgentError>>
 
   /** Open one persisted conversation and load its complete state. */
   openConversation(

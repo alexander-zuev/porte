@@ -14,8 +14,11 @@ import {
   type ConversationId,
   type ConversationSnapshot,
   type ConversationSummary,
+  type ConversationTranscript,
+  type ConversationTurnState,
   type CreateConversation,
   type OpenConversation,
+  type ReadConversation,
   type StartTurn,
 } from '@host/application/ports/coding-agent.ts'
 import {
@@ -42,6 +45,7 @@ import {
   GrokReplayMapper,
   type GrokEventMappingError,
 } from './grok-event-mapper.ts'
+import { pageOfTurns, readGrokTranscript } from './grok-transcript.ts'
 
 export type GrokAgentConfig = {
   readonly grokHome: string
@@ -82,6 +86,43 @@ export class GrokAgent implements CodingAgent {
     const listed = await listGrokConversations(this.config.grokHome)
     if (listed.isErr()) return Result.err(operationError('list', listed.error))
     return Result.ok(listed.value.map((entry) => entry.summary))
+  }
+
+  /**
+   * Read one stored conversation from Grok's own files.
+   *
+   * No ACP session: starting one would boot the agent and its MCP servers just
+   * to look at a transcript. Paged newest turn first, so a phone opening a long
+   * conversation reads the end of it rather than all of it.
+   */
+  async readConversation(
+    command: ReadConversation,
+  ): Promise<ResultType<ConversationTranscript, CodingAgentError>> {
+    const found = await findGrokConversation(this.config.grokHome, command.conversationId)
+    if (found.isErr()) {
+      const code =
+        found.error._tag === 'GrokConversationNotFoundError'
+          ? 'CONVERSATION_NOT_FOUND'
+          : 'PROVIDER_UNAVAILABLE'
+      return Result.err(operationError('read', found.error, code))
+    }
+
+    const transcript = await readGrokTranscript(found.value.folderPath, command.conversationId)
+    if (transcript.isErr()) {
+      return Result.err(operationError('read', transcript.error, 'PROVIDER_UNAVAILABLE'))
+    }
+
+    const page = pageOfTurns(transcript.value.turns, command.cursor, command.limit)
+    if (page.isErr()) {
+      return Result.err(operationError('read', page.error, 'INVALID_PROVIDER_RESPONSE'))
+    }
+
+    return Result.ok({
+      conversation: found.value.summary,
+      // The file says what was said; only a live process says what is happening.
+      turn: this.conversations.get(command.conversationId)?.turn ?? { state: 'idle' },
+      ...page.value,
+    })
   }
 
   /** Load one Grok conversation and keep its ACP process active. */
@@ -291,6 +332,13 @@ class GrokConversation {
 
   get view(): ConversationView {
     return ConversationViewSchema.parse(this.currentView)
+  }
+
+  /** What this conversation is doing now, which no stored file records. */
+  get turn(): ConversationTurnState {
+    return this.activeTurnId === undefined
+      ? { state: 'idle' }
+      : { state: 'running', turnId: this.activeTurnId }
   }
 
   setListener(listener: (event: ConversationEvent) => void): void {

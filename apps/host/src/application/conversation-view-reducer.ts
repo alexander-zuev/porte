@@ -1,9 +1,9 @@
-import type { FailureClassification } from '@porte/core/client'
 import {
   ConversationViewSchema,
   type ConversationEvent,
   type ConversationItem,
   type ConversationView,
+  type FailureClassification,
 } from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 

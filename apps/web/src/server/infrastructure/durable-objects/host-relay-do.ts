@@ -7,7 +7,9 @@ import {
   RequestMessageSchema,
   RoutedEventSchema,
   RoutedResponseSchema,
+  ConnectionIdSchema,
   createLogger,
+  createRequestId,
   sendableCloseCode,
   type ConversationPage,
   type ConversationPageQuery,
@@ -35,6 +37,9 @@ const logger = createLogger('host-relay')
 
 /** How long a stored list outlives the Mac that reported it. */
 const CONVERSATIONS_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
+
+/** Who the relay is when it asks the Mac for something no browser asked for. */
+const RELAY_CONNECTION_ID = ConnectionIdSchema.parse('00000000-0000-7000-8000-000000000000')
 
 /**
  * The switchboard for one Mac.
@@ -181,7 +186,41 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       this.ctx.waitUntil(this.rememberSeen(attachment.hostId))
     }
 
+    if (attachment?.role === 'client') this.releaseConversation(socket)
+
     socket.close(sendableCloseCode(code), reason)
+  }
+
+  /**
+   * Let the Mac stop an agent nobody is watching.
+   *
+   * An open conversation is a live agent process with its servers, and a browser
+   * that closed its tab says nothing about it. The last watcher leaving is the
+   * only moment the relay can tell.
+   */
+  private releaseConversation(leaving: WebSocket): void {
+    const conversationId = this.sockets.watchedBy(leaving)
+    if (conversationId === null) return
+
+    this.sockets.watchConversation(leaving, null)
+    if (this.sockets.conversationClients(conversationId, leaving).length > 0) return
+
+    this.askMac('conversation.close', { conversationId })
+  }
+
+  /** Ask the Mac for something the relay decided on, with no browser waiting. */
+  private askMac<Method extends 'conversation.close'>(
+    method: Method,
+    params: z.infer<(typeof ClientMethodSchemas)[Method]['params']>,
+  ): void {
+    const daemon = this.sockets.daemon()
+    if (daemon === undefined) return
+
+    const routed: RoutedRequest = {
+      route: { connectionId: RELAY_CONNECTION_ID },
+      message: { v: 1, type: 'request', requestId: createRequestId(), method, params },
+    }
+    daemon.send(JSON.stringify(routed))
   }
 
   webSocketError(socket: WebSocket, cause: unknown): void {
@@ -259,7 +298,10 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    */
   private routeResponse(response: z.infer<typeof RoutedResponseSchema>): void {
     const target = this.sockets.client(response.route.connectionId)
-    if (target === undefined) return
+    if (target === undefined) {
+      this.releaseUnwatched(response)
+      return
+    }
 
     if (response.message.type === 'result') {
       if (response.method === 'conversation.open') {
@@ -268,12 +310,39 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
         )
         this.sockets.watchConversation(target, opened.conversation.id)
       }
+      // Creating leaves it open on the Mac, so the browser watches it from here
+      // rather than opening what it just made.
+      if (response.method === 'conversation.create') {
+        const created = ClientMethodSchemas['conversation.create'].result.parse(
+          response.message.result,
+        )
+        this.sockets.watchConversation(target, created.conversation.id)
+      }
       if (response.method === 'conversation.close') {
         this.sockets.watchConversation(target, null)
       }
     }
 
     this.sockets.send(target, response.message)
+  }
+
+  /**
+   * A conversation was opened for a browser that has already gone.
+   *
+   * Without this the Mac holds an agent whose events reach nobody, because the
+   * watch that would have delivered them was never registered.
+   */
+  private releaseUnwatched(response: z.infer<typeof RoutedResponseSchema>): void {
+    if (response.message.type !== 'result') return
+    if (response.method !== 'conversation.open' && response.method !== 'conversation.create') return
+
+    const opened = ClientMethodSchemas[response.method].result.safeParse(response.message.result)
+    if (!opened.success) return
+
+    logger.warn('conversation_opened_for_departed_client', {
+      details: { conversationId: opened.data.conversation.id },
+    })
+    this.askMac('conversation.close', { conversationId: opened.data.conversation.id })
   }
 
   private rejectInvalidRequest(socket: WebSocket, value: JsonValue): void {

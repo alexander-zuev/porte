@@ -1,348 +1,165 @@
-import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
-import type { ConversationPageProps } from '@web/pages/conversation/conversation-page.tsx'
-import { useState } from 'react'
-
 import {
-  formElicitation,
-  longMessageItems,
-  markdownItems,
-  pendingPermission,
-  reasoningItems,
-  conversations,
-  listResume,
-  streamingItems,
-  toolsItems,
-  urlElicitation,
-  userOnlyItems,
-} from '../fixtures/conversations.ts'
+  HostOfflineError,
+  IsoDateTimeSchema,
+  makeConversationSummary,
+  PendingPermissionSchema,
+  type PairedHost,
+} from '@porte/core'
+import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
+import type { RelayState } from '@web/entities/host/relay-state.ts'
+import {
+  ConversationPage,
+  type ConversationPageProps,
+} from '@web/pages/conversation/conversation-page.tsx'
+import type { ChatTransport, UIMessage } from 'ai'
+
+const HOST = {
+  name: "Alexander's MacBook Pro",
+  platform: 'darwin',
+  lastSeenAt: '2026-08-19T14:02:00.000Z',
+} as PairedHost
+
+const ONLINE: RelayState = {
+  line: 'open',
+  mac: { online: true, lastSeenAt: IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z') },
+}
+
+const SUMMARY = makeConversationSummary({
+  id: '01a01e5d-e64c-76e2-9c93-ca69580001fd',
+  cwd: '/Users/az/projects/porte',
+  title: 'Porte account deletion without typist UoW',
+  updatedAt: '2026-08-20T09:20:14.515Z',
+})
+
+const messages: UIMessage[] = [
+  {
+    id: 'm1',
+    role: 'user',
+    parts: [{ type: 'text', text: 'Compare typist’s unit of work with ours.' }],
+  },
+  {
+    id: 'm2',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'reasoning',
+        text: 'The user wants a comparison, so read both first.',
+        state: 'done',
+      },
+      {
+        type: 'dynamic-tool',
+        toolCallId: 'call-1',
+        toolName: 'read_file',
+        state: 'output-available',
+        input: { kind: 'read', locations: [] },
+        output: [
+          { type: 'content', content: { type: 'text', text: 'export class UnitOfWork {}' } },
+        ],
+      },
+      {
+        type: 'text',
+        text: 'Typist wraps writes in a **unit of work**. Porte does not need one yet.',
+        state: 'done',
+      },
+    ],
+  },
+]
+
+const PERMISSION = PendingPermissionSchema.parse({
+  turnId: '01a01e5d-e64c-76e2-9c93-ca6958000200',
+  permissionId: '01a01e5d-e64c-76e2-9c93-ca6958000201',
+  toolCallId: 'call-2',
+  title: 'Run `pnpm test` in porte',
+  options: [
+    { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
+    { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
+    { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+  ],
+})
+
+/** No socket and no Mac: a story sends nothing, so nothing has to answer. */
+const transport: ChatTransport<UIMessage> = {
+  sendMessages: () => Promise.resolve(new ReadableStream()),
+  reconnectToStream: () => Promise.resolve(null),
+}
+
+const ready: Extract<ConversationView, { status: 'ready' }> = {
+  status: 'ready',
+  conversation: SUMMARY,
+  messages,
+  transport,
+  permissions: [],
+  onReadOlder: null,
+  readingOlder: false,
+  resuming: false,
+  actions: { onAnswerPermission: () => undefined },
+}
+
+/** Every state one conversation screen can be in, without a socket or a Mac. */
+function page(view: ConversationView, relay: RelayState = ONLINE): ConversationPageProps {
+  return { conversationId: SUMMARY.id, view, host: HOST, relay }
+}
 
 const meta = {
   title: 'Pages/Conversation',
   component: ConversationPage,
+  parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof ConversationPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-function ConversationHarness(
-  props: Pick<
-    Extract<ConversationPageProps, { view: 'ready' }>,
-    'connection' | 'control' | 'items' | 'draft'
-  >,
-) {
-  const [draft, setDraft] = useState(props.draft)
-  return (
-    <ConversationPage
-      actions={{
-        ...actions,
-        onDraftChange: setDraft,
-      }}
-      connection={props.connection}
-      control={props.control}
-      draft={draft}
-      hostName="Alexander's MacBook Pro"
-      items={props.items}
-      conversation={listResume}
-      view="ready"
-    />
-  )
+/** The transcript is being read. No agent has started. */
+export const Opening: Story = { args: page({ status: 'pending' }) }
+
+export const Ready: Story = { args: page(ready) }
+
+/** Nothing said yet, which is a new conversation rather than a failure. */
+export const Empty: Story = { args: page({ ...ready, messages: [] }) }
+
+/** A long conversation opens at its end, with the turns before it on request. */
+export const HasOlderTurns: Story = {
+  args: page({ ...ready, onReadOlder: () => undefined }),
 }
 
-const actions = {
-  onAnswerElicitation: () => undefined,
-  onAnswerPermission: () => undefined,
-  onBack: () => undefined,
-  onDraftChange: () => undefined,
-  onElicitationValueChange: () => undefined,
-  onOpenElicitationUrl: () => undefined,
-  onRetryPermission: () => undefined,
-  onSend: () => undefined,
-  onStop: () => undefined,
-  onSubmitElicitation: () => undefined,
+/** The agent stopped to ask. Until this is answered the turn goes nowhere. */
+export const AwaitingPermission: Story = {
+  args: page({ ...ready, permissions: [{ permission: PERMISSION, answering: false }] }),
 }
 
-const idleArgs = {
-  actions,
-  view: 'ready' as const,
-  conversation: listResume,
-  hostName: "Alexander's MacBook Pro",
-  connection: 'online' as const,
-  control: { state: 'idle' as const },
-  items: streamingItems,
-  draft: '',
+/** The answer is on its way, so the same question cannot be answered twice. */
+export const AnsweringPermission: Story = {
+  args: page({ ...ready, permissions: [{ permission: PERMISSION, answering: true }] }),
 }
 
-export const Empty: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness connection="online" control={{ state: 'idle' }} draft="" items={[]} />
-  ),
+// Streaming and submitted are `useChat`'s to report, and it only reports them
+// after a send. They belong to a story that sends, not to one that renders.
+
+/** The Mac is away. The transcript stays; the composer does not accept work. */
+export const MacOffline: Story = {
+  args: page(ready, { line: 'open', mac: { online: false, lastSeenAt: null } }),
 }
 
-export const UserOnly: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'idle' }}
-      draft=""
-      items={userOnlyItems}
-    />
-  ),
-}
-
-export const MarkdownReply: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'idle' }}
-      draft=""
-      items={markdownItems}
-    />
-  ),
-}
-
-export const ReasoningOpen: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'idle' }}
-      draft=""
-      items={reasoningItems}
-    />
-  ),
-}
-
-export const Tools: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'running' }}
-      draft=""
-      items={toolsItems}
-    />
-  ),
-}
-
-export const StreamingTurn: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      draft=""
-      connection="online"
-      control={{ state: 'running' }}
-      items={streamingItems}
-    />
-  ),
-}
-
-export const Permission: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      draft=""
-      connection="online"
-      control={{
-        state: 'permission',
-        decision: { state: 'pending', request: pendingPermission },
-      }}
-      items={streamingItems}
-    />
-  ),
-}
-
-export const LongMessage: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'idle' }}
-      draft=""
-      items={longMessageItems}
-    />
-  ),
-}
-
-export const Idle: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      draft="Add cancel next."
-      connection="online"
-      control={{ state: 'idle' }}
-      items={streamingItems}
-    />
-  ),
-}
-
-export const Offline: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      draft=""
-      connection="offline"
-      control={{ state: 'idle' }}
-      items={streamingItems}
-    />
-  ),
-}
-
+/** Our line dropped while the conversation was open. */
 export const Reconnecting: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="reconnecting"
-      control={{ state: 'running' }}
-      draft="Keep this draft while the connection returns"
-      items={streamingItems}
-    />
-  ),
+  args: page(ready, { line: 'reconnecting', mac: { online: true, lastSeenAt: null } }),
 }
 
-export const Sending: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'sending' }}
-      draft="Add a health check"
-      items={streamingItems}
-    />
-  ),
-}
-
-export const DeliveryUnknown: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="reconnecting"
-      control={{ state: 'delivery-unknown' }}
-      draft="Add a health check"
-      items={streamingItems}
-    />
-  ),
-}
-
-export const Stopping: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'stopping' }}
-      draft=""
-      items={streamingItems}
-    />
-  ),
-}
-
-export const Completed: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{ state: 'completed' }}
-      draft=""
-      items={streamingItems}
-    />
-  ),
-}
-
-export const TurnFailed: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{
-        state: 'failed',
-        error: { code: 'INTERNAL_ERROR', message: 'Grok stopped before it completed the turn.' },
-      }}
-      draft="Add a health check"
-      items={streamingItems}
-    />
-  ),
-}
-
-export const ElicitationForm: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{
-        state: 'elicitation',
-        decision: {
-          request: formElicitation,
-          response: { state: 'pending' },
-          values: { environment: 'Preview', retries: '3', include_logs: false },
-          errors: {},
-        },
-      }}
-      draft=""
-      items={streamingItems}
-    />
-  ),
-}
-
-export const ElicitationUrl: Story = {
-  args: idleArgs,
-  render: () => (
-    <ConversationHarness
-      connection="online"
-      control={{
-        state: 'elicitation',
-        decision: {
-          request: urlElicitation,
-          response: { state: 'pending' },
-          values: {},
-          errors: {},
-        },
-      }}
-      draft=""
-      items={streamingItems}
-    />
-  ),
-}
-
-export const Opening: Story = {
-  args: {
-    hostName: "Alexander's MacBook Pro",
-    conversation: listResume,
-    view: 'opening',
-    onBack: () => undefined,
-  },
-}
-
-export const ConversationUnavailable: Story = {
-  args: {
-    hostName: "Alexander's MacBook Pro",
-    reason: 'unavailable',
-    conversation: listResume,
-    view: 'failure',
-    onBack: () => undefined,
+/** The read failed because the Mac is not running Porte. */
+export const FailedHostOffline: Story = {
+  args: page({
+    status: 'failed',
+    error: { _tag: 'HostOfflineError', message: new HostOfflineError().message },
     onRetry: () => undefined,
-  },
+  }),
 }
 
-export const AgentFailed: Story = {
-  args: {
-    hostName: "Alexander's MacBook Pro",
-    reason: 'agent-failed',
-    conversation: listResume,
-    view: 'failure',
-    onBack: () => undefined,
+/** The conversation was removed on the Mac. */
+export const FailedNotFound: Story = {
+  args: page({
+    status: 'failed',
+    error: { _tag: 'ConversationNotFoundError', message: 'Conversation is not open.' },
     onRetry: () => undefined,
-  },
-}
-
-export const HostDisconnectedWhileOpening: Story = {
-  args: {
-    hostName: "Alexander's MacBook Pro",
-    reason: 'host-offline',
-    conversation: listResume,
-    view: 'failure',
-    onBack: () => undefined,
-  },
+  }),
 }

@@ -1,73 +1,67 @@
-import type { ConversationSummary } from '@porte/core/client'
+import type { ConversationId, PairedHost } from '@porte/core/client'
+import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
+import { canReachMac, type RelayState } from '@web/entities/host/relay-state.ts'
+import { ConversationChat } from '@web/features/conversation/components/conversation-chat.tsx'
 import {
-  ConversationFailure,
-  type ConversationFailureProps,
+  ConversationHeader,
+  type ConversationConnection,
+} from '@web/features/conversation/components/conversation-header.tsx'
+import {
+  ConversationFailed,
   ConversationOpening,
-} from '@web/features/conversation/components/conversation-page-feedback.tsx'
-import {
-  ConversationPane,
-  type ConversationPaneProps,
-} from '@web/features/conversation/components/conversation-pane.tsx'
+} from '@web/features/conversation/components/conversation-states.tsx'
 import { AppShell } from '@web/ui/components/app-shell.tsx'
 
-type ConversationContext = {
-  readonly conversation: ConversationSummary
-  readonly hostName: string
-  readonly onBack: () => void
+export type ConversationPageProps = {
+  readonly conversationId: ConversationId
+  readonly view: ConversationView
+  readonly host: PairedHost
+  readonly relay: RelayState
 }
 
-/** The mutually exclusive states for one conversation page. */
-export type ConversationPageProps =
-  | ({ readonly view: 'ready' } & ConversationPaneProps)
-  | ({ readonly view: 'opening' } & ConversationContext)
-  | ({ readonly view: 'failure' } & ConversationFailureProps)
+/** One conversation on the paired Mac: what it said, and what to say next. */
+export function ConversationPage({ conversationId, view, host, relay }: ConversationPageProps) {
+  const header = (
+    <ConversationHeader
+      connection={connectionOf(relay)}
+      cwd={view.status === 'ready' ? view.conversation.cwd : null}
+      hostName={host.name}
+      title={view.status === 'ready' ? view.conversation.title : 'Opening'}
+    />
+  )
 
-/** Render one conversation state in the responsive application shell. */
-export function ConversationPage(props: ConversationPageProps) {
-  if (props.view === 'opening') {
-    return (
-      <AppShell>
-        <ConversationOpening
-          hostName={props.hostName}
-          conversation={props.conversation}
-          onBack={props.onBack}
-        />
-      </AppShell>
-    )
-  }
-  if (props.view === 'failure') {
-    return (
-      <AppShell>
-        {props.reason === 'host-offline' ? (
-          <ConversationFailure
-            hostName={props.hostName}
-            reason={props.reason}
-            conversation={props.conversation}
-            onBack={props.onBack}
-          />
-        ) : (
-          <ConversationFailure
-            hostName={props.hostName}
-            reason={props.reason}
-            conversation={props.conversation}
-            onBack={props.onBack}
-            onRetry={props.onRetry}
-          />
-        )}
-      </AppShell>
-    )
-  }
   return (
-    <AppShell>
-      <ConversationPane
-        actions={props.actions}
-        connection={props.connection}
-        control={props.control}
-        draft={props.draft}
-        hostName={props.hostName}
-        items={props.items}
-        conversation={props.conversation}
-      />
+    <AppShell header={header}>
+      <ConversationBody conversationId={conversationId} relay={relay} view={view} />
     </AppShell>
   )
+}
+
+function ConversationBody({ conversationId, view, relay }: Omit<ConversationPageProps, 'host'>) {
+  if (view.status === 'pending') return <ConversationOpening />
+
+  if (view.status === 'failed') {
+    return <ConversationFailed error={view.error} onRetry={view.onRetry} />
+  }
+
+  return (
+    <ConversationChat
+      actions={view.actions}
+      canSend={canReachMac(relay)}
+      conversationId={conversationId}
+      history={view.messages}
+      permissions={view.permissions}
+      readingOlder={view.readingOlder}
+      resuming={view.resuming}
+      transport={view.transport}
+      onReadOlder={view.onReadOlder}
+    />
+  )
+}
+
+function connectionOf(relay: RelayState): ConversationConnection {
+  if (relay.line === 'reconnecting') return 'reconnecting'
+  if (relay.mac === null) return 'loading'
+
+  return relay.mac.online ? 'online' : 'offline'
 }

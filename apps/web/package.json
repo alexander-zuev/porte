@@ -11,7 +11,8 @@
     "lint": "oxlint src && pnpm run lint:colors",
     "lint:colors": "oxlint -c .oxlintrc.colors.json -A all src",
     "lint:fix": "oxlint src --fix && pnpm run lint:colors",
-    "test": "CLOUDFLARE_ENV=test dotenvx run -f .env.test -- playwright test",
+    "test": "vitest run && pnpm run test:e2e",
+    "test:e2e": "pnpm run build-storybook && CLOUDFLARE_ENV=test dotenvx run -f .env.test -- playwright test",
     "storybook": "dotenvx run -f .env.dev -- storybook dev -p 6006",
     "build-storybook": "dotenvx run -f .env.dev -- storybook build",
     "cf-typegen": "wrangler types",
@@ -30,6 +31,7 @@
     "db:studio:prod": "DRIZZLE_ENV=production drizzle-kit studio"
   },
   "dependencies": {
+    "@ai-sdk/react": "catalog:",
     "@base-ui/react": "catalog:",
     "@fontsource/inter": "catalog:",
     "@fontsource/space-grotesk": "catalog:",

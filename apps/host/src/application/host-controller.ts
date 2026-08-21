@@ -3,20 +3,14 @@ import { randomUUID } from 'node:crypto'
 import {
   RoutedResponseSchema,
   type ApiErrorTag,
-  createEventId,
   type ClientMethod,
   type ClientMethodMap,
   type RoutedRequest,
 } from '@porte/core/client'
-import { ConversationEventSchema } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 
 import { HostRelayError, type RelayHandshakeRefused } from './host-error.ts'
-import {
-  type CodingAgent,
-  type CodingAgentError,
-  type ConversationSnapshot,
-} from './ports/coding-agent.ts'
+import { type CodingAgent, type CodingAgentError } from './ports/coding-agent.ts'
 import type { PorteConnection, PorteRelay } from './ports/porte-relay.ts'
 
 /** Summaries per sync frame. Small enough that one slow Mac does not stall the socket. */
@@ -81,6 +75,21 @@ export class HostController {
   ): Promise<ResultType<void, CodingAgentError>> {
     const message = request.message
     switch (message.method) {
+      case 'conversation.read': {
+        const read = await this.agent.readConversation({
+          conversationId: message.params.conversationId,
+          cursor: message.params.cursor,
+          limit: message.params.limit,
+        })
+        if (read.isErr()) return sendError(request, connection, read.error)
+        sendResult(request, connection, {
+          conversation: read.value.conversation,
+          events: [...read.value.events],
+          next: read.value.next,
+          turn: read.value.turn,
+        })
+        return Result.ok()
+      }
       case 'conversation.open': {
         const opened = await this.agent.openConversation({
           conversationId: message.params.conversationId,
@@ -89,7 +98,6 @@ export class HostController {
           },
         })
         if (opened.isErr()) return sendError(request, connection, opened.error)
-        sendSnapshot(connection, opened.value)
         sendResult(request, connection, {
           conversation: opened.value.summary,
           turn: { state: 'idle' },
@@ -104,7 +112,6 @@ export class HostController {
           },
         })
         if (created.isErr()) return sendError(request, connection, created.error)
-        sendSnapshot(connection, created.value)
         sendResult(request, connection, { conversation: created.value.summary })
         return Result.ok()
       }
@@ -150,21 +157,16 @@ export class HostController {
   }
 }
 
-function sendSnapshot(connection: PorteConnection, snapshot: ConversationSnapshot): void {
-  connection.sendConversationEvent(
-    ConversationEventSchema.parse({
-      eventId: createEventId(),
-      sessionId: snapshot.summary.id,
-      type: 'conversation.snapshot',
-      view: snapshot.view,
-    }),
-  )
-}
-
-function sendResult(
-  request: RoutedRequest,
+/**
+ * Answer the browser that asked.
+ *
+ * The result is keyed to the method it answers, so pairing one method's answer
+ * with another's shape is a compile error rather than a socket the relay closes.
+ */
+function sendResult<Method extends ClientMethod>(
+  request: RoutedRequest & { message: { method: Method } },
   connection: PorteConnection,
-  result: ClientMethodMap[ClientMethod]['result'],
+  result: ClientMethodMap[Method]['result'],
 ): void {
   connection.sendResponse(
     RoutedResponseSchema.parse({

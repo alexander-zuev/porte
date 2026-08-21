@@ -3,6 +3,7 @@ import {
   ClientMethodSchemas,
   createRequestId,
   type ClientMethodMap,
+  type ConversationEvent,
   type ConversationId,
   type ConversationSummary,
   type RequestMessage,
@@ -25,6 +26,7 @@ const MAX_RETRY_MS = 10_000
 const GIVE_UP_AFTER_MS = 60_000
 
 type Listener = () => void
+type ConversationEventListener = (event: ConversationEvent) => void
 
 /**
  * What the relay says about the list, never the list itself.
@@ -52,6 +54,7 @@ export class RelayConnection {
   private socket: WebSocket | undefined
   private state: RelayState = INITIAL_RELAY_STATE
   private readonly listeners = new Set<Listener>()
+  private readonly conversationListeners = new Set<ConversationEventListener>()
   private readonly pending = new Map<string, PendingRequest>()
   private retryMs = FIRST_RETRY_MS
   private retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -66,6 +69,18 @@ export class RelayConnection {
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  /**
+   * Everything one open conversation says while somebody is listening.
+   *
+   * Separate from `subscribe`, which reports the line rather than its traffic.
+   * A caller filters by turn: the relay sends a conversation's events to every
+   * browser watching it, and a turn started elsewhere is still worth showing.
+   */
+  onConversationEvent = (listener: ConversationEventListener): (() => void) => {
+    this.conversationListeners.add(listener)
+    return () => this.conversationListeners.delete(listener)
   }
 
   /** Open the line. Safe to call again: an open socket is left alone. */
@@ -191,6 +206,19 @@ export class RelayConnection {
     }
     if (message.event === 'conversation.removed') {
       this.handlers.onConversationRemoved(message.data.conversationId)
+      return
+    }
+    if (message.event === 'conversation.event') {
+      // One listener that throws must not starve the ones behind it: a chat
+      // whose stream closed is exactly the listener that can, and the other
+      // tabs watching the same conversation are unrelated to its failure.
+      for (const listener of this.conversationListeners) {
+        try {
+          listener(message.data)
+        } catch (cause) {
+          console.error('Conversation listener failed', cause)
+        }
+      }
     }
   }
 

@@ -82,14 +82,22 @@ export class RelaySockets {
   }
 
   /** Every browser watching one conversation. A turn is shown on all of them. */
-  conversationClients(conversationId: ConversationId): WebSocket[] {
+  conversationClients(conversationId: ConversationId, except?: WebSocket): WebSocket[] {
     return this.ctx.getWebSockets('client').filter((socket) => {
+      if (socket === except) return false
+
       const attachment = this.clientAttachmentOf(socket)
       return (
         attachment?.conversation.state === 'open' &&
         attachment.conversation.conversationId === conversationId
       )
     })
+  }
+
+  /** Which conversation this browser was watching, if it was watching one. */
+  watchedBy(socket: WebSocket): ConversationId | null {
+    const attachment = this.clientAttachmentOf(socket)
+    return attachment?.conversation.state === 'open' ? attachment.conversation.conversationId : null
   }
 
   /** Remember which conversation a browser is watching, across hibernation. */

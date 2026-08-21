@@ -21,6 +21,15 @@ export const CONVERSATION_PAGE_SIZE = 50
 export const CONVERSATION_PAGE_LIMIT = 100
 
 /**
+ * How many stored events one transcript page carries.
+ *
+ * Counted in events rather than messages, because that is what the wire moves:
+ * one exchange is roughly a dozen, so this is the last few turns of a
+ * conversation rather than all of one that ran for hours.
+ */
+export const CONVERSATION_HISTORY_PAGE_SIZE = 200
+
+/**
  * One page of summaries, newest first.
  *
  * `next` is null when the page came back short of the limit, which is the only

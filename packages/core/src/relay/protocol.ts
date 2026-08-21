@@ -33,7 +33,31 @@ export function createApiResponseSchema<T extends z.ZodType>(data: T) {
 
 const EmptyResultSchema = z.object({})
 
+/**
+ * Where in a stored transcript one page starts.
+ *
+ * A count of turns from the oldest, so an appended turn leaves every cursor
+ * already handed out pointing at the same place. Kept a string on the wire
+ * because it is opaque to the caller: only the Mac reads it.
+ */
+const TranscriptCursorSchema = z.string().regex(/^\d+$/, { error: 'Cursor must be a whole number' })
+
 export const ClientMethodSchemas = {
+  /** Metadata and one page of stored transcript. Starts no agent process. */
+  'conversation.read': {
+    params: z.object({
+      conversationId: ConversationIdSchema,
+      cursor: TranscriptCursorSchema.nullable(),
+      limit: z.number().int().min(1).max(500),
+    }),
+    result: z.object({
+      conversation: ConversationSummarySchema,
+      events: z.array(ConversationEventSchema),
+      next: TranscriptCursorSchema.nullable(),
+      /** Whether a turn is running right now, so a browser knows to re-attach. */
+      turn: ConversationTurnStateSchema,
+    }),
+  },
   'conversation.open': {
     params: z.object({ conversationId: ConversationIdSchema }),
     result: z.object({
@@ -117,6 +141,7 @@ function createRequestSchema<Method extends ClientMethod, Params extends z.ZodTy
 }
 
 export const RequestMessageSchema = z.discriminatedUnion('method', [
+  createRequestSchema('conversation.read', ClientMethodSchemas['conversation.read'].params),
   createRequestSchema('conversation.open', ClientMethodSchemas['conversation.open'].params),
   createRequestSchema('conversation.close', ClientMethodSchemas['conversation.close'].params),
   createRequestSchema('conversation.create', ClientMethodSchemas['conversation.create'].params),
@@ -308,6 +333,7 @@ function createRoutedResponseSchema<Method extends ClientMethod, Result extends 
 }
 
 export const RoutedResponseSchema = z.discriminatedUnion('method', [
+  createRoutedResponseSchema('conversation.read', ClientMethodSchemas['conversation.read'].result),
   createRoutedResponseSchema('conversation.open', ClientMethodSchemas['conversation.open'].result),
   createRoutedResponseSchema(
     'conversation.close',

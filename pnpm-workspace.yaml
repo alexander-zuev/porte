@@ -97,6 +97,7 @@ catalog:
   '@types/ws': ^8.18.1
   posthog-node: ^5.49.1
   '@cloudflare/workers-types': ^5.20260819.1
+  '@ai-sdk/react': ^4.0.71
 
 allowBuilds:
   '@sentry/cli': true

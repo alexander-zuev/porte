@@ -1,9 +1,8 @@
 import { DesktopIcon, FolderIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { UP_COMMAND } from '@web/lib/product.ts'
+import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
-
-import { EmptyState } from './empty-state.tsx'
 
 /**
  * Every situation the conversation list can be in instead of a list.

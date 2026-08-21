@@ -1,8 +1,7 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
 import { toApiError } from '@web/lib/errors/rpc-error.ts'
+import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
-
-import { EmptyState } from './empty-state.tsx'
 
 export type ConversationsFailureProps = {
   readonly error: unknown
