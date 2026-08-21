@@ -1,4 +1,4 @@
-import { platformLabel, type PairedHost } from '@porte/core'
+import { platformLabel, type PairedHost } from '@porte/core/client'
 import { formatDateTime } from '@web/lib/format-date.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'

@@ -1,87 +1,78 @@
-import { DesktopIcon, FolderIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import type { PairedHost } from '@porte/core/client'
+import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
-import { ConversationGroupList } from '@web/features/conversations/components/conversation-group-list.tsx'
-import { EmptyState } from '@web/features/conversations/components/empty-state.tsx'
-import { UP_COMMAND } from '@web/lib/product.ts'
+import {
+  LookingForMac,
+  NoConversationsYet,
+  PorteUnreachable,
+  ReadingConversations,
+  StartPorteOnMac,
+} from '@web/features/conversations/components/conversation-list-states.tsx'
+import { ConversationsByRepo } from '@web/features/conversations/components/conversations-by-repo.tsx'
+import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
+import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import { AppShell } from '@web/ui/components/app-shell.tsx'
-import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
-import type { ReactNode } from 'react'
 
 export type ConversationsPageProps = {
+  /** From the database, so the Mac has a name before any socket exists. */
+  readonly host: PairedHost
   readonly relay: RelayState
-  readonly header: ReactNode
-  readonly footer: ReactNode
-  readonly onOpenConversation: (conversationId: string) => void
-  readonly onStartConversation: () => void
+  readonly conversationList: ConversationList
 }
 
-/**
- * Everything a signed-in account with a paired Mac sees.
- *
- * The page reads one value and returns one screen. Nothing here waits, retries,
- * or reconnects: by the time this renders, the answer is already whatever it is.
- */
-export function ConversationsPage(props: ConversationsPageProps) {
+/** Everything a signed-in account with a paired Mac sees. Renders, never waits. */
+export function ConversationsPage({ host, relay, conversationList }: ConversationsPageProps) {
   return (
-    <AppShell footer={props.footer} header={props.header}>
-      {body(props)}
+    <AppShell header={<ConversationsHeader host={host} relay={relay} />}>
+      <div className="flex flex-1 flex-col gap-4">{body(relay, conversationList)}</div>
     </AppShell>
   )
 }
 
-function body({ relay, onStartConversation, onOpenConversation }: ConversationsPageProps) {
-  // Never heard from the relay yet. Not offline: saying so would send someone
-  // to their Mac while the line is still opening.
-  if (relay.mac === null) {
-    return <EmptyState body="Looking for your Mac." icon={<Spinner />} title="Connecting" />
-  }
-
-  if (relay.relay === 'failed') {
+/**
+ * A list we hold is shown; otherwise the line explains itself before the read does.
+ *
+ * The relay keeps its own copy, so a Mac that is away still has a history worth
+ * reading, and the header carries the connection badge either way. With nothing
+ * to show, a dead line is the better explanation of a failed read.
+ */
+function body(relay: RelayState, conversationList: ConversationList) {
+  if (conversationList.status === 'ready' && conversationList.conversations.length > 0) {
     return (
-      <EmptyState
-        body="Porte could not keep a connection open. Your Mac may still be running."
-        icon={<WarningCircleIcon aria-hidden />}
-        title="Cannot reach Porte"
-      />
-    )
-  }
-
-  // The Mac is away, and this is the one screen that asks something of anyone.
-  if (!relay.mac.online) {
-    return (
-      <EmptyState
-        action={<TerminalCommand command={UP_COMMAND} />}
-        body="Your Mac is paired but not running Porte. Start it there to work from here."
-        icon={<DesktopIcon aria-hidden />}
-        title="Start Porte on your Mac"
-      />
-    )
-  }
-
-  if (relay.conversations.length === 0) {
-    return (
-      <EmptyState
-        body="Open Porte from a repository on the Mac to start your first one."
-        icon={<FolderIcon aria-hidden />}
-        title="No conversations yet"
-        action={
-          <Button className="min-h-11" onClick={onStartConversation}>
-            New conversation
+      <>
+        <ConversationsByRepo
+          conversations={conversationList.conversations}
+          runningConversationIds={NONE_RUNNING}
+        />
+        {conversationList.hasMore ? (
+          <Button
+            className="min-h-11 w-full"
+            disabled={conversationList.isLoadingMore}
+            variant="ghost"
+            onClick={conversationList.onLoadMore}
+          >
+            {conversationList.isLoadingMore ? <Spinner /> : 'Load older conversations'}
           </Button>
-        }
-      />
+        ) : null}
+      </>
     )
   }
 
-  return (
-    <ConversationGroupList
-      conversations={relay.conversations}
-      runningConversationIds={NONE_RUNNING}
-      onOpenConversation={onOpenConversation}
-    />
-  )
+  if (relay.line === 'lost') return <PorteUnreachable />
+  if (relay.mac === null) return <LookingForMac />
+
+  if (conversationList.status === 'failed') {
+    return (
+      <ConversationsFailure error={conversationList.error} onRetry={conversationList.onRetry} />
+    )
+  }
+
+  if (conversationList.status === 'pending') return <ReadingConversations />
+  if (!relay.mac.online) return <StartPorteOnMac />
+
+  return <NoConversationsYet />
 }
 
 /** Turns arrive with the conversation flows; nothing runs from this page yet. */

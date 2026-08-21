@@ -16,7 +16,7 @@ import {
   PORTE_CLI_CLIENT_ID,
   type DeviceTokenError,
   type HostDescriptor,
-} from '@porte/core'
+} from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 

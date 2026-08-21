@@ -1,11 +1,13 @@
-import { eq, lt } from 'drizzle-orm'
-
 import type {
   PairingOrigins,
   PairingRequestRecord,
-} from '../../../application/ports/pairing-origins.ts'
-import { pairingRequest, type DbPairingRequestInsert } from '../database/schema/pairing.schema.ts'
-import type { Db } from '../database/types.ts'
+} from '@server/application/ports/pairing-origins.ts'
+import {
+  pairingRequest,
+  type DbPairingRequestInsert,
+} from '@server/infrastructure/persistence/database/schema/pairing.schema.ts'
+import type { Db } from '@server/infrastructure/persistence/database/types.ts'
+import { eq, lt } from 'drizzle-orm'
 
 /**
  * Pairing origins over D1.

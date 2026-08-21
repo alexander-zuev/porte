@@ -1,37 +1,20 @@
-import { PlusIcon } from '@phosphor-icons/react'
-import type { PairedHost } from '@porte/core'
+import type { PairedHost } from '@porte/core/client'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { formatDateTime } from '@web/lib/format-date.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Logo } from '@web/ui/components/logo.tsx'
-import { Button } from '@web/ui/components/ui/button.tsx'
 
 type ConversationsHeaderProps = {
   /** From the database, so the Mac has a name before any socket exists. */
   readonly host: PairedHost
   readonly relay: RelayState
-  readonly onStartConversation: () => void
 }
 
-/** The Mac, how it is doing, and the one action that does not need it open. */
-export function ConversationsHeader({
-  host,
-  relay,
-  onStartConversation,
-}: ConversationsHeaderProps) {
-  // Anything sent down a closed line does not arrive, so the action goes first
-  // and quietly. What went wrong is the body's business, and only after a beat.
-  const reachable = relay.relay === 'open' && relay.mac?.online === true
-
+/** The Mac and how it is doing. What to do about it belongs to the page. */
+export function ConversationsHeader({ host, relay }: ConversationsHeaderProps) {
   return (
     <header className="flex flex-col gap-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-      <div className="flex items-center justify-between gap-4">
-        <Logo size="sm" />
-        <Button className="min-h-11" disabled={!reachable} size="sm" onClick={onStartConversation}>
-          <PlusIcon data-icon="inline-start" />
-          New conversation
-        </Button>
-      </div>
+      <Logo size="sm" />
 
       <div className="flex min-w-0 flex-col gap-2">
         <h1>Conversations</h1>
@@ -45,7 +28,7 @@ export function ConversationsHeader({
 }
 
 function status(relay: RelayState): 'loading' | 'online' | 'offline' | 'reconnecting' {
-  if (relay.relay === 'reconnecting') return 'reconnecting'
+  if (relay.line === 'reconnecting') return 'reconnecting'
   if (relay.mac === null) return 'loading'
 
   return relay.mac.online ? 'online' : 'offline'

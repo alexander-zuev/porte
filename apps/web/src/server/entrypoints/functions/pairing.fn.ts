@@ -1,12 +1,11 @@
-import type { PairingClaim, PairingDecision, PairingOrigin } from '@porte/core'
-import { PairingCodeSchema, PairingVerdictSchema } from '@porte/core'
+import type { PairingClaim, PairingDecision, PairingOrigin } from '@porte/core/client'
+import { PairingCodeSchema, PairingVerdictSchema } from '@porte/core/client'
+import { claimPairing as claimPairingCommand } from '@server/application/commands/claim-pairing.command.ts'
+import { decidePairing as decidePairingCommand } from '@server/application/commands/decide-pairing.command.ts'
+import { getPairingOrigin } from '@server/application/queries/get-pairing-origin.query.ts'
+import { requireAuth } from '@server/entrypoints/middleware/auth.middleware.ts'
 import { createServerFn } from '@tanstack/react-start'
 import { deleteCookie, getCookie, getRequestHeaders, setCookie } from '@tanstack/react-start/server'
-
-import { claimPairing as claimPairingCommand } from '../../application/commands/claim-pairing.command.ts'
-import { decidePairing as decidePairingCommand } from '../../application/commands/decide-pairing.command.ts'
-import { getPairingOrigin } from '../../application/queries/get-pairing-origin.query.ts'
-import { requireAuth } from '../middleware/auth.middleware.ts'
 
 /**
  * Pairing entrypoints for the browser.
@@ -91,7 +90,7 @@ export const decidePairing = createServerFn({ method: 'POST' })
       context.deps.pairingAuthority,
       context.deps.pairingOrigins,
       context.deps.hosts,
-      { code: claimed.data, verdict: data, userId: context.userId, decidedAt: new Date() },
+      { code: claimed.data, verdict: data, userId: context.user.id, decidedAt: new Date() },
     )
     deleteCookie(CLAIM_COOKIE, { path: '/' })
     return decision

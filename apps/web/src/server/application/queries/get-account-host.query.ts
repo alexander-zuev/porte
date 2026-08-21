@@ -1,8 +1,10 @@
 import { IsoDateTimeSchema, type AccountHost, type PairedHost, type UserId } from '@porte/core'
+import {
+  host,
+  type DbHost,
+} from '@server/infrastructure/persistence/database/schema/host.schema.ts'
+import type { ReadDb } from '@server/infrastructure/persistence/database/types.ts'
 import { eq } from 'drizzle-orm'
-
-import { host, type DbHost } from '../../infrastructure/persistence/database/schema/host.schema.ts'
-import type { ReadDb } from '../../infrastructure/persistence/database/types.ts'
 
 /**
  * What Mac the signed-in account owns, if any.

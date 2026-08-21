@@ -1,7 +1,6 @@
 import type { UserId } from '@porte/core'
-
-import type { HostRepository } from '../../domain/host/host.repository.ts'
-import type { HostRelay, HostRole } from '../ports/host-relay.ts'
+import type { HostRelay, HostRole } from '@server/application/ports/host-relay.ts'
+import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
 /** Who is connecting, and the upgrade the relay must answer. */
 export type ConnectHostRequest = {
@@ -36,12 +35,11 @@ export async function connectHost(
   relay: HostRelay,
   input: ConnectHostRequest,
 ): Promise<ConnectHostResult> {
-  const host = await hosts.findByUserId(input.userId)
-  if (host === null) return { ok: false, reason: 'unpaired' }
-  if (host.isRevoked) return { ok: false, reason: 'revoked' }
+  const pairing = await hosts.findPairing(input.userId)
+  if (pairing.state !== 'paired') return { ok: false, reason: pairing.state }
 
   const response = await relay.connect({
-    hostId: host.id,
+    hostId: pairing.host.id,
     role: roleOf(input.request),
     request: input.request,
   })

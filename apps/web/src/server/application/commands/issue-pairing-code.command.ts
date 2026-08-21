@@ -1,7 +1,6 @@
 import type { DeviceCodeResponse, HostDescriptor } from '@porte/core'
-
-import type { PairingAuthority } from '../ports/pairing-authority.ts'
-import type { PairingOrigins, RequestOrigin } from '../ports/pairing-origins.ts'
+import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
+import type { PairingOrigins, RequestOrigin } from '@server/application/ports/pairing-origins.ts'
 
 /**
  * What a device tells us when it asks for a code.

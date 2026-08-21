@@ -1,7 +1,6 @@
 import type { AccountActionResult, UserId } from '@porte/core'
-
-import type { HostRepository } from '../../domain/host/host.repository.ts'
-import type { HostRelay } from '../ports/host-relay.ts'
+import type { HostRelay } from '@server/application/ports/host-relay.ts'
+import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
 /**
  * Release the Mac an account controls.
@@ -20,16 +19,16 @@ export async function unpairHost(
   userId: UserId,
   now: Date,
 ): Promise<AccountActionResult> {
-  const host = await hosts.findByUserId(userId)
+  const pairing = await hosts.findPairing(userId)
 
-  // Nothing paired is the state the caller asked for, so report success.
-  if (!host) return { ok: true }
+  // Already ended, or never begun, is the state the caller asked for.
+  if (pairing.state === 'unpaired') return { ok: true }
 
-  host.revoke(now)
-  await hosts.save(host)
+  pairing.host.revoke(now)
+  await hosts.save(pairing.host)
 
   // Refusing the next connection is not enough. A daemon already holding a
   // socket would keep serving a pairing that has ended.
-  await relay.disconnect(host.id)
+  await relay.disconnect(pairing.host.id)
   return { ok: true }
 }

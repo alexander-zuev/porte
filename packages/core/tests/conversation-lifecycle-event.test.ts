@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationLifecycleEventSchema } from '../src/conversation-lifecycle-event.ts'
+import { ConversationLifecycleEventSchema } from '../src/conversation/conversation-lifecycle-event.ts'
 
 const base = { eventId: 'event-1', conversationId: 'conversation-1' }
 

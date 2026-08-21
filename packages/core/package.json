@@ -6,8 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./conversation-event": "./src/conversation-event.ts",
-    "./conversation": "./src/conversation.ts"
+    "./client": "./src/client.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -16,10 +15,13 @@
     "lint:fix": "oxlint . --fix"
   },
   "dependencies": {
+    "better-result": "catalog:",
+    "posthog-node": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

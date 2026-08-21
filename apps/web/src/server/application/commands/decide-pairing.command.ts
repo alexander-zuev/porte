@@ -5,11 +5,10 @@ import {
   type PairingVerdict,
 } from '@porte/core'
 import type { UserId } from '@porte/core'
-
-import { Host } from '../../domain/host/host.aggregate.ts'
-import type { HostRepository } from '../../domain/host/host.repository.ts'
-import type { PairingAuthority } from '../ports/pairing-authority.ts'
-import type { PairingOrigins } from '../ports/pairing-origins.ts'
+import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
+import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
+import { Host } from '@server/domain/host/host.aggregate.ts'
+import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
 /** Who is deciding, on which code, and how. */
 export type PairingDecisionRequest = {

@@ -12,9 +12,19 @@ import type { Host } from './host.aggregate.ts'
  * Lookup is by owner rather than by host id because one account holds at most
  * one Mac, so the owner is the natural key for every command we have.
  */
+/**
+ * The account's Mac, and what it may be used for.
+ *
+ * One row, three answers. Nothing hands out a Mac without saying which, so no
+ * caller can act on a pairing that has ended by forgetting to ask.
+ */
+export type HostPairing =
+  | { readonly state: 'unpaired' }
+  | { readonly state: 'revoked'; readonly host: Host }
+  | { readonly state: 'paired'; readonly host: Host }
+
 export interface HostRepository {
-  /** The account's Mac, revoked or not, or null when it has never registered one. */
-  findByUserId(userId: UserId): Promise<Host | null>
+  findPairing(userId: UserId): Promise<HostPairing>
 
   /** By its own id. The relay knows which Mac it holds, never whose it is. */
   findById(hostId: HostId): Promise<Host | null>

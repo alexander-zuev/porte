@@ -2,11 +2,12 @@ import type { AcpSessionNotification, AcpSessionUpdate } from '@host/adapters/ac
 import {
   MessageIdSchema,
   type EventId,
+  type FailureClassification,
   type MessageId,
   type PermissionId,
   type ConversationId,
   type TurnId,
-} from '@porte/core'
+} from '@porte/core/client'
 import {
   ConversationEventSchema,
   ConversationViewSchema,
@@ -24,7 +25,7 @@ import {
   type ToolContent,
   type ToolLocation,
   type ToolView,
-} from '@porte/core/conversation-event'
+} from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import type { z } from 'zod'
 
@@ -45,7 +46,15 @@ export type GrokEventIds = {
 export class GrokEventMappingError extends TaggedError('GrokEventMappingError')<{
   code: 'INVALID_SEQUENCE' | 'INVALID_VALUE' | 'SESSION_MISMATCH'
   message: string
-}> {}
+  classification: FailureClassification
+}> {
+  constructor(args: {
+    code: 'INVALID_SEQUENCE' | 'INVALID_VALUE' | 'SESSION_MISMATCH'
+    message: string
+  }) {
+    super({ ...args, classification: 'terminal' })
+  }
+}
 
 /** Converts one live Grok ACP turn into canonical events. */
 export class GrokEventMapper {

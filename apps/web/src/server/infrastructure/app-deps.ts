@@ -1,12 +1,18 @@
-import type { HostRelay } from '../application/ports/host-relay'
-import type { PairingAuthority } from '../application/ports/pairing-authority.ts'
-import type { PairingOrigins } from '../application/ports/pairing-origins.ts'
-import type { HostRepository } from '../domain/host/host.repository.ts'
+import { NULL_ANALYTICS, PostHogAnalytics, type AnalyticsService } from '@porte/core'
+import type { HostRelay } from '@server/application/ports/host-relay.ts'
+import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
+import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
+import type { HostRepository } from '@server/domain/host/host.repository.ts'
+
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
-import { DurableObjectHostRelay } from './cloudflare/durable-object-host-relay'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
+import { HostRelayClient } from './durable-objects/host-relay-client.ts'
+import {
+  SentryObservabilityService,
+  type ObservabilityService,
+} from './observability/sentry-observability-service.ts'
 import { createDatabase } from './persistence/database/connection.ts'
 import type { Db } from './persistence/database/types.ts'
 import { DrizzleHostRepository } from './persistence/repositories/host.repository.ts'
@@ -40,6 +46,11 @@ export type AppDeps = {
   pairingOrigins: PairingOrigins
   hostRelay: HostRelay
   executionCtx: BackgroundWork
+  /** Boundaries that report outward, or resolve who is asking. */
+  services: {
+    analytics: () => AnalyticsService
+    observability: () => ObservabilityService
+  }
 }
 
 /**
@@ -75,7 +86,24 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): Ap
     pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
-    hostRelay: new DurableObjectHostRelay(env.HOST),
+    hostRelay: new HostRelayClient(env.HOST_RELAY_DO),
+    services: {
+      // A test run reports to nobody, and the type says so: the key is a secret
+      // the test environment never carries.
+      analytics: once(() =>
+        env.ENVIRONMENT === 'test'
+          ? NULL_ANALYTICS
+          : PostHogAnalytics.create({
+              apiKey: env.POSTHOG_API_KEY,
+              environment: env.ENVIRONMENT,
+              source: 'worker',
+              waitUntil: (promise) => {
+                executionCtx.waitUntil(promise)
+              },
+            }),
+      ),
+      observability: once<ObservabilityService>(() => new SentryObservabilityService()),
+    },
   }
 
   return deps

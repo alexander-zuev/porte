@@ -1,5 +1,5 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
-import type { ConversationSummary } from '@porte/core'
+import type { ConversationSummary } from '@porte/core/client'
 import {
   ConversationHeader,
   type ConversationConnection,

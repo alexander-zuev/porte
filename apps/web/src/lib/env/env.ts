@@ -1,4 +1,4 @@
-import { createLogger } from '@porte/core'
+import { createLogger } from '@porte/core/client'
 import { z, ZodError } from 'zod'
 
 const logger = createLogger('settings')

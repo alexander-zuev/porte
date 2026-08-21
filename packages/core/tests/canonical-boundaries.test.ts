@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { CanonicalContentSchema } from '../src/canonical-content.ts'
-import { CodingAgentErrorSchema } from '../src/coding-agent-error.ts'
+import { CanonicalContentSchema } from '../src/conversation/canonical-content.ts'
+import { CodingAgentErrorSchema } from '../src/conversation/coding-agent-error.ts'
 
 describe('canonical protocol boundaries', () => {
   it('parses supported content', () => {

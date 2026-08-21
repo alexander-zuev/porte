@@ -20,5 +20,17 @@ export function createKvSecondaryStorage(kv: KVNamespace): SecondaryStorage {
     delete: async (key) => {
       await kv.delete(key)
     },
+    getAndDelete: async (key) => {
+      const value = await kv.get(key)
+      if (value !== null) await kv.delete(key)
+      return value
+    },
+    // Read-modify-write: KV has no atomic counter, so two requests landing
+    // together can each count once. Rate limits skew permissive, never strict.
+    increment: async (key, ttl) => {
+      const next = (Number(await kv.get(key)) || 0) + 1
+      await kv.put(key, String(next), { expirationTtl: Math.max(ttl, 60) })
+      return next
+    },
   }
 }

@@ -1,7 +1,7 @@
 import { createLogger } from '@porte/core'
+import { forgetStalePairingRequests } from '@server/application/commands/forget-stale-pairing-requests.command.ts'
+import type { AppDeps } from '@server/infrastructure/app-deps.ts'
 
-import { forgetStalePairingRequests } from '../../application/commands/forget-stale-pairing-requests.command.ts'
-import type { AppDeps } from '../../infrastructure/app-deps.ts'
 import { CRON, CronSchema, type CronExpression } from './cron-registry.ts'
 
 const logger = createLogger('scheduled')
@@ -27,7 +27,10 @@ type ScheduledRun = (deps: AppDeps, at: Date) => Promise<void>
  * Porte has no queue, so the work runs inline. This routes and nothing else;
  * each command reports what it did, because each is what knows.
  */
-export async function scheduled(controller: ScheduledController, deps: AppDeps): Promise<void> {
+export async function scheduledHandler(
+  controller: ScheduledController,
+  deps: AppDeps,
+): Promise<void> {
   const parsed = CronSchema.safeParse(controller.cron)
   if (!parsed.success) {
     // Wrangler fires a schedule nothing routes. Loud here beats silent.

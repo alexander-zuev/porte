@@ -1,4 +1,4 @@
-import { makeConversationSummary } from '@porte/core'
+import { makeConversationSummary } from '@porte/core/client'
 import { createFileRoute } from '@tanstack/react-router'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 

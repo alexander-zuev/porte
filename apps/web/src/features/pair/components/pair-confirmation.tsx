@@ -1,4 +1,4 @@
-import type { PairingVerdict } from '@porte/core'
+import type { PairingVerdict } from '@porte/core/client'
 import { decidePairing } from '@server/entrypoints/functions/pairing.fn.ts'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationControlsEventSchema } from '../src/conversation-controls-event.ts'
+import { ConversationControlsEventSchema } from '../src/conversation/conversation-controls-event.ts'
 
 const base = { eventId: 'event-1', conversationId: 'conversation-1' }
 const select = {
@@ -32,7 +32,7 @@ describe('ConversationControlsEventSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('parses the complete command catalog', () => {
+  it('parses the complete command list', () => {
     const result = ConversationControlsEventSchema.safeParse({
       ...base,
       type: 'conversation.commands.updated',

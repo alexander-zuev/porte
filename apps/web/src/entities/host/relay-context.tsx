@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { RelayConnection } from '@web/entities/host/relay-connection.ts'
 import { INITIAL_RELAY_STATE, type RelayState } from '@web/entities/host/relay-state.ts'
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
@@ -13,7 +15,25 @@ const RelayContext = createContext<RelayConnection | null>(null)
  * where there is one.
  */
 export function RelayProvider({ children }: { readonly children: ReactNode }) {
-  const client = useMemo(() => new RelayConnection(), [])
+  const queryClient = useQueryClient()
+  // Every one of these re-reads rather than writing the cache: a summary can
+  // change its position in the order, so patching a row in place would leave it
+  // sorted where it no longer belongs.
+  const client = useMemo(
+    () =>
+      new RelayConnection({
+        onConversationsInvalidated: () => {
+          void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
+        },
+        onConversationChanged: () => {
+          void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
+        },
+        onConversationRemoved: () => {
+          void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
+        },
+      }),
+    [queryClient],
+  )
 
   useEffect(() => {
     client.connect()

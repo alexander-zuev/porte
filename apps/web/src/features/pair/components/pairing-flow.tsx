@@ -1,5 +1,5 @@
 import { CheckCircleIcon, ProhibitIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import type { PairingOrigin } from '@porte/core'
+import type { PairingOrigin } from '@porte/core/client'
 import { PairForm, type PairFormProps } from '@web/features/pair/components/pair-form.tsx'
 import {
   PairingAccount,

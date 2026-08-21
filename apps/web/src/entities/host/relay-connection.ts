@@ -3,8 +3,10 @@ import {
   ClientMethodSchemas,
   createRequestId,
   type ClientMethodMap,
+  type ConversationId,
+  type ConversationSummary,
   type RequestMessage,
-} from '@porte/core'
+} from '@porte/core/client'
 import { z } from 'zod'
 
 import { INITIAL_RELAY_STATE, type RelayState } from './relay-state.ts'
@@ -23,6 +25,18 @@ const MAX_RETRY_MS = 10_000
 const GIVE_UP_AFTER_MS = 60_000
 
 type Listener = () => void
+
+/**
+ * What the relay says about the list, never the list itself.
+ *
+ * A Mac's history has no bound, so pushing it through the socket would put all
+ * of it in every open tab. One summary at a time, or a nudge to read again.
+ */
+export type RelayHandlers = {
+  readonly onConversationsInvalidated: () => void
+  readonly onConversationChanged: (conversation: ConversationSummary) => void
+  readonly onConversationRemoved: (conversationId: ConversationId) => void
+}
 
 /**
  * The browser's line to its Mac.
@@ -44,6 +58,8 @@ export class RelayConnection {
   private downSince: number | undefined
   private closed = false
 
+  constructor(private readonly handlers: RelayHandlers) {}
+
   /** Stable between changes, because `useSyncExternalStore` compares by identity. */
   getState = (): RelayState => this.state
 
@@ -60,11 +76,12 @@ export class RelayConnection {
     const socket = new WebSocket(relayUrl())
     this.socket = socket
 
+    // Nothing is asked on open. The relay sends the Mac's status as its first
+    // frame, and the list arrived over HTTP before this socket existed.
     socket.addEventListener('open', () => {
       this.retryMs = FIRST_RETRY_MS
       this.downSince = undefined
-      this.set({ relay: 'open' })
-      void this.askForSnapshot()
+      this.set({ line: 'open' })
     })
 
     socket.addEventListener('message', (event) => {
@@ -139,25 +156,6 @@ export class RelayConnection {
     })
   }
 
-  private async askForSnapshot(): Promise<void> {
-    try {
-      const snapshot = await this.request('host.snapshot', {})
-      this.set({
-        mac: {
-          online: snapshot.status === 'online',
-          lastSeenAt: this.state.mac?.lastSeenAt ?? null,
-        },
-        conversations:
-          snapshot.catalog.state === 'never-synced'
-            ? this.state.conversations
-            : snapshot.catalog.conversations,
-      })
-    } catch {
-      // The socket went before it answered. Its close handler is already
-      // arranging the next attempt, which will ask again.
-    }
-  }
-
   /** Everything the relay pushes: an answer to one of ours, or news for everyone. */
   private receive(message: ClientMessage): void {
     if (message.type === 'result') {
@@ -183,10 +181,16 @@ export class RelayConnection {
       })
       return
     }
-    // The event only ever carries a synced catalog; never-synced is a snapshot's
-    // answer, not something the Mac announces.
-    if (message.event === 'conversations.changed') {
-      this.set({ conversations: message.data.catalog.conversations })
+    if (message.event === 'conversations.invalidated') {
+      this.handlers.onConversationsInvalidated()
+      return
+    }
+    if (message.event === 'conversation.summary.changed') {
+      this.handlers.onConversationChanged(message.data.conversation)
+      return
+    }
+    if (message.event === 'conversation.removed') {
+      this.handlers.onConversationRemoved(message.data.conversationId)
     }
   }
 
@@ -203,7 +207,7 @@ export class RelayConnection {
 
     this.downSince ??= Date.now()
     const givenUp = Date.now() - this.downSince > GIVE_UP_AFTER_MS
-    this.set({ relay: givenUp ? 'failed' : 'reconnecting' })
+    this.set({ line: givenUp ? 'lost' : 'reconnecting' })
     if (givenUp) return
 
     this.retryTimer = setTimeout(() => {

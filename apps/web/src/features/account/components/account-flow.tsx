@@ -1,4 +1,4 @@
-import type { PairedHost } from '@porte/core'
+import type { PairedHost } from '@porte/core/client'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { hostMutations } from '@web/entities/host/host-mutations.ts'

@@ -1,4 +1,4 @@
-import type { ElicitationAnswer, ConversationSummary } from '@porte/core'
+import type { ElicitationAnswer, ConversationSummary } from '@porte/core/client'
 import type {
   ElicitationDraftValue,
   ConversationControl,

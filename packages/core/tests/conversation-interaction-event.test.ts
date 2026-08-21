@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationElicitationEventSchema } from '../src/conversation-elicitation-event.ts'
-import { ConversationPermissionEventSchema } from '../src/conversation-permission-event.ts'
+import { ConversationElicitationEventSchema } from '../src/conversation/conversation-elicitation-event.ts'
+import { ConversationPermissionEventSchema } from '../src/conversation/conversation-permission-event.ts'
 
 const turnId = '0198b55e-49d6-7e0f-9917-b08777b451b9'
 const permissionId = '0198b55e-49d7-7b67-922a-2ee176ca2c4c'

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationEventSchema } from '../src/conversation-event.ts'
+import { ConversationEventSchema } from '../src/conversation/conversation-event.ts'
 
 const snapshot = {
   eventId: 'event-1',

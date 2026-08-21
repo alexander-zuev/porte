@@ -6,12 +6,20 @@ import type {
 } from '@host/application/host-error.ts'
 import type { PairingError } from '@host/application/pairing-error.ts'
 import type { CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import type { FailureClassification } from '@porte/core/client'
 import { matchError, TaggedError } from 'better-result'
 
 import { VERSION } from './version.ts'
 
 /** Bad arguments or missing required flags. */
-export class UsageError extends TaggedError('UsageError')<{ message: string }> {}
+export class UsageError extends TaggedError('UsageError')<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { message: string }) {
+    super({ ...args, classification: 'terminal' })
+  }
+}
 
 /** Every error the CLI can print. */
 export type CliError =

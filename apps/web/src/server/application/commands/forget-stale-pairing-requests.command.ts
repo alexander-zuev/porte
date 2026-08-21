@@ -1,6 +1,5 @@
 import { PAIRING_CODE_LIFETIME_SECONDS, createLogger } from '@porte/core'
-
-import type { PairingOrigins } from '../ports/pairing-origins.ts'
+import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
 
 const logger = createLogger('pairing')
 

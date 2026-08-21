@@ -11,8 +11,33 @@
     "design-system/no-color-opacity-modifiers": "error",
     "design-system/no-raw-colors": "error",
     "design-system/no-typography-overrides": "error",
-    "design-system/prefer-ui-primitives": "error"
+    "design-system/prefer-ui-primitives": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@porte/core",
+            "message": "Browser code imports @porte/core/client. The root entry carries server-only modules, and a barrel executes every file it re-exports."
+          }
+        ]
+      }
+    ]
   },
+  "overrides": [
+    {
+      "files": ["src/client.tsx"],
+      "rules": {
+        "import/no-unassigned-import": "off"
+      }
+    },
+    {
+      "files": ["src/server/**", "src/server.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
   "ignorePatterns": [
     "src/ui/components/ui/**",
     "src/ui/components/ai-elements/**",

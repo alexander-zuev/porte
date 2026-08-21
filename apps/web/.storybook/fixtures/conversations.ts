@@ -112,7 +112,7 @@ export const reasoningItems: readonly TranscriptItem[] = [
   {
     kind: 'thought',
     id: 'evt_think_2',
-    text: 'Empty conversation dirs have no summary.json. Skip them so the catalog only shows resumable rows.',
+    text: 'Empty conversation dirs have no summary.json. Skip them so the list only shows resumable rows.',
   },
   {
     kind: 'agent',
@@ -152,7 +152,7 @@ export const longMessageItems: readonly TranscriptItem[] = [
   {
     kind: 'agent',
     id: 'evt_long_2',
-    text: 'The Worker never decodes host paths. cwd is an opaque string from the catalog. Only the daemon checks that the path is absolute and allowed.',
+    text: 'The Worker never decodes host paths. cwd is an opaque string from the list. Only the daemon checks that the path is absolute and allowed.',
   },
 ]
 

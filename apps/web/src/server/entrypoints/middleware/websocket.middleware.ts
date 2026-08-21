@@ -1,6 +1,5 @@
+import { UpgradeRequiredError } from '@porte/core/client'
 import { createMiddleware } from '@tanstack/react-start'
-
-import { ApiRouteError } from '../../errors/api-route.error.ts'
 
 /**
  * Refuse anything that is not asking to become a WebSocket.
@@ -12,10 +11,7 @@ import { ApiRouteError } from '../../errors/api-route.error.ts'
 export const requireWebSocketUpgrade = createMiddleware({ type: 'request' }).server(
   ({ next, request }) => {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
-      throw new ApiRouteError({
-        error: { code: 'INVALID_REQUEST', message: 'WebSocket upgrade required' },
-        status: 426,
-      })
+      throw new UpgradeRequiredError()
     }
 
     return next()

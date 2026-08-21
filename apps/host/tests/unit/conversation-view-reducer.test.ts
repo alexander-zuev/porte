@@ -1,5 +1,5 @@
 import { applyConversationEvents } from '@host/application/conversation-view-reducer.ts'
-import { ConversationEventSchema, ConversationViewSchema } from '@porte/core/conversation-event'
+import { ConversationEventSchema, ConversationViewSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
 const view = ConversationViewSchema.parse({

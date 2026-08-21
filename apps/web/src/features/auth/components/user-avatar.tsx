@@ -1,5 +1,5 @@
 import { CaretDownIcon } from '@phosphor-icons/react'
-import { buildImageProxyUrl } from '@porte/core'
+import { buildImageProxyUrl } from '@porte/core/client'
 import { cn } from '@web/lib/utils.ts'
 import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'

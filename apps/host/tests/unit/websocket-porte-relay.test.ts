@@ -2,7 +2,7 @@ import {
   retryDelayMs,
   WebSocketPorteConnection,
 } from '@host/adapters/websocket/websocket-porte-relay.ts'
-import { ConversationEventSchema } from '@porte/core/conversation-event'
+import { ConversationEventSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
 describe('retryDelayMs', () => {

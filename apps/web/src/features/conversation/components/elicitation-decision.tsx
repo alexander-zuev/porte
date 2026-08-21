@@ -1,5 +1,5 @@
 import { ArrowSquareOutIcon, QuestionIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import type { ElicitationAnswer, FormField } from '@porte/core'
+import type { ElicitationAnswer, FormField } from '@porte/core/client'
 import type {
   ElicitationDecision as ElicitationDecisionState,
   ElicitationDraftValue,

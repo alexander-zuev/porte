@@ -52,6 +52,7 @@
     "@tanstack/react-start": "catalog:",
     "ai": "catalog:",
     "better-auth": "catalog:",
+    "better-result": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "catalog:",

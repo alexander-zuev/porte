@@ -1,8 +1,7 @@
-import { createLogger } from '@porte/core'
+import { AuthenticationError } from '@porte/core/client'
+import { createLogger } from '@porte/core/client'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-
-import { AuthenticationError } from '../../errors/authentication.error.ts'
 
 const logger = createLogger('auth-fn')
 

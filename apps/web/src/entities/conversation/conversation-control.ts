@@ -3,7 +3,7 @@ import type {
   ElicitationAnswer,
   PendingElicitation,
   PendingPermission,
-} from '@porte/core'
+} from '@porte/core/client'
 
 /** Progress for a permission response that remains visible in the conversation. */
 export type PermissionDecision =

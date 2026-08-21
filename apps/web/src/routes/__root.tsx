@@ -5,8 +5,8 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { Toaster } from '@web/ui/components/ui/sonner.tsx'
 import { TooltipProvider } from '@web/ui/components/ui/tooltip.tsx'
 
-import PostHogProvider from '../integrations/posthog/provider'
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
+import PostHogProvider from '../lib/analytics/provider'
+import TanStackQueryDevtools from '../lib/clients/devtools'
 
 import appCss from '../ui/stylesheets/globals.css?url'
 

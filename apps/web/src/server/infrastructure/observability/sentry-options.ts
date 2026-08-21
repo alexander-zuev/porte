@@ -1,4 +1,4 @@
-import type { RuntimeEnv } from '../runtime-env.ts'
+import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 
 /** Build the Sentry options for one Cloudflare runtime environment. */
 export function createSentryOptions(env: RuntimeEnv) {

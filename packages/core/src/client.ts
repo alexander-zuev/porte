@@ -1,0 +1,39 @@
+/**
+ * Everything a browser may load: schemas, types, and domain.
+ *
+ * Nothing here reaches for Node or Cloudflare. A module that does belongs in
+ * `index.ts` instead — a barrel executes every file it re-exports, and Vite
+ * does not tree-shake in development, so one server-only import here breaks
+ * every page that touches this package.
+ */
+export * from './analytics/metric-names.ts'
+export * from './conversation/canonical-content.ts'
+export * from './conversation/coding-agent-error.ts'
+export * from './conversation/conversation.ts'
+export * from './conversation/conversation-event.ts'
+export * from './conversation/conversation-elicitation-event.ts'
+export * from './conversation/conversation-permission-event.ts'
+export * from './errors/api-error.ts'
+export * from './errors/auth.errors.ts'
+export * from './errors/cloudflare.classification.ts'
+export * from './errors/configuration.errors.ts'
+export * from './errors/conversation.errors.ts'
+export * from './errors/durable-object.classification.ts'
+export * from './errors/durable-object.errors.ts'
+export * from './errors/failure-classification.ts'
+export * from './errors/grok.errors.ts'
+export * from './errors/host.errors.ts'
+export * from './errors/internal.errors.ts'
+export * from './errors/pairing.errors.ts'
+export * from './errors/request.errors.ts'
+export * from './errors/retry-policy.ts'
+export * from './errors/transient.classification.ts'
+export * from './host/account-host.ts'
+export * from './host/host.ts'
+export * from './identity/identity.ts'
+export * from './image-proxy/image-proxy.ts'
+export * from './logger/logger.ts'
+export * from './pairing/device-grant.ts'
+export * from './pairing/pairing-claim.ts'
+export * from './relay/close-code.ts'
+export * from './relay/protocol.ts'

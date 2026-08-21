@@ -1,4 +1,4 @@
-import type { ConversationSummary } from '@porte/core'
+import type { ConversationSummary } from '@porte/core/client'
 import {
   ConversationFailure,
   type ConversationFailureProps,

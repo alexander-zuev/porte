@@ -5,7 +5,7 @@ import {
   PermissionIdSchema,
   ConversationIdSchema,
   TurnIdSchema,
-} from '@porte/core'
+} from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
 const sessionId = ConversationIdSchema.parse('session-1')

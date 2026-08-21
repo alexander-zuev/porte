@@ -5,7 +5,10 @@ import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
-import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
+import {
+  ConversationsPage,
+  type ConversationsPageProps,
+} from '@web/pages/conversations/conversations-page.tsx'
 import { PairPage } from '@web/pages/pair/pair-page.tsx'
 import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
 import { useEffect, useRef, useState } from 'react'
@@ -25,19 +28,19 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
 function homeList(paired: boolean) {
   const host = { name: HOST_NAME, platform: 'darwin', lastSeenAt: null } as PairedHost
-  const relay: RelayState = {
-    relay: 'open',
-    mac: { online: paired, lastSeenAt: null },
-    conversations: paired ? conversations : [],
-  }
+  const relay: RelayState = { line: 'open', mac: { online: paired, lastSeenAt: null } }
 
   return {
+    host,
     relay,
-    header: <ConversationsHeader host={host} relay={relay} onStartConversation={() => undefined} />,
-    footer: null,
-    onOpenConversation: () => undefined,
-    onStartConversation: () => undefined,
-  }
+    conversationList: {
+      status: 'ready',
+      conversations: paired ? conversations : [],
+      hasMore: false,
+      isLoadingMore: false,
+      onLoadMore: () => undefined,
+    },
+  } satisfies ConversationsPageProps
 }
 
 /** Starting screen for a playable pairing story. */

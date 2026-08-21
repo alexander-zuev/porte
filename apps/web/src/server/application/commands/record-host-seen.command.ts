@@ -1,6 +1,5 @@
 import type { HostId } from '@porte/core'
-
-import type { HostRepository } from '../../domain/host/host.repository.ts'
+import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
 /**
  * Note that the relay held this Mac at a moment.

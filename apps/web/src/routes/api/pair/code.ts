@@ -1,10 +1,9 @@
-import { DeviceCodeRequestSchema } from '@porte/core'
+import { DeviceCodeRequestSchema, ValidationError } from '@porte/core/client'
 import {
   issuePairingCode,
   type PairingCodeRequest,
 } from '@server/application/commands/issue-pairing-code.command.ts'
 import { routeErrorMiddleware } from '@server/entrypoints/middleware/error.middleware.ts'
-import { ApiRouteError } from '@server/errors/api-route.error.ts'
 import { createFileRoute } from '@tanstack/react-router'
 
 /**
@@ -49,10 +48,7 @@ async function readRequest(request: Request): Promise<PairingCodeRequest> {
   // machine is a malformed request, never one to invent a name for.
   const body = DeviceCodeRequestSchema.safeParse(await request.json())
   if (!body.success) {
-    throw new ApiRouteError({
-      error: { code: 'INVALID_REQUEST', message: 'The device must identify and name itself' },
-      status: 400,
-    })
+    throw ValidationError.fromZod(body.error, 'The device must identify and name itself')
   }
 
   return {

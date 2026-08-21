@@ -1,13 +1,14 @@
 import type {
+  FailureClassification,
   PermissionId,
   ConversationId as ProtocolConversationId,
   ConversationSummary as ProtocolConversationSummary,
   TurnId,
-} from '@porte/core'
+} from '@porte/core/client'
 import type {
   ConversationEvent as ProtocolConversationEvent,
   ConversationView as ProtocolConversationView,
-} from '@porte/core/conversation-event'
+} from '@porte/core/client'
 import { TaggedError, type Result } from 'better-result'
 
 /** Porte identifier for one persisted agent conversation. */
@@ -25,26 +26,52 @@ export type ConversationSnapshot = {
   readonly view: ProtocolConversationView
 }
 
+/** What went wrong, in the provider-independent words the CLI and relay use. */
+export type CodingAgentFailure =
+  | 'CONVERSATION_NOT_FOUND'
+  | 'CONVERSATION_NOT_OPEN'
+  | 'CONVERSATION_BUSY'
+  | 'PERMISSION_NOT_FOUND'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'INVALID_PROVIDER_RESPONSE'
+
+/** Which call it went wrong in. */
+export type CodingAgentOperation =
+  | 'list'
+  | 'open'
+  | 'create'
+  | 'close'
+  | 'start_turn'
+  | 'cancel_turn'
+  | 'answer_permission'
+
+/** Only a busy conversation and an absent provider may answer differently later. */
+const CLASSIFICATIONS = {
+  CONVERSATION_NOT_FOUND: 'terminal',
+  CONVERSATION_NOT_OPEN: 'terminal',
+  CONVERSATION_BUSY: 'transient',
+  PERMISSION_NOT_FOUND: 'terminal',
+  PROVIDER_UNAVAILABLE: 'transient',
+  INVALID_PROVIDER_RESPONSE: 'terminal',
+} satisfies Record<CodingAgentFailure, FailureClassification>
+
 /** A provider could not complete one coding-agent operation. */
 export class CodingAgentError extends TaggedError('CodingAgentError')<{
-  code:
-    | 'CONVERSATION_NOT_FOUND'
-    | 'CONVERSATION_NOT_OPEN'
-    | 'CONVERSATION_BUSY'
-    | 'PERMISSION_NOT_FOUND'
-    | 'PROVIDER_UNAVAILABLE'
-    | 'INVALID_PROVIDER_RESPONSE'
-  operation:
-    | 'list'
-    | 'open'
-    | 'create'
-    | 'close'
-    | 'start_turn'
-    | 'cancel_turn'
-    | 'answer_permission'
+  code: CodingAgentFailure
+  operation: CodingAgentOperation
   cause: unknown
   message: string
-}> {}
+  classification: FailureClassification
+}> {
+  constructor(args: {
+    code: CodingAgentFailure
+    operation: CodingAgentOperation
+    cause: unknown
+    message: string
+  }) {
+    super({ ...args, classification: CLASSIFICATIONS[args.code] })
+  }
+}
 
 export type OpenConversation = {
   readonly conversationId: ConversationId

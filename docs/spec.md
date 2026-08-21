@@ -82,7 +82,7 @@ The relay can process conversation payloads in memory. It does not persist or lo
 | Product operation   | ACP v1 operation                   | Required behavior                                              |
 | ------------------- | ---------------------------------- | -------------------------------------------------------------- |
 | Connect agent       | `initialize`                       | Check version and capabilities before conversation work.       |
-| List conversations  | `session/list` or provider storage | Return one provider-independent catalog.                       |
+| List conversations  | `session/list` or provider storage | Return one provider-independent conversation list.             |
 | Create conversation | `session/new`                      | Accept only an allowed workspace path.                         |
 | Open conversation   | `session/load`                     | Finish replay before live delivery.                            |
 | Start turn          | `session/prompt`                   | Accept one active turn for each conversation.                  |
@@ -165,11 +165,11 @@ The host uses `configOptions` when the agent provides them. It maps legacy conve
 
 ### Slash commands
 
-Each command update contains the complete ordered command catalog. The client replaces its current catalog.
+Each command update contains the complete ordered command list. The client replaces its current list.
 
 A command contains its name, description, and optional input hint. The client sends execution as a normal prompt.
 
-The command catalog is conversation state. It is not a conversation message.
+The command list is conversation state. It is not a conversation message.
 
 ### Permissions
 
@@ -193,7 +193,7 @@ The user can accept, decline, or cancel. Sensitive values never use form elicita
 
 Conversation title and update time can change or clear. Omitted fields remain unchanged, and `null` clears a value.
 
-The conversation catalog is the reconnect source. A metadata event updates the current catalog without polling.
+The conversation list is the reconnect source. A metadata event updates the current list without polling.
 
 ## Deliberate ACP Exclusions
 
@@ -230,7 +230,6 @@ The client reuses `requestId` and `turnId` when it retries the same logical acti
 
 | Method                           | Purpose                                       |
 | -------------------------------- | --------------------------------------------- |
-| `host.snapshot`                  | Read host status and conversation catalog.    |
 | `conversation.create`            | Create and open a conversation.               |
 | `conversation.open`              | Open a conversation and receive its snapshot. |
 | `conversation.close`             | Close the active remote conversation.         |
@@ -242,14 +241,16 @@ The client reuses `requestId` and `turnId` when it retries the same logical acti
 
 ### Client events
 
-| Event family                                                              | Purpose                                     |
-| ------------------------------------------------------------------------- | ------------------------------------------- |
-| `host.*`, `conversations.*`                                               | Host availability and conversation catalog. |
-| `conversation.snapshot`, `conversation.metadata.*`, `conversation.failed` | Conversation state and lifecycle.           |
-| `turn.*`, `message.*`, `reasoning.*`                                      | Conversation lifecycle.                     |
-| `tool.*`, `plan.*`, `conversation.usage.*`                                | Coding progress and resource state.         |
-| `conversation.configuration.*`, `conversation.commands.*`                 | User controls and command discovery.        |
-| `permission.*`, `elicitation.*`                                           | Required user interactions.                 |
+| Event family                                                              | Purpose                                      |
+| ------------------------------------------------------------------------- | -------------------------------------------- |
+| `host.*`, `conversations.*`                                               | Host availability and the conversation list. |
+| `conversation.snapshot`, `conversation.metadata.*`, `conversation.failed` | Conversation state and lifecycle.            |
+| `turn.*`, `message.*`, `reasoning.*`                                      | Conversation lifecycle.                      |
+| `tool.*`, `plan.*`, `conversation.usage.*`                                | Coding progress and resource state.          |
+| `conversation.configuration.*`, `conversation.commands.*`                 | User controls and command discovery.         |
+| `permission.*`, `elicitation.*`                                           | Required user interactions.                  |
+
+Every client method reaches the host. The relay answers none of them itself: it sends `host.status` to a browser as that browser connects, and it serves the conversation list over HTTP.
 
 Every event has `eventId` and `conversationId`. The receiver removes duplicates within one conversation and preserves unique arrival order.
 
@@ -267,7 +268,7 @@ Each error has one logging point at the owning entrypoint. Logs include safe ide
 
 The Worker derives the host and connection role from verified credentials. The WebSocket URL contains no credentials or routing identity.
 
-The host validates each workspace path against its current conversation catalog. The Worker treats local paths as opaque strings.
+The host validates each workspace path against its current conversation list. The Worker treats local paths as opaque strings.
 
 Pairing uses the OAuth device authorization grant. The daemon receives a conversation, not a bespoke token, so there is no separate credential for the server to hash. [UX Flows](./ux-flows.md) holds the pairing design.
 

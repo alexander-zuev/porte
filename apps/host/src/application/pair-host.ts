@@ -1,4 +1,4 @@
-import type { HostDescriptor } from '@porte/core'
+import type { HostDescriptor } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 
 import type { CredentialStoreError } from './host-error.ts'

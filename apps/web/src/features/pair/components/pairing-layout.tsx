@@ -1,5 +1,5 @@
 import { CheckIcon, WarningIcon } from '@phosphor-icons/react'
-import { buildImageProxyUrl, type PairingOrigin } from '@porte/core'
+import { buildImageProxyUrl, type PairingOrigin } from '@porte/core/client'
 import { cn } from '@web/lib/utils.ts'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Avatar, AvatarFallback, AvatarImage } from '@web/ui/components/ui/avatar.tsx'

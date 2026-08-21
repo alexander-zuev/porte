@@ -27,12 +27,12 @@ import {
   makeConversationSummary,
   type PermissionId,
   type TurnId,
-} from '@porte/core'
+} from '@porte/core/client'
 import {
   ConversationViewSchema,
   type CodingAgentError as CanonicalCodingAgentError,
   type ConversationView,
-} from '@porte/core/conversation-event'
+} from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 

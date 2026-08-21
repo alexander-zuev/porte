@@ -8,7 +8,12 @@
   "observability": {
     "logs": { "enabled": true, "invocation_logs": true },
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] }],
+  // Append-only. v1 named the class after the old vocabulary; v2 carries the
+  // same stored objects over to the name the rest of the code now uses.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] },
+    { "tag": "v2", "renamed_classes": [{ "from": "HostCoordinatorDO", "to": "HostRelayDO" }] },
+  ],
   "env": {
     "dev": {
       "name": "porte-dev",
@@ -35,6 +40,7 @@
           "APPLE_PRIVATE_KEY",
           "GITHUB_CLIENT_SECRET",
           "TWITTER_CLIENT_SECRET",
+          "POSTHOG_API_KEY",
         ],
       },
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
@@ -58,7 +64,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
       },
     },
     "prod": {
@@ -85,6 +91,7 @@
           "APPLE_PRIVATE_KEY",
           "GITHUB_CLIENT_SECRET",
           "TWITTER_CLIENT_SECRET",
+          "POSTHOG_API_KEY",
         ],
       },
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
@@ -105,7 +112,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
       },
     },
     "test": {
@@ -147,7 +154,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST", "class_name": "HostCoordinatorDO" }],
+        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
       },
     },
   },

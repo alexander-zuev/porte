@@ -1,5 +1,5 @@
 import { ArrowLeftIcon, DesktopIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import { platformLabel, type HostDescriptor } from '@porte/core'
+import { platformLabel, type HostDescriptor } from '@porte/core/client'
 import { Logo } from '@web/ui/components/logo.tsx'
 import {
   AlertDialog,

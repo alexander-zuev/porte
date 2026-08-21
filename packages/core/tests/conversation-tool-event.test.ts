@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationToolEventSchema } from '../src/conversation-tool-event.ts'
+import { ConversationToolEventSchema } from '../src/conversation/conversation-tool-event.ts'
 
 const turnId = '0198b55e-49d6-7e0f-9917-b08777b451b9'
 const tool = {

@@ -1,3 +1,4 @@
+import type { FailureClassification } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 
 import type { JsonRpcError } from './message.ts'
@@ -6,9 +7,14 @@ import type { JsonRpcError } from './message.ts'
 export class AcpStartError extends TaggedError('AcpStartError')<{
   cause: unknown
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'ACP agent process could not start' })
+    super({
+      ...args,
+      message: 'ACP agent process could not start',
+      classification: 'terminal',
+    })
   }
 }
 
@@ -16,9 +22,10 @@ export class AcpStartError extends TaggedError('AcpStartError')<{
 export class AcpRpcError extends TaggedError('AcpRpcError')<{
   rpc: JsonRpcError
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { rpc: JsonRpcError }) {
-    super({ ...args, message: args.rpc.message })
+    super({ ...args, message: args.rpc.message, classification: 'terminal' })
   }
 }
 
@@ -26,9 +33,14 @@ export class AcpRpcError extends TaggedError('AcpRpcError')<{
 export class AcpExitedError extends TaggedError('AcpExitedError')<{
   code: number | null
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { code: number | null }) {
-    super({ ...args, message: `ACP agent process exited ${String(args.code)}` })
+    super({
+      ...args,
+      message: `ACP agent process exited ${String(args.code)}`,
+      classification: 'transient',
+    })
   }
 }
 
@@ -36,9 +48,10 @@ export class AcpExitedError extends TaggedError('AcpExitedError')<{
 export class AcpTransportError extends TaggedError('AcpTransportError')<{
   cause: unknown
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'ACP process transport failed' })
+    super({ ...args, message: 'ACP process transport failed', classification: 'transient' })
   }
 }
 
@@ -46,8 +59,9 @@ export class AcpTransportError extends TaggedError('AcpTransportError')<{
 export class AcpTimeoutError extends TaggedError('AcpTimeoutError')<{
   timeoutMs: number
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { timeoutMs: number }) {
-    super({ ...args, message: 'ACP request timed out' })
+    super({ ...args, message: 'ACP request timed out', classification: 'transient' })
   }
 }

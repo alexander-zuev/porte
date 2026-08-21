@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConversationProgressEventSchema } from '../src/conversation-progress-event.ts'
+import { ConversationProgressEventSchema } from '../src/conversation/conversation-progress-event.ts'
 
 const base = { eventId: 'event-1', conversationId: 'conversation-1' }
 const turnId = '0198b55e-49d6-7e0f-9917-b08777b451b9'

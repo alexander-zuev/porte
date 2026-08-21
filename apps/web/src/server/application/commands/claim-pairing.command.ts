@@ -1,8 +1,7 @@
 import type { PairingClaim, PairingCode } from '@porte/core'
-
-import type { PairingAuthority } from '../ports/pairing-authority.ts'
-import type { PairingOrigins } from '../ports/pairing-origins.ts'
-import { getPairingOrigin } from '../queries/get-pairing-origin.query.ts'
+import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
+import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
+import { getPairingOrigin } from '@server/application/queries/get-pairing-origin.query.ts'
 
 /**
  * Bind a pairing code to the account that is signed in.

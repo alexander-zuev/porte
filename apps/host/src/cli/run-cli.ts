@@ -5,7 +5,7 @@ import { ConfigError } from '@host/application/host-error.ts'
 import { pairHost } from '@host/application/pair-host.ts'
 import { createHost, type HostComposition } from '@host/composition/create-host.ts'
 import { loadConfig, relayUrlFor } from '@host/composition/host-config.ts'
-import { ConversationIdSchema, createTurnId, formatPairingCode } from '@porte/core'
+import { ConversationIdSchema, createTurnId, formatPairingCode } from '@porte/core/client'
 
 import { UsageError, exitCodeFor, formatError, type CliError } from './cli-error.ts'
 import { CliRelayObserver } from './cli-relay-observer.ts'

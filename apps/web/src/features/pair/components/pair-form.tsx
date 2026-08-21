@@ -1,4 +1,4 @@
-import { PAIRING_CODE_LENGTH } from '@porte/core'
+import { PAIRING_CODE_LENGTH } from '@porte/core/client'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Field, FieldGroup, FieldLabel } from '@web/ui/components/ui/field.tsx'
 import {

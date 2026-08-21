@@ -1,9 +1,8 @@
-import type { AccountActionResult, AccountHost } from '@porte/core'
+import type { AccountActionResult, AccountHost } from '@porte/core/client'
+import { unpairHost as unpairHostCommand } from '@server/application/commands/unpair-host.command.ts'
+import { getAccountHost as getAccountHostQuery } from '@server/application/queries/get-account-host.query.ts'
+import { requireAuth } from '@server/entrypoints/middleware/auth.middleware.ts'
 import { createServerFn } from '@tanstack/react-start'
-
-import { unpairHost as unpairHostCommand } from '../../application/commands/unpair-host.command.ts'
-import { getAccountHost as getAccountHostQuery } from '../../application/queries/get-account-host.query.ts'
-import { requireAuth } from '../middleware/auth.middleware.ts'
 
 /**
  * Host and account entrypoints for the web client.
@@ -16,14 +15,19 @@ import { requireAuth } from '../middleware/auth.middleware.ts'
 export const getAccountHost = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AccountHost> => {
-    return getAccountHostQuery(context.deps.db(), context.userId)
+    return getAccountHostQuery(context.deps.db(), context.user.id)
   })
 
 /** Release the paired Mac. Local sessions and files on that Mac are untouched. */
 export const unpairHost = createServerFn({ method: 'POST' })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AccountActionResult> => {
-    return unpairHostCommand(context.deps.hosts, context.deps.hostRelay, context.userId, new Date())
+    return unpairHostCommand(
+      context.deps.hosts,
+      context.deps.hostRelay,
+      context.user.id,
+      new Date(),
+    )
   })
 
 /**

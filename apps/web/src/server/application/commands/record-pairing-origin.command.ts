@@ -1,4 +1,7 @@
-import type { PairingOrigins, PairingRequestRecord } from '../ports/pairing-origins.ts'
+import type {
+  PairingOrigins,
+  PairingRequestRecord,
+} from '@server/application/ports/pairing-origins.ts'
 
 /**
  * Remember where a pairing code was asked for.

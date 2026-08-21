@@ -1,10 +1,9 @@
 import { IsoDateTimeSchema, type PairingOrigin } from '@porte/core'
-
 import type {
   PairingOrigins,
   PairingRequestRecord,
   RequestOrigin,
-} from '../ports/pairing-origins.ts'
+} from '@server/application/ports/pairing-origins.ts'
 
 /** Where a code was asked for, judged against where it is being answered. */
 export async function getPairingOrigin(

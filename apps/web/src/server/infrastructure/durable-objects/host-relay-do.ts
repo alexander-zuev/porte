@@ -1,24 +1,29 @@
 import {
-  ClientEventSchemas,
   ClientMethodSchemas,
   DaemonMessageSchema,
   HostIdSchema,
+  RelayMessageSchema,
   RequestIdSchema,
   RequestMessageSchema,
   RoutedEventSchema,
   RoutedResponseSchema,
   createLogger,
   sendableCloseCode,
+  type ConversationPage,
+  type ConversationPageQuery,
   type DaemonMessage,
+  type RelayMessage,
   type RoutedRequest,
 } from '@porte/core'
+import * as Sentry from '@sentry/cloudflare'
+import { recordHostSeen } from '@server/application/commands/record-host-seen.command.ts'
+import { createAppDeps, type AppDeps } from '@server/infrastructure/app-deps.ts'
+import { createSentryOptions } from '@server/infrastructure/observability/sentry-options.ts'
+import { DurableObjectConversations } from '@server/infrastructure/persistence/repositories/conversations.repository.ts'
+import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 
-import { recordHostSeen } from '../../application/commands/record-host-seen.command.ts'
-import { createAppDeps, type AppDeps } from '../app-deps.ts'
-import type { RuntimeEnv } from '../runtime-env.ts'
-import { RelayCatalog } from './relay/relay-catalog.ts'
 import { readFrame, type JsonValue } from './relay/relay-frame.ts'
 import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from './relay/relay-headers.ts'
 import { RelaySockets, type ClientMessage } from './relay/relay-sockets.ts'
@@ -27,6 +32,9 @@ import type { ClientAttachment } from './relay/socket-attachment.ts'
 const roleSchema = z.enum(['daemon', 'client'])
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
 const logger = createLogger('host-relay')
+
+/** How long a stored list outlives the Mac that reported it. */
+const CONVERSATIONS_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
  * The switchboard for one Mac.
@@ -39,18 +47,27 @@ const logger = createLogger('host-relay')
  * pass through as they arrived. The only thing it reads is the address.
  *
  * It hibernates, so nothing lives in a field. State is on the sockets, or in
- * storage; `RelaySockets` and `RelayCatalog` own that distinction.
+ * storage; `RelaySockets` and `DurableObjectConversations` own that
+ * distinction. Nothing is rehydrated at construction, so no call has to wait
+ * on storage to find out what this relay is.
  */
-export class HostRelayDO extends DurableObject<RuntimeEnv> {
+class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   private readonly sockets: RelaySockets
-  private readonly catalog: RelayCatalog
+  private readonly conversations: DurableObjectConversations
   private readonly deps: AppDeps
 
   constructor(ctx: DurableObjectState, env: RuntimeEnv) {
     super(ctx, env)
 
     this.sockets = new RelaySockets(ctx)
-    this.catalog = new RelayCatalog(ctx.storage)
+    this.conversations = new DurableObjectConversations(ctx.storage)
+    // Schema setup, the one thing this belongs on: no request may see a relay
+    // whose table does not exist yet. Nothing is rehydrated into a field.
+    // Not awaited on purpose: the gate holds every request until it settles, and
+    // a failure resets the object rather than serving one without a table.
+    void ctx.blockConcurrencyWhile(async () => {
+      this.conversations.ensureSchema()
+    })
     // The same dependencies every other entrypoint gets. A relay that assembled
     // its own would be a second place the wiring lives.
     this.deps = createAppDeps(env, ctx)
@@ -71,9 +88,17 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
       this.ctx.waitUntil(this.rememberSeen(hostId.data))
     } else {
       this.sockets.acceptClient(server)
+      // Told, not asked. A browser arriving while the Mac is already here would
+      // otherwise wait for a departure to learn the Mac was ever there.
+      this.sockets.send(server, hostStatus(this.macStatus()))
     }
 
     return new Response(null, { status: 101, webSocket: client })
+  }
+
+  /** By RPC, because the page asks over HTTP, and keeps asking as it scrolls. */
+  readConversations(query: ConversationPageQuery): ConversationPage {
+    return this.conversations.page(query)
   }
 
   /**
@@ -83,10 +108,33 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
    * sockets close, so a page that is open explains itself rather than going
    * quiet. Nothing here can be reconnected to: the next attempt is refused
    * before it reaches the relay at all.
+   *
+   * Storage goes with them, all of it. Re-pairing mints a new host id, so this
+   * relay is never addressed again; anything left is billed and unread forever.
+   * `deleteAll` clears the pending expiry alarm too, from compatibility date
+   * 2026-02-24 onwards.
    */
-  disconnectAll(): void {
+  async disconnectAll(): Promise<void> {
     this.sockets.broadcast(hostStatus('offline'))
     this.sockets.closeAll('pairing ended')
+    await this.ctx.storage.deleteAll()
+  }
+
+  /**
+   * The stored list has outlived the Mac that reported it.
+   *
+   * Unpair empties this relay, but an abandoned account never unpairs: no
+   * request arrives to clean up after it, which is the one thing an alarm can
+   * do that a request path cannot. A daemon that is still here has simply had
+   * nothing to report, so its list waits another week instead.
+   */
+  async alarm(): Promise<void> {
+    if (this.sockets.daemon() !== undefined) {
+      await this.armConversationsExpiry()
+      return
+    }
+
+    await this.conversations.forget()
   }
 
   async webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): Promise<void> {
@@ -104,7 +152,7 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
       }
 
       if (attachment.role === 'client') {
-        await this.handleClientMessage(socket, attachment, read.json)
+        this.handleClientMessage(socket, attachment, read.json)
         return
       }
 
@@ -141,36 +189,15 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
     socket.close(1011, 'host socket failed')
   }
 
-  /** A browser asks; the relay answers itself, or passes the question along. */
-  private async handleClientMessage(
+  /** A browser asks, and every question it can ask is for the Mac. */
+  private handleClientMessage(
     socket: WebSocket,
     attachment: ClientAttachment,
     value: JsonValue,
-  ): Promise<void> {
+  ): void {
     const request = RequestMessageSchema.safeParse(value)
     if (!request.success) {
       this.rejectInvalidRequest(socket, value)
-      return
-    }
-
-    // The only question the relay can answer on its own: it holds the socket
-    // and it holds the catalog, so both halves are already here.
-    if (request.data.method === 'host.snapshot') {
-      // The catalog is read first, and the status only once nothing else can
-      // run. Reading the status before that await let a daemon arrive during
-      // it: the client took the online event, then this answer saying offline,
-      // and settled on the wrong one.
-      const catalog = await this.catalog.read()
-
-      this.sockets.send(socket, {
-        v: 1,
-        type: 'result',
-        requestId: request.data.requestId,
-        result: {
-          status: this.sockets.daemon() === undefined ? 'offline' : 'online',
-          catalog,
-        },
-      })
       return
     }
 
@@ -180,7 +207,7 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
         v: 1,
         type: 'error',
         requestId: request.data.requestId,
-        error: { code: 'HOST_OFFLINE', message: 'Host is offline' },
+        error: { _tag: 'HostOfflineError', message: 'Host is offline' },
       })
       return
     }
@@ -193,7 +220,7 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
     daemon.send(JSON.stringify(routed))
   }
 
-  /** The Mac answers or reports; the relay decides who hears it. */
+  /** The Mac answers, reports, or tells the relay itself; each goes a different way. */
   private async handleDaemonMessage(message: DaemonMessage): Promise<void> {
     const response = RoutedResponseSchema.safeParse(message)
     if (response.success) {
@@ -201,12 +228,14 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
       return
     }
 
+    const relayed = RelayMessageSchema.safeParse(message)
+    if (relayed.success) {
+      await this.handleRelayMessage(relayed.data)
+      return
+    }
+
     const event = RoutedEventSchema.parse(message)
     if (event.audience.type === 'host') {
-      if (event.message.event === 'conversations.changed') {
-        const changed = ClientEventSchemas['conversations.changed'].parse(event.message.data)
-        await this.catalog.write(changed.catalog)
-      }
       this.sockets.broadcast(event.message)
       return
     }
@@ -258,8 +287,62 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
       v: 1,
       type: 'error',
       requestId: identity.data.requestId,
-      error: { code: 'INVALID_REQUEST', message: 'Invalid request' },
+      error: { _tag: 'ValidationError', message: 'Invalid request', issues: [] },
     })
+  }
+
+  /** Whether the Mac is holding a socket right now. The only liveness we can see. */
+  private macStatus(): 'online' | 'offline' {
+    return this.sockets.daemon() === undefined ? 'offline' : 'online'
+  }
+
+  /**
+   * Write down what the Mac told the relay, then say what a browser should do.
+   *
+   * The list itself never goes over the socket. Clients are told it moved and
+   * read the page they are actually showing, so one Mac with a long history
+   * does not push all of it into every open tab.
+   */
+  private async handleRelayMessage(message: RelayMessage): Promise<void> {
+    if (message.relay === 'conversations.sync') {
+      this.conversations.writeChunk(message.epoch, message.conversations)
+      if (!message.done) return
+
+      await this.conversations.finishSync(message.epoch)
+      await this.armConversationsExpiry()
+      this.sockets.broadcast({ v: 1, type: 'event', event: 'conversations.invalidated', data: {} })
+      return
+    }
+
+    if (message.relay === 'conversation.summary') {
+      await this.conversations.upsert(message.conversation)
+      await this.armConversationsExpiry()
+      this.sockets.broadcast({
+        v: 1,
+        type: 'event',
+        event: 'conversation.summary.changed',
+        data: { conversation: message.conversation },
+      })
+      return
+    }
+
+    this.conversations.remove(message.conversationId)
+    this.sockets.broadcast({
+      v: 1,
+      type: 'event',
+      event: 'conversation.removed',
+      data: { conversationId: message.conversationId },
+    })
+  }
+
+  /**
+   * A relay owns one alarm, and `setAlarm` replaces whatever was there.
+   *
+   * So the arming lives here rather than in the repository that benefits from
+   * it: a second repository setting its own would silently cancel this one.
+   */
+  private async armConversationsExpiry(): Promise<void> {
+    await this.ctx.storage.setAlarm(Date.now() + CONVERSATIONS_EXPIRY_MS)
   }
 
   /** The one durable fact this relay produces. Nothing else here reaches D1. */
@@ -267,6 +350,18 @@ export class HostRelayDO extends DurableObject<RuntimeEnv> {
     await recordHostSeen(this.deps.hosts, hostId, new Date())
   }
 }
+
+/**
+ * The relay as the Worker binds it, wrapped so its calls reach Sentry.
+ *
+ * The type and the value share a name, so a caller writes `HostRelayDO` for
+ * either and the instrumentation never has to be spoken about again.
+ */
+export type HostRelayDO = InstanceType<typeof HostRelayDOBase>
+export const HostRelayDO = Sentry.instrumentDurableObjectWithSentry(
+  createSentryOptions,
+  HostRelayDOBase,
+)
 
 /** Built, not parsed: the type is the contract on the way out. */
 function hostStatus(status: 'online' | 'offline'): ClientMessage {

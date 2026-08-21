@@ -5,6 +5,8 @@ packages:
 
 catalogMode: strict
 
+minimumReleaseAge: 2880
+
 catalog:
   '@axe-core/playwright': ^4.13.0
   '@base-ui/react': ^1.7.0
@@ -93,6 +95,8 @@ catalog:
   '@remixicon/react': ^4.9.0
   ws: ^8.21.3
   '@types/ws': ^8.18.1
+  posthog-node: ^5.49.1
+  '@cloudflare/workers-types': ^5.20260819.1
 
 allowBuilds:
   '@sentry/cli': true
@@ -102,7 +106,3 @@ allowBuilds:
   lightningcss: true
   sharp: true
   workerd: true
-
-minimumReleaseAgeExclude:
-  - '@posthog/core@1.48.2'
-  - posthog-js@1.417.2

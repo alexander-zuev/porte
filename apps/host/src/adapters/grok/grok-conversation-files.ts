@@ -1,7 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { makeConversationSummary, type ConversationSummary } from '@porte/core'
+import {
+  makeConversationSummary,
+  type ConversationSummary,
+  type FailureClassification,
+} from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
@@ -19,9 +23,14 @@ export type GrokStoredConversation = {
 export class GrokConversationFilesError extends TaggedError('GrokConversationFilesError')<{
   cause: unknown
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'Grok conversation files are unavailable' })
+    super({
+      ...args,
+      message: 'Grok conversation files are unavailable',
+      classification: 'terminal',
+    })
   }
 }
 
@@ -29,9 +38,14 @@ export class GrokConversationFilesError extends TaggedError('GrokConversationFil
 export class GrokConversationNotFoundError extends TaggedError('GrokConversationNotFoundError')<{
   conversationId: string
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { conversationId: string }) {
-    super({ ...args, message: `conversation not found: ${args.conversationId}` })
+    super({
+      ...args,
+      message: `conversation not found: ${args.conversationId}`,
+      classification: 'terminal',
+    })
   }
 }
 
@@ -40,9 +54,10 @@ export class DuplicateGrokConversationError extends TaggedError('DuplicateGrokCo
   conversationId: string
   folderPaths: readonly string[]
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { conversationId: string; folderPaths: readonly string[] }) {
-    super({ ...args, message: args.folderPaths.join('\n') })
+    super({ ...args, message: args.folderPaths.join('\n'), classification: 'terminal' })
   }
 }
 

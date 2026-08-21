@@ -6,11 +6,13 @@ import {
   type PairingCode,
   type PairingDecision,
 } from '@porte/core'
+import type {
+  PairingAuthority,
+  PairingCodeStatus,
+} from '@server/application/ports/pairing-authority.ts'
+import type { AuthInstance } from '@server/infrastructure/app-deps.ts'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { APIError } from 'better-auth/api'
-
-import type { PairingAuthority, PairingCodeStatus } from '../../application/ports/pairing-authority'
-import type { AuthInstance } from '../app-deps.ts'
 
 const logger = createLogger('pairing-authority')
 

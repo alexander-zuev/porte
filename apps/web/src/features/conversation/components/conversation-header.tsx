@@ -1,5 +1,5 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react'
-import type { ConversationSummary } from '@porte/core'
+import type { ConversationSummary } from '@porte/core/client'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Separator } from '@web/ui/components/ui/separator.tsx'

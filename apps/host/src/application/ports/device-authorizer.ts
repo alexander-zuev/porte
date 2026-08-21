@@ -1,5 +1,5 @@
 import type { PairingError } from '@host/application/pairing-error.ts'
-import type { HostDescriptor } from '@porte/core'
+import type { HostDescriptor } from '@porte/core/client'
 import type { Result } from 'better-result'
 
 /** What the server hands back when a device asks to be authorized. */

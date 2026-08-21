@@ -1,4 +1,4 @@
-import { createLogger } from '@porte/core'
+import { createLogger } from '@porte/core/client'
 import { createClientOnlyFn } from '@tanstack/react-start'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
 import { authClient } from '@web/lib/clients/auth.client.ts'

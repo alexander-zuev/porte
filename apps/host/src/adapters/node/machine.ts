@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { hostname } from 'node:os'
 
 import { ConfigError } from '@host/application/host-error.ts'
-import { HostPlatformSchema, type HostDescriptor } from '@porte/core'
+import { HostPlatformSchema, type HostDescriptor } from '@porte/core/client'
 
 /**
  * What this Mac calls itself.

@@ -1,15 +1,21 @@
+import type { FailureClassification } from '@porte/core/client'
 import {
   ConversationViewSchema,
   type ConversationEvent,
   type ConversationItem,
   type ConversationView,
-} from '@porte/core/conversation-event'
+} from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
 
 /** A canonical event cannot update the current conversation view. */
 export class ConversationViewError extends TaggedError('ConversationViewError')<{
   message: string
-}> {}
+  classification: FailureClassification
+}> {
+  constructor(args: { message: string }) {
+    super({ ...args, classification: 'terminal' })
+  }
+}
 
 /** Applies canonical events and returns a validated conversation view. */
 export function applyConversationEvents(

@@ -1,8 +1,8 @@
+import type { AppDeps } from '@server/infrastructure/app-deps.ts'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 
-import type { AppDeps } from '../app-deps.ts'
 import { createBetterAuthOptions } from './options.ts'
 
 /**

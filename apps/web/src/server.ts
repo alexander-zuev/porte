@@ -3,18 +3,13 @@ import * as Sentry from '@sentry/cloudflare'
 import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
-import { handleRelayUpgrade, isRelayUpgrade } from './server/entrypoints/relay-upgrade.ts'
-import { scheduled as runScheduled } from './server/entrypoints/scheduled/scheduled-handler.ts'
+import { scheduledHandler } from './server/entrypoints/scheduled/scheduled-handler.ts'
 import { createAppDeps } from './server/infrastructure/app-deps'
-import type { AppDeps } from './server/infrastructure/app-deps'
-import { HostRelayDO as HostRelayDOBase } from './server/infrastructure/durable-objects/host-relay-do'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
+import { handleRelayUpgrade, isRelayUpgrade } from './server/infrastructure/ws/relay-upgrade.ts'
 
-export const HostRelayDO = Sentry.instrumentDurableObjectWithSentry(
-  createSentryOptions,
-  HostRelayDOBase,
-)
+export { HostRelayDO } from './server/infrastructure/durable-objects/host-relay-do'
 
 setLoggerErrorHook(({ error, distinctId, context }) => {
   Sentry.captureException(error, {
@@ -30,23 +25,12 @@ export default Sentry.withSentry(createSentryOptions, {
   fetch(request, env, ctx) {
     const deps = createAppDeps(env, ctx)
 
-    // Before the router: a WebSocket upgrade is a protocol switch, not a page,
-    // and its immutable headers cannot survive the router's response merge.
+    // Before the router: its response merge destroys the upgrade's headers.
     if (isRelayUpgrade(request)) return handleRelayUpgrade(request, deps)
 
     return serverEntry.fetch(request, { context: { deps } })
   },
   scheduled(controller, env, ctx) {
-    return runScheduled(controller, createAppDeps(env, ctx))
+    return scheduledHandler(controller, createAppDeps(env, ctx))
   },
 }) satisfies ExportedHandler<RuntimeEnv>
-
-declare module '@tanstack/react-start' {
-  interface Register {
-    server: {
-      requestContext: {
-        deps: AppDeps
-      }
-    }
-  }
-}

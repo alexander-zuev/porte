@@ -1,4 +1,4 @@
-import { createLogger } from '@porte/core'
+import { createLogger } from '@porte/core/client'
 import { getSession } from '@server/entrypoints/functions/auth.fn.ts'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 

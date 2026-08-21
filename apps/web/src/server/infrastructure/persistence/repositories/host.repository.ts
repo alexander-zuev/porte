@@ -1,10 +1,12 @@
-import { HostIdSchema, UserIdSchema, type HostId, type UserId } from '@porte/core'
+import { HostIdSchema, type HostId, type UserId } from '@porte/core'
+import { Host, type HostSnapshot } from '@server/domain/host/host.aggregate.ts'
+import type { HostPairing, HostRepository } from '@server/domain/host/host.repository.ts'
+import {
+  host,
+  type DbHost,
+} from '@server/infrastructure/persistence/database/schema/host.schema.ts'
+import type { Db } from '@server/infrastructure/persistence/database/types.ts'
 import { eq } from 'drizzle-orm'
-
-import { Host, type HostSnapshot } from '../../../domain/host/host.aggregate.ts'
-import type { HostRepository } from '../../../domain/host/host.repository.ts'
-import { host, type DbHost } from '../database/schema/host.schema.ts'
-import type { Db } from '../database/types.ts'
 
 /**
  * Map a stored row into the aggregate.
@@ -15,7 +17,9 @@ import type { Db } from '../database/types.ts'
 function toDomain(row: DbHost): Host {
   return Host.restore({
     id: HostIdSchema.parse(row.id),
-    userId: UserIdSchema.parse(row.userId),
+    // SAFETY: the column is written from a session's user id, which Better Auth
+    // minted through `generateId`. Nothing else can put a row here.
+    userId: row.userId as UserId,
     name: row.name,
     platform: row.platform,
     revokedAt: row.revokedAt,
@@ -34,9 +38,12 @@ function toDomain(row: DbHost): Host {
 export class DrizzleHostRepository implements HostRepository {
   constructor(private readonly db: () => Db) {}
 
-  async findByUserId(userId: UserId): Promise<Host | null> {
+  async findPairing(userId: UserId): Promise<HostPairing> {
     const row = await this.db().select().from(host).where(eq(host.userId, userId)).get()
-    return row ? toDomain(row) : null
+    if (!row) return { state: 'unpaired' }
+
+    const paired = toDomain(row)
+    return paired.isRevoked ? { state: 'revoked', host: paired } : { state: 'paired', host: paired }
   }
 
   async findById(hostId: HostId): Promise<Host | null> {

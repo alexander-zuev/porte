@@ -1,4 +1,4 @@
-import type { PairingClaim } from '@porte/core'
+import type { PairingClaim } from '@porte/core/client'
 import { claimPairing } from '@server/entrypoints/functions/pairing.fn.ts'
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate, useRouteContext, useSearch } from '@tanstack/react-router'

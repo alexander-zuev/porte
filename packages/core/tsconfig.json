@@ -4,7 +4,7 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "rootDir": ".",
-    "types": ["node"]
+    "types": ["node", "@cloudflare/workers-types"]
   },
   "include": ["src", "tests"]
 }

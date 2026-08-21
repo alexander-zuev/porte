@@ -1,4 +1,4 @@
-import type { HostId } from '@porte/core'
+import type { ConversationPage, ConversationPageQuery, HostId } from '@porte/core'
 
 /**
  * Which side of the relay a connection is.
@@ -19,6 +19,9 @@ export type ConnectHost = {
 /** Cloudflare binding capability required for one host connection. */
 export interface HostRelay {
   connect(input: ConnectHost): Promise<Response>
+
+  /** One page of what a Mac has reported, newest first. */
+  readConversations(hostId: HostId, query: ConversationPageQuery): Promise<ConversationPage>
 
   /**
    * Turn everyone out of one Mac's relay.

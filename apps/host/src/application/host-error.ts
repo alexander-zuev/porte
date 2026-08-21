@@ -1,3 +1,4 @@
+import type { FailureClassification } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 
 /**
@@ -8,15 +9,25 @@ import { TaggedError } from 'better-result'
  */
 export class ConfigError extends TaggedError('ConfigError')<{
   message: string
-}> {}
+  classification: FailureClassification
+}> {
+  constructor(args: { message: string }) {
+    super({ ...args, classification: 'terminal' })
+  }
+}
 
 /** The credential file could not be read, written, or removed. */
 export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
   cause: unknown
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'could not access the stored Porte credential' })
+    super({
+      ...args,
+      message: 'could not access the stored Porte credential',
+      classification: 'terminal',
+    })
   }
 }
 
@@ -29,9 +40,14 @@ export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
 export class RelayHandshakeRefused extends TaggedError('RelayHandshakeRefused')<{
   status: number
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { status: number }) {
-    super({ ...args, message: `Porte refused the connection (HTTP ${String(args.status)})` })
+    super({
+      ...args,
+      message: `Porte refused the connection (HTTP ${String(args.status)})`,
+      classification: 'terminal',
+    })
   }
 }
 
@@ -39,8 +55,9 @@ export class RelayHandshakeRefused extends TaggedError('RelayHandshakeRefused')<
 export class HostRelayError extends TaggedError('HostRelayError')<{
   cause: unknown
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'host relay stopped' })
+    super({ ...args, message: 'host relay stopped', classification: 'unknown' })
   }
 }

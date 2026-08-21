@@ -1,15 +1,10 @@
-/** Shared schemas, types, and domain for Porte. */
-export * from './canonical-content.ts'
-export * from './coding-agent-error.ts'
-export * from './conversation-elicitation-event.ts'
-export * from './conversation-permission-event.ts'
-export * from './device-grant.ts'
-export * from './account-host.ts'
-export * from './close-code.ts'
-export * from './host.ts'
-export * from './identity.ts'
-export * from './image-proxy.ts'
-export * from './pairing-claim.ts'
-export * from './infrastructure/index.ts'
-export * from './protocol.ts'
-export * from './conversation.ts'
+/**
+ * Everything a server may load: the client surface, plus what only a server has.
+ *
+ * A browser imports `@porte/core/client` instead. The split is what keeps
+ * `posthog-node` and the Cloudflare bindings out of a page bundle.
+ */
+export * from './client.ts'
+export * from './analytics/analytics-types.ts'
+export * from './analytics/posthog-analytics-service.ts'
+export * from './clients/durable-object-client.ts'

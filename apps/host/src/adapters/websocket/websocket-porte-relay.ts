@@ -6,11 +6,14 @@ import type {
 } from '@host/application/ports/porte-relay.ts'
 import {
   RoutedRequestSchema,
+  type ConversationId,
+  type ConversationSummary,
+  type RelayMessage,
   type RoutedEvent,
   type RoutedRequest,
   type RoutedResponse,
-} from '@porte/core'
-import type { ConversationEvent } from '@porte/core/conversation-event'
+} from '@porte/core/client'
+import type { ConversationEvent } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 // Node's own WebSocket follows the browser constructor, whose second argument is
 // the subprotocol list. It drops an options object without a word, so the bearer
@@ -34,16 +37,25 @@ export interface PorteRelayObserver {
 export class WebSocketPorteConnection implements PorteConnection {
   constructor(private readonly send: (frame: string) => void) {}
 
-  sendConversations(conversations: Parameters<PorteConnection['sendConversations']>[0]): void {
-    this.sendEvent({
-      audience: { type: 'host' },
-      message: {
-        v: 1,
-        type: 'event',
-        event: 'conversations.changed',
-        data: { catalog: conversations },
-      },
+  sendConversationChunk(chunk: {
+    epoch: string
+    conversations: readonly ConversationSummary[]
+    done: boolean
+  }): void {
+    this.sendRelay({
+      relay: 'conversations.sync',
+      epoch: chunk.epoch,
+      conversations: [...chunk.conversations],
+      done: chunk.done,
     })
+  }
+
+  sendConversationSummary(conversation: ConversationSummary): void {
+    this.sendRelay({ relay: 'conversation.summary', conversation })
+  }
+
+  sendConversationRemoved(conversationId: ConversationId): void {
+    this.sendRelay({ relay: 'conversation.removed', conversationId })
   }
 
   sendConversationEvent(event: ConversationEvent): void {
@@ -60,6 +72,11 @@ export class WebSocketPorteConnection implements PorteConnection {
   /** No schema on the way out: the type is the contract, and this built it. */
   private sendEvent(event: RoutedEvent): void {
     this.send(JSON.stringify(event))
+  }
+
+  /** Addressed to the relay itself, not carried through it to an audience. */
+  private sendRelay(message: RelayMessage): void {
+    this.send(JSON.stringify(message))
   }
 }
 

@@ -1,3 +1,4 @@
+import type { FailureClassification } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 
 /**
@@ -20,9 +21,15 @@ export class PairingError extends TaggedError('PairingError')<{
   cause: unknown
   reason: PairingFailure
   message: string
+  classification: FailureClassification
 }> {
   constructor(args: { reason: PairingFailure; cause?: unknown }) {
-    super({ cause: args.cause, reason: args.reason, message: MESSAGES[args.reason] })
+    super({
+      cause: args.cause,
+      reason: args.reason,
+      message: MESSAGES[args.reason],
+      classification: CLASSIFICATIONS[args.reason],
+    })
   }
 }
 
@@ -32,3 +39,11 @@ const MESSAGES = {
   unreachable: 'Could not reach Porte. Check the connection, then run porte pair again.',
   unexpected: 'Porte returned an unexpected response.',
 } satisfies Record<PairingFailure, string>
+
+/** Only an unreachable server may answer differently to the same question. */
+const CLASSIFICATIONS = {
+  denied: 'terminal',
+  expired: 'terminal',
+  unreachable: 'transient',
+  unexpected: 'terminal',
+} satisfies Record<PairingFailure, FailureClassification>
