@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import {
   RoutedResponseSchema,
+  createLogger,
   type ApiErrorTag,
   type ClientMethod,
   type ClientMethodMap,
@@ -12,6 +13,8 @@ import { Result, type Result as ResultType } from 'better-result'
 import { HostRelayError, type RelayHandshakeRefused } from './host-error.ts'
 import { type CodingAgent, type CodingAgentError } from './ports/coding-agent.ts'
 import type { PorteConnection, PorteRelay } from './ports/porte-relay.ts'
+
+const logger = createLogger('host-controller')
 
 /** Summaries per sync frame. Small enough that one slow Mac does not stall the socket. */
 const SYNC_CHUNK_SIZE = 500
@@ -182,12 +185,22 @@ function sendResult<Method extends ClientMethod>(
   )
 }
 
+/**
+ * Refuse one request, and say why here.
+ *
+ * Every failed request passes through this, so it is the one place that logs:
+ * the browser is told a safe tag, and the Mac keeps the cause that produced it.
+ */
 function sendError(
   request: RoutedRequest,
   connection: PorteConnection,
   error: CodingAgentError,
 ): ResultType<void, CodingAgentError> {
   const tag = apiErrorTagFor(error.code)
+  logger.error('request_failed', {
+    error: error.cause ?? error,
+    details: { method: request.message.method, code: error.code, operation: error.operation },
+  })
   connection.sendResponse(
     RoutedResponseSchema.parse({
       route: request.route,

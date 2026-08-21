@@ -24,6 +24,7 @@ import {
 import {
   IsoDateTimeSchema,
   ConversationIdSchema,
+  createLogger,
   createEventId,
   createMessageId,
   createPermissionId,
@@ -61,6 +62,8 @@ type StartedConversation = {
   readonly conversation: GrokConversation
   readonly view: ConversationView
 }
+
+const logger = createLogger('grok-agent')
 
 const ids = {
   eventId: createEventId,
@@ -110,6 +113,13 @@ export class GrokAgent implements CodingAgent {
     const transcript = await readGrokTranscript(found.value.folderPath, command.conversationId)
     if (transcript.isErr()) {
       return Result.err(operationError('read', transcript.error, 'PROVIDER_UNAVAILABLE'))
+    }
+
+    if (transcript.value.skippedLines > 0) {
+      logger.warn('transcript_lines_skipped', {
+        conversationId: command.conversationId,
+        skippedLines: transcript.value.skippedLines,
+      })
     }
 
     const page = pageOfTurns(transcript.value.turns, command.cursor, command.limit)

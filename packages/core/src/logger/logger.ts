@@ -64,6 +64,23 @@ export function setLoggerErrorHook(fn: LoggerErrorHook): void {
   errorHook = fn
 }
 
+/** Where one formatted log line goes. */
+export type LogSink = (level: LogLevel, line: string) => void
+
+let logSink: LogSink | null = null
+
+/**
+ * Send every log somewhere other than `console`.
+ *
+ * Set once, at the process entry point, never per module: a logger is created
+ * by name and nothing else, so where its lines go is a fact about the process
+ * rather than about the module. `console` is the default because it is the only
+ * sink a Worker or a browser has.
+ */
+export function setLogSink(fn: LogSink): void {
+  logSink = fn
+}
+
 /** The supported log severity levels. */
 export enum LogLevel {
   DEBUG = 'DEBUG',
@@ -158,6 +175,14 @@ const formatDevelopmentArgs = (
   values: ReadonlyArray<LogValue>,
 ): ReadonlyArray<LogValue | SerializedLogError> => values.map(serializeLogValue)
 
+const stringifyLogValues = (values: ReadonlyArray<LogValue | SerializedLogError>): string => {
+  try {
+    return JSON.stringify(values.length === 1 ? values[0] : values)
+  } catch {
+    return '[Circular or non-serializable object]'
+  }
+}
+
 const stringifyLogEntry = (entry: LogEntry): string => {
   try {
     return JSON.stringify(entry)
@@ -242,10 +267,40 @@ export class Logger {
     return LOG_LEVELS.indexOf(level) >= LOG_LEVELS.indexOf(this.config.minLevel)
   }
 
+  /** One log as one line: readable at a terminal, structured everywhere else. */
+  private line(
+    level: LogLevel,
+    timestamp: string,
+    message: string,
+    values: ReadonlyArray<LogValue>,
+  ): string {
+    const data = values.map(serializeLogValue)
+
+    if (this.config.colorize && supportsAnsiColor()) {
+      const prefix = `${ansi.gray(`[${timestamp}]`)} [${colorizeLevelAnsi(level)}] ${ansi.blue(
+        `[${this.module}]`,
+      )} ${message}`
+      return data.length === 0 ? prefix : `${prefix} ${stringifyLogValues(data)}`
+    }
+
+    const base = { timestamp, level, module: this.module, message }
+    if (values.length === 0) return stringifyLogEntry(base)
+
+    return stringifyLogEntry({ ...base, data: data.length === 1 ? data[0] : data })
+  }
+
   private log(level: LogLevel, message: string, values: ReadonlyArray<LogValue>): void {
     if (!this.shouldLog(level)) return
 
     const timestamp = new Date().toISOString()
+
+    // A sink is handed one finished line. Console takes values as further
+    // arguments so a browser can expand them; a stream cannot expand anything.
+    if (logSink !== null) {
+      logSink(level, this.line(level, timestamp, message, values))
+      return
+    }
+
     const logFunction =
       level === LogLevel.ERROR
         ? console.error
