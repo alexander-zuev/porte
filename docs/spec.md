@@ -372,11 +372,11 @@ Each line states the change and why it is needed. A checked line is built.
 
 `apps/web/src/entities/host/relay-connection.ts` and `relay-context.tsx`.
 
-- [ ] Move reconnect and backoff to `partysocket`. Deletes `retryMs`, `retryTimer`, `closed`, and the retry timer. Keep the rule that gives up and sets `lost`, because `partysocket` never reports that it stopped.
+- [ ] Move reconnect and backoff to `partysocket`. Deletes `retryMs`, `retryTimer`, `closed`, and the retry timer. Nothing gives up any more, so nothing has to be kept.
 - [ ] Set `maxEnqueuedMessages: 0`. Its send buffer and our pending map disagree: a buffered frame ships after we already rejected its promise, so the answer arrives with nobody waiting.
-- [ ] Make `request()` wait for an open line, with a deadline. It rejects at once today, so `use-conversation-history.ts` carries a `line === 'open'` gate. That gate goes with this change.
-- [ ] Stop passing conversation handlers to `RelayConnection`. It emits typed events, and `relay-context.tsx` wires the query cache. The three handlers there are one identical `invalidateQueries` written three times.
-- [ ] Create the connection with `useState`, not `useMemo`. React may discard a `useMemo` value, and a second connection is a second socket the relay counts as a second browser.
+- [ ] Make `request()` wait for an open line, with a deadline. It rejects at once today, so `use-conversation-history.ts` carries a `readyState === OPEN` gate. That gate goes with this change.
+- [ ] Stop passing conversation handlers to `RelayConnection`. It emits typed events, and `relay-context.tsx` wires the query cache. Three of the four handlers there are one identical `invalidateQueries`.
+- [x] Create the connection with `useState`, not `useMemo`. React may discard a memo, and a second connection is a second socket the relay counts as a second browser.
 - [ ] Add `tests/unit/relay-connection.test.ts`. The file has none, and cannot have any until the socket is injected: it reads the global `WebSocket`.
 
 ### Durable Object
@@ -387,14 +387,16 @@ Each line states the change and why it is needed. A checked line is built.
 - [ ] Detect a Mac that died without closing its socket. `online` only means the relay holds a daemon socket, and nothing times out, so the dot stays green until the runtime reaps it. Detection belongs to the daemon: it pings, and silence tells it to reconnect.
 - [ ] Make the constructor cheap. It runs `migrate()` and `createAppDeps()` on every wake, and hibernation wakes it often.
 
-The rest of the hibernation guidance is already met: `acceptWebSocket` with tags, an attachment on each socket, and a roster read from `getWebSockets()` rather than a field.
+The rest of the hibernation guidance is already met: `acceptWebSocket` with tags, an attachment on each socket, a roster read from `getWebSockets()` rather than a field, and the upgrade validated in the Worker before the relay is billed for it.
 
 ### Host status on screen
 
-- [x] Render five states. Connecting pulses with no word, online is green, offline is neutral because a closed laptop is a resting state, reconnecting pulses amber, and lost is red.
-- [x] Give `lost` a button to try again. It is the only state nothing leaves on its own, so the retry lives inside that member of the union and cannot be offered anywhere else.
-- [x] Serve every header from one type and one mapper. The two that existed before both lacked a `lost` branch, so a browser that had given up still read `Online`.
-- [ ] Delete `mac.lastSeenAt`. Nothing assigns it, because `host.status` carries only the status. The screen already falls back to the database value.
+- [x] Separate the two facts. The Mac is server state, read over HTTP so a first paint is right and written by the socket when a frame arrives. Our own socket is `readyState`, read from the socket rather than mirrored beside it.
+- [x] Three states, not five. Loading says nothing out loud, online is green, offline is neutral because a closed laptop is where a Mac rests.
+- [x] Drop `lost` and the rule that made it. Retrying now continues for as long as the tab is open, so there is no state a person has to press a button to leave.
+- [x] Delete `mac.lastSeenAt`. Nothing ever assigned it. The screen reads the database value.
+- [ ] Design the offline screen. A Mac that is away should say so where the list would be: its name, when it was last seen, and the one command that fixes it.
+- [ ] Improve how `porte up` is presented. Keep the terminal command component.
 
 ## Completion Proof
 
