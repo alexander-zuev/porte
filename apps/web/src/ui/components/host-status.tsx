@@ -8,13 +8,13 @@ import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert
  * A dot and nothing else. The word it replaces said the same thing twice, and
  * a status that appears and then leaves moves the line beside it.
  *
- * `offline` is neutral, not red. A closed laptop is where a Mac rests, and
- * nothing has gone wrong that a colour should shout about.
+ * `offline` is red: nothing on these screens works without the Mac, so it is
+ * the one state a glance has to catch.
  */
 const STATUS = {
   loading: { label: 'Loading', dot: 'animate-pulse bg-muted-foreground' },
   online: { label: 'Online', dot: 'bg-status-success' },
-  offline: { label: 'Offline', dot: 'bg-muted-foreground' },
+  offline: { label: 'Offline', dot: 'bg-destructive' },
 } as const satisfies Record<HostConnection, { readonly label: string; readonly dot: string }>
 
 /** The dot alone. Its word is written for a screen reader, never shown. */

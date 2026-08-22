@@ -1,4 +1,4 @@
-import type { ConversationSummary } from '@porte/core/client'
+import type { ConversationSummary, PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
@@ -13,6 +13,14 @@ import { conversations, storyUser } from '../fixtures/conversations.ts'
 
 const NONE: readonly ConversationSummary[] = []
 
+const HOST = {
+  name: "Alexander's MacBook Pro",
+  platform: 'darwin',
+  lastSeenAt: '2026-08-22T14:02:00.000Z',
+} as PairedHost
+
+const REACH = { reconnecting: false, onReconnect: () => undefined }
+
 /**
  * One story per situation the page can be in.
  *
@@ -23,7 +31,7 @@ function page(
   connection: HostConnection,
   conversationList: ConversationList,
 ): ConversationsPageProps {
-  return { connection, conversationList }
+  return { connection, conversationList, host: HOST, reach: REACH }
 }
 
 /** The list arrived. Paging is off unless a story says otherwise. */

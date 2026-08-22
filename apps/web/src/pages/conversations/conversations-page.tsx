@@ -1,3 +1,4 @@
+import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import {
@@ -8,12 +9,16 @@ import {
 } from '@web/features/conversations/components/conversation-list-states.tsx'
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
 import { ProjectList } from '@web/features/conversations/components/project-list.tsx'
+import type { ReachHost } from '@web/lib/host/use-reach-host.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 export type ConversationsPageProps = {
+  /** From the database, so the Mac has a name before any socket exists. */
+  readonly host: PairedHost
   readonly conversationList: ConversationList
   readonly connection: HostConnection
+  readonly reach: ReachHost
 }
 
 /**
@@ -22,37 +27,30 @@ export type ConversationsPageProps = {
  * Which Mac this is belongs to `AppHeader`, which every page here shares. The
  * page is the list and nothing above it.
  */
-export function ConversationsPage({ conversationList, connection }: ConversationsPageProps) {
-  return <div className="flex flex-1 flex-col gap-2">{body(connection, conversationList)}</div>
+export function ConversationsPage(props: ConversationsPageProps) {
+  return <div className="flex flex-1 flex-col gap-2">{body(props)}</div>
 }
 
 /**
- * A list we hold is shown; otherwise the line explains itself before the read does.
+ * An away Mac is the whole screen, even though the list would render.
  *
- * The relay keeps its own copy, so a Mac that is away still has a history worth
- * reading, and the header carries the connection badge either way. With nothing
- * to show, a dead line is the better explanation of a failed read.
+ * The relay holds a copy, so there is something to show. It is not shown: every
+ * row on it opens a conversation that cannot be read, and offering a list that
+ * does nothing when tapped is worse than saying where the Mac went.
  */
-function body(connection: HostConnection, conversationList: ConversationList) {
-  if (conversationList.status === 'ready' && conversationList.conversations.length > 0) {
+function body({ host, connection, conversationList, reach }: ConversationsPageProps) {
+  if (connection === 'loading') return <LookingForMac />
+
+  if (connection === 'offline') {
     return (
-      <>
-        <ProjectList conversations={conversationList.conversations} />
-        {conversationList.hasMore ? (
-          <Button
-            className="min-h-11 w-full"
-            disabled={conversationList.isLoadingMore}
-            variant="ghost"
-            onClick={conversationList.onLoadMore}
-          >
-            {conversationList.isLoadingMore ? <Spinner /> : 'Load older conversations'}
-          </Button>
-        ) : null}
-      </>
+      <StartPorteOnMac
+        hostName={host.name}
+        lastSeenAt={host.lastSeenAt}
+        reconnecting={reach.reconnecting}
+        onReconnect={reach.onReconnect}
+      />
     )
   }
-
-  if (connection === 'loading') return <LookingForMac />
 
   if (conversationList.status === 'failed') {
     return (
@@ -61,7 +59,21 @@ function body(connection: HostConnection, conversationList: ConversationList) {
   }
 
   if (conversationList.status === 'pending') return <ReadingConversations />
-  if (connection === 'offline') return <StartPorteOnMac />
+  if (conversationList.conversations.length === 0) return <NoConversationsYet />
 
-  return <NoConversationsYet />
+  return (
+    <>
+      <ProjectList conversations={conversationList.conversations} />
+      {conversationList.hasMore ? (
+        <Button
+          className="min-h-11 w-full"
+          disabled={conversationList.isLoadingMore}
+          variant="ghost"
+          onClick={conversationList.onLoadMore}
+        >
+          {conversationList.isLoadingMore ? <Spinner /> : 'Load older conversations'}
+        </Button>
+      ) : null}
+    </>
+  )
 }

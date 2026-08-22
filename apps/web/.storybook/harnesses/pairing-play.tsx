@@ -1,4 +1,4 @@
-import { PairingOriginSchema, type PairingOrigin } from '@porte/core/client'
+import { PairingOriginSchema, type PairedHost, type PairingOrigin } from '@porte/core/client'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
@@ -21,9 +21,17 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
   requestedAt: '2026-08-20T15:23:00.000Z',
 })
 
+const HOST = {
+  name: "Alex's MacBook Pro",
+  platform: 'darwin',
+  lastSeenAt: null,
+} satisfies PairedHost
+
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
 function homeList(paired: boolean) {
   return {
+    host: HOST,
+    reach: { reconnecting: false, onReconnect: () => undefined },
     connection: paired ? 'online' : 'offline',
     conversationList: {
       status: 'ready',
