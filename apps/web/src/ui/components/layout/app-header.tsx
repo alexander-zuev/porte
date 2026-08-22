@@ -1,6 +1,6 @@
 import { LaptopIcon } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useChildMatches } from '@tanstack/react-router'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
@@ -31,11 +31,24 @@ export function AppHeader() {
   )
 }
 
-/** Which Mac this is, and whether it is there. Absent until an account has one. */
+/**
+ * Which Mac this is, and whether it is there.
+ *
+ * Only on the screens that control it. Settings and pairing can read the same
+ * Mac — settings names it in full — but neither is remote-controlling one, and
+ * a bar that said so would be describing the wrong thing.
+ *
+ * The router is asked rather than a context: the header renders above the
+ * layout that owns the Mac, so nothing below it can hand anything up.
+ */
 function RemoteHost() {
+  const controllingHost = useChildMatches({
+    select: (matches) => matches.some((match) => match.routeId === '/_auth/_relay'),
+  })
   const owned = useQuery(hostQueries.forAccount())
   const connection = useHostConnection()
 
+  if (!controllingHost) return null
   if (owned.data?.state !== 'paired') return null
 
   return (

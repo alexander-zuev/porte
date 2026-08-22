@@ -7,7 +7,7 @@ import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 
-export const Route = createFileRoute('/_auth/_app/_relay/conversations/$conversationId')({
+export const Route = createFileRoute('/_auth/_relay/conversations/$conversationId')({
   params: {
     parse: (raw) => ({ conversationId: ConversationIdSchema.parse(raw.conversationId) }),
     stringify: (params) => ({ conversationId: params.conversationId }),

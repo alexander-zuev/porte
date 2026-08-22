@@ -1,4 +1,4 @@
-import { GearIcon, LifebuoyIcon, ListIcon, SignOutIcon } from '@phosphor-icons/react'
+import { FolderIcon, GearIcon, LifebuoyIcon, ListIcon, SignOutIcon } from '@phosphor-icons/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { authService } from '@web/lib/auth/auth-service.ts'
@@ -12,6 +12,47 @@ import {
   DrawerTrigger,
 } from '@web/ui/components/ui/drawer.tsx'
 import { toast } from '@web/ui/components/ui/sonner.tsx'
+import type { ReactNode } from 'react'
+
+/**
+ * One place to go, marked when you are already there.
+ *
+ * The mark is the hover shade, held. Anything louder competes with the row a
+ * thumb is about to press, and the point is only to say "not this one".
+ *
+ * Not exact: a conversation is still inside the list it came from.
+ */
+function MenuLink({
+  to,
+  icon,
+  label,
+}: {
+  readonly to: '/conversations' | '/account'
+  readonly icon: ReactNode
+  readonly label: string
+}) {
+  return (
+    <DrawerClose
+      render={
+        <Button
+          className="h-11 w-full justify-start gap-2"
+          nativeButton={false}
+          variant="ghost"
+          render={
+            <Link
+              activeOptions={{ exact: false }}
+              activeProps={{ className: 'bg-surface-hover' }}
+              to={to}
+            />
+          }
+        >
+          {icon}
+          {label}
+        </Button>
+      }
+    />
+  )
+}
 
 /**
  * Everything about the account, one tap from any page.
@@ -56,19 +97,8 @@ export function AppMenu() {
         {/* `ghost` is already the dropdown menu's hover, so both menus behave
             the same without a second set of rules. Log out only recolours. */}
         <nav className="flex flex-col gap-0.5 px-2">
-          <DrawerClose
-            render={
-              <Button
-                className="h-11 w-full justify-start gap-2"
-                nativeButton={false}
-                variant="ghost"
-                render={<Link to="/account" />}
-              >
-                <GearIcon aria-hidden />
-                Account
-              </Button>
-            }
-          />
+          <MenuLink icon={<FolderIcon aria-hidden />} label="Conversations" to="/conversations" />
+          <MenuLink icon={<GearIcon aria-hidden />} label="Account" to="/account" />
           {/* Leaves the app, so it says so and opens where a report belongs. */}
           <Button
             className="h-11 w-full justify-start gap-2"

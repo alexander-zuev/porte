@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { AccountFlow } from '@web/features/account/components/account-flow.tsx'
+import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 
-export const Route = createFileRoute('/_auth/_app/account')({
+export const Route = createFileRoute('/_auth/account')({
   loader: ({ context }) => context.queryClient.ensureQueryData(hostQueries.forAccount()),
   component: AccountRoute,
 })
@@ -11,7 +12,14 @@ export const Route = createFileRoute('/_auth/_app/account')({
 function AccountRoute() {
   const { user } = Route.useRouteContext()
   const owned = useQuery(hostQueries.forAccount())
-  const host = owned.data?.state === 'unpaired' ? undefined : owned.data?.host
+  const connection = useHostConnection()
+  const host = owned.data?.state === 'paired' ? owned.data.host : undefined
 
-  return <AccountFlow host={host} identity={{ name: user.name, email: user.email }} />
+  return (
+    <AccountFlow
+      connection={connection}
+      host={host}
+      identity={{ name: user.name, email: user.email }}
+    />
+  )
 }

@@ -1,22 +1,26 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { PublicShell } from '@web/ui/components/layout/public-shell.tsx'
-import { LogoLink } from '@web/ui/components/logo.tsx'
+import { PublicFooter } from '@web/ui/components/layout/public-footer.tsx'
 
 export const Route = createFileRoute('/_auth/pair')({
+  staticData: { appShell: 'card' },
   component: PairLayout,
 })
 
 /**
- * Pairing is behind the session but outside the app, so it borrows the public
- * frame. `back` is off for every step: the code in the terminal expires either
- * way, and leaving loses it.
+ * Pairing, inside the app frame it is on its way into.
+ *
+ * `card` holds one step below the bar, so a taller step does not move what sits
+ * above it. The legal footer stays: this is where an account is bound to a
+ * machine, and the terms belong in view.
+ *
+ * There is no Mac yet, so the bar names none. It carries the wordmark and the
+ * menu, which is the way out for somebody stuck partway through.
  */
 function PairLayout() {
   return (
-    <PublicShell back={false} variant="card">
-      {/* Held here, not per step, so it does not move as a step grows taller. */}
-      <LogoLink />
+    <>
       <Outlet />
-    </PublicShell>
+      <PublicFooter variant="legal" />
+    </>
   )
 }

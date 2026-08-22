@@ -5,8 +5,10 @@ import type { ReactNode } from 'react'
  * `scroll` grows with its content and lets the document scroll, which is what
  * keeps a phone's URL bar hiding and pull-to-refresh working. `fill` bounds the
  * frame to the viewport so a scroll container inside main can own the overflow.
+ * `card` is one thing to do, held below the bar rather than centred: a taller
+ * step would otherwise move everything above it.
  */
-export type AppShellVariant = 'scroll' | 'fill'
+export type AppShellVariant = 'scroll' | 'fill' | 'card'
 
 export type AppShellProps = {
   readonly variant: AppShellVariant
@@ -24,7 +26,10 @@ export function AppShell({ variant, header, footer, children }: AppShellProps) {
           marketing page opening on a headline, and the app opens on a list. */}
       <main
         className={cn(
-          'container-column shell-x flex min-h-0 flex-1 flex-col',
+          'shell-x flex min-h-0 flex-1 flex-col',
+          // `card` centres one thing in the viewport, so it takes no column:
+          // a reading measure would pin it to the left of all that space.
+          variant === 'card' ? 'items-center gap-10 pt-[12svh] pb-12' : 'container-column',
           variant === 'scroll' && 'py-4 md:py-6',
         )}
       >

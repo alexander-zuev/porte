@@ -19,7 +19,6 @@ const seenHost = {
 
 const actions = {
   onUnpair: () => undefined,
-  onSignOut: () => undefined,
   onRequestDelete: () => undefined,
   onCancelDelete: () => undefined,
   onConfirmDelete: () => undefined,
@@ -29,8 +28,8 @@ const meta = {
   title: 'Pages/Account',
   component: AccountPage,
   parameters: { layout: 'fullscreen' },
-  args: { ...actions, identity, pending: 'none', deleteConfirming: false },
-  // The frame comes from the `_app` route, so the story supplies it instead.
+  args: { ...actions, identity, connection: 'online', pending: 'none', deleteConfirming: false },
+  // The frame comes from the `_auth` route, so the story supplies it instead.
   decorators: [
     (Story) => (
       <AppShell variant="scroll">
@@ -48,7 +47,7 @@ export const Paired: Story = {
 }
 
 export const HostOffline: Story = {
-  args: { host: seenHost },
+  args: { host: seenHost, connection: 'offline' },
 }
 
 export const Unpaired: Story = {}
@@ -72,8 +71,4 @@ export const DeleteFailed: Story = {
     deleteConfirming: true,
     failure: 'Deleting failed. Your account is unchanged.',
   },
-}
-
-export const SigningOut: Story = {
-  args: { host: neverSeenHost, pending: 'signOut' },
 }

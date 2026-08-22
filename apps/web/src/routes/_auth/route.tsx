@@ -1,6 +1,9 @@
 import { ensureSession } from '@server/entrypoints/functions/auth.fn.ts'
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { signInSearchFromLocation } from '@web/lib/auth/internal-return-to.ts'
+import { useAppShellVariant } from '@web/lib/router/use-shell-variant.ts'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 export const Route = createFileRoute('/_auth')({
   beforeLoad: async ({ location }) => {
@@ -21,7 +24,20 @@ export const Route = createFileRoute('/_auth')({
   component: AuthLayout,
 })
 
-/** Everything behind the session. The relay's own layout is nested inside. */
+/**
+ * Everything behind the session, in one frame.
+ *
+ * The shell is here rather than a layer below, so signing in and moving between
+ * pairing, the list, and settings never rebuilds it. Pages ask for the shape
+ * they need through `staticData`, because a child cannot pass props to the
+ * layout that renders its `Outlet`.
+ */
 function AuthLayout() {
-  return <Outlet />
+  const variant = useAppShellVariant('scroll')
+
+  return (
+    <AppShell header={<AppHeader />} variant={variant}>
+      <Outlet />
+    </AppShell>
+  )
 }

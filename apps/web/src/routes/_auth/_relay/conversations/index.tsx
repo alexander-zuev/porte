@@ -6,7 +6,7 @@ import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
 
-export const Route = createFileRoute('/_auth/_app/_relay/conversations/')({
+export const Route = createFileRoute('/_auth/_relay/conversations/')({
   /** An unpaired account has nothing to see here, and `host` is known by now. */
   beforeLoad: async ({ context }) => {
     const owned = await context.queryClient.ensureQueryData(hostQueries.forAccount())

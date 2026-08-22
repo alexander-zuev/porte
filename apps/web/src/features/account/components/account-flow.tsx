@@ -1,6 +1,7 @@
 import type { PairedHost } from '@porte/core/client'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { hostMutations } from '@web/entities/host/host-mutations.ts'
 import { hostQueryKeys } from '@web/entities/host/host-queries.ts'
 import { authService } from '@web/lib/auth/auth-service.ts'
@@ -12,10 +13,11 @@ import type { AccountIdentity, AccountPending } from './account-panel.tsx'
 export type AccountFlowProps = {
   readonly identity: AccountIdentity
   readonly host?: PairedHost
+  readonly connection: HostConnection
 }
 
 /** Run the account actions and route the user to wherever each one leaves them. */
-export function AccountFlow({ identity, host }: AccountFlowProps) {
+export function AccountFlow({ identity, host, connection }: AccountFlowProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -23,7 +25,7 @@ export function AccountFlow({ identity, host }: AccountFlowProps) {
   const [pending, setPending] = useState<AccountPending>('none')
 
   /**
-   * Sign out, then drop the cache once nothing is watching it.
+   * End the session, then drop the cache once nothing is watching it.
    *
    * Invalidating here would refetch every live query under a session that no
    * longer exists, so the page waits on its own 401s before it can leave.
@@ -79,6 +81,7 @@ export function AccountFlow({ identity, host }: AccountFlowProps) {
 
   return (
     <AccountPage
+      connection={connection}
       deleteConfirming={deleteConfirming}
       failure={failure}
       host={host}
@@ -93,10 +96,6 @@ export function AccountFlow({ identity, host }: AccountFlowProps) {
       onRequestDelete={() => {
         setFailure(undefined)
         setDeleteConfirming(true)
-      }}
-      onSignOut={() => {
-        setPending('signOut')
-        void endSession('/sign-in')
       }}
       onUnpair={() => {
         unpair.mutate()
