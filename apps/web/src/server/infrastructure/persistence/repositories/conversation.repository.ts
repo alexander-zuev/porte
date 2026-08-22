@@ -11,7 +11,20 @@ import {
   conversation,
   type DbConversation,
 } from '@server/infrastructure/persistence/relay/schema/conversation.schema.ts'
-import { and, desc, eq, lt, ne, notInArray, or, sql } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, lt, ne, or, sql } from 'drizzle-orm'
+
+/** What one statement may bind on Durable Object SQLite. */
+const MAX_BOUND_PARAMETERS = 100
+
+/**
+ * Rows one insert may carry, read from the table rather than written down.
+ *
+ * A sixth column would otherwise put a hardcoded twenty rows back over the cap,
+ * and the failure lands on the socket that was carrying the sync.
+ */
+const ROWS_PER_INSERT = Math.floor(
+  MAX_BOUND_PARAMETERS / Object.keys(getTableColumns(conversation)).length,
+)
 
 /**
  * Map a stored row into the shape the browser reads.
@@ -84,7 +97,14 @@ export class DrizzleConversationRepository implements ConversationRepository {
     this.saveAll([toSave], syncRunId)
   }
 
+  /** Split across statements: one insert holding every row would outrun the parameter cap. */
   saveAll(conversations: readonly ConversationSummary[], syncRunId: string): void {
+    for (let start = 0; start < conversations.length; start += ROWS_PER_INSERT) {
+      this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT), syncRunId)
+    }
+  }
+
+  private insertRows(conversations: readonly ConversationSummary[], syncRunId: string): void {
     if (conversations.length === 0) return
 
     const rows = conversations.map((one) => ({
@@ -118,22 +138,31 @@ export class DrizzleConversationRepository implements ConversationRepository {
     this.db.delete(conversation).where(ne(conversation.syncRunId, syncRunId)).run()
   }
 
+  /**
+   * Keep the newest `maxRows`, and sweep what sorts after them.
+   *
+   * Described by the boundary row rather than by listing every survivor, whose
+   * ids would be one bound parameter each and far past the cap. The comparison
+   * is the cursor's, because it walks the same order.
+   */
   deleteBeyond(maxRows: number): void {
-    const keep = this.db
-      .select({ id: conversation.id })
+    const boundary = this.db
+      .select({ updatedAt: conversation.updatedAt, id: conversation.id })
       .from(conversation)
       .orderBy(desc(conversation.updatedAt), desc(conversation.id))
-      .limit(maxRows)
-      .all()
+      .limit(1)
+      .offset(maxRows - 1)
+      .get()
 
-    if (keep.length < maxRows) return
+    // Fewer rows than the ceiling, so there is nothing beyond it.
+    if (boundary === undefined) return
 
     this.db
       .delete(conversation)
       .where(
-        notInArray(
-          conversation.id,
-          keep.map((row) => row.id),
+        or(
+          lt(conversation.updatedAt, boundary.updatedAt),
+          and(eq(conversation.updatedAt, boundary.updatedAt), lt(conversation.id, boundary.id)),
         ),
       )
       .run()

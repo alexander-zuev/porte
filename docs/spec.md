@@ -364,6 +364,45 @@ Target: the host applies deadlines to ACP requests, sends `$/cancel_request` whe
 
 Slice 6 is the remaining work: the conversation-scoped controls, which are held beside the messages rather than inside them.
 
+## Open Work
+
+Not done. Each line states the change and why it is needed.
+
+### Relay client in the browser
+
+`apps/web/src/entities/host/relay-connection.ts` and `relay-context.tsx`.
+
+| #   | Change                                                | Why                                                                                                                                                       |
+| --- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Reconnect and backoff move to `partysocket`.          | Deletes `retryMs`, `retryTimer`, `closed`, and the retry timer. Keep the give-up rule that sets `lost`: `partysocket` never reports that it stopped.      |
+| 2   | Set `maxEnqueuedMessages: 0`.                         | Its send buffer and our pending map disagree. A buffered frame ships after we already rejected its promise, so the answer arrives with nobody waiting.    |
+| 3   | `request()` waits for an open line, with a deadline.  | Today it rejects at once, so `use-conversation-history.ts` carries a `line === 'open'` gate. That gate is deleted with this change.                       |
+| 4   | `RelayConnection` stops taking conversation handlers. | It emits typed events, and `relay-context.tsx` wires the query cache. The three handlers there are one identical `invalidateQueries` written three times. |
+| 5   | Create the connection with `useState`, not `useMemo`. | React may discard a `useMemo` value. A second connection is a second socket, and the relay then counts two browsers.                                      |
+| 6   | Add `tests/unit/relay-connection.test.ts`.            | The file has no tests. Inject the socket first: it reads the global `WebSocket` today, so it cannot be tested at all.                                     |
+
+### Durable Object
+
+`apps/web/src/server/infrastructure/durable-objects/host-relay-do.ts`.
+
+| #   | Change                                                     | Why                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7   | Call `setWebSocketAutoResponse` with a `ping`/`pong` pair. | The relay answers without leaving hibernation. This keeps an idle line open. It does not detect a dead Mac.                                                                                                 |
+| 8   | Detect a Mac that died without closing its socket.         | `online` means the relay holds a daemon socket. Nothing times out, so the dot stays green until the runtime reaps the socket. Detection belongs to the daemon: it pings, and silence tells it to reconnect. |
+| 9   | Make the constructor cheap.                                | It runs `migrate()` and `createAppDeps()` on every wake, and hibernation wakes it often.                                                                                                                    |
+
+The rest of the hibernation guidance is already met: `acceptWebSocket` with tags, attachments for each socket, and a roster read from `getWebSockets()` rather than a field.
+
+### Host status on screen
+
+`conversations-header.tsx` and `ui/components/host-status.tsx`.
+
+| #   | Change                              | Why                                                                                                                                                                                                            |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | Render `lost`.                      | `status()` has no branch for it, so a browser that gave up retrying still reads `Online`.                                                                                                                      |
+| 11  | Delete `mac.lastSeenAt`.            | Nothing ever assigns it, because `host.status` carries only the status. The screen already falls back to the database value.                                                                                   |
+| 12  | Five states, each with its own dot. | Connecting pulses with no word, because the word outlives its usefulness in one moment. Online is green. Offline is neutral, since a closed laptop is a resting state. Reconnecting pulses amber. Lost is red. |
+
 ## Completion Proof
 
 One automated flow starts the built host, Worker runtime, Durable Object, test client, and installed Grok process.

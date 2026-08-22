@@ -42,6 +42,11 @@ function conversation(index: number, at: string): ConversationSummary {
   }
 }
 
+/** Distinct, ordered timestamps for a list too long to write by hand. */
+function minutesIn(index: number): string {
+  return new Date(Date.UTC(2026, 7, 20, 10, index)).toISOString()
+}
+
 describe('conversation repository', () => {
   it('applies its migration and reads back what it wrote', async () => {
     await withStore('migrate', (conversations) => {
@@ -148,6 +153,36 @@ describe('conversation repository', () => {
         'conversation 4',
         'conversation 3',
       ])
+    })
+  })
+
+  /**
+   * Durable Object SQLite binds at most 100 parameters per statement, and a row
+   * costs one per column. Both of these wrote a single statement once, which
+   * threw on the socket carrying the sync and left the Mac reconnecting.
+   */
+  it('saves a whole sync chunk, past the bound-parameter cap', async () => {
+    await withStore('bulk-save', (conversations) => {
+      const all = Array.from({ length: 500 }, (_, index) => conversation(index, minutesIn(index)))
+
+      conversations.saveAll(all, RUN)
+
+      expect(conversations.findPage({ cursor: null, limit: 1000 }).conversations).toHaveLength(500)
+    })
+  })
+
+  it('caps far above the bound-parameter limit', async () => {
+    await withStore('bulk-cap', (conversations) => {
+      const all = Array.from({ length: 300 }, (_, index) => conversation(index, minutesIn(index)))
+      conversations.saveAll(all, RUN)
+
+      conversations.deleteBeyond(250)
+
+      const kept = conversations.findPage({ cursor: null, limit: 1000 }).conversations
+      expect(kept).toHaveLength(250)
+      // Newest first, so the survivors are the tail of what went in.
+      expect(kept[0]?.title).toBe('conversation 299')
+      expect(kept.at(-1)?.title).toBe('conversation 50')
     })
   })
 
