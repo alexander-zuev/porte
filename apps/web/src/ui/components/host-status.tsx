@@ -1,8 +1,6 @@
-import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { cn } from '@web/lib/utils.ts'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
-import { Button } from '@web/ui/components/ui/button.tsx'
 
 type HostStatusProps = {
   readonly connection: HostConnection
@@ -12,25 +10,23 @@ type HostStatusProps = {
 /**
  * How each state reads, and why.
  *
- * `connecting` carries no visible word. It lasts a moment, and a word that
- * appears and then leaves moves the line beside it and reads as a fault.
+ * `loading` carries no visible word. The read is one round trip, and a word
+ * that appears and then leaves moves the line beside it and reads as a fault.
  *
- * `offline` is neutral, not red. A closed laptop is where a Mac rests. Red is
- * kept for `lost`, the one state the page cannot leave on its own.
+ * `offline` is neutral, not red. A closed laptop is where a Mac rests, and
+ * nothing has gone wrong that a colour should shout about.
  */
 const STATUS = {
-  connecting: { label: 'Connecting', dot: 'animate-pulse bg-muted-foreground', quiet: true },
+  loading: { label: 'Loading', dot: 'animate-pulse bg-muted-foreground', quiet: true },
   online: { label: 'Online', dot: 'bg-status-success', quiet: false },
   offline: { label: 'Offline', dot: 'bg-muted-foreground', quiet: false },
-  reconnecting: { label: 'Reconnecting', dot: 'animate-pulse bg-status-warning', quiet: false },
-  lost: { label: 'Disconnected', dot: 'bg-destructive', quiet: false },
 } as const satisfies Record<
-  HostConnection['status'],
+  HostConnection,
   { readonly label: string; readonly dot: string; readonly quiet: boolean }
 >
 
 export function HostStatus({ connection, detail }: HostStatusProps) {
-  const { label, dot, quiet } = STATUS[connection.status]
+  const { label, dot, quiet } = STATUS[connection]
 
   return (
     <small className="inline-flex items-center gap-2 text-muted-foreground">
@@ -39,11 +35,6 @@ export function HostStatus({ connection, detail }: HostStatusProps) {
           only thing a screen reader is given. */}
       <span className={cn(quiet && 'sr-only')}>{label}</span>
       {detail ? <span>{detail}</span> : null}
-      {connection.status === 'lost' ? (
-        <Button aria-label="Reconnect" size="icon-xs" variant="ghost" onClick={connection.onRetry}>
-          <ArrowClockwiseIcon aria-hidden />
-        </Button>
-      ) : null}
     </small>
   )
 }

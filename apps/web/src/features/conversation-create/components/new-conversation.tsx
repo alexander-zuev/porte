@@ -54,9 +54,8 @@ export type NewConversationProps =
 
 /** Render the complete new-conversation flow without server effects. */
 export function NewConversation(props: NewConversationProps) {
-  const hostStatus: HostConnection = {
-    status: props.view === 'form' && props.state.status === 'offline' ? 'offline' : 'online',
-  }
+  const hostStatus: HostConnection =
+    props.view === 'form' && props.state.status === 'offline' ? 'offline' : 'online'
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
       <NewConversationHeader

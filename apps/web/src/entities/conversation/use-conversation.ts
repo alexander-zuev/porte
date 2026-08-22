@@ -1,5 +1,5 @@
 import type { ConversationId, ConversationSummary } from '@porte/core/client'
-import { useRelayConnection } from '@web/entities/host/relay-context.tsx'
+import { useRelay } from '@web/entities/host/relay-context.tsx'
 import type { ChatTransport, UIMessage } from 'ai'
 import { useMemo } from 'react'
 
@@ -38,7 +38,7 @@ export type ConversationActions = {
  * story as a value.
  */
 export function useConversation(conversationId: ConversationId): ConversationView {
-  const relay = useRelayConnection()
+  const relay = useRelay()
   const history = useConversationHistory(conversationId)
   const { waiting, answer } = usePendingPermissions(conversationId)
 

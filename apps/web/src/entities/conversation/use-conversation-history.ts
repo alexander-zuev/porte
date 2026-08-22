@@ -5,7 +5,7 @@ import {
   type ConversationSummary,
   type ConversationTurnState,
 } from '@porte/core/client'
-import { useRelay, useRelayConnection } from '@web/entities/host/relay-context.tsx'
+import { useRelay, useRelayReadyState } from '@web/entities/host/relay-context.tsx'
 import type { UIMessage } from 'ai'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -45,8 +45,8 @@ type Page = {
  * opening a conversation that ran for hours wants the end of it.
  */
 export function useConversationHistory(conversationId: ConversationId): ConversationHistory {
-  const relay = useRelayConnection()
-  const { line } = useRelay()
+  const relay = useRelay()
+  const readyState = useRelayReadyState()
   const [attempt, setAttempt] = useState(0)
   const [answered, setAnswered] = useState<Answered | null>(null)
   const [held, setHeld] = useState<Older>({ read: '', pages: [], reading: false })
@@ -62,7 +62,7 @@ export function useConversationHistory(conversationId: ConversationId): Conversa
   // A cold load reaches here before the socket opens. Asking then fails at once
   // and nothing would ask again, so the read waits for the line and the effect
   // re-runs when it arrives.
-  const open = line === 'open'
+  const open = readyState === WebSocket.OPEN
 
   // Pages read before the first one, and the read they belong to. Derived
   // rather than cleared in an effect, so they are gone in the same render.

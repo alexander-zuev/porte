@@ -1,4 +1,4 @@
-import { DesktopIcon, FolderIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import { DesktopIcon, FolderIcon } from '@phosphor-icons/react'
 import { UP_COMMAND } from '@web/lib/product.ts'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
@@ -11,17 +11,6 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
  * is a layout, so six different meanings wearing it read as one thing. A page
  * branches to a name, and each name is a story on its own.
  */
-
-/** Our line gave up. The Mac itself may be perfectly fine. */
-export function PorteUnreachable() {
-  return (
-    <EmptyState
-      body="Porte could not keep a connection open. Your Mac may still be running."
-      icon={<WarningCircleIcon aria-hidden />}
-      title="Cannot reach Porte"
-    />
-  )
-}
 
 /** The line is opening. Never say offline here: the Mac may be perfectly awake. */
 export function LookingForMac() {

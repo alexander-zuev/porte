@@ -1,7 +1,6 @@
 import type { ConversationId, PairedHost } from '@porte/core/client'
 import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import { canReachMac, type RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationChat } from '@web/features/conversation/components/conversation-chat.tsx'
 import { ConversationHeader } from '@web/features/conversation/components/conversation-header.tsx'
 import {
@@ -12,8 +11,9 @@ export type ConversationPageProps = {
   readonly conversationId: ConversationId
   readonly view: ConversationView
   readonly host: PairedHost
-  readonly relay: RelayState
   readonly connection: HostConnection
+  /** Both halves have to hold, so the page is handed the answer rather than the facts. */
+  readonly canSend: boolean
 }
 
 /** One conversation on the paired Mac: what it said, and what to say next. */
@@ -21,8 +21,8 @@ export function ConversationPage({
   conversationId,
   view,
   host,
-  relay,
   connection,
+  canSend,
 }: ConversationPageProps) {
   const header = (
     <ConversationHeader
@@ -36,7 +36,7 @@ export function ConversationPage({
   return (
     <>
       {header}
-      <ConversationBody conversationId={conversationId} relay={relay} view={view} />
+      <ConversationBody canSend={canSend} conversationId={conversationId} view={view} />
     </>
   )
 }
@@ -44,8 +44,8 @@ export function ConversationPage({
 function ConversationBody({
   conversationId,
   view,
-  relay,
-}: Omit<ConversationPageProps, 'host' | 'connection'>) {
+  canSend,
+}: Pick<ConversationPageProps, 'conversationId' | 'view' | 'canSend'>) {
   if (view.status === 'pending') return <ConversationOpening />
 
   if (view.status === 'failed') {
@@ -55,7 +55,7 @@ function ConversationBody({
   return (
     <ConversationChat
       actions={view.actions}
-      canSend={canReachMac(relay)}
+      canSend={canSend}
       conversationId={conversationId}
       history={view.messages}
       permissions={view.permissions}

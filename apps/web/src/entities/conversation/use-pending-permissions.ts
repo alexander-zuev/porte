@@ -1,5 +1,5 @@
 import type { ConversationId, PendingPermission } from '@porte/core/client'
-import { useRelayConnection } from '@web/entities/host/relay-context.tsx'
+import { useRelay } from '@web/entities/host/relay-context.tsx'
 import { useCallback, useEffect, useState } from 'react'
 
 /** One question the agent is waiting on, and whether an answer is on its way. */
@@ -16,7 +16,7 @@ export type ConversationPermission = {
  * ("allow always?") and can ask it before the tool call it guards exists.
  */
 export function usePendingPermissions(conversationId: ConversationId) {
-  const relay = useRelayConnection()
+  const relay = useRelay()
   const [held, setHeld] = useState<Held>({ conversationId, waiting: [] })
 
   // Another conversation's questions are not this one's. Derived rather than

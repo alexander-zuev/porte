@@ -15,6 +15,7 @@ import {
   type ConversationPage,
   type ConversationPageQuery,
   type DaemonMessage,
+  type HostStatus,
   type RelayMessage,
   type RequestMessage,
   type RoutedRequest,
@@ -137,6 +138,16 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     const page = this.conversationsRepo.findPage(query)
     this.resyncIfStale()
     return page
+  }
+
+  /**
+   * Whether the Mac is here, for a browser that has no socket yet.
+   *
+   * The same answer `host.status` carries, so a page reads it once over HTTP
+   * and the frames that follow replace it without being converted.
+   */
+  readStatus(): HostStatus {
+    return { status: this.macStatus() }
   }
 
   /**

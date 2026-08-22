@@ -1,9 +1,10 @@
+import type { HostStatus } from '@porte/core/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
+import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { RelayConnection } from '@web/entities/host/relay-connection.ts'
-import { INITIAL_RELAY_STATE, type RelayState } from '@web/entities/host/relay-state.ts'
 import { RelayProviderMissing } from '@web/lib/errors/relay-error.ts'
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 
 const RelayContext = createContext<RelayConnection | null>(null)
@@ -17,12 +18,19 @@ const RelayContext = createContext<RelayConnection | null>(null)
  */
 export function RelayProvider({ children }: { readonly children: ReactNode }) {
   const queryClient = useQueryClient()
-  // Every one of these re-reads rather than writing the cache: a summary can
-  // change its position in the order, so patching a row in place would leave it
-  // sorted where it no longer belongs.
-  const client = useMemo(
+  // `useState`, not `useMemo`: React may discard a memo and recompute it, and a
+  // second connection here is a second socket.
+  const [client] = useState(
     () =>
       new RelayConnection({
+        // Written, not invalidated. The frame already carries the answer, so a
+        // refetch would spend a round trip to learn what we were just told.
+        onHostStatus: (status) => {
+          queryClient.setQueryData(hostQueries.status().queryKey, { status } satisfies HostStatus)
+        },
+        // These three re-read instead: a summary can change its position in the
+        // order, so patching one row would leave it sorted where it no longer
+        // belongs.
         onConversationsInvalidated: () => {
           void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
         },
@@ -33,7 +41,6 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
           void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
         },
       }),
-    [queryClient],
   )
 
   useEffect(() => {
@@ -47,25 +54,24 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
 }
 
 /**
- * What the browser currently knows about the Mac.
+ * This browser's socket to the relay, as its own `readyState`. Nothing about the Mac.
  *
- * The server render has no socket, so it answers with the state before one
- * exists. That is why `relay` starts as connecting rather than offline: a
- * healthy Mac must never flash "run porte up" while the line is opening.
+ * The server render has no socket, so it answers `CLOSED`. Whether the Mac is
+ * there is a separate read, which is why a healthy Mac no longer waits on this.
  */
-export function useRelay(): RelayState {
+export function useRelayReadyState(): number {
   const client = useContext(RelayContext)
-  if (client === null) throw new RelayProviderMissing('useRelay')
+  if (client === null) throw new RelayProviderMissing('useRelayReadyState')
 
-  return useSyncExternalStore(client.subscribe, client.getState, serverState)
+  return useSyncExternalStore(client.subscribe, client.getState, serverReadyState)
 }
 
-/** The client itself, for sending. Reading state goes through `useRelay`. */
-export function useRelayConnection(): RelayConnection {
+/** The relay client itself, for sending. Reading the line goes through `useRelayReadyState`. */
+export function useRelay(): RelayConnection {
   const client = useContext(RelayContext)
-  if (client === null) throw new RelayProviderMissing('useRelayConnection')
+  if (client === null) throw new RelayProviderMissing('useRelay')
 
   return client
 }
 
-const serverState = (): RelayState => INITIAL_RELAY_STATE
+const serverReadyState = (): number => WebSocket.CLOSED

@@ -1,29 +1,17 @@
+import { useQuery } from '@tanstack/react-query'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import { useRelay, useRelayConnection } from '@web/entities/host/relay-context.tsx'
+import { hostQueries } from '@web/entities/host/host-queries.ts'
 
 /**
- * Collapse the line and the Mac into the one thing a header shows.
+ * Whether the Mac is reachable.
  *
- * Our own line is read first: while it is down or given up, what we hold about
- * the Mac is only the last thing we heard, and reporting that as current would
- * send someone to a desk for nothing.
+ * Read over HTTP so a first paint is right, then kept current by the socket
+ * writing this key. Nothing polls, and nothing waits on a socket to say
+ * something a page already knows.
  */
 export function useHostConnection(): HostConnection {
-  const relay = useRelay()
-  const relayConnection = useRelayConnection()
+  const status = useQuery(hostQueries.status())
+  if (status.data === undefined) return 'loading'
 
-  if (relay.line === 'lost') {
-    return {
-      status: 'lost',
-      onRetry: () => {
-        relayConnection.reconnect()
-      },
-    }
-  }
-  if (relay.line === 'reconnecting') return { status: 'reconnecting' }
-  // Covers both having no line and having one that has not carried the Mac's
-  // status yet. The relay sends that first, so the second is a moment long.
-  if (relay.mac === null) return { status: 'connecting' }
-
-  return { status: relay.mac.online ? 'online' : 'offline' }
+  return status.data.status
 }

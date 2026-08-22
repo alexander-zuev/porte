@@ -8,7 +8,6 @@ import {
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import type { RelayState } from '@web/entities/host/relay-state.ts'
 import {
   ConversationPage,
   type ConversationPageProps,
@@ -21,11 +20,6 @@ const HOST = {
   platform: 'darwin',
   lastSeenAt: '2026-08-19T14:02:00.000Z',
 } as PairedHost
-
-const ONLINE: RelayState = {
-  line: 'open',
-  mac: { online: true, lastSeenAt: IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z') },
-}
 
 const SUMMARY = makeConversationSummary({
   id: '01a01e5d-e64c-76e2-9c93-ca69580001fd',
@@ -101,10 +95,10 @@ const ready: Extract<ConversationView, { status: 'ready' }> = {
 /** Every state one conversation screen can be in, without a socket or a Mac. */
 function page(
   view: ConversationView,
-  relay: RelayState = ONLINE,
-  connection: HostConnection = { status: 'online' },
+  connection: HostConnection = 'online',
+  canSend = true,
 ): ConversationPageProps {
-  return { conversationId: SUMMARY.id, view, host: HOST, relay, connection }
+  return { conversationId: SUMMARY.id, view, host: HOST, connection, canSend }
 }
 
 const meta = {
@@ -152,12 +146,12 @@ export const AnsweringPermission: Story = {
 
 /** The Mac is away. The transcript stays; the composer does not accept work. */
 export const MacOffline: Story = {
-  args: page(ready, { line: 'open', mac: { online: false, lastSeenAt: null } }),
+  args: page(ready, 'offline', false),
 }
 
-/** Our line dropped while the conversation was open. */
-export const Reconnecting: Story = {
-  args: page(ready, { line: 'reconnecting', mac: { online: true, lastSeenAt: null } }),
+/** Our socket dropped while the conversation was open. The Mac is fine; we cannot reach it. */
+export const LineDown: Story = {
+  args: page(ready, 'online', false),
 }
 
 /** The read failed because the Mac is not running Porte. */

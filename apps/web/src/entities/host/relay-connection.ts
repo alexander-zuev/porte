@@ -12,8 +12,6 @@ import {
 } from '@porte/core/client'
 import { z } from 'zod'
 
-import { INITIAL_RELAY_STATE, type RelayState } from './relay-state.ts'
-
 const textFrameSchema = z.string()
 
 const logger = createLogger('relay-client')
@@ -25,9 +23,8 @@ type ClientMessage = z.infer<typeof ClientMessageSchema>
 const RELAY_PATH = '/api/host/ws'
 
 const FIRST_RETRY_MS = 500
+/** Capped, not abandoned: a phone that slept for an hour must still come back on its own. */
 const MAX_RETRY_MS = 10_000
-/** Past this the line is not blipping, it is down, and worth saying so. */
-const GIVE_UP_AFTER_MS = 60_000
 
 type Listener = () => void
 type ConversationEventListener = (event: ConversationEvent) => void
@@ -39,6 +36,7 @@ type ConversationEventListener = (event: ConversationEvent) => void
  * of it in every open tab. One summary at a time, or a nudge to read again.
  */
 export type RelayHandlers = {
+  readonly onHostStatus: (status: 'online' | 'offline') => void
   readonly onConversationsInvalidated: () => void
   readonly onConversationChanged: (conversation: ConversationSummary) => void
   readonly onConversationRemoved: (conversationId: ConversationId) => void
@@ -56,19 +54,22 @@ export type RelayHandlers = {
  */
 export class RelayConnection {
   private socket: WebSocket | undefined
-  private state: RelayState = INITIAL_RELAY_STATE
   private readonly listeners = new Set<Listener>()
   private readonly conversationListeners = new Set<ConversationEventListener>()
   private readonly pending = new Map<string, PendingRequest>()
   private retryMs = FIRST_RETRY_MS
   private retryTimer: ReturnType<typeof setTimeout> | undefined
-  private downSince: number | undefined
   private closed = false
 
   constructor(private readonly handlers: RelayHandlers) {}
 
-  /** Stable between changes, because `useSyncExternalStore` compares by identity. */
-  getState = (): RelayState => this.state
+  /**
+   * The socket's own `readyState`, or `CLOSED` while there is no socket.
+   *
+   * Read from the platform rather than mirrored into a field, so nothing here
+   * can disagree with the thing it describes.
+   */
+  getState = (): number => this.socket?.readyState ?? WebSocket.CLOSED
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener)
@@ -99,8 +100,7 @@ export class RelayConnection {
     // frame, and the list arrived over HTTP before this socket existed.
     socket.addEventListener('open', () => {
       this.retryMs = FIRST_RETRY_MS
-      this.downSince = undefined
-      this.set({ line: 'open' })
+      this.notify()
       logger.debug('relay_line_open')
     })
 
@@ -118,22 +118,6 @@ export class RelayConnection {
     socket.addEventListener('error', () => {
       socket.close()
     })
-  }
-
-  /**
-   * Try again after the line was given up on. Only a person asks for this.
-   *
-   * Clears how long we have been down, so the attempt gets the whole budget
-   * again rather than reading as lost the moment it drops once.
-   */
-  reconnect(): void {
-    if (this.socket !== undefined) return
-
-    clearTimeout(this.retryTimer)
-    this.downSince = undefined
-    this.retryMs = FIRST_RETRY_MS
-    this.set({ line: 'connecting' })
-    this.connect()
   }
 
   /** Put the line down for good. The state stays, so a remount shows what it knew. */
@@ -157,7 +141,7 @@ export class RelayConnection {
   ): Promise<ClientMethodMap[Method]['result']> {
     const socket = this.socket
     if (socket === undefined || socket.readyState !== WebSocket.OPEN) {
-      logger.warn('relay_request_unsent', { method, line: this.state.line })
+      logger.warn('relay_request_unsent', { method, line: this.getState() })
       return Promise.reject(new RelayUnavailable())
     }
 
@@ -219,13 +203,10 @@ export class RelayConnection {
     // A request only ever travels the other way, so nothing here can act on one.
     if (message.type === 'request') return
 
+    // Handed on rather than kept: whether the Mac is here is the relay's fact,
+    // and it is read over HTTP before this socket exists.
     if (message.event === 'host.status') {
-      this.set({
-        mac: {
-          online: message.data.status === 'online',
-          lastSeenAt: this.state.mac?.lastSeenAt ?? null,
-        },
-      })
+      this.handlers.onHostStatus(message.data.status)
       return
     }
     if (message.event === 'conversations.invalidated') {
@@ -265,11 +246,8 @@ export class RelayConnection {
     this.failPending('The connection dropped')
     if (this.closed) return
 
-    this.downSince ??= Date.now()
-    const givenUp = Date.now() - this.downSince > GIVE_UP_AFTER_MS
-    this.set({ line: givenUp ? 'lost' : 'reconnecting' })
-    logger.warn('relay_line_dropped', { downForMs: Date.now() - this.downSince, givenUp })
-    if (givenUp) return
+    this.notify()
+    logger.warn('relay_line_dropped', { retryInMs: this.retryMs })
 
     this.retryTimer = setTimeout(() => {
       this.connect()
@@ -290,8 +268,7 @@ export class RelayConnection {
     this.pending.clear()
   }
 
-  private set(change: Partial<RelayState>): void {
-    this.state = { ...this.state, ...change }
+  private notify(): void {
     for (const listener of this.listeners) listener()
   }
 }

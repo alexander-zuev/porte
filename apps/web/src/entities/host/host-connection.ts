@@ -1,10 +1,7 @@
 /**
- * The Mac as a screen can describe it.
+ * Whether the Mac is reachable, as a screen says it.
  *
- * `offline` is the Mac being away. `lost` is us having stopped trying, which
- * says nothing about the Mac. It is the only state carrying a way out, because
- * it is the only one nothing leaves on its own.
+ * The Mac only. Our own socket is a separate fact, and reporting its blips here
+ * would send someone to their desk for nothing.
  */
-export type HostConnection =
-  | { readonly status: 'connecting' | 'online' | 'offline' | 'reconnecting' }
-  | { readonly status: 'lost'; readonly onRetry: () => void }
+export type HostConnection = 'loading' | 'online' | 'offline'

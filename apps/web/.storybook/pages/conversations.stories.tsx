@@ -2,7 +2,6 @@ import { IsoDateTimeSchema, type ConversationSummary, type PairedHost } from '@p
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import {
@@ -30,16 +29,10 @@ const NONE: readonly ConversationSummary[] = []
  * designing rather than every combination that types.
  */
 function page(
-  relay: RelayState,
+  connection: HostConnection,
   conversationList: ConversationList,
-  connection: HostConnection = { status: 'online' },
 ): ConversationsPageProps {
-  return {
-    host: HOST,
-    relay,
-    conversationList,
-    connection,
-  }
+  return { host: HOST, connection, conversationList }
 }
 
 /** The list arrived. Paging is off unless a story says otherwise. */
@@ -72,48 +65,37 @@ type Story = StoryObj<typeof meta>
 
 /** The line is opening. A healthy Mac must never flash the offline screen here. */
 export const Connecting: Story = {
-  args: page({ line: 'connecting', mac: null }, listed(NONE)),
+  args: page('loading', listed(NONE)),
 }
 
 /** Paired, and no daemon has ever arrived. */
 export const NeverConnected: Story = {
-  args: page({ line: 'open', mac: { online: false, lastSeenAt: null } }, listed(NONE)),
+  args: page('offline', listed(NONE)),
 }
 
 export const MacOffline: Story = {
-  args: page({ line: 'open', mac: { online: false, lastSeenAt: SEEN } }, listed(conversations)),
+  args: page('offline', listed(conversations)),
 }
 
 /** Reachable, with nothing on it yet. */
 export const NoConversations: Story = {
-  args: page({ line: 'open', mac: { online: true, lastSeenAt: null } }, listed(NONE)),
+  args: page('online', listed(NONE)),
 }
 
 export const Ready: Story = {
-  args: page({ line: 'open', mac: { online: true, lastSeenAt: null } }, listed(conversations)),
-}
-
-/** Our line dropped. The list stays, and the action goes quiet. */
-export const Reconnecting: Story = {
-  args: page(
-    { line: 'reconnecting', mac: { online: true, lastSeenAt: null } },
-    listed(conversations),
-  ),
+  args: page('online', listed(conversations)),
 }
 
 /** Long enough to be worth saying out loud. */
 export const LineLost: Story = {
-  args: page({ line: 'lost', mac: { online: true, lastSeenAt: null } }, listed(conversations)),
+  args: page('online', listed(conversations)),
 }
 
 /** The read itself failed. The layout stays; only the body changes. */
 export const ListFailed: Story = {
-  args: page(
-    { line: 'open', mac: { online: true, lastSeenAt: SEEN } },
-    {
-      status: 'failed',
-      error: { _tag: 'ServiceUnavailableError', message: 'Try again shortly' },
-      onRetry: () => undefined,
-    },
-  ),
+  args: page('online', {
+    status: 'failed',
+    error: { _tag: 'ServiceUnavailableError', message: 'Try again shortly' },
+    onRetry: () => undefined,
+  }),
 }

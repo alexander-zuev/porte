@@ -35,6 +35,16 @@ export const AccountHostSchema = z.discriminatedUnion('state', [
 ])
 export type AccountHost = z.infer<typeof AccountHostSchema>
 
+/**
+ * Whether the relay is holding the Mac's socket, right now.
+ *
+ * The live half of the pair `PairedHost` deliberately omits, read separately
+ * because only the relay can answer it. Shaped like the `host.status` event on
+ * purpose: a frame that arrives can replace this value without being mapped.
+ */
+export const HostStatusSchema = z.object({ status: z.enum(['online', 'offline']) })
+export type HostStatus = z.infer<typeof HostStatusSchema>
+
 /** Outcome of unpairing, or of deleting the account. */
 export const AccountActionResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true) }),

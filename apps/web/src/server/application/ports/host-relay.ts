@@ -1,4 +1,4 @@
-import type { ConversationPage, ConversationPageQuery, HostId } from '@porte/core'
+import type { ConversationPage, ConversationPageQuery, HostId, HostStatus } from '@porte/core'
 
 /**
  * Which side of the relay a connection is.
@@ -22,6 +22,9 @@ export interface HostRelay {
 
   /** One page of what a Mac has reported, newest first. */
   readConversations(hostId: HostId, query: ConversationPageQuery): Promise<ConversationPage>
+
+  /** Whether the relay holds the Mac's socket. The only liveness anything can see. */
+  readStatus(hostId: HostId): Promise<HostStatus>
 
   /**
    * Turn everyone out of one Mac's relay.

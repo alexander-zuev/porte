@@ -1,4 +1,4 @@
-import type { ConversationPage, ConversationPageQuery, HostId } from '@porte/core'
+import type { ConversationPage, ConversationPageQuery, HostId, HostStatus } from '@porte/core'
 import { DurableObjectClient } from '@porte/core'
 import type { ConnectHost, HostRelay } from '@server/application/ports/host-relay.ts'
 
@@ -22,6 +22,12 @@ export class HostRelayClient extends DurableObjectClient<HostRelayDO> implements
     const page = await this.repeatable(hostId, (relay) => relay.readConversations(query))
     // The stub hands back a disposable proxy; the page has to outlive it.
     return { conversations: page.conversations, next: page.next }
+  }
+
+  async readStatus(hostId: HostId): Promise<HostStatus> {
+    // The stub hands back a disposable proxy, so the answer is copied out.
+    const read = await this.repeatable(hostId, (relay) => relay.readStatus())
+    return { status: read.status }
   }
 
   disconnect(hostId: HostId): Promise<void> {

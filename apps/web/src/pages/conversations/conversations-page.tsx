@@ -1,11 +1,9 @@
 import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import type { RelayState } from '@web/entities/host/relay-state.ts'
 import {
   LookingForMac,
   NoConversationsYet,
-  PorteUnreachable,
   ReadingConversations,
   StartPorteOnMac,
 } from '@web/features/conversations/components/conversation-list-states.tsx'
@@ -18,22 +16,16 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 export type ConversationsPageProps = {
   /** From the database, so the Mac has a name before any socket exists. */
   readonly host: PairedHost
-  readonly relay: RelayState
   readonly conversationList: ConversationList
   readonly connection: HostConnection
 }
 
 /** Everything a signed-in account with a paired Mac sees. Renders, never waits. */
-export function ConversationsPage({
-  host,
-  relay,
-  conversationList,
-  connection,
-}: ConversationsPageProps) {
+export function ConversationsPage({ host, conversationList, connection }: ConversationsPageProps) {
   return (
     <>
-      <ConversationsHeader connection={connection} host={host} relay={relay} />
-      <div className="flex flex-1 flex-col gap-4">{body(relay, conversationList)}</div>
+      <ConversationsHeader connection={connection} host={host} />
+      <div className="flex flex-1 flex-col gap-4">{body(connection, conversationList)}</div>
     </>
   )
 }
@@ -45,7 +37,7 @@ export function ConversationsPage({
  * reading, and the header carries the connection badge either way. With nothing
  * to show, a dead line is the better explanation of a failed read.
  */
-function body(relay: RelayState, conversationList: ConversationList) {
+function body(connection: HostConnection, conversationList: ConversationList) {
   if (conversationList.status === 'ready' && conversationList.conversations.length > 0) {
     return (
       <>
@@ -67,8 +59,7 @@ function body(relay: RelayState, conversationList: ConversationList) {
     )
   }
 
-  if (relay.line === 'lost') return <PorteUnreachable />
-  if (relay.mac === null) return <LookingForMac />
+  if (connection === 'loading') return <LookingForMac />
 
   if (conversationList.status === 'failed') {
     return (
@@ -77,7 +68,7 @@ function body(relay: RelayState, conversationList: ConversationList) {
   }
 
   if (conversationList.status === 'pending') return <ReadingConversations />
-  if (!relay.mac.online) return <StartPorteOnMac />
+  if (connection === 'offline') return <StartPorteOnMac />
 
   return <NoConversationsYet />
 }

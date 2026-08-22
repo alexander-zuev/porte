@@ -111,11 +111,11 @@ export class PorteChatTransport implements ChatTransport<UIMessage> {
         )
 
         // A dropped line ends the stream rather than leaving it open forever.
-        // The turn may still be running on the Mac, which is what reconnecting
-        // is for; what it must not do is wait on a socket that is gone.
+        // The turn may still be running on the Mac, and re-attaching is what
+        // picks it up; what this must not do is wait on a socket that is gone.
         stopListening.push(
           relay.subscribe(() => {
-            if (relay.getState().line === 'lost') finish()
+            if (relay.getState() !== WebSocket.OPEN) finish()
           }),
         )
 

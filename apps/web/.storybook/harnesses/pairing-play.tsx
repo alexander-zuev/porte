@@ -1,6 +1,5 @@
 import { PairingOriginSchema, type PairingOrigin } from '@porte/core/client'
 import type { PairedHost } from '@porte/core/client'
-import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
@@ -28,12 +27,10 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
 function homeList(paired: boolean) {
   const host = { name: HOST_NAME, platform: 'darwin', lastSeenAt: null } as PairedHost
-  const relay: RelayState = { line: 'open', mac: { online: paired, lastSeenAt: null } }
 
   return {
     host,
-    relay,
-    connection: { status: paired ? 'online' : 'offline' },
+    connection: paired ? 'online' : 'offline',
     conversationList: {
       status: 'ready',
       conversations: paired ? conversations : [],
