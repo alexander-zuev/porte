@@ -42,8 +42,8 @@
     "src/ui/components/ui/**",
     "src/ui/components/ai-elements/**",
     "src/server/infrastructure/persistence/database/migrations/**",
-    "test/**",
+    "tests/**",
     ".storybook/**",
-    "playwright.config.ts"
+    "playwright.design.config.ts"
   ]
 }

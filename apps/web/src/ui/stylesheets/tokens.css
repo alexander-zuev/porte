@@ -10,8 +10,18 @@
   --radius-md: 0.375rem;
   --radius-lg: var(--radius);
   --radius-xl: 0.75rem;
-  --shadow-xs: none;
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
+  /*
+   * A shadow is a dark smudge, so it reads as depth on a bright surface and as
+   * nothing on this one. Elevation is a lighter surface step or a border here,
+   * which every floating component already carries.
+   *
+   * Invisible, not absent. Tailwind composes the focus ring and the shadow into
+   * one `box-shadow` list, so the keyword `none` makes that list invalid and
+   * drops the ring with it. A transparent shadow keeps elevation off the page
+   * and leaves the ring free to paint.
+   */
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
 }

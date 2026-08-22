@@ -17,6 +17,7 @@ catalog:
   '@fontsource/space-grotesk': ^5.2.10
   '@phosphor-icons/react': ^2.1.10
   '@posthog/react': ^1.10.3
+  '@storybook/addon-a11y': 10.5.7
   '@storybook/addon-themes': 10.5.7
   '@storybook/tanstack-react': 10.5.7
   '@sentry/tanstackstart-react': ^10.70.0

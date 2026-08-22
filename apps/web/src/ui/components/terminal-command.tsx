@@ -1,3 +1,6 @@
+/* The command scrolls sideways on a phone, so a keyboard has to reach it and
+   move it. This rule forbids the tab stop that WCAG 2.1.1 requires here. */
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex */
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import { TextType } from '@web/ui/components/react-bits/text-type.tsx'
@@ -47,7 +50,10 @@ export function TerminalCommand({ command, typed = false, className }: TerminalC
         className,
       )}
     >
-      <code className="flex-1 overflow-x-auto bg-transparent p-0 text-left whitespace-nowrap">
+      <code
+        tabIndex={0}
+        className="flex-1 overflow-x-auto rounded-sm bg-transparent p-0 text-left whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring"
+      >
         <span aria-hidden className="text-muted-foreground select-none">
           ${' '}
         </span>

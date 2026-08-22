@@ -44,5 +44,17 @@
       "outputs": [],
       "outputLogs": "new-only",
     },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": [],
+      "outputLogs": "new-only",
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": [],
+      "outputLogs": "new-only",
+    },
   },
 }

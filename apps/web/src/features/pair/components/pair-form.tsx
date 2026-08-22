@@ -40,7 +40,10 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
           </FieldLabel>
           <InputOTP
             autoComplete="off"
-            containerClassName="w-full justify-between"
+            // Eight 40px boxes need ~380px. Only a phone is short of that, so
+            // only a phone stacks the two groups; shrinking them instead would
+            // put a digit under the thumb size it exists for.
+            containerClassName="w-full justify-between max-sm:flex-wrap max-sm:justify-center max-sm:gap-3"
             data-1p-ignore
             data-lpignore="true"
             disabled={pending}
@@ -53,7 +56,8 @@ export function PairForm({ code, pending, error, onCodeChange, onSubmit }: PairF
             onChange={onCodeChange}
           >
             <CodeGroup start={0} />
-            <InputOTPSeparator />
+            {/* Stacked groups need no divider between them. */}
+            <InputOTPSeparator className="max-sm:hidden" />
             <CodeGroup start={GROUP_LENGTH} />
           </InputOTP>
         </Field>

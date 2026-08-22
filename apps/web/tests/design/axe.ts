@@ -1,0 +1,49 @@
+import AxeBuilder from '@axe-core/playwright'
+import type { Page } from '@playwright/test'
+
+import type { Theme } from './stories.ts'
+
+export const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag22aa', 'best-practice']
+
+/**
+ * `target-size` carries the wcag22aa tag but ships disabled, so the tag list
+ * alone never runs it. It is the rule a thumb-sized product needs most.
+ *
+ * `region` asks every node to sit in a landmark. Base UI renders overlays in a
+ * portal outside one by design, so the rule reports the library rather than the
+ * story. Storybook's own a11y addon disables it for the same reason; this keeps
+ * the two in step. Mirrored in `.storybook/preview.tsx`.
+ */
+const RULE_OVERRIDES = {
+  'target-size': { enabled: true },
+  region: { enabled: false },
+  // cmdk gives its list `role="listbox"` and its groups children that are not
+  // `option`. The markup is the library's, not ours, and no prop changes it.
+  'aria-required-children': { enabled: false },
+}
+
+/** Wait until the story is painted in the requested theme and no longer moving. */
+export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
+  await page.locator('#storybook-root').waitFor()
+  // The theme decorator applies its class in an effect. Without this wait a
+  // check measures the unthemed DOM and reports colors the product never ships.
+  await page.locator(`html.${theme}`).waitFor()
+  // That swap changes every token at once, and `transition-all` animates it.
+  // Freeze motion so a check samples settled colors instead of intermediate ones.
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important }',
+  })
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
+}
+
+export async function axeViolations(page: Page, theme: Theme = 'dark'): Promise<string[]> {
+  await settle(page, theme)
+  const { violations } = await new AxeBuilder({ page })
+    // `options` replaces the whole option object, so it has to come first.
+    .options({ rules: RULE_OVERRIDES })
+    .withTags(AXE_TAGS)
+    .analyze()
+  return violations.map((violation) => `${violation.id}: ${violation.nodes[0]?.html ?? ''}`)
+}

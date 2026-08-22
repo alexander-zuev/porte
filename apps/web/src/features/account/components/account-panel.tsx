@@ -45,7 +45,7 @@ export function AccountPanel({
   return (
     <div className="flex w-full max-w-md flex-col gap-10">
       <section className="flex flex-col gap-3">
-        <h2>Account</h2>
+        <h1>Account</h1>
         <div className="flex flex-col gap-1">
           <strong>{identity.name}</strong>
           <small className="text-muted-foreground">{identity.email}</small>
@@ -100,7 +100,7 @@ export function AccountPanel({
               This removes your account, its pairing, and the session titles Porte stores. Your
               repositories and files are untouched. This cannot be undone.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button disabled={busy} variant="destructive" onClick={onConfirmDelete}>
                 {pending === 'delete' ? <Spinner data-icon="inline-start" /> : null}
                 Delete account

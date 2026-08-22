@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix"

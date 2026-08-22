@@ -12,6 +12,10 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:design": "pnpm --filter @porte/web run test:design",
     "storybook": "pnpm --filter @porte/web run storybook",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -21,12 +25,9 @@
     "cf-typegen": "turbo run cf-typegen",
     "db:generate": "pnpm --filter @porte/web run db:generate",
     "db:generate:custom": "pnpm --filter @porte/web run db:generate:custom",
-    "db:generate:prod": "pnpm --filter @porte/web run db:generate:prod",
     "db:migrate:dev": "pnpm --filter @porte/web run db:migrate:dev",
     "db:migrate:prod": "pnpm --filter @porte/web run db:migrate:prod",
     "db:reset": "pnpm --filter @porte/web run db:reset",
-    "db:studio": "pnpm --filter @porte/web run db:studio",
-    "db:studio:prod": "pnpm --filter @porte/web run db:studio:prod",
     "better-auth-generate": "pnpm --filter @porte/web run better-auth-generate"
   },
   "devDependencies": {

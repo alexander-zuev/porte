@@ -18,6 +18,13 @@ const preview: Preview = {
   parameters: {
     layout: 'fullscreen',
     backgrounds: { disable: true },
+    a11y: {
+      // `region` asks every node to sit in a landmark. Base UI renders overlays
+      // in a portal outside one by design, so the rule reports the library
+      // rather than the story. Storybook turns it off for the same reason.
+      config: { rules: [{ id: 'region', enabled: false }] },
+      test: 'error',
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

@@ -1,4 +1,4 @@
-import { IsoDateTimeSchema, type ConversationSummary, type PairedHost } from '@porte/core'
+import { IsoDateTimeSchema, type ConversationSummary, type PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'

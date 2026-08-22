@@ -76,7 +76,7 @@ function ActiveHost(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="flex min-w-0 flex-col gap-1">
               <CardTitle className="truncate">{props.host.name}</CardTitle>
               <CardDescription>{platformLabel(props.host.platform)}</CardDescription>
@@ -88,7 +88,7 @@ function ActiveHost(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
           <div className="flex items-start gap-3">
             <DesktopIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
             <div className="flex flex-col gap-1">
-              <h3>{status.title}</h3>
+              <h2>{status.title}</h2>
               <p className="text-muted-foreground">{status.description}</p>
             </div>
           </div>

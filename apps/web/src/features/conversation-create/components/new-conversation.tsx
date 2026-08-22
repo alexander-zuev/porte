@@ -58,7 +58,13 @@ export function NewConversation(props: NewConversationProps) {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
       <NewConversationHeader hostName={props.hostName} status={hostStatus} onBack={props.onBack} />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-8 md:py-12">
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
+        <header className="flex flex-col gap-2">
+          <h1>New conversation</h1>
+          <p className="text-muted-foreground">
+            Choose where Grok works and describe the first task.
+          </p>
+        </header>
         {props.view === 'loading' ? <LoadingRepositories /> : null}
         {props.view === 'empty' ? <NoRepositories /> : null}
         {props.view === 'form' ? <ConversationFormView {...props} /> : null}
@@ -95,10 +101,6 @@ function NewConversationHeader({
 function LoadingRepositories() {
   return (
     <output aria-label="Loading repositories" className="flex flex-col gap-8">
-      <header className="flex flex-col gap-3">
-        <Skeleton className="h-9 w-44" />
-        <Skeleton className="h-5 w-72 max-w-full" />
-      </header>
       <Skeleton className="h-12 w-full" />
       <Skeleton className="h-40 w-full" />
       <Skeleton className="h-11 w-full" />
@@ -139,19 +141,13 @@ function ConversationFormView(props: Extract<NewConversationProps, { view: 'form
         if (canSubmit) props.onSubmit()
       }}
     >
-      <header className="flex flex-col gap-2">
-        <h1>New conversation</h1>
-        <p className="text-muted-foreground">
-          Choose where Grok works and describe the first task.
-        </p>
-      </header>
       <ConversationCreationFeedback
         state={props.state}
         onCheckConversations={props.onCheckConversations}
       />
       <FieldGroup>
         <Field data-disabled={pending || undefined}>
-          <FieldLabel>Repository</FieldLabel>
+          <FieldLabel id="repository-label">Repository</FieldLabel>
           <Select
             disabled={pending}
             items={items}
@@ -160,7 +156,7 @@ function ConversationFormView(props: Extract<NewConversationProps, { view: 'form
               if (value !== null) props.onRepositoryChange(value)
             }}
           >
-            <SelectTrigger className="h-auto min-h-11 w-full">
+            <SelectTrigger aria-labelledby="repository-label" className="h-auto min-h-11 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>

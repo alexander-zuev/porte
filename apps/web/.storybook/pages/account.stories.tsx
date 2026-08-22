@@ -1,4 +1,4 @@
-import type { PairedHost } from '@porte/core'
+import type { PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AccountPage } from '@web/pages/account/account-page.tsx'
 

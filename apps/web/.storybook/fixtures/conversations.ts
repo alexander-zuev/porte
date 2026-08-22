@@ -3,7 +3,7 @@ import {
   PendingPermissionSchema,
   makeConversationSummary,
   type ConversationSummary,
-} from '@porte/core'
+} from '@porte/core/client'
 
 // Named, so a story can point at one row without indexing into the array.
 export const listResume = makeConversationSummary({

@@ -10,7 +10,8 @@ const SIZES = [
 /** Every wordmark size on one board, so the caret can be judged across the scale. */
 function LogoBoard() {
   return (
-    <div className="dark flex min-h-svh flex-col justify-center gap-12 bg-background px-10 py-16 text-foreground">
+    <main className="flex min-h-svh flex-col justify-center gap-12 bg-background px-10 py-16 text-foreground">
+      <h1 className="sr-only">Logo</h1>
       {SIZES.map(({ size, note }) => (
         <div key={size} className="flex flex-col gap-2">
           <Logo size={size} />
@@ -29,7 +30,7 @@ function LogoBoard() {
           Against nav text, where the caret is smallest and most likely to break
         </small>
       </div>
-    </div>
+    </main>
   )
 }
 

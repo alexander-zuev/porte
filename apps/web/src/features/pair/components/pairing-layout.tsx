@@ -54,7 +54,7 @@ export function PairingLayout({
         <CardContent className="flex flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-2">
             {icon}
-            <h3>{title}</h3>
+            <h1>{title}</h1>
             {account}
           </div>
           {children}
@@ -131,7 +131,7 @@ export function PairingGrants({ grants }: { readonly grants: readonly string[] }
   return (
     <section className="flex w-full flex-col gap-2 text-left">
       {/* The account is the subject: the Mac could always do these things. */}
-      <h4>Your Porte account will be able to</h4>
+      <h2>Your Porte account will be able to</h2>
       <ul className="flex flex-col">
         {grants.map((grant) => (
           // Ruled rows, so each grant is read as its own decision rather than prose.

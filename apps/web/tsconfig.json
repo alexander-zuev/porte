@@ -18,9 +18,8 @@
     // misses them fails the build instead of the browser.
     ".storybook/**/*.ts",
     ".storybook/**/*.tsx",
-    "test/**/*.ts",
     "tests/**/*.ts",
-    "playwright.config.ts",
+    "playwright.design.config.ts",
     "vitest.config.ts",
     "drizzle.config.ts",
     "worker-configuration.d.ts"

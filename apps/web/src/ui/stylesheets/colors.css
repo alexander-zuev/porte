@@ -56,6 +56,10 @@
   --card-foreground: var(--foreground);
   --popover-foreground: var(--foreground);
   --border: var(--border-non-interactive);
+  /* Step 7 measures 2.06:1, under WCAG 1.4.11. Kept on purpose: Radix reserves
+   * 6 for non-interactive, 7 for interactive idle, 8 for hover, so moving idle
+   * to 8 buys the ratio by deleting the hover step. The focus ring carries the
+   * contrast instead. */
   --input: var(--border-interactive);
   /* Alpha halo blends over any background, unlike a solid step. Step 9, not Radix's 7: a focus indicator needs 3:1. */
   --ring: var(--gray-a9);

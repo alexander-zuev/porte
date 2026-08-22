@@ -1,5 +1,5 @@
-import { PairingOriginSchema, type PairingOrigin } from '@porte/core'
-import type { PairedHost } from '@porte/core'
+import { PairingOriginSchema, type PairingOrigin } from '@porte/core/client'
+import type { PairedHost } from '@porte/core/client'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'

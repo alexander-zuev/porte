@@ -4,7 +4,7 @@ import {
   makeConversationSummary,
   PendingPermissionSchema,
   type PairedHost,
-} from '@porte/core'
+} from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
