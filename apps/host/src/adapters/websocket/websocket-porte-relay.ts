@@ -5,6 +5,7 @@ import type {
   RunPorteRelay,
 } from '@host/application/ports/porte-relay.ts'
 import {
+  RelayHeartbeat,
   RoutedRequestSchema,
   type ConversationId,
   type ConversationSummary,
@@ -113,6 +114,7 @@ export class WebSocketPorteRelay implements PorteRelay {
   ): Promise<ResultType<ConnectionEnd, HostRelayError | RelayHandshakeRefused | THandlerError>> {
     return new Promise((resolve) => {
       let socket: WebSocket
+      let heartbeat: RelayHeartbeat | undefined
       try {
         socket = this.createSocket(input.relayUrl, {
           headers: { Authorization: `Bearer ${input.token}` },
@@ -128,6 +130,7 @@ export class WebSocketPorteRelay implements PorteRelay {
       ): void => {
         if (settled) return
         settled = true
+        heartbeat?.stop()
         input.signal.removeEventListener('abort', onAbort)
         resolve(result)
       }
@@ -142,6 +145,16 @@ export class WebSocketPorteRelay implements PorteRelay {
 
       input.signal.addEventListener('abort', onAbort, { once: true })
       socket.addEventListener('open', () => {
+        heartbeat = new RelayHeartbeat(
+          () => {
+            socket.ping()
+          },
+          () => {
+            socket.terminate()
+          },
+        )
+        socket.on('pong', () => heartbeat?.acknowledge())
+        heartbeat.start()
         this.observer.connected()
         const connection = new WebSocketPorteConnection((frame) => {
           if (socket.readyState === WebSocket.OPEN) socket.send(frame)

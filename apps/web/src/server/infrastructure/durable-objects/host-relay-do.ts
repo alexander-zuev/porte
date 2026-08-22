@@ -3,6 +3,8 @@ import {
   DaemonMessageSchema,
   HostIdSchema,
   RelayMessageSchema,
+  RELAY_HEARTBEAT_REQUEST,
+  RELAY_HEARTBEAT_RESPONSE,
   RequestIdSchema,
   RequestMessageSchema,
   RoutedEventSchema,
@@ -10,7 +12,6 @@ import {
   ConnectionIdSchema,
   createLogger,
   createRequestId,
-  sendableCloseCode,
   type ConversationId,
   type ConversationPage,
   type ConversationPageQuery,
@@ -41,6 +42,11 @@ import type { ClientAttachment } from './relay/socket-attachment.ts'
 const roleSchema = z.enum(['daemon', 'client'])
 const requestIdentitySchema = z.object({ requestId: RequestIdSchema })
 const logger = createLogger('host-relay')
+
+type ConversationSyncState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'requested'; readonly at: number }
+  | { readonly status: 'synced'; readonly at: number }
 
 /** How long a stored list outlives the Mac that reported it. */
 const CONVERSATIONS_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
@@ -74,12 +80,14 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   private readonly sockets: RelaySockets
   private readonly conversationsRepo: ConversationRepository
   private readonly deps: AppDeps
-  /** Undefined until this relay sees a sync finish, so a woken relay asks for one. */
-  private lastSyncedAt: Date | undefined
+  private conversationSync: ConversationSyncState = { status: 'idle' }
 
   constructor(ctx: DurableObjectState, env: RuntimeEnv) {
     super(ctx, env)
 
+    ctx.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair(RELAY_HEARTBEAT_REQUEST, RELAY_HEARTBEAT_RESPONSE),
+    )
     this.sockets = new RelaySockets(ctx)
 
     const db = createRelayDatabase(ctx.storage)
@@ -110,9 +118,9 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
 
   private daemonConnected(socket: WebSocket, hostId: z.infer<typeof HostIdSchema>): void {
     this.sockets.acceptDaemon(socket, hostId)
+    this.conversationSync = { status: 'requested', at: Date.now() }
     this.sockets.broadcast(hostStatus('online'))
-    // The arrival is an observation worth keeping after the Mac goes away.
-    this.ctx.waitUntil(this.rememberSeen(hostId))
+    this.recordHostSeen(hostId)
   }
 
   private clientConnected(socket: WebSocket): void {
@@ -125,7 +133,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   /** No Mac socket is left. Says nothing about pairing, which outlives every connection. */
   private lastDaemonDisconnected(hostId: z.infer<typeof HostIdSchema>): void {
     this.sockets.broadcast(hostStatus('offline'))
-    this.ctx.waitUntil(this.rememberSeen(hostId))
+    this.recordHostSeen(hostId)
   }
 
   /**
@@ -158,11 +166,17 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    */
   private resyncIfStale(): void {
     if (this.sockets.daemon() === undefined) return
+    if (this.conversationSync.status === 'requested') return
 
-    const since = this.lastSyncedAt
-    if (since !== undefined && Date.now() - since.getTime() < CONVERSATIONS_STALE_AFTER_MS) return
+    const now = Date.now()
+    if (
+      this.conversationSync.status === 'synced' &&
+      now - this.conversationSync.at < CONVERSATIONS_STALE_AFTER_MS
+    ) {
+      return
+    }
 
-    this.askMacToSync()
+    if (this.askMacToSync()) this.conversationSync = { status: 'requested', at: now }
   }
 
   /**
@@ -176,6 +190,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     this.sockets.broadcast(hostStatus('offline'))
     this.sockets.closeAll('pairing ended')
     await this.ctx.storage.deleteAll()
+    this.conversationSync = { status: 'idle' }
   }
 
   /**
@@ -193,7 +208,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     }
 
     this.conversationsRepo.deleteAll()
-    this.lastSyncedAt = undefined
+    this.conversationSync = { status: 'idle' }
   }
 
   async webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): Promise<void> {
@@ -230,7 +245,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     }
   }
 
-  webSocketClose(socket: WebSocket, code: number, reason: string): void {
+  webSocketClose(socket: WebSocket): void {
     const attachment = this.sockets.attachmentOf(socket)
 
     // A replaced daemon closes while its successor is already here, so the
@@ -239,8 +254,6 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       this.lastDaemonDisconnected(attachment.hostId)
     }
     if (attachment?.role === 'client') this.closeIfLastWatcherLeft(socket)
-
-    socket.close(sendableCloseCode(code), reason)
   }
 
   /**
@@ -272,8 +285,8 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   }
 
   /** Ask for the whole list again. Answered as `conversations.sync` frames, not as a result. */
-  private askMacToSync(): void {
-    this.askMac({
+  private askMacToSync(): boolean {
+    return this.askMac({
       v: 1,
       type: 'request',
       requestId: createRequestId(),
@@ -288,12 +301,13 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    * Addressed from `RELAY_CONNECTION_ID`, so the answer routes to a client that
    * does not exist and is dropped. Nothing here reads a result.
    */
-  private askMac(message: RequestMessage): void {
+  private askMac(message: RequestMessage): boolean {
     const daemon = this.sockets.daemon()
-    if (daemon === undefined) return
+    if (daemon === undefined) return false
 
     const routed: RoutedRequest = { route: { connectionId: RELAY_CONNECTION_ID }, message }
     daemon.send(JSON.stringify(routed))
+    return true
   }
 
   webSocketError(socket: WebSocket, cause: unknown): void {
@@ -461,6 +475,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    */
   private async applyListChange(message: RelayMessage): Promise<void> {
     if (message.relay === 'conversations.sync') {
+      this.conversationSync = { status: 'requested', at: Date.now() }
       this.conversationsRepo.saveAll(message.conversations, message.syncRunId)
       if (!message.done) return
 
@@ -469,7 +484,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       // to say about what is gone.
       this.conversationsRepo.deleteOtherThan(message.syncRunId)
       this.conversationsRepo.deleteBeyond(MAX_CONVERSATION_ROWS)
-      this.lastSyncedAt = new Date()
+      this.conversationSync = { status: 'synced', at: Date.now() }
       await this.armConversationsExpiry()
       this.sockets.broadcast({ v: 1, type: 'event', event: 'conversations.invalidated', data: {} })
       return
@@ -513,6 +528,12 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   /** The one durable fact this relay produces. Nothing else here reaches D1. */
   private async rememberSeen(hostId: z.infer<typeof HostIdSchema>): Promise<void> {
     await recordHostSeen(this.deps.hosts, hostId, new Date())
+  }
+
+  private recordHostSeen(hostId: z.infer<typeof HostIdSchema>): void {
+    void this.rememberSeen(hostId).catch((error) => {
+      logger.error('host_seen_failed', { error, details: { hostId } })
+    })
   }
 }
 

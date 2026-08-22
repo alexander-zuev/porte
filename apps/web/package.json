@@ -80,7 +80,7 @@
   "devDependencies": {
     "@axe-core/playwright": "catalog:",
     "@cloudflare/vite-plugin": "catalog:",
-    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/vitest-plugin": "catalog:",
     "@dotenvx/dotenvx": "catalog:",
     "@playwright/test": "catalog:",
     "@storybook/addon-a11y": "catalog:",

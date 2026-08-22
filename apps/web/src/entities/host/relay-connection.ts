@@ -1,6 +1,9 @@
 import {
   ClientMessageSchema,
   ClientMethodSchemas,
+  RELAY_HEARTBEAT_REQUEST,
+  RELAY_HEARTBEAT_RESPONSE,
+  RelayHeartbeat,
   createLogger,
   createRequestId,
   type ApiError,
@@ -28,6 +31,10 @@ const MAX_RETRY_MS = 10_000
 
 type Listener = () => void
 type ConversationEventListener = (event: ConversationEvent) => void
+type RelaySocketState =
+  | { readonly status: 'disconnected' }
+  | { readonly status: 'connecting'; readonly socket: WebSocket }
+  | { readonly status: 'open'; readonly socket: WebSocket; readonly heartbeat: RelayHeartbeat }
 
 /**
  * What the relay says about the list, never the list itself.
@@ -53,7 +60,7 @@ export type RelayHandlers = {
  * count two browsers where there is one.
  */
 export class RelayConnection {
-  private socket: WebSocket | undefined
+  private connection: RelaySocketState = { status: 'disconnected' }
   private readonly listeners = new Set<Listener>()
   private readonly conversationListeners = new Set<ConversationEventListener>()
   private readonly pending = new Map<string, PendingRequest>()
@@ -69,7 +76,8 @@ export class RelayConnection {
    * Read from the platform rather than mirrored into a field, so nothing here
    * can disagree with the thing it describes.
    */
-  getState = (): number => this.socket?.readyState ?? WebSocket.CLOSED
+  getState = (): number =>
+    this.connection.status === 'disconnected' ? WebSocket.CLOSED : this.connection.socket.readyState
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener)
@@ -91,20 +99,42 @@ export class RelayConnection {
   /** Open the line. Safe to call again: an open socket is left alone. */
   connect(): void {
     this.closed = false
-    if (this.socket !== undefined) return
+    if (this.connection.status !== 'disconnected') return
 
     const socket = new WebSocket(relayUrl())
-    this.socket = socket
+    this.connection = { status: 'connecting', socket }
 
-    // Nothing is asked on open. The relay sends the Mac's status as its first
-    // frame, and the list arrived over HTTP before this socket existed.
+    // The relay sends the Mac's status first; heartbeat probes start after open.
     socket.addEventListener('open', () => {
+      if (!this.isCurrent(socket) || this.closed) {
+        socket.close(1000, 'client left')
+        return
+      }
+
       this.retryMs = FIRST_RETRY_MS
+      const heartbeat = new RelayHeartbeat(
+        () => {
+          socket.send(RELAY_HEARTBEAT_REQUEST)
+        },
+        () => {
+          socket.close(4000, 'heartbeat timeout')
+          this.dropped(socket)
+        },
+      )
+      this.connection = { status: 'open', socket, heartbeat }
+      heartbeat.start()
       this.notify()
       logger.debug('relay_line_open')
     })
 
     socket.addEventListener('message', (event) => {
+      if (!this.isCurrent(socket)) return
+
+      if (event.data === RELAY_HEARTBEAT_RESPONSE) {
+        if (this.connection.status === 'open') this.connection.heartbeat.acknowledge()
+        return
+      }
+
       const message = readClientMessage(event.data)
       // Anything unreadable is not ours. Dropping it is what a relay in front
       // of a proxy that injects its own frames would want anyway.
@@ -113,7 +143,7 @@ export class RelayConnection {
 
     // Both endings are the same to us, and neither is exceptional: a line drops.
     socket.addEventListener('close', () => {
-      this.dropped()
+      this.dropped(socket)
     })
     socket.addEventListener('error', () => {
       socket.close()
@@ -125,8 +155,12 @@ export class RelayConnection {
     this.closed = true
     clearTimeout(this.retryTimer)
     this.failPending('The connection closed')
-    this.socket?.close(1000, 'client left')
-    this.socket = undefined
+    const connection = this.connection
+    this.connection = { status: 'disconnected' }
+    if (connection.status === 'disconnected') return
+
+    if (connection.status === 'open') connection.heartbeat.stop()
+    connection.socket.close(1000, 'client left')
   }
 
   /**
@@ -139,11 +173,12 @@ export class RelayConnection {
     method: Method,
     params: ClientMethodMap[Method]['params'],
   ): Promise<ClientMethodMap[Method]['result']> {
-    const socket = this.socket
-    if (socket === undefined || socket.readyState !== WebSocket.OPEN) {
+    const connection = this.connection
+    if (connection.status !== 'open' || connection.socket.readyState !== WebSocket.OPEN) {
       logger.warn('relay_request_unsent', { method, line: this.getState() })
       return Promise.reject(new RelayUnavailable())
     }
+    const { socket } = connection
 
     const requestId = createRequestId()
     const asked = Date.now()
@@ -241,8 +276,11 @@ export class RelayConnection {
    * The Mac's status is left alone on purpose: we cannot see it from here, and
    * the last thing we heard is a better guess than pretending it went away.
    */
-  private dropped(): void {
-    this.socket = undefined
+  private dropped(socket: WebSocket): void {
+    if (!this.isCurrent(socket)) return
+
+    if (this.connection.status === 'open') this.connection.heartbeat.stop()
+    this.connection = { status: 'disconnected' }
     this.failPending('The connection dropped')
     if (this.closed) return
 
@@ -253,6 +291,10 @@ export class RelayConnection {
       this.connect()
     }, this.retryMs)
     this.retryMs = Math.min(this.retryMs * 2, MAX_RETRY_MS)
+  }
+
+  private isCurrent(socket: WebSocket): boolean {
+    return this.connection.status !== 'disconnected' && this.connection.socket === socket
   }
 
   private settle(requestId: string, answer: RelayAnswer): void {

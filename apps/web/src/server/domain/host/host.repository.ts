@@ -32,6 +32,9 @@ export interface HostRepository {
   /** Insert or overwrite the account's Mac. */
   save(host: Host): Promise<void>
 
+  /** Record a later observation without changing pairing state. */
+  recordSeen(hostId: HostId, at: Date): Promise<void>
+
   /** Drop the row outright. Used when the account itself goes away. */
   deleteByUserId(userId: UserId): Promise<void>
 }

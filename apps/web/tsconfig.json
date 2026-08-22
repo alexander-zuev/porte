@@ -8,7 +8,7 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node", "@cloudflare/vitest-pool-workers/types"],
+    "types": ["vite/client", "node", "@cloudflare/vitest-plugin/types"],
     "paths": {
       "@web/*": ["./src/*"],
       "@server/*": ["./src/server/*"]

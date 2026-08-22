@@ -16,9 +16,5 @@ export async function recordHostSeen(
   hostId: HostId,
   at: Date,
 ): Promise<void> {
-  const host = await hosts.findById(hostId)
-  if (host === null) return
-
-  host.markSeen(at)
-  await hosts.save(host)
+  await hosts.recordSeen(hostId, at)
 }

@@ -68,17 +68,6 @@ export class Host {
     return this.state
   }
 
-  /**
-   * Record that the relay held this Mac at a moment.
-   *
-   * Written when a daemon arrives and again when it goes, because those are the
-   * two moments anyone observed it. Between them the Mac is reachable and the
-   * relay says so, which is why nothing writes while a socket is open.
-   */
-  markSeen(at: Date): void {
-    this.state = { ...this.state, lastSeenAt: at }
-  }
-
   /** Release the Mac. Repeating this keeps the original moment. */
   revoke(at: Date): void {
     if (this.isRevoked) return

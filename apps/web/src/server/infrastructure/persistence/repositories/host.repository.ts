@@ -6,7 +6,7 @@ import {
   type DbHost,
 } from '@server/infrastructure/persistence/database/schema/host.schema.ts'
 import type { Db } from '@server/infrastructure/persistence/database/types.ts'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull, lt, or } from 'drizzle-orm'
 
 /**
  * Map a stored row into the aggregate.
@@ -66,6 +66,13 @@ export class DrizzleHostRepository implements HostRepository {
       .insert(host)
       .values(toRow(snapshot))
       .onConflictDoUpdate({ target: host.userId, set: toRow(snapshot) })
+  }
+
+  async recordSeen(hostId: HostId, at: Date): Promise<void> {
+    await this.db()
+      .update(host)
+      .set({ lastSeenAt: at })
+      .where(and(eq(host.id, hostId), or(isNull(host.lastSeenAt), lt(host.lastSeenAt, at))))
   }
 
   async deleteByUserId(userId: UserId): Promise<void> {

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
-import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
@@ -9,6 +9,10 @@ const alias = {
   '@web': fileURLToPath(new URL('./src', import.meta.url)),
   '@server': fileURLToPath(new URL('./src/server', import.meta.url)),
 }
+
+const databaseMigrationsPath = fileURLToPath(
+  new URL('./src/server/infrastructure/persistence/database/migrations', import.meta.url),
+)
 
 /**
  * Load `.sql` as a string, which is how Drizzle ships migrations.
@@ -65,10 +69,15 @@ export default defineConfig({
           }),
           // The real Worker and the real bindings. Nothing is redeclared here,
           // so a binding these tests use is one the deployed Worker also has.
-          cloudflareTest({
+          cloudflareTest(async () => ({
             main: './tests/integration/relay.worker.ts',
+            miniflare: {
+              bindings: {
+                TEST_DATABASE_MIGRATIONS: await readD1Migrations(databaseMigrationsPath),
+              },
+            },
             wrangler: { configPath: './wrangler.jsonc', environment: 'test' },
-          }),
+          })),
         ],
         test: {
           name: 'integration',
