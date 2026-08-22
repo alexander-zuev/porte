@@ -136,7 +136,10 @@ export function PairingGrants({ grants }: { readonly grants: readonly string[] }
         {grants.map((grant) => (
           // Ruled rows, so each grant is read as its own decision rather than prose.
           <li className="flex items-start gap-2 border-t border-border py-2 last:pb-0" key={grant}>
-            <CheckIcon aria-hidden className="mt-1 size-4 shrink-0 text-muted-foreground" />
+            <CheckIcon
+              aria-hidden
+              className="mt-1 size-4 shrink-0 text-status-success-muted-foreground"
+            />
             <span>{grant}</span>
           </li>
         ))}
