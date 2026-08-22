@@ -22,7 +22,9 @@ export function AppHeader() {
       action={<AppMenu />}
       center={<RemoteHost />}
       lead={
-        <Link aria-label="Porte home" to="/">
+        // Home for someone signed in is their conversations, not the page that
+        // sells them Porte. The public bar keeps the wordmark pointing at `/`.
+        <Link aria-label="Your conversations" to="/conversations">
           <Logo size="sm" />
         </Link>
       }
@@ -38,12 +40,17 @@ export function AppHeader() {
  * Mac — settings names it in full — but neither is remote-controlling one, and
  * a bar that said so would be describing the wrong thing.
  *
+ * The conversation routes are named rather than the relay layout above them.
+ * Account sits under that layout too, for the socket, so being wired to the Mac
+ * and remote-controlling it are no longer the same thing.
+ *
  * The router is asked rather than a context: the header renders above the
  * layout that owns the Mac, so nothing below it can hand anything up.
  */
 function RemoteHost() {
   const controllingHost = useChildMatches({
-    select: (matches) => matches.some((match) => match.routeId === '/_auth/_relay'),
+    select: (matches) =>
+      matches.some((match) => match.routeId.startsWith('/_auth/_relay/conversations')),
   })
   const owned = useQuery(hostQueries.forAccount())
   const connection = useHostConnection()

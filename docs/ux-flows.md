@@ -18,7 +18,7 @@ Porte is a secure remote control for coding-agent conversations that continue to
 
 The primary journey crosses two devices, but pairing itself does not:
 
-1. The user runs `porte pair` on the Mac.
+1. The user installs Porte with `npm i -g porte`, then runs `porte pair` on the Mac.
 2. The CLI prints a URL and an eight-character code.
 3. The user opens that URL in any browser already signed in to Porte, on any device.
 4. The user checks the account named on screen and approves.
@@ -52,13 +52,13 @@ Mac still lists its conversations; it just cannot accept a turn.
 
 ### Account states
 
-| State              | Meaning                         | Next action                   |
-| ------------------ | ------------------------------- | ----------------------------- |
-| Unpaired           | The account owns no Mac         | Redirect to `/pair`           |
-| Paired, never seen | Paired, no daemon has connected | Run `npx porte up` on the Mac |
-| Paired, offline    | Seen before, not reachable now  | Read-only, show last seen     |
-| Paired, online     | Reachable now                   | Open or start a conversation  |
-| Revoked            | Pairing ended                   | Redirect to `/pair`           |
+| State              | Meaning                         | Next action                  |
+| ------------------ | ------------------------------- | ---------------------------- |
+| Unpaired           | The account owns no Mac         | Redirect to `/pair`          |
+| Paired, never seen | Paired, no daemon has connected | Run `porte up` on the Mac    |
+| Paired, offline    | Seen before, not reachable now  | Read-only, show last seen    |
+| Paired, online     | Reachable now                   | Open or start a conversation |
+| Revoked            | Pairing ended                   | Redirect to `/pair`          |
 
 ### Onboarding
 
@@ -385,11 +385,15 @@ has connected yet.
 
 ### Entry
 
-The unpaired user runs:
+The unpaired user installs Porte, then runs it:
 
 ```text
+npm i -g porte
 porte pair
 ```
+
+Installed rather than run through `npx`. `porte up` is a daemon started most days, and every
+command Porte prints assumes `porte` is on the path.
 
 After pairing, `porte start` launches the managed background host. `porte up` remains the
 foreground equivalent. Neither command requires the user to manually create or paste a daemon
@@ -507,7 +511,7 @@ that states the situation and carries the single next action.
 The surface contains:
 
 1. What Porte is about to connect.
-2. The `npx porte pair` command as copyable text.
+2. The `npm i -g porte` and `porte pair` commands as copyable text.
 3. One sentence naming what happens next on the phone.
 4. A secondary path for a user who already has a pairing code.
 

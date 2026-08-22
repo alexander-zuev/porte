@@ -8,6 +8,9 @@ import { hostQueries } from '@web/entities/host/host-queries.ts'
  * Read over HTTP so a first paint is right, then kept current by the socket
  * writing this key. Nothing polls, and nothing waits on a socket to say
  * something a page already knows.
+ *
+ * Only pages under the relay layout may ask. The key has no other writer, so
+ * reading it without a socket would report whatever the last one left behind.
  */
 export function useHostConnection(): HostConnection {
   const status = useQuery(hostQueries.status())

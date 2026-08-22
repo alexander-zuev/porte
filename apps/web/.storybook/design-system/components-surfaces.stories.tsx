@@ -221,7 +221,7 @@ function SurfacesBoard() {
           <HostStatus connection="offline" />
         </Specimen>
         <Specimen label="Terminal command" stack wide>
-          <TerminalCommand command="npx porte@latest pair" />
+          <TerminalCommand command="porte pair" />
           <Separator />
           <TerminalCommand command="curl -fsSL https://porte.dev/install.sh | sh" />
         </Specimen>

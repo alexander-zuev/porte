@@ -12,12 +12,12 @@ import { Route as rootRouteImport } from './../../routes/__root'
 import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
 import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
 import { Route as AuthRelayRouteRouteImport } from './../../routes/_auth/_relay/route'
-import { Route as AuthAccountRouteImport } from './../../routes/_auth/account'
 import { Route as AuthPairRouteRouteImport } from './../../routes/_auth/pair/route'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
 import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
 import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
 import { Route as PublicTermsRouteImport } from './../../routes/_public/terms'
+import { Route as AuthRelayAccountRouteImport } from './../../routes/_auth/_relay/account'
 import { Route as AuthPairIndexRouteImport } from './../../routes/_auth/pair/index'
 import { Route as AuthPairCancelledRouteImport } from './../../routes/_auth/pair/cancelled'
 import { Route as AuthPairCodeRouteImport } from './../../routes/_auth/pair/code'
@@ -39,11 +39,6 @@ const PublicRouteRoute = PublicRouteRouteImport.update({
 } as any)
 const AuthRelayRouteRoute = AuthRelayRouteRouteImport.update({
   id: '/_relay',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthAccountRoute = AuthAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthPairRouteRoute = AuthPairRouteRouteImport.update({
@@ -70,6 +65,11 @@ const PublicTermsRoute = PublicTermsRouteImport.update({
   id: '/terms',
   path: '/terms',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AuthRelayAccountRoute = AuthRelayAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthRelayRouteRoute,
 } as any)
 const AuthPairIndexRoute = AuthPairIndexRouteImport.update({
   id: '/',
@@ -127,10 +127,10 @@ const AuthRelayConversationsConversationIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/pair': typeof AuthPairRouteRouteWithChildren
-  '/account': typeof AuthAccountRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
+  '/account': typeof AuthRelayAccountRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
@@ -144,10 +144,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
-  '/account': typeof AuthAccountRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
+  '/account': typeof AuthRelayAccountRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
@@ -165,11 +165,11 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/_auth/_relay': typeof AuthRelayRouteRouteWithChildren
   '/_auth/pair': typeof AuthPairRouteRouteWithChildren
-  '/_auth/account': typeof AuthAccountRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/terms': typeof PublicTermsRoute
   '/_public/': typeof PublicIndexRoute
+  '/_auth/_relay/account': typeof AuthRelayAccountRoute
   '/_auth/pair/cancelled': typeof AuthPairCancelledRoute
   '/_auth/pair/code': typeof AuthPairCodeRoute
   '/_auth/pair/confirm': typeof AuthPairConfirmRoute
@@ -186,10 +186,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/pair'
-    | '/account'
     | '/privacy'
     | '/sign-in'
     | '/terms'
+    | '/account'
     | '/pair/cancelled'
     | '/pair/code'
     | '/pair/confirm'
@@ -203,10 +203,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/account'
     | '/privacy'
     | '/sign-in'
     | '/terms'
+    | '/account'
     | '/pair/cancelled'
     | '/pair/code'
     | '/pair/confirm'
@@ -223,11 +223,11 @@ export interface FileRouteTypes {
     | '/_public'
     | '/_auth/_relay'
     | '/_auth/pair'
-    | '/_auth/account'
     | '/_public/privacy'
     | '/_public/sign-in'
     | '/_public/terms'
     | '/_public/'
+    | '/_auth/_relay/account'
     | '/_auth/pair/cancelled'
     | '/_auth/pair/code'
     | '/_auth/pair/confirm'
@@ -271,13 +271,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRelayRouteRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_auth/account': {
-      id: '/_auth/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthAccountRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
     '/_auth/pair': {
       id: '/_auth/pair'
       path: '/pair'
@@ -312,6 +305,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/terms'
       preLoaderRoute: typeof PublicTermsRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/_auth/_relay/account': {
+      id: '/_auth/_relay/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthRelayAccountRouteImport
+      parentRoute: typeof AuthRelayRouteRoute
     }
     '/_auth/pair/': {
       id: '/_auth/pair/'
@@ -387,11 +387,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRelayRouteRouteChildren {
+  AuthRelayAccountRoute: typeof AuthRelayAccountRoute
   AuthRelayConversationsConversationIdRoute: typeof AuthRelayConversationsConversationIdRoute
   AuthRelayConversationsIndexRoute: typeof AuthRelayConversationsIndexRoute
 }
 
 const AuthRelayRouteRouteChildren: AuthRelayRouteRouteChildren = {
+  AuthRelayAccountRoute: AuthRelayAccountRoute,
   AuthRelayConversationsConversationIdRoute:
     AuthRelayConversationsConversationIdRoute,
   AuthRelayConversationsIndexRoute: AuthRelayConversationsIndexRoute,
@@ -424,13 +426,11 @@ const AuthPairRouteRouteWithChildren = AuthPairRouteRoute._addFileChildren(
 interface AuthRouteRouteChildren {
   AuthRelayRouteRoute: typeof AuthRelayRouteRouteWithChildren
   AuthPairRouteRoute: typeof AuthPairRouteRouteWithChildren
-  AuthAccountRoute: typeof AuthAccountRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthRelayRouteRoute: AuthRelayRouteRouteWithChildren,
   AuthPairRouteRoute: AuthPairRouteRouteWithChildren,
-  AuthAccountRoute: AuthAccountRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

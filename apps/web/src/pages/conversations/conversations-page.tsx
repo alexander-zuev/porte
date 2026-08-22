@@ -2,12 +2,11 @@ import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import {
-  LookingForMac,
   NoConversationsYet,
-  ReadingConversations,
   StartPorteOnMac,
 } from '@web/features/conversations/components/conversation-list-states.tsx'
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
+import { ProjectListSkeleton } from '@web/features/conversations/components/project-list-skeleton.tsx'
 import { ProjectList } from '@web/features/conversations/components/project-list.tsx'
 import type { ReachHost } from '@web/lib/host/use-reach-host.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -39,7 +38,9 @@ export function ConversationsPage(props: ConversationsPageProps) {
  * does nothing when tapped is worse than saying where the Mac went.
  */
 function body({ host, connection, conversationList, reach }: ConversationsPageProps) {
-  if (connection === 'loading') return <LookingForMac />
+  // Opening the line and reading the list are one wait to the person watching,
+  // so they get one skeleton rather than a spinner that hands over to another.
+  if (connection === 'loading') return <ProjectListSkeleton />
 
   if (connection === 'offline') {
     return (
@@ -58,7 +59,7 @@ function body({ host, connection, conversationList, reach }: ConversationsPagePr
     )
   }
 
-  if (conversationList.status === 'pending') return <ReadingConversations />
+  if (conversationList.status === 'pending') return <ProjectListSkeleton />
   if (conversationList.conversations.length === 0) return <NoConversationsYet />
 
   return (

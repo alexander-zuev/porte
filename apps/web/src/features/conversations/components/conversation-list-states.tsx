@@ -9,19 +9,12 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
  * Every situation the conversation list can be in instead of a list.
  *
  * Named one per situation rather than assembled at the call site: `EmptyState`
- * is a layout, so six different meanings wearing it read as one thing. A page
- * branches to a name, and each name is a story on its own.
+ * is a layout, so several different meanings wearing it read as one thing. A
+ * page branches to a name, and each name is a story on its own.
+ *
+ * Waiting is not among them. A list on its way is a skeleton of the list, not a
+ * centred message about the list.
  */
-
-/** The line is opening. Never say offline here: the Mac may be perfectly awake. */
-export function LookingForMac() {
-  return <EmptyState body="Looking for your Mac." icon={<Spinner />} title="Connecting" />
-}
-
-/** The read is in flight, which the loader normally settles before this renders. */
-export function ReadingConversations() {
-  return <EmptyState body="Reading your conversations." icon={<Spinner />} title="One moment" />
-}
 
 /**
  * Paired but not running. The one screen that asks something of anyone.
