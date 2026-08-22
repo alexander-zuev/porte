@@ -11,19 +11,25 @@ import {
   createLogger,
   createRequestId,
   sendableCloseCode,
+  type ConversationId,
   type ConversationPage,
   type ConversationPageQuery,
   type DaemonMessage,
   type RelayMessage,
+  type RequestMessage,
   type RoutedRequest,
 } from '@porte/core'
 import * as Sentry from '@sentry/cloudflare'
 import { recordHostSeen } from '@server/application/commands/record-host-seen.command.ts'
+import type { ConversationRepository } from '@server/domain/conversation/conversation.repository.ts'
 import { createAppDeps, type AppDeps } from '@server/infrastructure/app-deps.ts'
 import { createSentryOptions } from '@server/infrastructure/observability/sentry-options.ts'
-import { DurableObjectConversations } from '@server/infrastructure/persistence/repositories/conversations.repository.ts'
+import { createRelayDatabase } from '@server/infrastructure/persistence/relay/connection.ts'
+import migrations from '@server/infrastructure/persistence/relay/migrations/migrations.js'
+import { DrizzleConversationRepository } from '@server/infrastructure/persistence/repositories/conversation.repository.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import { DurableObject } from 'cloudflare:workers'
+import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 
 import { readFrame, type JsonValue } from './relay/relay-frame.ts'
@@ -38,6 +44,15 @@ const logger = createLogger('host-relay')
 /** How long a stored list outlives the Mac that reported it. */
 const CONVERSATIONS_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
+/** How old the stored list may be before a read asks the Mac to report again. */
+const CONVERSATIONS_STALE_AFTER_MS = 30_000
+
+/** A safety valve against a Mac with a pathological history, not a product limit. */
+const MAX_CONVERSATION_ROWS = 10_000
+
+/** The run a row carries when the Mac reported it before any full sync landed. */
+const UNSYNCED = 'unsynced'
+
 /** Who the relay is when it asks the Mac for something no browser asked for. */
 const RELAY_CONNECTION_ID = ConnectionIdSchema.parse('00000000-0000-7000-8000-000000000000')
 
@@ -51,32 +66,32 @@ const RELAY_CONNECTION_ID = ConnectionIdSchema.parse('00000000-0000-7000-8000-00
  * It never opens a frame it is only carrying. Turns, tool calls, and prompts
  * pass through as they arrived. The only thing it reads is the address.
  *
- * It hibernates, so nothing lives in a field. State is on the sockets, or in
- * storage; `RelaySockets` and `DurableObjectConversations` own that
- * distinction. Nothing is rehydrated at construction, so no call has to wait
- * on storage to find out what this relay is.
+ * It hibernates, so nothing lives in a field: state is on the sockets or in
+ * storage, and nothing is rehydrated at construction.
  */
 class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   private readonly sockets: RelaySockets
-  private readonly conversations: DurableObjectConversations
+  private readonly conversationsRepo: ConversationRepository
   private readonly deps: AppDeps
+  /** Undefined until this relay sees a sync finish, so a woken relay asks for one. */
+  private lastSyncedAt: Date | undefined
 
   constructor(ctx: DurableObjectState, env: RuntimeEnv) {
     super(ctx, env)
 
     this.sockets = new RelaySockets(ctx)
-    this.conversations = new DurableObjectConversations(ctx.storage)
-    // Schema setup, the one thing this belongs on: no request may see a relay
-    // whose table does not exist yet. Nothing is rehydrated into a field.
-    // Not awaited on purpose: the gate holds every request until it settles, and
-    // a failure resets the object rather than serving one without a table.
-    void ctx.blockConcurrencyWhile(async () => {
-      this.conversations.ensureSchema()
-    })
-    // The same dependencies every other entrypoint gets. A relay that assembled
-    // its own would be a second place the wiring lives.
+
+    const db = createRelayDatabase(ctx.storage)
+    // Under the gate, so no request sees a relay whose table does not exist yet.
+    void ctx.blockConcurrencyWhile(() => migrate(db, migrations))
+    this.conversationsRepo = new DrizzleConversationRepository(db)
+
+    // The same dependencies every other entrypoint gets, rather than a second
+    // place the wiring lives.
     this.deps = createAppDeps(env, ctx)
   }
+
+  // —— Sockets ——
 
   async fetch(request: Request): Promise<Response> {
     const role = roleSchema.safeParse(request.headers.get(RELAY_ROLE_HEADER))
@@ -86,38 +101,65 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     const pair = new WebSocketPair()
     const [client, server] = [pair[0], pair[1]]
 
-    if (role.data === 'daemon') {
-      this.sockets.acceptDaemon(server, hostId.data)
-      this.sockets.broadcast(hostStatus('online'))
-      // The arrival is an observation worth keeping after the Mac goes away.
-      this.ctx.waitUntil(this.rememberSeen(hostId.data))
-    } else {
-      this.sockets.acceptClient(server)
-      // Told, not asked. A browser arriving while the Mac is already here would
-      // otherwise wait for a departure to learn the Mac was ever there.
-      this.sockets.send(server, hostStatus(this.macStatus()))
-    }
+    if (role.data === 'daemon') this.daemonConnected(server, hostId.data)
+    else this.clientConnected(server)
 
     return new Response(null, { status: 101, webSocket: client })
   }
 
-  /** By RPC, because the page asks over HTTP, and keeps asking as it scrolls. */
-  readConversations(query: ConversationPageQuery): ConversationPage {
-    return this.conversations.page(query)
+  private daemonConnected(socket: WebSocket, hostId: z.infer<typeof HostIdSchema>): void {
+    this.sockets.acceptDaemon(socket, hostId)
+    this.sockets.broadcast(hostStatus('online'))
+    // The arrival is an observation worth keeping after the Mac goes away.
+    this.ctx.waitUntil(this.rememberSeen(hostId))
+  }
+
+  private clientConnected(socket: WebSocket): void {
+    this.sockets.acceptClient(socket)
+    // Told, not asked: otherwise a browser arriving after the Mac waits for a
+    // departure to learn the Mac was ever there.
+    this.sockets.send(socket, hostStatus(this.macStatus()))
+  }
+
+  /** No Mac socket is left. Says nothing about pairing, which outlives every connection. */
+  private lastDaemonDisconnected(hostId: z.infer<typeof HostIdSchema>): void {
+    this.sockets.broadcast(hostStatus('offline'))
+    this.ctx.waitUntil(this.rememberSeen(hostId))
   }
 
   /**
-   * End every connection this relay holds.
+   * By RPC, because the page asks over HTTP and keeps asking as it scrolls.
    *
-   * Called when the pairing ends. Clients are told the Mac is gone before the
-   * sockets close, so a page that is open explains itself rather than going
-   * quiet. Nothing here can be reconnected to: the next attempt is refused
-   * before it reaches the relay at all.
+   * Answers from the replica at once and never waits on the Mac. A fresh list
+   * arrives on its own, as the invalidation every open tab already listens for.
+   */
+  readConversations(query: ConversationPageQuery): ConversationPage {
+    const page = this.conversationsRepo.findPage(query)
+    this.resyncIfStale()
+    return page
+  }
+
+  /**
+   * Ask the Mac to report its list again, if nobody has lately.
    *
-   * Storage goes with them, all of it. Re-pairing mints a new host id, so this
-   * relay is never addressed again; anything left is billed and unread forever.
-   * `deleteAll` clears the pending expiry alarm too, from compatibility date
-   * 2026-02-24 onwards.
+   * Reading is the only signal that somebody is looking, and a conversation
+   * created or deleted in the Mac's own terminal reaches Porte no other way.
+   */
+  private resyncIfStale(): void {
+    if (this.sockets.daemon() === undefined) return
+
+    const since = this.lastSyncedAt
+    if (since !== undefined && Date.now() - since.getTime() < CONVERSATIONS_STALE_AFTER_MS) return
+
+    this.askMacToSync()
+  }
+
+  /**
+   * End every connection this relay holds, and empty it. Called when pairing ends.
+   *
+   * Clients hear the Mac is gone before their socket closes, so an open page
+   * explains itself. Re-pairing mints a new host id, so nothing ever addresses
+   * this relay again and anything left would be billed and unread forever.
    */
   async disconnectAll(): Promise<void> {
     this.sockets.broadcast(hostStatus('offline'))
@@ -139,7 +181,8 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       return
     }
 
-    await this.conversations.forget()
+    this.conversationsRepo.deleteAll()
+    this.lastSyncedAt = undefined
   }
 
   async webSocketMessage(socket: WebSocket, frame: string | ArrayBuffer): Promise<void> {
@@ -157,7 +200,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       }
 
       if (attachment.role === 'client') {
-        this.handleClientMessage(socket, attachment, read.json)
+        this.forwardClientRequest(socket, attachment, read.json)
         return
       }
 
@@ -169,7 +212,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
         return
       }
 
-      await this.handleDaemonMessage(message.data)
+      await this.dispatchDaemonMessage(message.data)
     } catch (error) {
       logger.error('host_message_failed', { error })
       socket.close(1011, 'host message failed')
@@ -178,15 +221,13 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
     const attachment = this.sockets.attachmentOf(socket)
-    const daemonLeft = attachment?.role === 'daemon' && !this.sockets.hasOtherDaemon(socket)
 
-    if (daemonLeft) {
-      this.sockets.broadcast(hostStatus('offline'))
-      // The departure is the second and last moment anyone saw this Mac.
-      this.ctx.waitUntil(this.rememberSeen(attachment.hostId))
+    // A replaced daemon closes while its successor is already here, so the
+    // Mac has only gone when no other socket remains.
+    if (attachment?.role === 'daemon' && !this.sockets.hasOtherDaemon(socket)) {
+      this.lastDaemonDisconnected(attachment.hostId)
     }
-
-    if (attachment?.role === 'client') this.releaseConversation(socket)
+    if (attachment?.role === 'client') this.closeIfLastWatcherLeft(socket)
 
     socket.close(sendableCloseCode(code), reason)
   }
@@ -198,28 +239,49 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    * that closed its tab says nothing about it. The last watcher leaving is the
    * only moment the relay can tell.
    */
-  private releaseConversation(leaving: WebSocket): void {
+  private closeIfLastWatcherLeft(leaving: WebSocket): void {
     const conversationId = this.sockets.watchedBy(leaving)
     if (conversationId === null) return
 
     this.sockets.watchConversation(leaving, null)
     if (this.sockets.conversationClients(conversationId, leaving).length > 0) return
 
-    this.askMac('conversation.close', { conversationId })
+    this.askMacToClose(conversationId)
   }
 
-  /** Ask the Mac for something the relay decided on, with no browser waiting. */
-  private askMac<Method extends 'conversation.close'>(
-    method: Method,
-    params: z.infer<(typeof ClientMethodSchemas)[Method]['params']>,
-  ): void {
+  /** Close a conversation the relay decided nobody is watching. */
+  private askMacToClose(conversationId: ConversationId): void {
+    this.askMac({
+      v: 1,
+      type: 'request',
+      requestId: createRequestId(),
+      method: 'conversation.close',
+      params: { conversationId },
+    })
+  }
+
+  /** Ask for the whole list again. Answered as `conversations.sync` frames, not as a result. */
+  private askMacToSync(): void {
+    this.askMac({
+      v: 1,
+      type: 'request',
+      requestId: createRequestId(),
+      method: 'conversations.sync',
+      params: {},
+    })
+  }
+
+  /**
+   * Send a request the relay raised itself, with no browser waiting on it.
+   *
+   * Addressed from `RELAY_CONNECTION_ID`, so the answer routes to a client that
+   * does not exist and is dropped. Nothing here reads a result.
+   */
+  private askMac(message: RequestMessage): void {
     const daemon = this.sockets.daemon()
     if (daemon === undefined) return
 
-    const routed: RoutedRequest = {
-      route: { connectionId: RELAY_CONNECTION_ID },
-      message: { v: 1, type: 'request', requestId: createRequestId(), method, params },
-    }
+    const routed: RoutedRequest = { route: { connectionId: RELAY_CONNECTION_ID }, message }
     daemon.send(JSON.stringify(routed))
   }
 
@@ -229,7 +291,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
   }
 
   /** A browser asks, and every question it can ask is for the Mac. */
-  private handleClientMessage(
+  private forwardClientRequest(
     socket: WebSocket,
     attachment: ClientAttachment,
     value: JsonValue,
@@ -242,6 +304,9 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
 
     const daemon = this.sockets.daemon()
     if (daemon === undefined) {
+      logger.warn('relay_no_daemon', {
+        details: { requestId: request.data.requestId, method: request.data.method },
+      })
       this.sockets.send(socket, {
         v: 1,
         type: 'error',
@@ -256,11 +321,14 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       route: { connectionId: attachment.connectionId },
       message: request.data,
     }
+    logger.debug('relay_request_to_mac', {
+      details: { requestId: request.data.requestId, method: request.data.method },
+    })
     daemon.send(JSON.stringify(routed))
   }
 
   /** The Mac answers, reports, or tells the relay itself; each goes a different way. */
-  private async handleDaemonMessage(message: DaemonMessage): Promise<void> {
+  private async dispatchDaemonMessage(message: DaemonMessage): Promise<void> {
     const response = RoutedResponseSchema.safeParse(message)
     if (response.success) {
       this.routeResponse(response.data)
@@ -269,7 +337,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
 
     const relayed = RelayMessageSchema.safeParse(message)
     if (relayed.success) {
-      await this.handleRelayMessage(relayed.data)
+      await this.applyListChange(relayed.data)
       return
     }
 
@@ -297,9 +365,17 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    * because they change which events that browser should receive next.
    */
   private routeResponse(response: z.infer<typeof RoutedResponseSchema>): void {
+    logger.debug('relay_response_from_mac', {
+      details: {
+        requestId: response.message.requestId,
+        method: response.method,
+        outcome: response.message.type,
+      },
+    })
+
     const target = this.sockets.client(response.route.connectionId)
     if (target === undefined) {
-      this.releaseUnwatched(response)
+      this.closeForDepartedClient(response)
       return
     }
 
@@ -332,7 +408,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    * Without this the Mac holds an agent whose events reach nobody, because the
    * watch that would have delivered them was never registered.
    */
-  private releaseUnwatched(response: z.infer<typeof RoutedResponseSchema>): void {
+  private closeForDepartedClient(response: z.infer<typeof RoutedResponseSchema>): void {
     if (response.message.type !== 'result') return
     if (response.method !== 'conversation.open' && response.method !== 'conversation.create') return
 
@@ -342,7 +418,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
     logger.warn('conversation_opened_for_departed_client', {
       details: { conversationId: opened.data.conversation.id },
     })
-    this.askMac('conversation.close', { conversationId: opened.data.conversation.id })
+    this.askMacToClose(opened.data.conversation.id)
   }
 
   private rejectInvalidRequest(socket: WebSocket, value: JsonValue): void {
@@ -372,19 +448,28 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
    * read the page they are actually showing, so one Mac with a long history
    * does not push all of it into every open tab.
    */
-  private async handleRelayMessage(message: RelayMessage): Promise<void> {
+  private async applyListChange(message: RelayMessage): Promise<void> {
     if (message.relay === 'conversations.sync') {
-      this.conversations.writeChunk(message.epoch, message.conversations)
+      this.conversationsRepo.saveAll(message.conversations, message.syncRunId)
       if (!message.done) return
 
-      await this.conversations.finishSync(message.epoch)
+      // Only now, on the last chunk: the sweep is what makes a conversation
+      // deleted on the Mac disappear here, and a half-arrived list has nothing
+      // to say about what is gone.
+      this.conversationsRepo.deleteOtherThan(message.syncRunId)
+      this.conversationsRepo.deleteBeyond(MAX_CONVERSATION_ROWS)
+      this.lastSyncedAt = new Date()
       await this.armConversationsExpiry()
       this.sockets.broadcast({ v: 1, type: 'event', event: 'conversations.invalidated', data: {} })
       return
     }
 
     if (message.relay === 'conversation.summary') {
-      await this.conversations.upsert(message.conversation)
+      // The live run, so the next sweep does not mistake this for a stale row.
+      this.conversationsRepo.save(
+        message.conversation,
+        this.conversationsRepo.currentSyncRunId() ?? UNSYNCED,
+      )
       await this.armConversationsExpiry()
       this.sockets.broadcast({
         v: 1,
@@ -395,7 +480,7 @@ class HostRelayDOBase extends DurableObject<RuntimeEnv> {
       return
     }
 
-    this.conversations.remove(message.conversationId)
+    this.conversationsRepo.delete(message.conversationId)
     this.sockets.broadcast({
       v: 1,
       type: 'event',

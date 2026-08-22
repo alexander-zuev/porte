@@ -4,8 +4,11 @@
   "compilerOptions": {
     "composite": false,
     "jsx": "react-jsx",
+    // Drizzle generates the relay's migration bundle as JavaScript importing JSON.
+    "allowJs": true,
+    "resolveJsonModule": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node"],
+    "types": ["vite/client", "node", "@cloudflare/vitest-pool-workers/types"],
     "paths": {
       "@web/*": ["./src/*"],
       "@server/*": ["./src/server/*"]

@@ -88,7 +88,9 @@ describe('readGrokTranscript', () => {
 
   it('keeps the prompt but not the rules file stapled to it', async () => {
     const events = await transcript(
-      userRecord('<system-reminder>Every rule ever written.</system-reminder>\nWhat changed?'),
+      userRecord(
+        '<user_info>macos</user_info>\n<rules>Every rule ever written.</rules>\n<git_status>clean</git_status>\nWhat changed?',
+      ),
     )
     const delta = events.find((event) => event.type === 'message.delta')
 
@@ -96,6 +98,29 @@ describe('readGrokTranscript', () => {
       type: 'text',
       text: 'What changed?',
     })
+  })
+
+  it('reads the prompt out of the wrapper Grok puts it in', async () => {
+    const events = await transcript(
+      userRecord(
+        'The user interrupted the previous turn: <user_query>Sell padel data.</user_query> Finish any pending work.',
+      ),
+    )
+    const delta = events.find((event) => event.type === 'message.delta')
+
+    expect(delta?.type === 'message.delta' && delta.content).toEqual({
+      type: 'text',
+      text: 'Sell padel data.',
+    })
+  })
+
+  it('shows no message for a record that is only scaffolding', async () => {
+    const events = await transcript(userRecord('<user_info>macos</user_info>'), {
+      type: 'assistant',
+      content: 'Ready.',
+    })
+
+    expect(events.filter((event) => event.type === 'message.started')).toHaveLength(1)
   })
 
   it('pairs a tool result with the call that named it', async () => {

@@ -14,12 +14,12 @@ export interface PorteConnection {
    * Send one chunk of a full sync of the conversation list.
    *
    * Chunked because a Mac's history has no bound and one frame should not carry
-   * all of it. Every chunk of one sync shares an `epoch`; on the chunk marked
+   * all of it. Every chunk of one sync shares a `syncRunId`; on the chunk marked
    * `done` the relay drops whatever kept an older one, which is how a
    * conversation deleted here stops existing there.
    */
   sendConversationChunk(chunk: {
-    epoch: string
+    syncRunId: string
     conversations: readonly ConversationSummary[]
     done: boolean
   }): void

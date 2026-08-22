@@ -66,7 +66,7 @@ export function ConversationTurnFailed({ error }: { readonly error: Error }) {
   return (
     <Alert variant="destructive">
       <WarningCircleIcon aria-hidden />
-      <AlertTitle>That turn stopped</AlertTitle>
+      <AlertTitle>The answer stopped</AlertTitle>
       <AlertDescription>{error.message}</AlertDescription>
     </Alert>
   )

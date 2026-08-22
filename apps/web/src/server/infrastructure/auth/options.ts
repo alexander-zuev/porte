@@ -148,6 +148,13 @@ export function createBetterAuthOptions(
         provider: 'cloudflare-turnstile',
         secretKey: config?.turnstileSecretKey ?? '',
         endpoints: ['/sign-in/social'],
+        expectedAction: 'sign-in',
+        allowedHostnames: config
+          ? [
+              new URL(config.baseURL).hostname,
+              ...(config.isDevelopment ? ['localhost', '127.0.0.1'] : []),
+            ]
+          : undefined,
       }),
       // Cookie only. Nothing reads a stored column, so the user table stays as it is.
       lastLoginMethod(),

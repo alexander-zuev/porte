@@ -87,7 +87,7 @@ function ConversationLink({
         // It renders an anchor, so Base UI must not expect native button semantics.
         nativeButton={false}
         render={
-          <Link params={{ conversationId: conversation.id }} to="/c/$conversationId">
+          <Link params={{ conversationId: conversation.id }} to="/conversations/$conversationId">
             <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
               <strong className="w-full truncate">{conversation.title}</strong>
               <small className="text-muted-foreground">

@@ -8,8 +8,7 @@
   "observability": {
     "logs": { "enabled": true, "invocation_logs": true },
   },
-  // Append-only. v1 named the class after the old vocabulary; v2 carries the
-  // same stored objects over to the name the rest of the code now uses.
+  // Keep migration history append-only to preserve Durable Object storage across class renames.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] },
     { "tag": "v2", "renamed_classes": [{ "from": "HostCoordinatorDO", "to": "HostRelayDO" }] },
@@ -22,7 +21,6 @@
       "vars": {
         "ENVIRONMENT": "dev",
         "LOG_LEVEL": "DEBUG",
-        // Dev runs behind the porte-dev tunnel so OAuth providers get a stable https origin.
         "BETTER_AUTH_URL": "https://tunnel.useporte.dev",
         "GOOGLE_CLIENT_ID": "1028556002706-0qpc7c5iiov5co2hmil32egpe9mj6rba.apps.googleusercontent.com",
         "APPLE_CLIENT_ID": "test",
@@ -52,10 +50,8 @@
           "migrations_dir": "src/server/infrastructure/persistence/database/migrations",
         },
       ],
-      // Sessions live here, so an authenticated request does not read D1.
       "kv_namespaces": [{ "binding": "AUTH_KV", "id": "local-porte-auth-kv" }],
-      // Better Auth keys its limiter by address and path, so one bucket per
-      // endpoint. Generous for a person, useless for guessing a pairing code.
+      // Better Auth keys each rate limit by address and path.
       "ratelimits": [
         {
           "name": "AUTH_RATE_LIMIT",

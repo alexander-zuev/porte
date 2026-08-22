@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { RelayConnection } from '@web/entities/host/relay-connection.ts'
 import { INITIAL_RELAY_STATE, type RelayState } from '@web/entities/host/relay-state.ts'
+import { RelayProviderMissing } from '@web/lib/errors/relay-error.ts'
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 
@@ -54,7 +55,7 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
  */
 export function useRelay(): RelayState {
   const client = useContext(RelayContext)
-  if (client === null) throw new RelayProviderMissing()
+  if (client === null) throw new RelayProviderMissing('useRelay')
 
   return useSyncExternalStore(client.subscribe, client.getState, serverState)
 }
@@ -62,17 +63,9 @@ export function useRelay(): RelayState {
 /** The client itself, for sending. Reading state goes through `useRelay`. */
 export function useRelayConnection(): RelayConnection {
   const client = useContext(RelayContext)
-  if (client === null) throw new RelayProviderMissing()
+  if (client === null) throw new RelayProviderMissing('useRelayConnection')
 
   return client
 }
 
 const serverState = (): RelayState => INITIAL_RELAY_STATE
-
-/** A programmer error: the tree was assembled without the provider. */
-class RelayProviderMissing extends Error {
-  constructor() {
-    super('useRelay was called outside RelayProvider')
-    this.name = 'RelayProviderMissing'
-  }
-}

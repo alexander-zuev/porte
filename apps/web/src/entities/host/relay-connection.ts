@@ -1,7 +1,9 @@
 import {
   ClientMessageSchema,
   ClientMethodSchemas,
+  createLogger,
   createRequestId,
+  type ApiError,
   type ClientMethodMap,
   type ConversationEvent,
   type ConversationId,
@@ -13,6 +15,8 @@ import { z } from 'zod'
 import { INITIAL_RELAY_STATE, type RelayState } from './relay-state.ts'
 
 const textFrameSchema = z.string()
+
+const logger = createLogger('relay-client')
 
 /** Anything the relay may push to a browser. */
 type ClientMessage = z.infer<typeof ClientMessageSchema>
@@ -97,6 +101,7 @@ export class RelayConnection {
       this.retryMs = FIRST_RETRY_MS
       this.downSince = undefined
       this.set({ line: 'open' })
+      logger.debug('relay_line_open')
     })
 
     socket.addEventListener('message', (event) => {
@@ -136,10 +141,12 @@ export class RelayConnection {
   ): Promise<ClientMethodMap[Method]['result']> {
     const socket = this.socket
     if (socket === undefined || socket.readyState !== WebSocket.OPEN) {
+      logger.warn('relay_request_unsent', { method, line: this.state.line })
       return Promise.reject(new RelayUnavailable())
     }
 
     const requestId = createRequestId()
+    const asked = Date.now()
     // SAFETY: `params` is already this method's params, so the four fields
     // beside it make exactly its request. The compiler cannot pair a generic
     // method with its own params across a union of every method.
@@ -150,16 +157,24 @@ export class RelayConnection {
       // method a loose result belongs to, or assert its way back to the type.
       this.pending.set(requestId, {
         settle: (answer) => {
+          const tookMs = Date.now() - asked
           if (answer.kind === 'failed') {
+            logger.warn('relay_request_failed', { requestId, method, tookMs, error: answer.cause })
             reject(answer.cause)
             return
           }
 
           const result = ClientMethodSchemas[method].result.safeParse(answer.result)
           if (!result.success) {
+            logger.error('relay_result_unreadable', {
+              error: result.error,
+              details: { requestId, method, tookMs },
+            })
             reject(new RelayRefused(`Porte answered ${method} with something unreadable`))
             return
           }
+
+          logger.debug('relay_request_answered', { requestId, method, tookMs })
 
           // SAFETY: the schema was looked up by the same `method` this promise
           // is typed with, so what it accepted is that method's result. The
@@ -167,6 +182,7 @@ export class RelayConnection {
           resolve(result.data as ClientMethodMap[Method]['result'])
         },
       })
+      logger.debug('relay_request_sent', { requestId, method })
       socket.send(JSON.stringify(message))
     })
   }
@@ -177,11 +193,11 @@ export class RelayConnection {
       this.settle(message.requestId, { kind: 'answered', result: message.result })
       return
     }
+    // The tagged error itself, not a copy of its message. A screen decides what
+    // to say from the tag, and rewrapping it here leaves every failure looking
+    // like the generic one.
     if (message.type === 'error') {
-      this.settle(message.requestId, {
-        kind: 'failed',
-        cause: new RelayRefused(message.error.message),
-      })
+      this.settle(message.requestId, { kind: 'failed', cause: message.error })
       return
     }
     // A request only ever travels the other way, so nothing here can act on one.
@@ -236,6 +252,7 @@ export class RelayConnection {
     this.downSince ??= Date.now()
     const givenUp = Date.now() - this.downSince > GIVE_UP_AFTER_MS
     this.set({ line: givenUp ? 'lost' : 'reconnecting' })
+    logger.warn('relay_line_dropped', { downForMs: Date.now() - this.downSince, givenUp })
     if (givenUp) return
 
     this.retryTimer = setTimeout(() => {
@@ -279,10 +296,15 @@ export class RelayRefused extends Error {
   }
 }
 
-/** How one asked question ends, whichever way it goes. */
+/**
+ * How one asked question ends, whichever way it goes.
+ *
+ * A failure is an `ApiError` when the Mac or the relay named it, and one of ours
+ * when the line itself is what went wrong.
+ */
 type RelayAnswer =
   | { readonly kind: 'answered'; readonly result: unknown }
-  | { readonly kind: 'failed'; readonly cause: Error }
+  | { readonly kind: 'failed'; readonly cause: ApiError | Error }
 
 type PendingRequest = { readonly settle: (answer: RelayAnswer) => void }
 

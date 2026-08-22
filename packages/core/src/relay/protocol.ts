@@ -31,7 +31,7 @@ export function createApiResponseSchema<T extends z.ZodType>(data: T) {
   ])
 }
 
-const EmptyResultSchema = z.object({})
+const EmptyPayloadSchema = z.object({})
 
 /**
  * Where in a stored transcript one page starts.
@@ -43,6 +43,17 @@ const EmptyResultSchema = z.object({})
 const TranscriptCursorSchema = z.string().regex(/^\d+$/, { error: 'Cursor must be a whole number' })
 
 export const ClientMethodSchemas = {
+  /**
+   * Report the whole list again, so the relay's replica catches up.
+   *
+   * Asked by the relay, never by a browser: the Mac cannot see a conversation
+   * started or deleted outside Porte, so the list is only ever as fresh as the
+   * last sweep. The answer arrives as `conversations.sync` frames, not here.
+   */
+  'conversations.sync': {
+    params: EmptyPayloadSchema,
+    result: EmptyPayloadSchema,
+  },
   /** Metadata and one page of stored transcript. Starts no agent process. */
   'conversation.read': {
     params: z.object({
@@ -67,7 +78,7 @@ export const ClientMethodSchemas = {
   },
   'conversation.close': {
     params: z.object({ conversationId: ConversationIdSchema }),
-    result: EmptyResultSchema,
+    result: EmptyPayloadSchema,
   },
   'conversation.create': {
     params: z.object({ cwd: z.string().min(1) }),
@@ -141,6 +152,7 @@ function createRequestSchema<Method extends ClientMethod, Params extends z.ZodTy
 }
 
 export const RequestMessageSchema = z.discriminatedUnion('method', [
+  createRequestSchema('conversations.sync', ClientMethodSchemas['conversations.sync'].params),
   createRequestSchema('conversation.read', ClientMethodSchemas['conversation.read'].params),
   createRequestSchema('conversation.open', ClientMethodSchemas['conversation.open'].params),
   createRequestSchema('conversation.close', ClientMethodSchemas['conversation.close'].params),
@@ -333,6 +345,10 @@ function createRoutedResponseSchema<Method extends ClientMethod, Result extends 
 }
 
 export const RoutedResponseSchema = z.discriminatedUnion('method', [
+  createRoutedResponseSchema(
+    'conversations.sync',
+    ClientMethodSchemas['conversations.sync'].result,
+  ),
   createRoutedResponseSchema('conversation.read', ClientMethodSchemas['conversation.read'].result),
   createRoutedResponseSchema('conversation.open', ClientMethodSchemas['conversation.open'].result),
   createRoutedResponseSchema(
@@ -379,8 +395,8 @@ export type RoutedEvent = z.infer<typeof RoutedEventSchema>
 export const RelayMessageSchema = z.discriminatedUnion('relay', [
   z.object({
     relay: z.literal('conversations.sync'),
-    /** One value for one sync run. Rows left on an older one are gone from the Mac. */
-    epoch: z.string().min(1),
+    /** One id per sync run. Rows still carrying an older one are gone from the Mac. */
+    syncRunId: z.string().min(1),
     conversations: ConversationsSchema,
     done: z.boolean(),
   }),

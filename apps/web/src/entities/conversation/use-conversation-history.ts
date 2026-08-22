@@ -5,7 +5,7 @@ import {
   type ConversationSummary,
   type ConversationTurnState,
 } from '@porte/core/client'
-import { useRelayConnection } from '@web/entities/host/relay-context.tsx'
+import { useRelay, useRelayConnection } from '@web/entities/host/relay-context.tsx'
 import type { UIMessage } from 'ai'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -46,6 +46,7 @@ type Page = {
  */
 export function useConversationHistory(conversationId: ConversationId): ConversationHistory {
   const relay = useRelayConnection()
+  const { line } = useRelay()
   const [attempt, setAttempt] = useState(0)
   const [answered, setAnswered] = useState<Answered | null>(null)
   const [held, setHeld] = useState<Older>({ read: '', pages: [], reading: false })
@@ -58,11 +59,18 @@ export function useConversationHistory(conversationId: ConversationId): Conversa
   // attempt, is pending in the same render rather than after one.
   const read = `${conversationId}:${String(attempt)}`
 
+  // A cold load reaches here before the socket opens. Asking then fails at once
+  // and nothing would ask again, so the read waits for the line and the effect
+  // re-runs when it arrives.
+  const open = line === 'open'
+
   // Pages read before the first one, and the read they belong to. Derived
   // rather than cleared in an effect, so they are gone in the same render.
   const older = held.read === read ? held : NO_OLDER
 
   useEffect(() => {
+    if (!open) return
+
     let cancelled = false
 
     async function load() {
@@ -82,7 +90,7 @@ export function useConversationHistory(conversationId: ConversationId): Conversa
     return () => {
       cancelled = true
     }
-  }, [relay, conversationId, read])
+  }, [relay, conversationId, read, open])
 
   const first = answered?.read === read && answered.outcome === 'read' ? answered.page : null
   const cursor = older.pages.at(0)?.next ?? first?.next ?? null

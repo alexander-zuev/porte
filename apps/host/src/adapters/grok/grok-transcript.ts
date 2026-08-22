@@ -55,8 +55,24 @@ const recordSchema = z.discriminatedUnion('type', [
 
 const summaryTextSchema = z.object({ text: z.string() })
 
-/** Grok injects the rules file into the first prompt. It is not what the person typed. */
-const SYSTEM_REMINDER = /<system-reminder>[\s\S]*?<\/system-reminder>/g
+/**
+ * What Grok staples around a prompt before sending it.
+ *
+ * None of it was typed by anyone: the rules file, the workspace facts, the git
+ * status. Found by scanning the wrappers that open a stored user record, so this
+ * is the list Grok actually writes rather than the one it documents.
+ */
+const INJECTED = [
+  'system-reminder',
+  'user_info',
+  'rules',
+  'git_status',
+  'image_files',
+  'skill_information',
+] as const
+
+/** When Grok wraps the prompt, this holds the only part a person wrote. */
+const USER_QUERY = /<user_query>([\s\S]*?)<\/user_query>/g
 
 /** One turn of a stored transcript, and how many lines of the file it took. */
 export type StoredTurn = {
@@ -275,9 +291,22 @@ function textOf(parts: readonly unknown[]): string {
     .join('\n')
 }
 
-/** What the person typed, without the rules file Grok staples to the first one. */
+/**
+ * What the person typed, without anything Grok wrapped around it.
+ *
+ * A record that is all wrapper leaves nothing, which is correct: the first one
+ * usually carries only the rules file, and a prompt nobody wrote is not a
+ * message. `<user_query>` is the exception — it holds the prompt rather than
+ * hiding it, so its contents are what survives.
+ */
 function promptOf(parts: readonly unknown[]): string {
-  return textOf(parts).replaceAll(SYSTEM_REMINDER, '').trim()
+  let text = textOf(parts)
+  for (const tag of INJECTED) {
+    text = text.replaceAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'), '')
+  }
+
+  const asked = [...text.matchAll(USER_QUERY)].map((match) => (match[1] ?? '').trim())
+  return (asked.length > 0 ? asked.join('\n') : text).trim()
 }
 
 function startTurn(

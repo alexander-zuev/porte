@@ -59,7 +59,7 @@ export function ConversationMessages({
             variant="ghost"
             onClick={onReadOlder}
           >
-            {readingOlder ? 'Reading…' : 'Read earlier turns'}
+            {readingOlder ? 'Reading…' : 'Earlier messages'}
           </Button>
         )}
 

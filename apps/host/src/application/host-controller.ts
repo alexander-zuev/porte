@@ -48,7 +48,7 @@ export class HostController {
   /**
    * Give the relay the whole list, a chunk at a time.
    *
-   * One epoch for the run, so the relay can tell this sync's rows from the ones
+   * One id for the run, so the relay can tell this sync's rows from the ones
    * left by the last. An empty history still sends one chunk: `done` is what
    * clears whatever the relay is still holding, and a Mac with nothing left has
    * the most to clear.
@@ -59,11 +59,11 @@ export class HostController {
     const listed = await this.agent.listConversations()
     if (listed.isErr()) return Result.err(listed.error)
 
-    const epoch = randomUUID()
+    const syncRunId = randomUUID()
     const chunks = intoChunks(listed.value, SYNC_CHUNK_SIZE)
     chunks.forEach((conversations, index) => {
       connection.sendConversationChunk({
-        epoch,
+        syncRunId,
         conversations,
         done: index === chunks.length - 1,
       })
@@ -78,6 +78,12 @@ export class HostController {
   ): Promise<ResultType<void, CodingAgentError>> {
     const message = request.message
     switch (message.method) {
+      case 'conversations.sync': {
+        // Answered before the list is read: the relay is not waiting on it, and
+        // the sweep arrives as its own frames however long the disk takes.
+        sendResult(request, connection, {})
+        return this.sendConversations(connection)
+      }
       case 'conversation.read': {
         const read = await this.agent.readConversation({
           conversationId: message.params.conversationId,

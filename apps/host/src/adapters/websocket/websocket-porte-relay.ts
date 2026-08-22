@@ -38,13 +38,13 @@ export class WebSocketPorteConnection implements PorteConnection {
   constructor(private readonly send: (frame: string) => void) {}
 
   sendConversationChunk(chunk: {
-    epoch: string
+    syncRunId: string
     conversations: readonly ConversationSummary[]
     done: boolean
   }): void {
     this.sendRelay({
       relay: 'conversations.sync',
-      epoch: chunk.epoch,
+      syncRunId: chunk.syncRunId,
       conversations: [...chunk.conversations],
       done: chunk.done,
     })
