@@ -1,11 +1,12 @@
 import { PlusIcon } from '@phosphor-icons/react'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Logo } from '@web/ui/components/logo.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
 type ConversationHomeHeaderProps = {
   readonly hostName: string
-  readonly hostStatus: 'loading' | 'online' | 'offline' | 'reconnecting'
+  readonly hostStatus: HostConnection
   readonly statusDetail?: string
   readonly canCreate: boolean
   readonly onStartConversation: () => void
@@ -31,7 +32,7 @@ export function ConversationHomeHeader({
         <h1>Conversations</h1>
         <div className="flex min-w-0 items-center gap-2">
           <strong className="truncate">{hostName}</strong>
-          <HostStatus detail={statusDetail} status={hostStatus} />
+          <HostStatus connection={hostStatus} detail={statusDetail} />
         </div>
       </div>
     </header>

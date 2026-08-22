@@ -64,7 +64,7 @@ function SurfacesBoard() {
               </CardAction>
             </CardHeader>
             <CardContent>
-              <HostStatus detail="Last seen 2 minutes ago" status="online" />
+              <HostStatus connection={{ status: 'online' }} detail="Last seen 2 minutes ago" />
             </CardContent>
             <CardFooter className="gap-2">
               <Button size="sm" variant="outline">
@@ -216,10 +216,11 @@ function SurfacesBoard() {
 
       <Section title="Product surfaces" note="Small compositions the product repeats everywhere.">
         <Specimen label="Host status" stack>
-          <HostStatus status="online" detail="Last seen just now" />
-          <HostStatus status="reconnecting" />
-          <HostStatus status="offline" detail="Since 13:40" />
-          <HostStatus status="loading" />
+          <HostStatus connection={{ status: 'connecting' }} />
+          <HostStatus connection={{ status: 'online' }} detail="Last seen just now" />
+          <HostStatus connection={{ status: 'offline' }} detail="Since 13:40" />
+          <HostStatus connection={{ status: 'reconnecting' }} />
+          <HostStatus connection={{ status: 'lost', onRetry: () => undefined }} />
         </Specimen>
         <Specimen label="Terminal command" stack wide>
           <TerminalCommand command="npx porte@latest pair" />

@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, FolderSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { repoName } from '@web/entities/conversation/group-conversations.ts'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -53,11 +54,16 @@ export type NewConversationProps =
 
 /** Render the complete new-conversation flow without server effects. */
 export function NewConversation(props: NewConversationProps) {
-  const hostStatus =
-    props.view === 'form' && props.state.status === 'offline' ? 'offline' : 'online'
+  const hostStatus: HostConnection = {
+    status: props.view === 'form' && props.state.status === 'offline' ? 'offline' : 'online',
+  }
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
-      <NewConversationHeader hostName={props.hostName} status={hostStatus} onBack={props.onBack} />
+      <NewConversationHeader
+        connection={hostStatus}
+        hostName={props.hostName}
+        onBack={props.onBack}
+      />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
         <header className="flex flex-col gap-2">
           <h1>New conversation</h1>
@@ -75,11 +81,11 @@ export function NewConversation(props: NewConversationProps) {
 
 function NewConversationHeader({
   hostName,
-  status,
+  connection,
   onBack,
 }: {
   readonly hostName: string
-  readonly status: 'online' | 'offline'
+  readonly connection: HostConnection
   readonly onBack: () => void
 }) {
   return (
@@ -91,7 +97,7 @@ function NewConversationHeader({
         </Button>
         <div className="flex min-w-0 flex-col items-end gap-1">
           <strong className="max-w-44 truncate">{hostName}</strong>
-          <HostStatus status={status} />
+          <HostStatus connection={connection} />
         </div>
       </div>
     </header>

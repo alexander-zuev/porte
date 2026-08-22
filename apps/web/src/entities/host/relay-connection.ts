@@ -120,6 +120,22 @@ export class RelayConnection {
     })
   }
 
+  /**
+   * Try again after the line was given up on. Only a person asks for this.
+   *
+   * Clears how long we have been down, so the attempt gets the whole budget
+   * again rather than reading as lost the moment it drops once.
+   */
+  reconnect(): void {
+    if (this.socket !== undefined) return
+
+    clearTimeout(this.retryTimer)
+    this.downSince = undefined
+    this.retryMs = FIRST_RETRY_MS
+    this.set({ line: 'connecting' })
+    this.connect()
+  }
+
   /** Put the line down for good. The state stays, so a remount shows what it knew. */
   close(): void {
     this.closed = true

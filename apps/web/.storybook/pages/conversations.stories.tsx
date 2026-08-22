@@ -1,6 +1,7 @@
 import { IsoDateTimeSchema, type ConversationSummary, type PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
@@ -28,11 +29,16 @@ const NONE: readonly ConversationSummary[] = []
  * The state has three independent facts, so these are the combinations worth
  * designing rather than every combination that types.
  */
-function page(relay: RelayState, conversationList: ConversationList): ConversationsPageProps {
+function page(
+  relay: RelayState,
+  conversationList: ConversationList,
+  connection: HostConnection = { status: 'online' },
+): ConversationsPageProps {
   return {
     host: HOST,
     relay,
     conversationList,
+    connection,
   }
 }
 

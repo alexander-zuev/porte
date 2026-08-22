@@ -3,6 +3,7 @@ import { conversationQueries } from '@web/entities/conversation/conversation-que
 import { useConversationList } from '@web/entities/conversation/use-conversation-list.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useRelay } from '@web/entities/host/relay-context.tsx'
+import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
 
@@ -34,7 +35,15 @@ export const Route = createFileRoute('/_auth/_app/_relay/conversations/')({
 function ConversationsRoute() {
   const { host } = Route.useRouteContext()
   const relay = useRelay()
+  const connection = useHostConnection()
   const conversationList = useConversationList()
 
-  return <ConversationsPage conversationList={conversationList} host={host} relay={relay} />
+  return (
+    <ConversationsPage
+      conversationList={conversationList}
+      host={host}
+      relay={relay}
+      connection={connection}
+    />
+  )
 }

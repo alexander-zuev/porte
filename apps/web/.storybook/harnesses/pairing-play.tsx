@@ -33,6 +33,7 @@ function homeList(paired: boolean) {
   return {
     host,
     relay,
+    connection: { status: paired ? 'online' : 'offline' },
     conversationList: {
       status: 'ready',
       conversations: paired ? conversations : [],

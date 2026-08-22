@@ -1,5 +1,6 @@
 import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import {
   LookingForMac,
@@ -19,13 +20,19 @@ export type ConversationsPageProps = {
   readonly host: PairedHost
   readonly relay: RelayState
   readonly conversationList: ConversationList
+  readonly connection: HostConnection
 }
 
 /** Everything a signed-in account with a paired Mac sees. Renders, never waits. */
-export function ConversationsPage({ host, relay, conversationList }: ConversationsPageProps) {
+export function ConversationsPage({
+  host,
+  relay,
+  conversationList,
+  connection,
+}: ConversationsPageProps) {
   return (
     <>
-      <ConversationsHeader host={host} relay={relay} />
+      <ConversationsHeader connection={connection} host={host} relay={relay} />
       <div className="flex flex-1 flex-col gap-4">{body(relay, conversationList)}</div>
     </>
   )

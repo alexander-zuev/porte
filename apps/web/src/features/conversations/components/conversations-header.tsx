@@ -1,4 +1,5 @@
 import type { PairedHost } from '@porte/core/client'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import { formatDateTime } from '@web/lib/format-date.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
@@ -8,10 +9,11 @@ type ConversationsHeaderProps = {
   /** From the database, so the Mac has a name before any socket exists. */
   readonly host: PairedHost
   readonly relay: RelayState
+  readonly connection: HostConnection
 }
 
 /** The Mac and how it is doing. What to do about it belongs to the page. */
-export function ConversationsHeader({ host, relay }: ConversationsHeaderProps) {
+export function ConversationsHeader({ host, relay, connection }: ConversationsHeaderProps) {
   return (
     <header className="flex flex-col gap-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
       <Logo size="sm" />
@@ -20,18 +22,11 @@ export function ConversationsHeader({ host, relay }: ConversationsHeaderProps) {
         <h1>Conversations</h1>
         <div className="flex min-w-0 items-center gap-2">
           <strong className="truncate">{host.name}</strong>
-          <HostStatus detail={detail(host, relay)} status={status(relay)} />
+          <HostStatus detail={detail(host, relay)} connection={connection} />
         </div>
       </div>
     </header>
   )
-}
-
-function status(relay: RelayState): 'loading' | 'online' | 'offline' | 'reconnecting' {
-  if (relay.line === 'reconnecting') return 'reconnecting'
-  if (relay.mac === null) return 'loading'
-
-  return relay.mac.online ? 'online' : 'offline'
 }
 
 /**

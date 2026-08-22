@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useConversation } from '@web/entities/conversation/use-conversation.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useRelay } from '@web/entities/host/relay-context.tsx'
+import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 
@@ -36,7 +37,16 @@ function ConversationRoute() {
   const { host } = Route.useRouteContext()
   const { conversationId } = Route.useParams()
   const relay = useRelay()
+  const connection = useHostConnection()
   const view = useConversation(conversationId)
 
-  return <ConversationPage conversationId={conversationId} host={host} relay={relay} view={view} />
+  return (
+    <ConversationPage
+      conversationId={conversationId}
+      host={host}
+      relay={relay}
+      view={view}
+      connection={connection}
+    />
+  )
 }

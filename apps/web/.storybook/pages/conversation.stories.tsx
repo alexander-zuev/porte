@@ -7,6 +7,7 @@ import {
 } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import type { RelayState } from '@web/entities/host/relay-state.ts'
 import {
   ConversationPage,
@@ -98,8 +99,12 @@ const ready: Extract<ConversationView, { status: 'ready' }> = {
 }
 
 /** Every state one conversation screen can be in, without a socket or a Mac. */
-function page(view: ConversationView, relay: RelayState = ONLINE): ConversationPageProps {
-  return { conversationId: SUMMARY.id, view, host: HOST, relay }
+function page(
+  view: ConversationView,
+  relay: RelayState = ONLINE,
+  connection: HostConnection = { status: 'online' },
+): ConversationPageProps {
+  return { conversationId: SUMMARY.id, view, host: HOST, relay, connection }
 }
 
 const meta = {

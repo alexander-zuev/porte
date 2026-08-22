@@ -1,11 +1,9 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Separator } from '@web/ui/components/ui/separator.tsx'
-
-/** Connection states visible while one conversation is selected. */
-export type ConversationConnection = 'online' | 'offline' | 'reconnecting' | 'loading'
 
 /**
  * Conversation identity, the Mac, and the way back.
@@ -22,7 +20,7 @@ export function ConversationHeader({
   readonly title: string
   readonly cwd: string | null
   readonly hostName: string
-  readonly connection: ConversationConnection
+  readonly connection: HostConnection
 }) {
   return (
     <>
@@ -41,7 +39,7 @@ export function ConversationHeader({
           />
           <div className="ml-auto flex min-w-0 flex-col items-end gap-1">
             <strong className="max-w-44 truncate">{hostName}</strong>
-            <HostStatus status={connection} />
+            <HostStatus connection={connection} />
           </div>
         </div>
         <div className="flex min-w-0 flex-col gap-1">

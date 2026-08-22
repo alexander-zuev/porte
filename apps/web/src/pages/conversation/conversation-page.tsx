@@ -1,11 +1,9 @@
 import type { ConversationId, PairedHost } from '@porte/core/client'
 import type { ConversationView } from '@web/entities/conversation/use-conversation.ts'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { canReachMac, type RelayState } from '@web/entities/host/relay-state.ts'
 import { ConversationChat } from '@web/features/conversation/components/conversation-chat.tsx'
-import {
-  ConversationHeader,
-  type ConversationConnection,
-} from '@web/features/conversation/components/conversation-header.tsx'
+import { ConversationHeader } from '@web/features/conversation/components/conversation-header.tsx'
 import {
   ConversationFailed,
   ConversationOpening,
@@ -15,13 +13,20 @@ export type ConversationPageProps = {
   readonly view: ConversationView
   readonly host: PairedHost
   readonly relay: RelayState
+  readonly connection: HostConnection
 }
 
 /** One conversation on the paired Mac: what it said, and what to say next. */
-export function ConversationPage({ conversationId, view, host, relay }: ConversationPageProps) {
+export function ConversationPage({
+  conversationId,
+  view,
+  host,
+  relay,
+  connection,
+}: ConversationPageProps) {
   const header = (
     <ConversationHeader
-      connection={connectionOf(relay)}
+      connection={connection}
       cwd={view.status === 'ready' ? view.conversation.cwd : null}
       hostName={host.name}
       title={view.status === 'ready' ? view.conversation.title : 'Opening'}
@@ -36,7 +41,11 @@ export function ConversationPage({ conversationId, view, host, relay }: Conversa
   )
 }
 
-function ConversationBody({ conversationId, view, relay }: Omit<ConversationPageProps, 'host'>) {
+function ConversationBody({
+  conversationId,
+  view,
+  relay,
+}: Omit<ConversationPageProps, 'host' | 'connection'>) {
   if (view.status === 'pending') return <ConversationOpening />
 
   if (view.status === 'failed') {
@@ -56,11 +65,4 @@ function ConversationBody({ conversationId, view, relay }: Omit<ConversationPage
       onReadOlder={view.onReadOlder}
     />
   )
-}
-
-function connectionOf(relay: RelayState): ConversationConnection {
-  if (relay.line === 'reconnecting') return 'reconnecting'
-  if (relay.mac === null) return 'loading'
-
-  return relay.mac.online ? 'online' : 'offline'
 }
