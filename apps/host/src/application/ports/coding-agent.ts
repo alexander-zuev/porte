@@ -2,6 +2,7 @@ import type {
   ConversationTurnState,
   FailureClassification,
   PermissionId,
+  ConversationIdentity as ProtocolConversationIdentity,
   ConversationId as ProtocolConversationId,
   ConversationSummary as ProtocolConversationSummary,
   TurnId,
@@ -18,14 +19,28 @@ export type ConversationId = ProtocolConversationId
 /** Provider-independent summary for one persisted conversation. */
 export type ConversationSummary = ProtocolConversationSummary
 
+/** What every answer about one conversation names it by. */
+export type ConversationIdentity = ProtocolConversationIdentity
+
 /** Whether a conversation is running a turn right now. */
 export type { ConversationTurnState }
 
 /** Provider-independent event from one conversation. */
 export type ConversationEvent = ProtocolConversationEvent
 
-/** Complete state returned when Porte opens a conversation. */
+/**
+ * Complete state returned when Porte opens a conversation.
+ *
+ * Identity, not a summary: opening reads stored files, and no stored file says
+ * which repository the conversation belongs to.
+ */
 export type ConversationSnapshot = {
+  readonly summary: ConversationIdentity
+  readonly view: ProtocolConversationView
+}
+
+/** Complete state returned when Porte creates one. The repository is known here. */
+export type CreatedConversation = {
   readonly summary: ConversationSummary
   readonly view: ProtocolConversationView
 }
@@ -38,6 +53,8 @@ export type CodingAgentFailure =
   | 'PERMISSION_NOT_FOUND'
   | 'PROVIDER_UNAVAILABLE'
   | 'INVALID_PROVIDER_RESPONSE'
+  /** The caller named a directory outside any repository, which cannot be listed. */
+  | 'NOT_A_REPOSITORY'
 
 /** Which call it went wrong in. */
 export type CodingAgentOperation =
@@ -58,6 +75,7 @@ const CLASSIFICATIONS = {
   PERMISSION_NOT_FOUND: 'terminal',
   PROVIDER_UNAVAILABLE: 'transient',
   INVALID_PROVIDER_RESPONSE: 'terminal',
+  NOT_A_REPOSITORY: 'terminal',
 } satisfies Record<CodingAgentFailure, FailureClassification>
 
 /** A provider could not complete one coding-agent operation. */
@@ -86,7 +104,7 @@ export type ReadConversation = {
 
 /** One page of a stored transcript, newest turn last. */
 export type ConversationTranscript = {
-  readonly conversation: ConversationSummary
+  readonly conversation: ConversationIdentity
   readonly events: readonly ConversationEvent[]
   readonly next: string | null
   /** What the agent is doing now, which the stored file cannot say. */
@@ -139,7 +157,7 @@ export interface CodingAgent {
   /** Create one conversation and return its complete initial state. */
   createConversation(
     command: CreateConversation,
-  ): Promise<Result<ConversationSnapshot, CodingAgentError>>
+  ): Promise<Result<CreatedConversation, CodingAgentError>>
 
   /** Close one open conversation and stop its provider resources. */
   closeConversation(conversationId: ConversationId): Promise<Result<void, CodingAgentError>>

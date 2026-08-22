@@ -37,6 +37,7 @@ function conversation(index: number, at: string): ConversationSummary {
   return {
     id: `01a0292c-0000-7000-8000-${String(index).padStart(12, '0')}` as ConversationId,
     cwd: '/Users/az/projects/porte',
+    gitRoot: '/Users/az/projects/porte',
     title: `conversation ${String(index)}`,
     updatedAt: IsoDateTimeSchema.parse(at),
   }

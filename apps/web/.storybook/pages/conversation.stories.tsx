@@ -1,7 +1,7 @@
 import {
   HostOfflineError,
   IsoDateTimeSchema,
-  makeConversationSummary,
+  makeConversationIdentity,
   PendingPermissionSchema,
   type PairedHost,
 } from '@porte/core/client'
@@ -21,7 +21,7 @@ const HOST = {
   lastSeenAt: '2026-08-19T14:02:00.000Z',
 } as PairedHost
 
-const SUMMARY = makeConversationSummary({
+const SUMMARY = makeConversationIdentity({
   id: '01a01e5d-e64c-76e2-9c93-ca69580001fd',
   cwd: '/Users/az/projects/porte',
   title: 'Porte account deletion without typist UoW',

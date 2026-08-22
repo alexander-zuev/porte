@@ -240,6 +240,9 @@ function apiErrorTagFor(code: CodingAgentError['code']): ApiErrorTag {
   }
   if (code === 'CONVERSATION_BUSY') return 'ConversationBusyError'
   if (code === 'PERMISSION_NOT_FOUND') return 'PermissionNotFoundError'
+  // The caller's directory, not the Mac's fault. `ValidationError` would owe an
+  // issue list this failure has nothing to put in.
+  if (code === 'NOT_A_REPOSITORY') return 'WorkspaceNotAllowedError'
   return 'InternalServerError'
 }
 
@@ -247,5 +250,6 @@ function publicErrorMessage(tag: ApiErrorTag): string {
   if (tag === 'ConversationNotFoundError') return 'Conversation is not open.'
   if (tag === 'ConversationBusyError') return 'Conversation already has an active turn.'
   if (tag === 'PermissionNotFoundError') return 'Permission request is not pending.'
+  if (tag === 'WorkspaceNotAllowedError') return 'That folder is not a repository.'
   return 'Coding agent could not complete the request.'
 }

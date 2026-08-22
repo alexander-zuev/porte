@@ -38,6 +38,7 @@ function toConversation(row: DbConversation): ConversationSummary {
     // holds an id of ours. Nothing else can put a row here.
     id: row.id as ConversationId,
     cwd: row.cwd,
+    gitRoot: row.gitRoot,
     title: row.title,
     // SAFETY: `toISOString` is an ISO datetime by construction, so the brand
     // describes what this already is rather than something to check.
@@ -110,6 +111,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
     const rows = conversations.map((one) => ({
       id: one.id,
       cwd: one.cwd,
+      gitRoot: one.gitRoot,
       title: one.title,
       updatedAt: new Date(one.updatedAt),
       syncRunId,
@@ -122,6 +124,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
         target: conversation.id,
         set: {
           cwd: sql`excluded.cwd`,
+          gitRoot: sql`excluded.git_root`,
           title: sql`excluded.title`,
           updatedAt: sql`excluded.updated_at`,
           syncRunId: sql`excluded.sync_run_id`,

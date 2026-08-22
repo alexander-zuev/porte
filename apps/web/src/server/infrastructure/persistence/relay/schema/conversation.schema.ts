@@ -13,6 +13,8 @@ export const conversation = sqliteTable(
   {
     id: text('id').primaryKey(),
     cwd: text('cwd').notNull(),
+    /** Repository the conversation belongs to. The browser groups the list on it. */
+    gitRoot: text('git_root').notNull(),
     title: text('title').notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     /** Which sync run wrote this row. The sweep deletes every other run's, which is how a deletion propagates. */

@@ -2,7 +2,7 @@ import {
   CONVERSATION_HISTORY_PAGE_SIZE,
   type ConversationEvent,
   type ConversationId,
-  type ConversationSummary,
+  type ConversationIdentity,
   type ConversationTurnState,
 } from '@porte/core/client'
 import { useRelay, useRelayReadyState } from '@web/entities/host/relay-context.tsx'
@@ -16,7 +16,7 @@ export type ConversationHistory =
   | { readonly status: 'pending' }
   | {
       readonly status: 'ready'
-      readonly conversation: ConversationSummary
+      readonly conversation: ConversationIdentity
       readonly messages: readonly UIMessage[]
       /** Older turns exist. Absent once the whole transcript has been read. */
       readonly onReadOlder: (() => void) | null
@@ -28,7 +28,7 @@ export type ConversationHistory =
 
 /** One page as it came back, plus where the page before it starts. */
 type Page = {
-  readonly conversation: ConversationSummary
+  readonly conversation: ConversationIdentity
   readonly events: readonly ConversationEvent[]
   readonly next: string | null
   readonly turn: ConversationTurnState

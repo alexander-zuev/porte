@@ -1,4 +1,4 @@
-import m0000 from './0000_clumsy_korath.sql'
+import m0000 from './0000_shocking_reavers.sql'
 import journal from './meta/_journal.json'
 
 export default {

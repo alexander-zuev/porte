@@ -1,6 +1,7 @@
 CREATE TABLE `conversation` (
 	`id` text PRIMARY KEY NOT NULL,
 	`cwd` text NOT NULL,
+	`git_root` text NOT NULL,
 	`title` text NOT NULL,
 	`updated_at` integer NOT NULL,
 	`sync_run_id` text NOT NULL

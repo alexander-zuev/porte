@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "59aecb4f-b88f-4846-a9b0-78d9446e3484",
+  "id": "a84356c4-fd01-433c-b9d5-8ea19c98fff6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "conversation": {
@@ -16,6 +16,13 @@
         },
         "cwd": {
           "name": "cwd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "git_root": {
+          "name": "git_root",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+
 import { startAcpClient, type AcpClient, type StartAcpClient } from '@host/adapters/acp/client.ts'
 import {
   answerIncomingRequest,
@@ -12,11 +14,13 @@ import {
   type CodingAgent,
   type ConversationEvent,
   type ConversationId,
+  type ConversationIdentity,
   type ConversationSnapshot,
   type ConversationSummary,
   type ConversationTranscript,
   type ConversationTurnState,
   type CreateConversation,
+  type CreatedConversation,
   type OpenConversation,
   type ReadConversation,
   type StartTurn,
@@ -40,12 +44,14 @@ import {
 import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
-import { findGrokConversation, listGrokConversations } from './grok-conversation-files.ts'
+import { findGitRoot, normaliseGitRoot } from './git-root.ts'
+import { findGrokConversation } from './grok-conversation-files.ts'
 import {
   GrokEventMapper,
   GrokReplayMapper,
   type GrokEventMappingError,
 } from './grok-event-mapper.ts'
+import { listGrokSessions } from './grok-session-list.ts'
 import { pageOfTurns, readGrokTranscript } from './grok-transcript.ts'
 
 export type GrokAgentConfig = {
@@ -82,13 +88,33 @@ export class GrokAgent implements CodingAgent {
     Promise<ResultType<StartedConversation, CodingAgentError>>
   >()
 
+  private control: Promise<ResultType<AcpProcess, CodingAgentError>> | undefined
+
   constructor(private readonly config: GrokAgentConfig) {}
 
-  /** List conversations from Grok's provider-owned files. */
+  /**
+   * List conversations that Grok itself indexed.
+   *
+   * Asks Grok rather than reading its files: `session/list` carries the
+   * repository each session was started in, and the files on disk do not.
+   */
   async listConversations(): Promise<ResultType<ConversationSummary[], CodingAgentError>> {
-    const listed = await listGrokConversations(this.config.grokHome)
-    if (listed.isErr()) return Result.err(operationError('list', listed.error))
-    return Result.ok(listed.value.map((entry) => entry.summary))
+    const client = await this.controlClient()
+    if (client.isErr()) return Result.err(client.error)
+
+    const listed = await listGrokSessions(client.value)
+    if (listed.isOk()) return Result.ok(listed.value)
+
+    // A control process that stopped answering is not one to keep: dropping it
+    // is what lets the next list start a live one.
+    if (listed.error.kind === 'unreachable') this.control = undefined
+    return Result.err(
+      operationError(
+        'list',
+        listed.error,
+        listed.error.kind === 'unreachable' ? 'PROVIDER_UNAVAILABLE' : 'INVALID_PROVIDER_RESPONSE',
+      ),
+    )
   }
 
   /**
@@ -128,7 +154,7 @@ export class GrokAgent implements CodingAgent {
     }
 
     return Result.ok({
-      conversation: found.value.summary,
+      conversation: found.value.identity,
       // The file says what was said; only a live process says what is happening.
       turn: this.conversations.get(command.conversationId)?.turn ?? { state: 'idle' },
       ...page.value,
@@ -151,13 +177,13 @@ export class GrokAgent implements CodingAgent {
     const current = this.conversations.get(command.conversationId)
     if (current !== undefined) {
       current.setListener(command.onEvent)
-      return Result.ok(snapshot(found.value.summary, current.view))
+      return Result.ok(snapshot(found.value.identity, current.view))
     }
 
     let pending = this.opening.get(command.conversationId)
     if (pending === undefined) {
       pending = this.startConversation(
-        found.value.summary.cwd,
+        found.value.identity.cwd,
         command.onEvent,
         'open',
         async (client) => {
@@ -165,7 +191,7 @@ export class GrokAgent implements CodingAgent {
             method: 'session/load',
             params: {
               sessionId: command.conversationId,
-              cwd: found.value.summary.cwd,
+              cwd: found.value.identity.cwd,
               mcpServers: [],
             },
             timeoutMs: 30_000,
@@ -183,13 +209,21 @@ export class GrokAgent implements CodingAgent {
 
     started.value.conversation.setListener(command.onEvent)
     this.conversations.set(command.conversationId, started.value.conversation)
-    return Result.ok(snapshot(found.value.summary, started.value.view))
+    return Result.ok(snapshot(found.value.identity, started.value.view))
   }
 
   /** Create one Grok conversation and keep its ACP process active. */
   async createConversation(
     command: CreateConversation,
-  ): Promise<ResultType<ConversationSnapshot, CodingAgentError>> {
+  ): Promise<ResultType<CreatedConversation, CodingAgentError>> {
+    // Resolved before anything starts. A conversation outside a repository has
+    // nowhere to appear in the list, so the honest answer is to refuse rather
+    // than to create one nobody will find again.
+    const gitRoot = findGitRoot(command.cwd)
+    if (gitRoot === undefined) {
+      return Result.err(operationError('create', undefined, 'NOT_A_REPOSITORY'))
+    }
+
     const started = await this.startConversation(
       command.cwd,
       command.onEvent,
@@ -212,11 +246,12 @@ export class GrokAgent implements CodingAgent {
     const summary = makeConversationSummary({
       id: started.value.conversation.conversationId,
       cwd: command.cwd,
+      gitRoot: normaliseGitRoot(gitRoot),
       title: '',
       updatedAt: IsoDateTimeSchema.parse(new Date().toISOString()),
     })
     this.conversations.set(started.value.conversation.conversationId, started.value.conversation)
-    return Result.ok(snapshot(summary, started.value.view))
+    return Result.ok({ summary, view: started.value.view })
   }
 
   /** Close one active Grok conversation. */
@@ -260,6 +295,25 @@ export class GrokAgent implements CodingAgent {
           Result.err(operationError('answer_permission', undefined, 'CONVERSATION_NOT_OPEN')),
         )
       : conversation.answerPermission(command)
+  }
+
+  /**
+   * One Grok process for the questions that belong to no conversation.
+   *
+   * Listing needs an agent, and starting one per list would pay for a process
+   * and its MCP servers on every look at the list. The daemon already outlives
+   * every request, so it holds the connection instead.
+   *
+   * Started once and shared. The promise is cached, not the client, so two
+   * lists that race start one process between them.
+   */
+  private async controlClient(): Promise<ResultType<AcpProcess, CodingAgentError>> {
+    this.control ??= startControlClient()
+    const client = await this.control
+    // Nothing is cached but success: a Mac that had Grok closed the first time
+    // must not be told so for the rest of the day.
+    if (client.isErr()) this.control = undefined
+    return client
   }
 
   private async startConversation(
@@ -545,9 +599,36 @@ class GrokConversation {
   }
 }
 
+/**
+ * Start the Grok process that answers questions about no conversation.
+ *
+ * Runs from the home directory because `session/list` spans every repository
+ * and picking one of them would read as a scope it does not have. Updates and
+ * incoming requests are refused: without a session there is nothing to answer
+ * them on behalf of.
+ */
+async function startControlClient(): Promise<ResultType<AcpProcess, CodingAgentError>> {
+  const started = await startAcpClient({
+    command: 'grok',
+    args: ['--no-auto-update', 'agent', 'stdio'],
+    cwd: homedir(),
+    onUpdate: () => undefined,
+    onRequest: (method) =>
+      Promise.resolve(Result.err({ code: -32601, message: `method not found: ${method}` })),
+  })
+  if (started.isErr()) return Result.err(operationError('list', started.error))
+
+  const prepared = await prepareClient(started.value, 'list')
+  if (prepared.isErr()) {
+    await started.value.stop()
+    return Result.err(prepared.error)
+  }
+  return Result.ok(started.value)
+}
+
 async function prepareClient(
   client: AcpProcess,
-  operation: 'open' | 'create',
+  operation: 'open' | 'create' | 'list',
 ): Promise<ResultType<void, CodingAgentError>> {
   const initialized = await client.request({
     method: 'initialize',
@@ -569,7 +650,7 @@ async function prepareClient(
     : Result.ok()
 }
 
-function snapshot(summary: ConversationSummary, view: ConversationView): ConversationSnapshot {
+function snapshot(summary: ConversationIdentity, view: ConversationView): ConversationSnapshot {
   return { summary, view }
 }
 

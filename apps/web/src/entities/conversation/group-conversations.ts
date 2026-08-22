@@ -1,36 +1,41 @@
 import type { ConversationSummary } from '@porte/core/client'
 
 /**
- * One folder on the Mac and the conversations opened from it.
+ * One repository on the Mac and the conversations opened inside it.
  *
  * Named here rather than in the component, so a screen renders a value instead
- * of deriving one. `name` is the last path segment today; a Mac that reports
- * its git root would put the repository's name here instead.
+ * of deriving one.
  */
 export type Project = {
-  readonly cwd: string
+  readonly gitRoot: string
   readonly name: string
   readonly conversations: readonly ConversationSummary[]
 }
 
-/** Group conversations by the folder they were opened from. Newest first inside each. */
-export function groupConversationsByCwd(
+/**
+ * Group conversations by repository. Newest first inside each.
+ *
+ * Every conversation has one: the Mac reports only those it can place in a
+ * repository, which is what keeps a folder a test made and deleted out of the
+ * list. Repositories appear in the order their newest conversation does.
+ */
+export function groupConversationsByRepo(
   conversations: readonly ConversationSummary[],
 ): readonly Project[] {
   const groups = new Map<string, ConversationSummary[]>()
   for (const conversation of conversations) {
-    const rows = groups.get(conversation.cwd) ?? []
+    const rows = groups.get(conversation.gitRoot) ?? []
     rows.push(conversation)
-    groups.set(conversation.cwd, rows)
+    groups.set(conversation.gitRoot, rows)
   }
-  return [...groups.entries()].map(([cwd, rows]) => ({
-    cwd,
-    name: repoName(cwd),
+  return [...groups.entries()].map(([gitRoot, rows]) => ({
+    gitRoot,
+    name: repoName(gitRoot),
     conversations: rows.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
   }))
 }
 
-export function repoName(cwd: string): string {
-  const parts = cwd.split('/').filter(Boolean)
-  return parts.at(-1) ?? cwd
+export function repoName(gitRoot: string): string {
+  const parts = gitRoot.split('/').filter(Boolean)
+  return parts.at(-1) ?? gitRoot
 }

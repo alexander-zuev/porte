@@ -55,7 +55,7 @@ describe('Grok conversation files', () => {
     })
 
     const listed = await listGrokConversations(grokHome)
-    expect(listed.isOk() && listed.value.map((row) => row.summary)).toEqual([
+    expect(listed.isOk() && listed.value.map((row) => row.identity)).toEqual([
       { id: 'id-a', cwd: '/tmp/proj', title: 'Alpha', updatedAt: '2026-08-17T10:00:00.000Z' },
       {
         id: 'id-c',

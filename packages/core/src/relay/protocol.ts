@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ConversationEventSchema } from '../conversation/conversation-event.ts'
 import {
   ConversationsSchema,
+  ConversationIdentitySchema,
   ConversationSummarySchema,
   ConversationTurnStateSchema,
 } from '../conversation/conversation.ts'
@@ -62,7 +63,7 @@ export const ClientMethodSchemas = {
       limit: z.number().int().min(1).max(500),
     }),
     result: z.object({
-      conversation: ConversationSummarySchema,
+      conversation: ConversationIdentitySchema,
       events: z.array(ConversationEventSchema),
       next: TranscriptCursorSchema.nullable(),
       /** Whether a turn is running right now, so a browser knows to re-attach. */
@@ -72,7 +73,7 @@ export const ClientMethodSchemas = {
   'conversation.open': {
     params: z.object({ conversationId: ConversationIdSchema }),
     result: z.object({
-      conversation: ConversationSummarySchema,
+      conversation: ConversationIdentitySchema,
       turn: ConversationTurnStateSchema,
     }),
   },

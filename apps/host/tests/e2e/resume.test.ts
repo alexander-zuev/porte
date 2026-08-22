@@ -27,7 +27,12 @@ describe('e2e resume against installed grok', () => {
       throw new Error('grok is not on PATH; e2e requires installed Grok Build')
     }
 
+    // Porte lists only conversations that belong to a repository, so the
+    // scratch folder has to be one before Grok records the session.
     const cwd = await mkdtemp(join(tmpdir(), 'porte-e2e-'))
+    const repo = spawnSync('git', ['init', '--quiet', cwd], { encoding: 'utf8' })
+    expect(repo.status, repo.stderr).toBe(0)
+
     const seeded = spawnSync(
       'grok',
       [

@@ -2,7 +2,7 @@ import { CaretRightIcon, FolderIcon, NotePencilIcon } from '@phosphor-icons/reac
 import type { ConversationSummary } from '@porte/core/client'
 import { Link } from '@tanstack/react-router'
 import {
-  groupConversationsByCwd,
+  groupConversationsByRepo,
   type Project,
 } from '@web/entities/conversation/group-conversations.ts'
 import { cn } from '@web/lib/utils.ts'
@@ -30,9 +30,9 @@ export function ProjectList({ conversations, selectedConversationId }: ProjectLi
       {/* `h5` is the design system's 16px heading. A larger one would make the
           label louder than the folders it names. */}
       <h5 className="pb-1">Projects</h5>
-      {groupConversationsByCwd(conversations).map((project) => (
+      {groupConversationsByRepo(conversations).map((project) => (
         <ProjectRow
-          key={project.cwd}
+          key={project.gitRoot}
           project={project}
           selectedConversationId={selectedConversationId}
         />

@@ -2,8 +2,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import {
-  makeConversationSummary,
-  type ConversationSummary,
+  makeConversationIdentity,
+  type ConversationIdentity,
   type FailureClassification,
 } from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
@@ -13,9 +13,14 @@ import { grokSummaryFileSchema } from './grok-summary.ts'
 
 const errnoSchema = z.object({ code: z.string() })
 
-/** One conversation found in Grok's local files. */
+/**
+ * One conversation found in Grok's local files.
+ *
+ * Identity only. The files record the working directory but not the repository,
+ * which is why the list comes from `session/list` rather than from here.
+ */
 export type GrokStoredConversation = {
-  readonly summary: ConversationSummary
+  readonly identity: ConversationIdentity
   readonly folderPath: string
 }
 
@@ -85,7 +90,7 @@ export async function findGrokConversation(
   const listed = await listGrokConversations(grokHome)
   if (listed.isErr()) return Result.err(listed.error)
 
-  const matches = listed.value.filter((entry) => entry.summary.id === conversationId)
+  const matches = listed.value.filter((entry) => entry.identity.id === conversationId)
   const first = matches[0]
   if (first === undefined) {
     return Result.err(new GrokConversationNotFoundError({ conversationId }))
@@ -116,12 +121,12 @@ async function listFromDisk(grokHome: string): Promise<GrokStoredConversation[]>
     for (const directory of directories) {
       const folderPath = join(groupPath, directory)
       // oxlint-disable-next-line no-await-in-loop -- Sequential reads bound open file descriptors.
-      const summary = await readSummary(folderPath, group)
-      if (summary !== undefined) listed.push({ summary, folderPath })
+      const identity = await readSummary(folderPath, group)
+      if (identity !== undefined) listed.push({ identity, folderPath })
     }
   }
 
-  listed.sort((left, right) => right.summary.updatedAt.localeCompare(left.summary.updatedAt))
+  listed.sort((left, right) => right.identity.updatedAt.localeCompare(left.identity.updatedAt))
   return listed
 }
 
@@ -139,7 +144,7 @@ async function readDirNames(path: string): Promise<string[] | undefined> {
 async function readSummary(
   folderPath: string,
   encodedCwd: string,
-): Promise<ConversationSummary | undefined> {
+): Promise<ConversationIdentity | undefined> {
   let raw: string
   try {
     raw = await readFile(join(folderPath, 'summary.json'), 'utf8')
@@ -165,7 +170,7 @@ async function readSummary(
 
   const generated = parsed.data.generated_title
   const fallback = parsed.data.session_summary
-  return makeConversationSummary({
+  return makeConversationIdentity({
     id: parsed.data.info.id,
     cwd,
     title: generated !== undefined && generated.length > 0 ? generated : (fallback ?? ''),

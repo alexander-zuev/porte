@@ -1,4 +1,4 @@
-import type { ConversationId, ConversationSummary } from '@porte/core/client'
+import type { ConversationId, ConversationIdentity } from '@porte/core/client'
 import { useRelay } from '@web/entities/host/relay-context.tsx'
 import type { ChatTransport, UIMessage } from 'ai'
 import { useMemo } from 'react'
@@ -13,7 +13,7 @@ export type ConversationView =
   | { readonly status: 'failed'; readonly error: unknown; readonly onRetry: () => void }
   | {
       readonly status: 'ready'
-      readonly conversation: ConversationSummary
+      readonly conversation: ConversationIdentity
       readonly messages: readonly UIMessage[]
       /** How a turn reaches the Mac. Given to the chat, which never sees the socket. */
       readonly transport: ChatTransport<UIMessage>
