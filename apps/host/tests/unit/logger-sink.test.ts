@@ -20,5 +20,6 @@ describe('setLogSink', () => {
     expect(lines[0]).toContain('skippedLines')
     expect(lines[1]).toContain('ERROR|')
     expect(lines[1]).toContain('conversation.read')
+    expect(lines[1]).toContain('"message":"boom"')
   })
 })

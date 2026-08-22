@@ -26,6 +26,8 @@ type SerializedLogError = {
   readonly message: string
   readonly stack?: string
   readonly cause?: SerializedLogError | { readonly message: string }
+  /** What an owned typed error carries beyond a message. Absent when it carries none. */
+  readonly fields?: LogFields
 }
 
 type LogEntry = {
@@ -150,6 +152,45 @@ const getLogConfig = () => {
   }
 }
 
+/**
+ * Diagnostics worth keeping off an error, named one by one.
+ *
+ * An allowlist rather than every own property: an error raised by a library we
+ * do not control may hang a request or a user payload off itself, and a log is
+ * the wrong place to discover that.
+ *
+ * `_tag` is how `better-result` discriminates, and the field that says which
+ * failure this is. The three runtime flags are the ones Workers sets itself.
+ */
+type ErrorDiagnostics = Error & {
+  readonly _tag?: LogValue
+  readonly code?: LogValue
+  readonly operation?: LogValue
+  readonly status?: LogValue
+  readonly statusCode?: LogValue
+  readonly retryable?: LogValue
+  readonly overloaded?: LogValue
+  readonly durableObjectReset?: LogValue
+}
+
+/** Read those fields off one error. Absent when it carries none of them. */
+const keptErrorFields = (error: Error): LogFields | undefined => {
+  // Every field is optional, so an `Error` is already one of these.
+  const carrier: ErrorDiagnostics = error
+  const kept = Object.entries({
+    _tag: carrier._tag,
+    code: carrier.code,
+    operation: carrier.operation,
+    status: carrier.status,
+    statusCode: carrier.statusCode,
+    retryable: carrier.retryable,
+    overloaded: carrier.overloaded,
+    durableObjectReset: carrier.durableObjectReset,
+  }).filter(([, value]) => value !== undefined)
+
+  return kept.length === 0 ? undefined : Object.fromEntries(kept)
+}
+
 const serializeLogError = (error: Error, depth = 0): SerializedLogError => {
   if (depth > MAX_ERROR_CAUSE_DEPTH) {
     return { name: 'Error', message: '[cause chain truncated]' }
@@ -159,17 +200,50 @@ const serializeLogError = (error: Error, depth = 0): SerializedLogError => {
     depth === 0 && error.stack !== undefined
       ? { name: error.name, message: error.message, stack: error.stack }
       : { name: error.name, message: error.message }
-  if (error.cause === undefined) return base
+
+  const fields = keptErrorFields(error)
+  const described = fields === undefined ? base : { ...base, fields }
+  if (error.cause === undefined) return described
 
   const cause =
     error.cause instanceof Error
       ? serializeLogError(error.cause, depth + 1)
       : { message: '[non-error cause]' }
-  return { ...base, cause }
+  return { ...described, cause }
 }
 
 const serializeLogValue = (value: LogValue): LogValue | SerializedLogError =>
   value instanceof Error ? serializeLogError(value) : value
+
+/**
+ * The error and its details as the one object the log line carries.
+ *
+ * Both, because they answer different questions: the details say which call
+ * this was, and the error says what went wrong inside it.
+ */
+const errorFields = (context: ErrorLogContext) => {
+  const details = context.details ?? {}
+  const thrown = context.error
+  if (thrown === undefined) return details
+  if (thrown instanceof Error) return { ...details, error: serializeLogError(thrown) }
+
+  // Not an `Error`, so there is no name or stack to keep — only its shape.
+  try {
+    return { ...details, error: { message: JSON.stringify(thrown) } }
+  } catch {
+    return { ...details, error: { message: '[non-serializable error]' } }
+  }
+}
+
+/**
+ * Rescue an `Error` nested anywhere in a logged object.
+ *
+ * `JSON.stringify` has no enumerable properties to find on one, so without this
+ * a cause tucked inside `details` writes itself as `{}`. Applied at the outer
+ * boundary, so depth costs nothing to a caller.
+ */
+const errorReplacer = (_key: string, value: LogValue): LogValue | SerializedLogError =>
+  serializeLogValue(value)
 
 const formatDevelopmentArgs = (
   values: ReadonlyArray<LogValue>,
@@ -177,7 +251,7 @@ const formatDevelopmentArgs = (
 
 const stringifyLogValues = (values: ReadonlyArray<LogValue | SerializedLogError>): string => {
   try {
-    return JSON.stringify(values.length === 1 ? values[0] : values)
+    return JSON.stringify(values.length === 1 ? values[0] : values, errorReplacer)
   } catch {
     return '[Circular or non-serializable object]'
   }
@@ -185,7 +259,7 @@ const stringifyLogValues = (values: ReadonlyArray<LogValue | SerializedLogError>
 
 const stringifyLogEntry = (entry: LogEntry): string => {
   try {
-    return JSON.stringify(entry)
+    return JSON.stringify(entry, errorReplacer)
   } catch {
     return JSON.stringify({
       timestamp: entry.timestamp,
@@ -355,9 +429,9 @@ export class Logger {
     this.log(LogLevel.WARN, message, values)
   }
 
-  /** Write an error log and send its error to the configured hook. */
+  /** Write an error log, carrying the error itself, and send it to the configured hook. */
   error(message: string, context?: ErrorLogContext): void {
-    this.log(LogLevel.ERROR, message, context === undefined ? [] : [context.details ?? {}])
+    this.log(LogLevel.ERROR, message, context === undefined ? [] : [errorFields(context)])
 
     if (errorHook !== null && context?.error !== undefined) {
       errorHook({
