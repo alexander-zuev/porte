@@ -11,7 +11,6 @@ import {
 import { ConversationsByRepo } from '@web/features/conversations/components/conversations-by-repo.tsx'
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
 import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
-import { AppShell } from '@web/ui/components/app-shell.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -25,9 +24,10 @@ export type ConversationsPageProps = {
 /** Everything a signed-in account with a paired Mac sees. Renders, never waits. */
 export function ConversationsPage({ host, relay, conversationList }: ConversationsPageProps) {
   return (
-    <AppShell header={<ConversationsHeader host={host} relay={relay} />}>
+    <>
+      <ConversationsHeader host={host} relay={relay} />
       <div className="flex flex-1 flex-col gap-4">{body(relay, conversationList)}</div>
-    </AppShell>
+    </>
   )
 }
 

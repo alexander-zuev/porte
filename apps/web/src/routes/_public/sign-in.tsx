@@ -25,6 +25,7 @@ export const Route = createFileRoute('/_public/sign-in')({
       path: '/sign-in',
       noIndex: true,
     }),
+  staticData: { publicShell: 'card' },
   component: SignInRoute,
 })
 

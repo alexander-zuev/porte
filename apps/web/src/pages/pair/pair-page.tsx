@@ -1,16 +1,13 @@
 import { PairingFlow, type PairingFlowProps } from '@web/features/pair/components/pairing-flow.tsx'
-import { PublicShell } from '@web/ui/components/public-shell.tsx'
 
 /** Props for one pairing page state. */
 export type PairPageProps = PairingFlowProps
 
-/** Wordmark above, one card, and the legal links. Nothing else competes. */
+/** One card under the wordmark. Nothing else competes. */
 export function PairPage(props: PairPageProps) {
   return (
-    <PublicShell footer="legal" header="brand" back={false}>
-      <div className="w-full max-w-md">
-        <PairingFlow {...props} />
-      </div>
-    </PublicShell>
+    <div className="w-full max-w-md">
+      <PairingFlow {...props} />
+    </div>
   )
 }

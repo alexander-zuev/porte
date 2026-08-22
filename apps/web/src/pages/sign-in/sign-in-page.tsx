@@ -1,6 +1,6 @@
-import { SignInLayout } from '@web/features/auth/components/sign-in-layout.tsx'
 import { SocialSignInButtons } from '@web/features/auth/components/social-sign-in-buttons.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
+import { LogoLink } from '@web/ui/components/logo.tsx'
 import type { ReactNode } from 'react'
 
 export type SignInPageProps = {
@@ -22,9 +22,11 @@ export function SignInPage({
   onSocial,
 }: SignInPageProps) {
   return (
-    <SignInLayout>
-      {/* Why you are here comes before what to do about it. */}
-      <div className="flex flex-col gap-6">
+    <>
+      <LogoLink />
+      {/* Why you are here comes before what to do about it. Wide enough for the
+          pairing notice to read as sentences, not a column. */}
+      <div className="flex w-full max-w-sm flex-col gap-6">
         {notice}
         <h1 className="text-center">Sign in to Porte</h1>
         <SocialSignInButtons
@@ -34,6 +36,6 @@ export function SignInPage({
         />
         {children}
       </div>
-    </SignInLayout>
+    </>
   )
 }

@@ -1,4 +1,3 @@
-import { PublicShell } from '@web/ui/components/public-shell.tsx'
 import type { ReactNode } from 'react'
 
 /** Props for a legal document page. */
@@ -12,13 +11,11 @@ export type LegalPageProps = {
 /** Prose column shared by Terms and Privacy. */
 export function LegalPage({ title, updated, children }: LegalPageProps) {
   return (
-    <PublicShell>
-      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-14 md:px-10">
-        <h1>{title}</h1>
-        <small className="text-muted-foreground">Last updated {updated}</small>
-        <div className="mt-10 flex flex-col gap-8">{children}</div>
-      </div>
-    </PublicShell>
+    <>
+      <h1>{title}</h1>
+      <small className="text-muted-foreground">Last updated {updated}</small>
+      <div className="mt-10 flex flex-col gap-8">{children}</div>
+    </>
   )
 }
 

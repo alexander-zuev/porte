@@ -11,13 +11,14 @@
 import { Route as rootRouteImport } from './../../routes/__root'
 import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
 import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
-import { Route as AuthAccountRouteImport } from './../../routes/_auth/account'
-import { Route as AuthConversationsRouteImport } from './../../routes/_auth/conversations'
+import { Route as AuthAppRouteRouteImport } from './../../routes/_auth/_app/route'
+import { Route as AuthPairRouteRouteImport } from './../../routes/_auth/pair/route'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
 import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
 import { Route as PublicSignInRouteImport } from './../../routes/_public/sign-in'
 import { Route as PublicTermsRouteImport } from './../../routes/_public/terms'
-import { Route as AuthCConversationIdRouteImport } from './../../routes/_auth/c/$conversationId'
+import { Route as AuthAppRelayRouteRouteImport } from './../../routes/_auth/_app/_relay/route'
+import { Route as AuthAppAccountRouteImport } from './../../routes/_auth/_app/account'
 import { Route as AuthPairIndexRouteImport } from './../../routes/_auth/pair/index'
 import { Route as AuthPairCancelledRouteImport } from './../../routes/_auth/pair/cancelled'
 import { Route as AuthPairCodeRouteImport } from './../../routes/_auth/pair/code'
@@ -26,6 +27,8 @@ import { Route as AuthPairSuccessRouteImport } from './../../routes/_auth/pair/s
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
 import { Route as ApiCacheImagesRouteImport } from './../../routes/api/cache/images'
 import { Route as ApiPairCodeRouteImport } from './../../routes/api/pair/code'
+import { Route as AuthAppRelayConversationsIndexRouteImport } from './../../routes/_auth/_app/_relay/conversations/index'
+import { Route as AuthAppRelayConversationsConversationIdRouteImport } from './../../routes/_auth/_app/_relay/conversations/$conversationId'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
@@ -35,14 +38,13 @@ const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthAccountRoute = AuthAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const AuthAppRouteRoute = AuthAppRouteRouteImport.update({
+  id: '/_app',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthConversationsRoute = AuthConversationsRouteImport.update({
-  id: '/conversations',
-  path: '/conversations',
+const AuthPairRouteRoute = AuthPairRouteRouteImport.update({
+  id: '/pair',
+  path: '/pair',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
@@ -65,35 +67,39 @@ const PublicTermsRoute = PublicTermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => PublicRouteRoute,
 } as any)
-const AuthCConversationIdRoute = AuthCConversationIdRouteImport.update({
-  id: '/c/$conversationId',
-  path: '/c/$conversationId',
-  getParentRoute: () => AuthRouteRoute,
+const AuthAppRelayRouteRoute = AuthAppRelayRouteRouteImport.update({
+  id: '/_relay',
+  getParentRoute: () => AuthAppRouteRoute,
+} as any)
+const AuthAppAccountRoute = AuthAppAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthAppRouteRoute,
 } as any)
 const AuthPairIndexRoute = AuthPairIndexRouteImport.update({
-  id: '/pair/',
-  path: '/pair/',
-  getParentRoute: () => AuthRouteRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthPairRouteRoute,
 } as any)
 const AuthPairCancelledRoute = AuthPairCancelledRouteImport.update({
-  id: '/pair/cancelled',
-  path: '/pair/cancelled',
-  getParentRoute: () => AuthRouteRoute,
+  id: '/cancelled',
+  path: '/cancelled',
+  getParentRoute: () => AuthPairRouteRoute,
 } as any)
 const AuthPairCodeRoute = AuthPairCodeRouteImport.update({
-  id: '/pair/code',
-  path: '/pair/code',
-  getParentRoute: () => AuthRouteRoute,
+  id: '/code',
+  path: '/code',
+  getParentRoute: () => AuthPairRouteRoute,
 } as any)
 const AuthPairConfirmRoute = AuthPairConfirmRouteImport.update({
-  id: '/pair/confirm',
-  path: '/pair/confirm',
-  getParentRoute: () => AuthRouteRoute,
+  id: '/confirm',
+  path: '/confirm',
+  getParentRoute: () => AuthPairRouteRoute,
 } as any)
 const AuthPairSuccessRoute = AuthPairSuccessRouteImport.update({
-  id: '/pair/success',
-  path: '/pair/success',
-  getParentRoute: () => AuthRouteRoute,
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => AuthPairRouteRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -110,15 +116,26 @@ const ApiPairCodeRoute = ApiPairCodeRouteImport.update({
   path: '/api/pair/code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthAppRelayConversationsIndexRoute =
+  AuthAppRelayConversationsIndexRouteImport.update({
+    id: '/conversations/',
+    path: '/conversations/',
+    getParentRoute: () => AuthAppRelayRouteRoute,
+  } as any)
+const AuthAppRelayConversationsConversationIdRoute =
+  AuthAppRelayConversationsConversationIdRouteImport.update({
+    id: '/conversations/$conversationId',
+    path: '/conversations/$conversationId',
+    getParentRoute: () => AuthAppRelayRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
-  '/account': typeof AuthAccountRoute
-  '/conversations': typeof AuthConversationsRoute
+  '/pair': typeof AuthPairRouteRouteWithChildren
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
-  '/c/$conversationId': typeof AuthCConversationIdRoute
+  '/account': typeof AuthAppAccountRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
@@ -127,15 +144,15 @@ export interface FileRoutesByFullPath {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/pair/': typeof AuthPairIndexRoute
+  '/conversations/$conversationId': typeof AuthAppRelayConversationsConversationIdRoute
+  '/conversations/': typeof AuthAppRelayConversationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
-  '/account': typeof AuthAccountRoute
-  '/conversations': typeof AuthConversationsRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
-  '/c/$conversationId': typeof AuthCConversationIdRoute
+  '/account': typeof AuthAppAccountRoute
   '/pair/cancelled': typeof AuthPairCancelledRoute
   '/pair/code': typeof AuthPairCodeRoute
   '/pair/confirm': typeof AuthPairConfirmRoute
@@ -144,18 +161,21 @@ export interface FileRoutesByTo {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/pair': typeof AuthPairIndexRoute
+  '/conversations/$conversationId': typeof AuthAppRelayConversationsConversationIdRoute
+  '/conversations': typeof AuthAppRelayConversationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_public': typeof PublicRouteRouteWithChildren
-  '/_auth/account': typeof AuthAccountRoute
-  '/_auth/conversations': typeof AuthConversationsRoute
+  '/_auth/_app': typeof AuthAppRouteRouteWithChildren
+  '/_auth/pair': typeof AuthPairRouteRouteWithChildren
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/terms': typeof PublicTermsRoute
   '/_public/': typeof PublicIndexRoute
-  '/_auth/c/$conversationId': typeof AuthCConversationIdRoute
+  '/_auth/_app/_relay': typeof AuthAppRelayRouteRouteWithChildren
+  '/_auth/_app/account': typeof AuthAppAccountRoute
   '/_auth/pair/cancelled': typeof AuthPairCancelledRoute
   '/_auth/pair/code': typeof AuthPairCodeRoute
   '/_auth/pair/confirm': typeof AuthPairConfirmRoute
@@ -164,17 +184,18 @@ export interface FileRoutesById {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/_auth/pair/': typeof AuthPairIndexRoute
+  '/_auth/_app/_relay/conversations/$conversationId': typeof AuthAppRelayConversationsConversationIdRoute
+  '/_auth/_app/_relay/conversations/': typeof AuthAppRelayConversationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/account'
-    | '/conversations'
+    | '/pair'
     | '/privacy'
     | '/sign-in'
     | '/terms'
-    | '/c/$conversationId'
+    | '/account'
     | '/pair/cancelled'
     | '/pair/code'
     | '/pair/confirm'
@@ -183,15 +204,15 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/pair/code'
     | '/pair/'
+    | '/conversations/$conversationId'
+    | '/conversations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/account'
-    | '/conversations'
     | '/privacy'
     | '/sign-in'
     | '/terms'
-    | '/c/$conversationId'
+    | '/account'
     | '/pair/cancelled'
     | '/pair/code'
     | '/pair/confirm'
@@ -200,17 +221,20 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/pair/code'
     | '/pair'
+    | '/conversations/$conversationId'
+    | '/conversations'
   id:
     | '__root__'
     | '/_auth'
     | '/_public'
-    | '/_auth/account'
-    | '/_auth/conversations'
+    | '/_auth/_app'
+    | '/_auth/pair'
     | '/_public/privacy'
     | '/_public/sign-in'
     | '/_public/terms'
     | '/_public/'
-    | '/_auth/c/$conversationId'
+    | '/_auth/_app/_relay'
+    | '/_auth/_app/account'
     | '/_auth/pair/cancelled'
     | '/_auth/pair/code'
     | '/_auth/pair/confirm'
@@ -219,6 +243,8 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/pair/code'
     | '/_auth/pair/'
+    | '/_auth/_app/_relay/conversations/$conversationId'
+    | '/_auth/_app/_relay/conversations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -245,18 +271,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_auth/account': {
-      id: '/_auth/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthAccountRouteImport
+    '/_auth/_app': {
+      id: '/_auth/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthAppRouteRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_auth/conversations': {
-      id: '/_auth/conversations'
-      path: '/conversations'
-      fullPath: '/conversations'
-      preLoaderRoute: typeof AuthConversationsRouteImport
+    '/_auth/pair': {
+      id: '/_auth/pair'
+      path: '/pair'
+      fullPath: '/pair'
+      preLoaderRoute: typeof AuthPairRouteRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_public/': {
@@ -287,47 +313,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicTermsRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_auth/c/$conversationId': {
-      id: '/_auth/c/$conversationId'
-      path: '/c/$conversationId'
-      fullPath: '/c/$conversationId'
-      preLoaderRoute: typeof AuthCConversationIdRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_auth/_app/_relay': {
+      id: '/_auth/_app/_relay'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthAppRelayRouteRouteImport
+      parentRoute: typeof AuthAppRouteRoute
+    }
+    '/_auth/_app/account': {
+      id: '/_auth/_app/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthAppAccountRouteImport
+      parentRoute: typeof AuthAppRouteRoute
     }
     '/_auth/pair/': {
       id: '/_auth/pair/'
-      path: '/pair'
+      path: '/'
       fullPath: '/pair/'
       preLoaderRoute: typeof AuthPairIndexRouteImport
-      parentRoute: typeof AuthRouteRoute
+      parentRoute: typeof AuthPairRouteRoute
     }
     '/_auth/pair/cancelled': {
       id: '/_auth/pair/cancelled'
-      path: '/pair/cancelled'
+      path: '/cancelled'
       fullPath: '/pair/cancelled'
       preLoaderRoute: typeof AuthPairCancelledRouteImport
-      parentRoute: typeof AuthRouteRoute
+      parentRoute: typeof AuthPairRouteRoute
     }
     '/_auth/pair/code': {
       id: '/_auth/pair/code'
-      path: '/pair/code'
+      path: '/code'
       fullPath: '/pair/code'
       preLoaderRoute: typeof AuthPairCodeRouteImport
-      parentRoute: typeof AuthRouteRoute
+      parentRoute: typeof AuthPairRouteRoute
     }
     '/_auth/pair/confirm': {
       id: '/_auth/pair/confirm'
-      path: '/pair/confirm'
+      path: '/confirm'
       fullPath: '/pair/confirm'
       preLoaderRoute: typeof AuthPairConfirmRouteImport
-      parentRoute: typeof AuthRouteRoute
+      parentRoute: typeof AuthPairRouteRoute
     }
     '/_auth/pair/success': {
       id: '/_auth/pair/success'
-      path: '/pair/success'
+      path: '/success'
       fullPath: '/pair/success'
       preLoaderRoute: typeof AuthPairSuccessRouteImport
-      parentRoute: typeof AuthRouteRoute
+      parentRoute: typeof AuthPairRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -350,13 +383,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPairCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/_app/_relay/conversations/': {
+      id: '/_auth/_app/_relay/conversations/'
+      path: '/conversations'
+      fullPath: '/conversations/'
+      preLoaderRoute: typeof AuthAppRelayConversationsIndexRouteImport
+      parentRoute: typeof AuthAppRelayRouteRoute
+    }
+    '/_auth/_app/_relay/conversations/$conversationId': {
+      id: '/_auth/_app/_relay/conversations/$conversationId'
+      path: '/conversations/$conversationId'
+      fullPath: '/conversations/$conversationId'
+      preLoaderRoute: typeof AuthAppRelayConversationsConversationIdRouteImport
+      parentRoute: typeof AuthAppRelayRouteRoute
+    }
   }
 }
 
-interface AuthRouteRouteChildren {
-  AuthAccountRoute: typeof AuthAccountRoute
-  AuthConversationsRoute: typeof AuthConversationsRoute
-  AuthCConversationIdRoute: typeof AuthCConversationIdRoute
+interface AuthAppRelayRouteRouteChildren {
+  AuthAppRelayConversationsConversationIdRoute: typeof AuthAppRelayConversationsConversationIdRoute
+  AuthAppRelayConversationsIndexRoute: typeof AuthAppRelayConversationsIndexRoute
+}
+
+const AuthAppRelayRouteRouteChildren: AuthAppRelayRouteRouteChildren = {
+  AuthAppRelayConversationsConversationIdRoute:
+    AuthAppRelayConversationsConversationIdRoute,
+  AuthAppRelayConversationsIndexRoute: AuthAppRelayConversationsIndexRoute,
+}
+
+const AuthAppRelayRouteRouteWithChildren =
+  AuthAppRelayRouteRoute._addFileChildren(AuthAppRelayRouteRouteChildren)
+
+interface AuthAppRouteRouteChildren {
+  AuthAppRelayRouteRoute: typeof AuthAppRelayRouteRouteWithChildren
+  AuthAppAccountRoute: typeof AuthAppAccountRoute
+}
+
+const AuthAppRouteRouteChildren: AuthAppRouteRouteChildren = {
+  AuthAppRelayRouteRoute: AuthAppRelayRouteRouteWithChildren,
+  AuthAppAccountRoute: AuthAppAccountRoute,
+}
+
+const AuthAppRouteRouteWithChildren = AuthAppRouteRoute._addFileChildren(
+  AuthAppRouteRouteChildren,
+)
+
+interface AuthPairRouteRouteChildren {
   AuthPairCancelledRoute: typeof AuthPairCancelledRoute
   AuthPairCodeRoute: typeof AuthPairCodeRoute
   AuthPairConfirmRoute: typeof AuthPairConfirmRoute
@@ -364,15 +436,26 @@ interface AuthRouteRouteChildren {
   AuthPairIndexRoute: typeof AuthPairIndexRoute
 }
 
-const AuthRouteRouteChildren: AuthRouteRouteChildren = {
-  AuthAccountRoute: AuthAccountRoute,
-  AuthConversationsRoute: AuthConversationsRoute,
-  AuthCConversationIdRoute: AuthCConversationIdRoute,
+const AuthPairRouteRouteChildren: AuthPairRouteRouteChildren = {
   AuthPairCancelledRoute: AuthPairCancelledRoute,
   AuthPairCodeRoute: AuthPairCodeRoute,
   AuthPairConfirmRoute: AuthPairConfirmRoute,
   AuthPairSuccessRoute: AuthPairSuccessRoute,
   AuthPairIndexRoute: AuthPairIndexRoute,
+}
+
+const AuthPairRouteRouteWithChildren = AuthPairRouteRoute._addFileChildren(
+  AuthPairRouteRouteChildren,
+)
+
+interface AuthRouteRouteChildren {
+  AuthAppRouteRoute: typeof AuthAppRouteRouteWithChildren
+  AuthPairRouteRoute: typeof AuthPairRouteRouteWithChildren
+}
+
+const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthAppRouteRoute: AuthAppRouteRouteWithChildren,
+  AuthPairRouteRoute: AuthPairRouteRouteWithChildren,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

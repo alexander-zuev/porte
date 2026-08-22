@@ -1,0 +1,33 @@
+/* Layout primitives shared by both shells. Width and padding stay separate: a
+   bar spans the viewport and constrains only its contents. */
+
+/** `svh` is the smallest phone viewport, so a URL bar never covers the footer. */
+@utility shell-frame {
+  @apply flex min-h-svh flex-col;
+  /* Non-zero only on a phone with a home indicator. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/** Space to the screen edge. */
+@utility shell-x {
+  @apply px-4 md:px-8;
+}
+
+/** Air above and below a page. Applied per variant: a centred hero wants none. */
+@utility shell-y {
+  @apply py-12 md:py-14;
+}
+
+/** Reading measure: the app, and prose on a public page. */
+@utility container-column {
+  @apply mx-auto w-full max-w-2xl;
+}
+
+/** The landing, and the bars above and below every public page. */
+@utility container-page {
+  @apply mx-auto w-full max-w-6xl;
+}
+
+@utility container-full {
+  @apply mx-auto w-full;
+}

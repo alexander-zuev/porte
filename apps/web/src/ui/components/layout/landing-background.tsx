@@ -1,7 +1,7 @@
 import { FaultyTerminal } from '@web/ui/components/react-bits/faulty-terminal.tsx'
 
-/** Terminal field behind every public page. Tune the look here, not per page. */
-export function MarketingBackground() {
+/** Terminal field behind the landing page. Tune the look here, not per page. */
+export function LandingBackground() {
   return (
     <FaultyTerminal
       brightness={0.18}

@@ -6,7 +6,7 @@ import { useRelay } from '@web/entities/host/relay-context.tsx'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 
-export const Route = createFileRoute('/_auth/c/$conversationId')({
+export const Route = createFileRoute('/_auth/_app/_relay/conversations/$conversationId')({
   params: {
     parse: (raw) => ({ conversationId: ConversationIdSchema.parse(raw.conversationId) }),
     stringify: (params) => ({ conversationId: params.conversationId }),
@@ -25,9 +25,10 @@ export const Route = createFileRoute('/_auth/c/$conversationId')({
     createSeoHead({
       title: 'Conversation | Porte',
       description: 'One Grok conversation on your paired Mac.',
-      path: '/c/$conversationId',
+      path: '/conversations/$conversationId',
       noIndex: true,
     }),
+  staticData: { appShell: 'fill' },
   component: ConversationRoute,
 })
 

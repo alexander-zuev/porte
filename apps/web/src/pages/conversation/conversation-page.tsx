@@ -10,8 +10,6 @@ import {
   ConversationFailed,
   ConversationOpening,
 } from '@web/features/conversation/components/conversation-states.tsx'
-import { AppShell } from '@web/ui/components/app-shell.tsx'
-
 export type ConversationPageProps = {
   readonly conversationId: ConversationId
   readonly view: ConversationView
@@ -31,9 +29,10 @@ export function ConversationPage({ conversationId, view, host, relay }: Conversa
   )
 
   return (
-    <AppShell header={header}>
+    <>
+      {header}
       <ConversationBody conversationId={conversationId} relay={relay} view={view} />
-    </AppShell>
+    </>
   )
 }
 

@@ -1,6 +1,5 @@
 import { ensureSession } from '@server/entrypoints/functions/auth.fn.ts'
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import { RelayProvider } from '@web/entities/host/relay-context.tsx'
 import { signInSearchFromLocation } from '@web/lib/auth/internal-return-to.ts'
 
 export const Route = createFileRoute('/_auth')({
@@ -22,16 +21,7 @@ export const Route = createFileRoute('/_auth')({
   component: AuthLayout,
 })
 
-/**
- * One line to the Mac for the whole signed-in session.
- *
- * Opened here rather than in a page, so moving between conversations does not
- * close and reopen a socket the relay would count as a second browser.
- */
+/** Everything behind the session. The relay's own layout is nested inside. */
 function AuthLayout() {
-  return (
-    <RelayProvider>
-      <Outlet />
-    </RelayProvider>
-  )
+  return <Outlet />
 }

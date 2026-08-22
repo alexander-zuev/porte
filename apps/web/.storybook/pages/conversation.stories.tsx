@@ -12,6 +12,7 @@ import {
   ConversationPage,
   type ConversationPageProps,
 } from '@web/pages/conversation/conversation-page.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 import type { ChatTransport, UIMessage } from 'ai'
 
 const HOST = {
@@ -105,6 +106,14 @@ const meta = {
   title: 'Pages/Conversation',
   component: ConversationPage,
   parameters: { layout: 'fullscreen' },
+  // The frame comes from the `_app` route, so the story supplies it instead.
+  decorators: [
+    (Story) => (
+      <AppShell variant="fill">
+        <Story />
+      </AppShell>
+    ),
+  ],
 } satisfies Meta<typeof ConversationPage>
 
 export default meta

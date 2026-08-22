@@ -1,6 +1,7 @@
 import type { PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AccountPage } from '@web/pages/account/account-page.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 const identity = { name: 'Alexander Zuev', email: 'azuevpersonal@gmail.com' }
 
@@ -29,6 +30,14 @@ const meta = {
   component: AccountPage,
   parameters: { layout: 'fullscreen' },
   args: { ...actions, identity, pending: 'none', deleteConfirming: false },
+  // The frame comes from the `_app` route, so the story supplies it instead.
+  decorators: [
+    (Story) => (
+      <AppShell variant="scroll">
+        <Story />
+      </AppShell>
+    ),
+  ],
 } satisfies Meta<typeof AccountPage>
 
 export default meta

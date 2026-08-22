@@ -10,5 +10,6 @@ export const Route = createFileRoute('/_public/')({
         'Porte pairs your phone with the Mac that already runs Grok. Pick up a session, start a new one, and approve every action from anywhere. Open source, Apache-2.0.',
       path: '/',
     }),
+  staticData: { publicShell: 'hero' },
   component: LandingPage,
 })

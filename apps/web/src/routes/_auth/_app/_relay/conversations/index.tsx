@@ -6,7 +6,7 @@ import { useRelay } from '@web/entities/host/relay-context.tsx'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
 
-export const Route = createFileRoute('/_auth/conversations')({
+export const Route = createFileRoute('/_auth/_app/_relay/conversations/')({
   /** An unpaired account has nothing to see here, and `host` is known by now. */
   beforeLoad: async ({ context }) => {
     const owned = await context.queryClient.ensureQueryData(hostQueries.forAccount())
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/_auth/conversations')({
     createSeoHead({
       title: 'Conversations | Porte',
       description: 'The Grok conversations on your paired Mac, ready to pick up from anywhere.',
-      path: '/conversations',
+      path: '/conversations/',
       noIndex: true,
     }),
   component: ConversationsRoute,

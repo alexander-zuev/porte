@@ -8,6 +8,7 @@ import {
   ConversationsPage,
   type ConversationsPageProps,
 } from '@web/pages/conversations/conversations-page.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 import { conversations, storyUser } from '../fixtures/conversations.ts'
 
@@ -50,6 +51,14 @@ const meta = {
   title: 'Pages/Conversations',
   component: ConversationsPage,
   parameters: { layout: 'fullscreen' },
+  // The frame comes from the `_app` route, so the story supplies it instead.
+  decorators: [
+    (Story) => (
+      <AppShell variant="scroll">
+        <Story />
+      </AppShell>
+    ),
+  ],
 } satisfies Meta<typeof ConversationsPage>
 
 export default meta

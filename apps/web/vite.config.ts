@@ -30,6 +30,8 @@ export default defineConfig(() => {
           entry: './lib/router/router.tsx',
           generatedRouteTree: './lib/router/routeTree.gen.ts',
         },
+        // Embed the stylesheet in the SSR HTML, so first paint costs no round trip.
+        server: { build: { inlineCss: true } },
       }),
       viteReact(),
       sentryTanstackStart({

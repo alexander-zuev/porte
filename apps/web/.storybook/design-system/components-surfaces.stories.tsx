@@ -8,7 +8,6 @@ import {
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
-import { HoverOrTap } from '@web/ui/components/hover-or-tap.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Badge } from '@web/ui/components/ui/badge.tsx'
@@ -221,11 +220,6 @@ function SurfacesBoard() {
           <HostStatus status="reconnecting" />
           <HostStatus status="offline" detail="Since 13:40" />
           <HostStatus status="loading" />
-        </Specimen>
-        <Specimen label="Hint on a control" note="Tooltip with a pointer, popover on tap">
-          <HoverOrTap label="Stops the current turn">
-            <Button variant="outline">Stop</Button>
-          </HoverOrTap>
         </Specimen>
         <Specimen label="Terminal command" stack wide>
           <TerminalCommand command="npx porte@latest pair" />

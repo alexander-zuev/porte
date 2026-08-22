@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { cn } from '@web/lib/utils.ts'
 
 const LOGO_SIZE = {
@@ -26,5 +27,14 @@ export function Logo({ size = 'md', className }: LogoProps) {
         className="ml-[0.12em] inline-block h-[1em] w-[0.4em] translate-y-[0.14em] bg-current"
       />
     </span>
+  )
+}
+
+/** The wordmark as the way home, above a page built around one decision. */
+export function LogoLink({ size = 'lg' }: Pick<LogoProps, 'size'>) {
+  return (
+    <Link aria-label="Porte home" to="/">
+      <Logo size={size} />
+    </Link>
   )
 }

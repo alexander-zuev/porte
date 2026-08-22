@@ -8,7 +8,9 @@ import { TooltipProvider } from '@web/ui/components/ui/tooltip.tsx'
 import PostHogProvider from '../lib/analytics/provider'
 import TanStackQueryDevtools from '../lib/clients/devtools'
 
-import appCss from '../ui/stylesheets/globals.css?url'
+// Side-effect, not `?url`: Start finds it in the build manifest, so it reaches
+// static Early Hints and `inlineCss`, which `?url` links are excluded from.
+import '../ui/stylesheets/globals.css'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -22,17 +24,14 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        // `viewport-fit=cover` is what makes the safe-area insets non-zero.
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         title: 'Porte',
       },
     ],
     links: [
-      {
-        rel: 'stylesheet',
-        href: appCss,
-      },
       // The emoji is drawn by the reader's own font, so the file stays 3 lines.
       {
         rel: 'icon',
