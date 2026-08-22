@@ -1,6 +1,7 @@
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 import { HeaderAccount } from '@web/features/auth/components/header-account.tsx'
+import { ShellHeader } from '@web/ui/components/layout/shell-header.tsx'
 import { Logo } from '@web/ui/components/logo.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import type { ReactNode } from 'react'
@@ -13,12 +14,7 @@ const DEFAULT_LEAD = (
   </Link>
 )
 
-/**
- * Header shared by every public page.
- *
- * The height is fixed so what sits at the left keeps its exact position when a
- * route swaps the wordmark for a way back, or an action for none.
- */
+/** Header shared by every public page. `ShellHeader` holds the geometry the app shares. */
 export function PublicHeader({
   action = DEFAULT_ACTION,
   lead = DEFAULT_LEAD,
@@ -28,12 +24,12 @@ export function PublicHeader({
   readonly lead?: ReactNode
 }) {
   return (
-    <header className="bg-gradient-to-b from-background to-transparent">
-      <div className="container-page shell-x flex h-20 items-center justify-between gap-4">
-        {lead}
-        {action}
-      </div>
-    </header>
+    <ShellHeader
+      action={action}
+      className="bg-gradient-to-b from-background to-transparent"
+      lead={lead}
+      measure="page"
+    />
   )
 }
 

@@ -64,7 +64,7 @@ function SurfacesBoard() {
               </CardAction>
             </CardHeader>
             <CardContent>
-              <HostStatus connection="online" detail="Last seen 2 minutes ago" />
+              <HostStatus connection="online" />
             </CardContent>
             <CardFooter className="gap-2">
               <Button size="sm" variant="outline">
@@ -217,8 +217,7 @@ function SurfacesBoard() {
       <Section title="Product surfaces" note="Small compositions the product repeats everywhere.">
         <Specimen label="Host status" stack>
           <HostStatus connection="loading" />
-          <HostStatus connection="online" detail="Last seen just now" />
-          <HostStatus connection="offline" detail="Since 13:40" />
+          <HostStatus connection="online" />
           <HostStatus connection="offline" />
         </Specimen>
         <Specimen label="Terminal command" stack wide>

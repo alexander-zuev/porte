@@ -1,9 +1,8 @@
-import { IsoDateTimeSchema, type ConversationSummary, type PairedHost } from '@porte/core/client'
+import type { ConversationSummary } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
-import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import {
   ConversationsPage,
   type ConversationsPageProps,
@@ -11,14 +10,6 @@ import {
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 import { conversations, storyUser } from '../fixtures/conversations.ts'
-
-const SEEN = IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z')
-
-const HOST = {
-  name: "Alexander's MacBook Pro",
-  platform: 'darwin',
-  lastSeenAt: '2026-08-19T14:02:00.000Z',
-} as PairedHost
 
 const NONE: readonly ConversationSummary[] = []
 
@@ -32,7 +23,7 @@ function page(
   connection: HostConnection,
   conversationList: ConversationList,
 ): ConversationsPageProps {
-  return { host: HOST, connection, conversationList }
+  return { connection, conversationList }
 }
 
 /** The list arrived. Paging is off unless a story says otherwise. */

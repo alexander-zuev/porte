@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { useAppShellVariant } from '@web/lib/router/use-shell-variant.ts'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 export const Route = createFileRoute('/_auth/_app')({
@@ -15,7 +16,7 @@ export const Route = createFileRoute('/_auth/_app')({
 function AppLayout() {
   const variant = useAppShellVariant('scroll')
   return (
-    <AppShell variant={variant}>
+    <AppShell header={<AppHeader />} variant={variant}>
       <Outlet />
     </AppShell>
   )

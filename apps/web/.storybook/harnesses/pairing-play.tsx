@@ -1,7 +1,5 @@
 import { PairingOriginSchema, type PairingOrigin } from '@porte/core/client'
-import type { PairedHost } from '@porte/core/client'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
-import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
 import {
@@ -14,7 +12,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { conversations } from '../fixtures/conversations.ts'
 
-const HOST_NAME = "Alex's MacBook Pro"
 const ACCOUNT = 'a•••@example.com'
 const EXPIRED_CODE = 'ZZZZZZZZ'
 
@@ -26,10 +23,7 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 
 /** Where every pairing journey lands. Only a paired Mac has conversations to list. */
 function homeList(paired: boolean) {
-  const host = { name: HOST_NAME, platform: 'darwin', lastSeenAt: null } as PairedHost
-
   return {
-    host,
     connection: paired ? 'online' : 'offline',
     conversationList: {
       status: 'ready',

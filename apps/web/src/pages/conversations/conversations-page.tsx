@@ -1,4 +1,3 @@
-import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import {
@@ -7,27 +6,24 @@ import {
   ReadingConversations,
   StartPorteOnMac,
 } from '@web/features/conversations/components/conversation-list-states.tsx'
-import { ConversationsByRepo } from '@web/features/conversations/components/conversations-by-repo.tsx'
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
-import { ConversationsHeader } from '@web/features/conversations/components/conversations-header.tsx'
+import { ProjectList } from '@web/features/conversations/components/project-list.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 export type ConversationsPageProps = {
-  /** From the database, so the Mac has a name before any socket exists. */
-  readonly host: PairedHost
   readonly conversationList: ConversationList
   readonly connection: HostConnection
 }
 
-/** Everything a signed-in account with a paired Mac sees. Renders, never waits. */
-export function ConversationsPage({ host, conversationList, connection }: ConversationsPageProps) {
-  return (
-    <>
-      <ConversationsHeader connection={connection} host={host} />
-      <div className="flex flex-1 flex-col gap-4">{body(connection, conversationList)}</div>
-    </>
-  )
+/**
+ * Everything a signed-in account with a paired Mac sees. Renders, never waits.
+ *
+ * Which Mac this is belongs to `AppHeader`, which every page here shares. The
+ * page is the list and nothing above it.
+ */
+export function ConversationsPage({ conversationList, connection }: ConversationsPageProps) {
+  return <div className="flex flex-1 flex-col gap-2">{body(connection, conversationList)}</div>
 }
 
 /**
@@ -41,10 +37,7 @@ function body(connection: HostConnection, conversationList: ConversationList) {
   if (conversationList.status === 'ready' && conversationList.conversations.length > 0) {
     return (
       <>
-        <ConversationsByRepo
-          conversations={conversationList.conversations}
-          runningConversationIds={NONE_RUNNING}
-        />
+        <ProjectList conversations={conversationList.conversations} />
         {conversationList.hasMore ? (
           <Button
             className="min-h-11 w-full"
@@ -72,6 +65,3 @@ function body(connection: HostConnection, conversationList: ConversationList) {
 
   return <NoConversationsYet />
 }
-
-/** Turns arrive with the conversation flows; nothing runs from this page yet. */
-const NONE_RUNNING: ReadonlySet<string> = new Set()

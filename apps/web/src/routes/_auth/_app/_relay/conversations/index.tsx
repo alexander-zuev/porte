@@ -32,11 +32,8 @@ export const Route = createFileRoute('/_auth/_app/_relay/conversations/')({
 })
 
 function ConversationsRoute() {
-  const { host } = Route.useRouteContext()
   const connection = useHostConnection()
   const conversationList = useConversationList()
 
-  return (
-    <ConversationsPage conversationList={conversationList} host={host} connection={connection} />
-  )
+  return <ConversationsPage conversationList={conversationList} connection={connection} />
 }

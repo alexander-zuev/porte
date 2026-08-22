@@ -20,10 +20,12 @@ export function AppShell({ variant, header, footer, children }: AppShellProps) {
   return (
     <div className={cn('shell-frame', variant === 'fill' && 'h-svh')}>
       {header}
+      {/* Its own vertical rhythm rather than `shell-y`: that measure is for a
+          marketing page opening on a headline, and the app opens on a list. */}
       <main
         className={cn(
           'container-column shell-x flex min-h-0 flex-1 flex-col',
-          variant === 'scroll' && 'shell-y',
+          variant === 'scroll' && 'py-4 md:py-6',
         )}
       >
         {children}
