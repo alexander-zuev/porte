@@ -37,7 +37,8 @@ catalog:
   '@types/react': ^19.2.18
   '@types/react-dom': ^19.2.4
   '@vitejs/plugin-react': ^6.0.5
-  better-auth: ^1.6.29
+  better-auth: ^1.7.1
+  auth: ^1.7.1
   better-result: ^3.0.1
   better-sqlite3: ^13.0.3
   class-variance-authority: ^0.7.1
@@ -101,6 +102,7 @@ catalog:
   '@ai-sdk/react': ^4.0.71
 
 allowBuilds:
+  '@prisma/client': false
   '@sentry/cli': true
   better-sqlite3: true
   core-js: true

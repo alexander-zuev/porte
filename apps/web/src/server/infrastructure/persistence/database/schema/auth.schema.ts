@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
@@ -41,6 +41,7 @@ export const account = sqliteTable(
   'account',
   {
     id: text('id').primaryKey(),
+    issuer: text('issuer').notNull(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
     userId: text('user_id')
@@ -64,7 +65,10 @@ export const account = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index('account_userId_idx').on(table.userId)],
+  (table) => [
+    uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
+    index('account_userId_idx').on(table.userId),
+  ],
 )
 
 export const verification = sqliteTable(
@@ -85,18 +89,25 @@ export const verification = sqliteTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 )
 
-export const deviceCode = sqliteTable('device_code', {
-  id: text('id').primaryKey(),
-  deviceCode: text('device_code').notNull(),
-  userCode: text('user_code').notNull(),
-  userId: text('user_id'),
-  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-  status: text('status').notNull(),
-  lastPolledAt: integer('last_polled_at', { mode: 'timestamp_ms' }),
-  pollingInterval: integer('polling_interval'),
-  clientId: text('client_id'),
-  scope: text('scope'),
-})
+export const deviceCode = sqliteTable(
+  'device_code',
+  {
+    id: text('id').primaryKey(),
+    deviceCode: text('device_code').notNull(),
+    userCode: text('user_code').notNull(),
+    userId: text('user_id'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    status: text('status').notNull(),
+    lastPolledAt: integer('last_polled_at', { mode: 'timestamp_ms' }),
+    pollingInterval: integer('polling_interval'),
+    clientId: text('client_id'),
+    scope: text('scope'),
+  },
+  (table) => [
+    uniqueIndex('deviceCode_deviceCode_uidx').on(table.deviceCode),
+    uniqueIndex('deviceCode_userCode_uidx').on(table.userCode),
+  ],
+)
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
