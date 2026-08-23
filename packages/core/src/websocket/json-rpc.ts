@@ -1,49 +1,109 @@
+import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
 /**
- * JSON-RPC 2.0, the envelope for every message on a socket.
- *
- * A WebSocket frame has no reply, no correlation, and no failure channel: RFC
- * 6455 offers close codes and nothing else. This supplies the three, and it is
- * a published specification rather than one more hand-rolled shape.
- *
- * Nothing here knows an application. A domain enters at two points only: the
- * `method` string, and the `data` a failure carries.
- *
+ * JSON-RPC 2.0 envelopes without socket or application behavior.
  * @see https://www.jsonrpc.org/specification
  */
 export const JSON_RPC_VERSION = '2.0'
 
-/** Correlates one response to one request. Absent on a notification. */
-export const JsonRpcIdSchema = z.union([z.string().min(1), z.number().int()])
-export type JsonRpcId = z.infer<typeof JsonRpcIdSchema>
-
-/**
- * The codes the specification reserves, and the one range it leaves open.
- *
- * `serverError` is where an application failure goes. Its meaning belongs in
- * the error's `data`, because a number cannot carry one and outlives every
- * attempt to make it.
- */
 export const JSON_RPC_ERROR_CODES = {
   parseError: -32_700,
   invalidRequest: -32_600,
   methodNotFound: -32_601,
   invalidParams: -32_602,
   internalError: -32_603,
-  serverError: -32_000,
 } as const
 
 export type JsonRpcErrorCode = (typeof JSON_RPC_ERROR_CODES)[keyof typeof JSON_RPC_ERROR_CODES]
 
-/** One failure, and whatever its `data` says about it. */
+/** The two method kinds defined by JSON-RPC 2.0. */
+export const JSON_RPC_METHOD_KINDS = {
+  request: 'request',
+  notification: 'notification',
+} as const
+
+/** Whether a JSON-RPC method receives a response. */
+export type JsonRpcMethodKind = (typeof JSON_RPC_METHOD_KINDS)[keyof typeof JSON_RPC_METHOD_KINDS]
+
+/** One method contract in a typed JSON-RPC registry. */
+export type JsonRpcMethodDefinition =
+  | {
+      readonly kind: typeof JSON_RPC_METHOD_KINDS.request
+      readonly params: z.ZodType
+      readonly result: z.ZodType
+    }
+  | {
+      readonly kind: typeof JSON_RPC_METHOD_KINDS.notification
+      readonly params: z.ZodType
+    }
+
+const JsonRpcVersionSchema = z.literal(JSON_RPC_VERSION)
+const JsonRpcParamsSchema = z.union([z.record(z.string(), z.json()), z.array(z.json())])
+
+/** A request identifier can be a string, number, or null under JSON-RPC 2.0. */
+export const JsonRpcIdSchema = z.union([z.string(), z.number(), z.null()])
+export type JsonRpcId = z.infer<typeof JsonRpcIdSchema>
+
+export const JsonRpcRequestSchema = z.object({
+  jsonrpc: JsonRpcVersionSchema,
+  id: JsonRpcIdSchema,
+  method: z.string(),
+  params: JsonRpcParamsSchema.optional(),
+  result: z.never().optional(),
+  error: z.never().optional(),
+})
+
+export const JsonRpcNotificationSchema = z.object({
+  jsonrpc: JsonRpcVersionSchema,
+  id: z.never().optional(),
+  method: z.string(),
+  params: JsonRpcParamsSchema.optional(),
+  result: z.never().optional(),
+  error: z.never().optional(),
+})
+
+export const JsonRpcErrorObjectSchema = z.object({
+  code: z.number().int(),
+  message: z.string(),
+  data: z.json().optional(),
+})
+
+export const JsonRpcSuccessResponseSchema = z.object({
+  jsonrpc: JsonRpcVersionSchema,
+  id: JsonRpcIdSchema,
+  method: z.never().optional(),
+  result: z.json(),
+  error: z.never().optional(),
+})
+
+export const JsonRpcErrorResponseSchema = z.object({
+  jsonrpc: JsonRpcVersionSchema,
+  id: JsonRpcIdSchema,
+  method: z.never().optional(),
+  result: z.never().optional(),
+  error: JsonRpcErrorObjectSchema,
+})
+
+export const JsonRpcResponseSchema = z.union([
+  JsonRpcSuccessResponseSchema,
+  JsonRpcErrorResponseSchema,
+])
+
+export const JsonRpcDocumentSchema = z.union([
+  JsonRpcRequestSchema,
+  JsonRpcNotificationSchema,
+  JsonRpcResponseSchema,
+])
+
+export type JsonRpcDocument = z.infer<typeof JsonRpcDocumentSchema>
+
 export type JsonRpcErrorObject<Data> = {
   readonly code: number
   readonly message: string
-  readonly data: Data
+  readonly data?: Data
 }
 
-/** One call that expects exactly one response. */
 export type JsonRpcRequest<Method extends string, Params> = {
   readonly jsonrpc: typeof JSON_RPC_VERSION
   readonly id: JsonRpcId
@@ -51,14 +111,12 @@ export type JsonRpcRequest<Method extends string, Params> = {
   readonly params: Params
 }
 
-/** One call that expects no response. Events and acknowledgements are these. */
 export type JsonRpcNotification<Method extends string, Params> = {
   readonly jsonrpc: typeof JSON_RPC_VERSION
   readonly method: Method
   readonly params: Params
 }
 
-/** The response to one call. `'error' in response` is the whole test. */
 export type JsonRpcResponse<Result, ErrorData> =
   | {
       readonly jsonrpc: typeof JSON_RPC_VERSION
@@ -71,34 +129,62 @@ export type JsonRpcResponse<Result, ErrorData> =
       readonly error: JsonRpcErrorObject<ErrorData>
     }
 
-const versionSchema = z.literal(JSON_RPC_VERSION)
+/** A standard protocol error found while decoding one JSON-RPC document. */
+export type JsonRpcDecodeError =
+  | { readonly code: -32_700; readonly message: 'Parse error' }
+  | { readonly code: -32_600; readonly message: 'Invalid Request' }
 
-/** The schema for one call, over the params its method accepts. */
-export function jsonRpcRequestSchema<Method extends string, Params extends z.ZodType>(
-  method: Method,
-  params: Params,
-) {
+/** The parsed JSON-RPC document or its standard protocol error. */
+export type JsonRpcDecodeResult = ResultType<JsonRpcDocument, JsonRpcDecodeError>
+
+/** Decode one JSON-RPC document without owning the transport response. */
+export function decodeJsonRpc(text: string): JsonRpcDecodeResult {
+  let value: unknown
+
+  try {
+    value = JSON.parse(text)
+  } catch {
+    return Result.err({ code: JSON_RPC_ERROR_CODES.parseError, message: 'Parse error' })
+  }
+
+  const parsed = JsonRpcDocumentSchema.safeParse(value)
+  if (parsed.success) return Result.ok(parsed.data)
+
+  return Result.err({ code: JSON_RPC_ERROR_CODES.invalidRequest, message: 'Invalid Request' })
+}
+
+/** Create a schema for one method-specific request. */
+export function jsonRpcRequestSchema<
+  Method extends string,
+  Params extends z.ZodType,
+  Id extends z.ZodType,
+>(method: Method, params: Params, id: Id) {
   return z.object({
-    jsonrpc: versionSchema,
-    id: JsonRpcIdSchema,
+    jsonrpc: JsonRpcVersionSchema,
+    id,
     method: z.literal(method),
     params,
+    result: z.never().optional(),
+    error: z.never().optional(),
   })
 }
 
-/** The schema for one notification, over the params its method accepts. */
+/** Create a schema for one method-specific notification. */
 export function jsonRpcNotificationSchema<Method extends string, Params extends z.ZodType>(
   method: Method,
   params: Params,
 ) {
   return z.object({
-    jsonrpc: versionSchema,
+    jsonrpc: JsonRpcVersionSchema,
+    id: z.never().optional(),
     method: z.literal(method),
     params,
+    result: z.never().optional(),
+    error: z.never().optional(),
   })
 }
 
-/** The schema for one failure, over whatever its `data` carries. */
+/** Create a schema for one error object with required application data. */
 export function jsonRpcErrorObjectSchema<Data extends z.ZodType>(data: Data) {
   return z.object({
     code: z.number().int(),
@@ -107,27 +193,31 @@ export function jsonRpcErrorObjectSchema<Data extends z.ZodType>(data: Data) {
   })
 }
 
-/**
- * The schema for one response, over the result and the failure it may carry.
- *
- * A union rather than a discriminated one: the specification separates the two
- * arms by which key is present, and neither is a literal to discriminate on.
- */
-export function jsonRpcResponseSchema<Result extends z.ZodType, ErrorData extends z.ZodType>(
-  result: Result,
-  errorData: ErrorData,
-) {
+/** Create a schema for one method-specific response. */
+export function jsonRpcResponseSchema<
+  Result extends z.ZodType,
+  ErrorObject extends z.ZodType,
+  Id extends z.ZodType,
+>(result: Result, error: ErrorObject, id: Id) {
   return z.union([
-    z.object({ jsonrpc: versionSchema, id: JsonRpcIdSchema, result }),
     z.object({
-      jsonrpc: versionSchema,
-      id: JsonRpcIdSchema,
-      error: jsonRpcErrorObjectSchema(errorData),
+      jsonrpc: JsonRpcVersionSchema,
+      id,
+      method: z.never().optional(),
+      result,
+      error: z.never().optional(),
+    }),
+    z.object({
+      jsonrpc: JsonRpcVersionSchema,
+      id,
+      method: z.never().optional(),
+      result: z.never().optional(),
+      error,
     }),
   ])
 }
 
-/** One call, addressed to the method it names. */
+/** Create one request that expects one response. */
 export function jsonRpcRequest<Method extends string, Params>(
   id: JsonRpcId,
   method: Method,
@@ -136,7 +226,7 @@ export function jsonRpcRequest<Method extends string, Params>(
   return { jsonrpc: JSON_RPC_VERSION, id, method, params }
 }
 
-/** One notification. Nothing answers it, so it carries no identifier. */
+/** Create one notification that receives no response. */
 export function jsonRpcNotification<Method extends string, Params>(
   method: Method,
   params: Params,
@@ -144,7 +234,7 @@ export function jsonRpcNotification<Method extends string, Params>(
   return { jsonrpc: JSON_RPC_VERSION, method, params }
 }
 
-/** The answer to one call that worked. */
+/** Create one successful response. */
 export function jsonRpcResult<Result>(
   id: JsonRpcId,
   result: Result,
@@ -152,17 +242,18 @@ export function jsonRpcResult<Result>(
   return { jsonrpc: JSON_RPC_VERSION, id, result }
 }
 
-/** The answer to one call that did not. Defaults to the open code range. */
+/** Create one error response. */
 export function jsonRpcError<ErrorData>(
   id: JsonRpcId,
+  code: number,
   message: string,
-  data: ErrorData,
-  code: number = JSON_RPC_ERROR_CODES.serverError,
+  data?: ErrorData,
 ): JsonRpcResponse<never, ErrorData> {
-  return { jsonrpc: JSON_RPC_VERSION, id, error: { code, message, data } }
+  const error = data === undefined ? { code, message } : { code, message, data }
+  return { jsonrpc: JSON_RPC_VERSION, id, error }
 }
 
-/** Whether one response carries a failure. */
+/** Test whether one response contains a remote error value. */
 export function isJsonRpcError<Result, ErrorData>(
   response: JsonRpcResponse<Result, ErrorData>,
 ): response is Extract<JsonRpcResponse<Result, ErrorData>, { error: unknown }> {

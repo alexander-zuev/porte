@@ -99,12 +99,12 @@ const DomainErrorTagSchema = z.enum(DOMAIN_ERROR_TAG_VALUES)
  * its issues name fields a person can correct.
  */
 export const PorteErrorPayloadSchema = z.discriminatedUnion('_tag', [
-  z.object({
+  z.strictObject({
     _tag: z.literal(VALIDATION_ERROR),
     message: z.string(),
     issues: z.array(ValidationIssueSchema),
   }),
-  z.object({
+  z.strictObject({
     _tag: DomainErrorTagSchema.exclude([VALIDATION_ERROR]),
     message: z.string(),
   }),
