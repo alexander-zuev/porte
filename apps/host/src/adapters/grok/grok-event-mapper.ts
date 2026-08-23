@@ -1,7 +1,12 @@
+/* oxlint-disable eslint(no-underscore-dangle) -- ACP requires the exact `_meta` boundary name. */
+import type {
+  LoadSessionResponse,
+  NewSessionResponse,
+  ResumeSessionResponse,
+} from '@agentclientprotocol/sdk'
 import type { AcpSessionNotification, AcpSessionUpdate } from '@host/adapters/acp/message.ts'
 import {
   MessageIdSchema,
-  type EventId,
   type FailureClassification,
   type MessageId,
   type PermissionId,
@@ -20,6 +25,7 @@ import {
   type ReasoningView,
   type ConversationCommand,
   type ConversationConfigurationOption,
+  type ConversationPlan,
   type ConversationUsage,
   type ConversationView,
   type ToolContent,
@@ -27,20 +33,12 @@ import {
   type ToolView,
 } from '@porte/core/client'
 import { Result, TaggedError, type Result as ResultType } from 'better-result'
-import type { z } from 'zod'
+import { z } from 'zod'
 
-type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'eventId' | 'conversationId'> : never
-type EventData = WithoutEnvelope<z.input<typeof ConversationEventSchema>>
+type EventData = z.input<typeof ConversationEventSchema>
 type TurnOutcome = Extract<EventData, { type: 'turn.finished' }>['outcome']
 type MessageStream = 'user' | 'assistant' | 'reasoning'
 type MapperState = 'ready' | 'active' | 'finished'
-
-/** Identifier functions used by one Grok event mapper. */
-export type GrokEventIds = {
-  readonly eventId: () => EventId
-  readonly messageId: () => MessageId
-  readonly permissionId: () => PermissionId
-}
 
 /** A Grok update cannot become one canonical event. */
 export class GrokEventMappingError extends TaggedError('GrokEventMappingError')<{
@@ -60,30 +58,41 @@ export class GrokEventMappingError extends TaggedError('GrokEventMappingError')<
 export class GrokEventMapper {
   private readonly messages = new Map<MessageStream, MessageId>()
   private readonly tools = new Map<string, ToolView>()
+  private messageOrdinal = 0
   private state: MapperState = 'ready'
 
   constructor(
     private readonly conversationId: ConversationId,
     private readonly turnId: TurnId,
-    private readonly ids: GrokEventIds,
   ) {}
 
   /** Start the turn and record the submitted user prompt. */
-  start(prompt: string): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  start(userMessage: {
+    readonly id: MessageId
+    readonly content: readonly CanonicalContent[]
+  }): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     if (this.state !== 'ready') return invalidSequence('The Grok turn already started')
     this.state = 'active'
-    const messageId = this.ids.messageId()
-    return this.events([
+    const events: EventData[] = [
       { type: 'turn.started', turnId: this.turnId },
-      { type: 'message.started', turnId: this.turnId, messageId, role: 'user' },
       {
-        type: 'message.delta',
+        type: 'message.started',
         turnId: this.turnId,
-        messageId,
-        content: { type: 'text', text: prompt },
+        messageId: userMessage.id,
+        role: 'user',
       },
-      { type: 'message.completed', turnId: this.turnId, messageId },
-    ])
+      ...userMessage.content.map(
+        (content) =>
+          ({
+            type: 'message.delta',
+            turnId: this.turnId,
+            messageId: userMessage.id,
+            content,
+          }) satisfies EventData,
+      ),
+      { type: 'message.completed', turnId: this.turnId, messageId: userMessage.id },
+    ]
+    return this.events(events)
   }
 
   /** Convert one ACP update from the active turn. */
@@ -196,7 +205,19 @@ export class GrokEventMapper {
       case 'tool_call_update':
         return this.mapToolCallUpdate(update)
       case 'plan':
-        return this.events([{ type: 'plan.updated', turnId: this.turnId, entries: update.entries }])
+        return this.events([
+          {
+            type: 'plan.updated',
+            turnId: this.turnId,
+            plan: { type: 'items', planId: 'legacy', entries: update.entries },
+          },
+        ])
+      case 'plan_update':
+        return this.events([
+          { type: 'plan.updated', turnId: this.turnId, plan: mapPlan(update.plan) },
+        ])
+      case 'plan_removed':
+        return this.events([{ type: 'plan.removed', turnId: this.turnId, planId: update.planId }])
       case 'available_commands_update':
         return this.events([
           {
@@ -220,6 +241,9 @@ export class GrokEventMapper {
         if (update.cost !== undefined && update.cost !== null) usage.cost = update.cost
         return this.events([{ type: 'conversation.usage.updated', usage }])
       }
+      case 'compaction_update':
+      case 'compaction_summary_chunk':
+        return invalidValue('ACP sent a compaction update that Porte did not advertise')
     }
     const exhaustive: never = update
     return exhaustive
@@ -236,7 +260,7 @@ export class GrokEventMapper {
   ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     const parsedId =
       update.messageId === undefined || update.messageId === null
-        ? Result.ok(this.messages.get(stream) ?? this.ids.messageId())
+        ? Result.ok(this.messages.get(stream) ?? this.fallbackMessageId(stream))
         : resultFromParse(MessageIdSchema.safeParse(update.messageId), 'ACP message ID is invalid')
     if (parsedId.isErr()) return parsedId
 
@@ -288,8 +312,12 @@ export class GrokEventMapper {
       title: update.title,
       kind: update.kind ?? 'other',
       status: update.status ?? 'pending',
+      name: update.name ?? undefined,
       content: (update.content ?? []).map(mapToolContent),
       locations: (update.locations ?? []).map(mapLocation),
+      rawInput: mapJson(update.rawInput),
+      rawOutput: mapJson(update.rawOutput),
+      _meta: mapMeta(update._meta),
     })
     if (!parsed.success) return invalidValue('ACP tool call is invalid')
     this.tools.set(update.toolCallId, parsed.data)
@@ -306,6 +334,7 @@ export class GrokEventMapper {
 
     const next: ToolView = { ...current }
     if (update.title !== undefined && update.title !== null) next.title = update.title
+    if (update.name !== undefined && update.name !== null) next.name = update.name
     if (update.kind !== undefined && update.kind !== null) next.kind = update.kind
     if (update.status !== undefined && update.status !== null) next.status = update.status
     if (update.content !== undefined && update.content !== null) {
@@ -314,6 +343,9 @@ export class GrokEventMapper {
     if (update.locations !== undefined && update.locations !== null) {
       next.locations = update.locations.map(mapLocation)
     }
+    if (update.rawInput !== undefined) next.rawInput = mapJson(update.rawInput)
+    if (update.rawOutput !== undefined) next.rawOutput = mapJson(update.rawOutput)
+    if (update._meta !== undefined && update._meta !== null) next._meta = mapMeta(update._meta)
 
     const parsed = ToolViewSchema.safeParse(next)
     if (!parsed.success) return invalidValue('ACP tool update is invalid')
@@ -359,32 +391,42 @@ export class GrokEventMapper {
   ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
     const events: ConversationEvent[] = []
     for (const item of data) {
-      const parsed = ConversationEventSchema.safeParse({
-        eventId: this.ids.eventId(),
-        conversationId: this.conversationId,
-        ...item,
-      })
+      const parsed = ConversationEventSchema.safeParse(item)
       if (!parsed.success) return invalidValue('ACP update cannot form a canonical event')
       events.push(parsed.data)
     }
     return Result.ok(events)
+  }
+
+  private fallbackMessageId(stream: MessageStream): MessageId {
+    this.messageOrdinal += 1
+    return MessageIdSchema.parse(`${this.turnId}:${stream}:${String(this.messageOrdinal)}`)
   }
 }
 
 /** Builds one complete conversation view from ACP load updates. */
 export class GrokReplayMapper {
   private conversationId: string | undefined
-  private activeMessage: { stream: MessageStream; messageId: MessageId } | undefined
+  private messageOrdinal = 0
+  private readonly activeMessages = new Map<MessageStream, MessageId>()
   private readonly items: ConversationItem[] = []
   private readonly messages = new Map<MessageId, MessageView | ReasoningView>()
   private readonly tools = new Map<string, ToolView>()
-  private plan: ConversationView['plan'] = []
+  private readonly plans = new Map<string, ConversationPlan>()
   private usage: ConversationUsage | undefined
   private configuration: ConversationConfigurationOption[] | undefined
   private commands: ConversationCommand[] | undefined
   private modeId: string | undefined
 
-  constructor(private readonly ids: GrokEventIds) {}
+  /** Apply configuration returned by a session setup response. */
+  seedSession(response: LoadSessionResponse | NewSessionResponse | ResumeSessionResponse): void {
+    if (response.configOptions !== undefined && response.configOptions !== null) {
+      this.configuration = response.configOptions.map(mapConfiguration)
+    }
+    if (response.modes !== undefined && response.modes !== null) {
+      this.modeId = response.modes.currentModeId
+    }
+  }
 
   /** Apply one ACP update received before session load completes. */
   map(notification: AcpSessionNotification): ResultType<void, GrokEventMappingError> {
@@ -415,7 +457,7 @@ export class GrokReplayMapper {
     const view: ConversationView = {
       items: [...this.items],
       tools: [...this.tools.values()],
-      plan: [...this.plan],
+      plans: [...this.plans.values()],
       pending: { permissions: [], elicitations: [] },
     }
     if (this.usage !== undefined) view.usage = this.usage
@@ -441,7 +483,15 @@ export class GrokReplayMapper {
       case 'tool_call_update':
         return this.mapToolCallUpdate(update)
       case 'plan':
-        this.plan = [...update.entries]
+        this.plans.set('legacy', { type: 'items', planId: 'legacy', entries: update.entries })
+        return Result.ok()
+      case 'plan_update': {
+        const plan = mapPlan(update.plan)
+        this.plans.set(plan.planId, plan)
+        return Result.ok()
+      }
+      case 'plan_removed':
+        this.plans.delete(update.planId)
         return Result.ok()
       case 'available_commands_update':
         this.commands = update.availableCommands.map(mapCommand)
@@ -459,6 +509,9 @@ export class GrokReplayMapper {
         if (update.cost !== undefined && update.cost !== null) this.usage.cost = update.cost
         return Result.ok()
       }
+      case 'compaction_update':
+      case 'compaction_summary_chunk':
+        return invalidValue('ACP sent a compaction update that Porte did not advertise')
     }
     const exhaustive: never = update
     return exhaustive
@@ -478,10 +531,15 @@ export class GrokReplayMapper {
       const parsed = MessageIdSchema.safeParse(update.messageId)
       if (!parsed.success) return invalidValue('ACP replay message ID is invalid')
       messageId = parsed.data
-    } else if (this.activeMessage?.stream === stream) {
-      messageId = this.activeMessage.messageId
+    } else if (this.activeMessages.get(stream) !== undefined) {
+      messageId = MessageIdSchema.parse(this.activeMessages.get(stream))
     } else {
-      messageId = this.ids.messageId()
+      const conversationId = this.conversationId
+      if (conversationId === undefined) return invalidSequence('ACP replay has no conversation')
+      this.messageOrdinal += 1
+      messageId = MessageIdSchema.parse(
+        `${conversationId}:${update.sessionUpdate}:${String(this.messageOrdinal)}`,
+      )
     }
 
     let message = this.messages.get(messageId)
@@ -500,7 +558,7 @@ export class GrokReplayMapper {
     }
 
     message.content.push(mapCanonicalContent(update.content))
-    this.activeMessage = { stream, messageId }
+    this.activeMessages.set(stream, messageId)
     return Result.ok()
   }
 
@@ -512,15 +570,19 @@ export class GrokReplayMapper {
       title: update.title,
       kind: update.kind ?? 'other',
       status: update.status ?? 'pending',
+      name: update.name ?? undefined,
       content: (update.content ?? []).map(mapToolContent),
       locations: (update.locations ?? []).map(mapLocation),
+      rawInput: mapJson(update.rawInput),
+      rawOutput: mapJson(update.rawOutput),
+      _meta: mapMeta(update._meta),
     })
     if (!parsed.success) return invalidValue('ACP replay tool call is invalid')
     if (!this.tools.has(update.toolCallId)) {
       this.items.push({ type: 'tool', toolCallId: parsed.data.toolCallId })
     }
     this.tools.set(update.toolCallId, parsed.data)
-    this.activeMessage = undefined
+    this.activeMessages.clear()
     return Result.ok()
   }
 
@@ -531,6 +593,7 @@ export class GrokReplayMapper {
     if (current === undefined) return invalidSequence('ACP replay updated an unknown tool call')
     const next: ToolView = { ...current }
     if (update.title !== undefined && update.title !== null) next.title = update.title
+    if (update.name !== undefined && update.name !== null) next.name = update.name
     if (update.kind !== undefined && update.kind !== null) next.kind = update.kind
     if (update.status !== undefined && update.status !== null) next.status = update.status
     if (update.content !== undefined && update.content !== null) {
@@ -539,6 +602,9 @@ export class GrokReplayMapper {
     if (update.locations !== undefined && update.locations !== null) {
       next.locations = update.locations.map(mapLocation)
     }
+    if (update.rawInput !== undefined) next.rawInput = mapJson(update.rawInput)
+    if (update.rawOutput !== undefined) next.rawOutput = mapJson(update.rawOutput)
+    if (update._meta !== undefined && update._meta !== null) next._meta = mapMeta(update._meta)
     const parsed = ToolViewSchema.safeParse(next)
     if (!parsed.success) return invalidValue('ACP replay tool update is invalid')
     this.tools.set(update.toolCallId, parsed.data)
@@ -564,10 +630,13 @@ type AcpConfiguration = Extract<
   AcpSessionUpdate,
   { sessionUpdate: 'config_option_update' }
 >['configOptions'][number]
-type SelectConfigurationValue = Extract<
-  ConversationConfigurationOption,
-  { type: 'select' }
->['options'][number]
+type AcpMeta = NonNullable<AcpContentBlock['_meta']>
+type AcpRawToolValue = Extract<
+  AcpSessionUpdate,
+  { sessionUpdate: 'tool_call' | 'tool_call_update' }
+>['rawInput']
+type SelectConfiguration = Extract<ConversationConfigurationOption, { type: 'select' }>
+type SelectConfigurationValue = Extract<SelectConfiguration['options'][number], { type: 'option' }>
 
 function mapCommand(command: AcpCommand): ConversationCommand {
   const mapped: ConversationCommand = { name: command.name, description: command.description }
@@ -598,14 +667,15 @@ function mapConfiguration(option: AcpConfiguration): ConversationConfigurationOp
     name: option.name,
     currentValue: option.currentValue,
     options: option.options.map((value) => {
-      const item: SelectConfigurationValue = {
-        value: value.value,
-        name: value.name,
+      if ('group' in value) {
+        return {
+          type: 'group' as const,
+          group: value.group,
+          name: value.name,
+          options: value.options.map(mapSelectConfigurationValue),
+        }
       }
-      if (value.description !== undefined && value.description !== null) {
-        item.description = value.description
-      }
-      return item
+      return mapSelectConfigurationValue(value)
     }),
   }
   if (option.description !== undefined && option.description !== null) {
@@ -613,6 +683,30 @@ function mapConfiguration(option: AcpConfiguration): ConversationConfigurationOp
   }
   if (option.category !== undefined && option.category !== null) mapped.category = option.category
   return mapped
+}
+
+function mapSelectConfigurationValue(value: {
+  value: string
+  name: string
+  description?: string | null
+}): SelectConfigurationValue {
+  const item: SelectConfigurationValue = {
+    type: 'option',
+    value: value.value,
+    name: value.name,
+  }
+  if (value.description !== undefined && value.description !== null) {
+    item.description = value.description
+  }
+  return item
+}
+
+function mapPlan(
+  plan: Extract<AcpSessionUpdate, { sessionUpdate: 'plan_update' }>['plan'],
+): ConversationPlan {
+  if (plan.type === 'items') return { type: 'items', planId: plan.planId, entries: plan.entries }
+  if (plan.type === 'file') return { type: 'file', planId: plan.planId, uri: plan.uri }
+  return { type: 'markdown', planId: plan.planId, content: plan.content }
 }
 
 function mapCanonicalContent(content: AcpContentBlock): CanonicalContent {
@@ -630,6 +724,7 @@ function mapCanonicalContent(content: AcpContentBlock): CanonicalContent {
       mapped.mimeType = content.mimeType
     }
     if (content.size !== undefined && content.size !== null) mapped.size = content.size
+    copyContentMetadata(mapped, content)
     return mapped
   }
   if (content.type === 'resource') {
@@ -643,24 +738,81 @@ function mapCanonicalContent(content: AcpContentBlock): CanonicalContent {
     if (content.resource.mimeType !== undefined && content.resource.mimeType !== null) {
       resource.mimeType = content.resource.mimeType
     }
-    return { type: 'resource', resource }
+    if (content.resource._meta !== undefined && content.resource._meta !== null) {
+      resource._meta = mapMeta(content.resource._meta)
+    }
+    const mapped: Extract<CanonicalContent, { type: 'resource' }> = { type: 'resource', resource }
+    copyContentMetadata(mapped, content)
+    return mapped
   }
-  return content
+  let mapped: Extract<CanonicalContent, { type: 'text' | 'image' | 'audio' }>
+  if (content.type === 'text') mapped = { type: 'text', text: content.text }
+  else if (content.type === 'audio') {
+    mapped = { type: 'audio', data: content.data, mimeType: content.mimeType }
+  } else {
+    mapped = { type: 'image', data: content.data, mimeType: content.mimeType }
+    if (content.uri !== undefined && content.uri !== null) mapped.uri = content.uri
+  }
+  copyContentMetadata(mapped, content)
+  return mapped
 }
 
 function mapToolContent(content: AcpToolContent): ToolContent {
   if (content.type === 'content') {
-    return { type: 'content', content: mapCanonicalContent(content.content) }
+    const mapped: ToolContent = { type: 'content', content: mapCanonicalContent(content.content) }
+    if (content._meta !== undefined && content._meta !== null) mapped._meta = mapMeta(content._meta)
+    return mapped
   }
   if (content.type === 'diff') {
-    return {
+    const mapped: ToolContent = {
       type: 'diff',
       path: content.path,
       oldText: content.oldText ?? null,
       newText: content.newText,
     }
+    if (content._meta !== undefined && content._meta !== null) mapped._meta = mapMeta(content._meta)
+    return mapped
   }
-  return content
+  const mapped: ToolContent = { type: 'terminal', terminalId: content.terminalId }
+  if (content._meta !== undefined && content._meta !== null) mapped._meta = mapMeta(content._meta)
+  return mapped
+}
+
+function copyContentMetadata(
+  target: Pick<Extract<CanonicalContent, { type: 'text' }>, 'annotations' | '_meta'>,
+  source: {
+    annotations?: AcpContentBlock['annotations'] | null
+    _meta?: AcpMeta | null
+  },
+): void {
+  if (source.annotations !== undefined && source.annotations !== null) {
+    const annotations: NonNullable<typeof target.annotations> = {}
+    if (source.annotations.audience !== undefined && source.annotations.audience !== null) {
+      annotations.audience = [...source.annotations.audience]
+    }
+    if (source.annotations.lastModified !== undefined && source.annotations.lastModified !== null) {
+      annotations.lastModified = source.annotations.lastModified
+    }
+    if (source.annotations.priority !== undefined && source.annotations.priority !== null) {
+      annotations.priority = source.annotations.priority
+    }
+    if (source.annotations._meta !== undefined && source.annotations._meta !== null) {
+      annotations._meta = mapMeta(source.annotations._meta)
+    }
+    target.annotations = annotations
+  }
+  if (source._meta !== undefined && source._meta !== null) target._meta = mapMeta(source._meta)
+}
+
+function mapJson(value: AcpRawToolValue): z.infer<ReturnType<typeof z.json>> | undefined {
+  const parsed = z.json().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function mapMeta(value: AcpMeta | null | undefined) {
+  if (value === null || value === undefined) return undefined
+  const parsed = z.record(z.string(), z.json()).safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 function mapLocation(location: AcpToolLocation): ToolLocation {

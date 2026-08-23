@@ -14,6 +14,7 @@ import {
   DeviceTokenResponseSchema,
   PAIRING_CODE_PATH,
   PORTE_CLI_CLIENT_ID,
+  ProblemDetailsSchema,
   type DeviceTokenError,
   type HostDescriptor,
 } from '@porte/core/client'
@@ -67,6 +68,7 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
         host_name: host.name,
         host_platform: host.platform,
       },
+      errorSchema: ProblemDetailsSchema,
       output: DeviceCodeResponseSchema,
     })
     if (error) return Result.err(transportError(error))

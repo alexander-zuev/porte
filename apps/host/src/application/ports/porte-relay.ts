@@ -1,47 +1,67 @@
 import type { HostRelayError, RelayHandshakeRefused } from '@host/application/host-error.ts'
 import type {
+  ConversationEmission,
   ConversationId,
+  ConversationStateSnapshot,
   ConversationSummary,
-  RoutedRequest,
-  RoutedResponse,
+  EventSequence,
+  HostCommand,
+  HostCommandResponse,
+  HostConversationSyncMessage,
+  OperationId,
 } from '@porte/core/client'
-import type { ConversationEvent } from '@porte/core/client'
 import type { Result } from 'better-result'
 
-/** One authenticated Porte connection from the host to the Worker. */
-export interface PorteConnection {
-  /**
-   * Send one chunk of a full sync of the conversation list.
-   *
-   * Chunked because a Mac's history has no bound and one frame should not carry
-   * all of it. Every chunk of one sync shares a `syncRunId`; on the chunk marked
-   * `done` the relay drops whatever kept an older one, which is how a
-   * conversation deleted here stops existing there.
-   */
-  sendConversationChunk(chunk: {
-    syncRunId: string
-    conversations: readonly ConversationSummary[]
-    done: boolean
-  }): void
-
-  /** Send one conversation whose summary changed since the last sync. */
-  sendConversationSummary(conversation: ConversationSummary): void
-
-  /** Say that one conversation is gone, so the relay stops listing it. */
-  sendConversationRemoved(conversationId: ConversationId): void
-
-  /** Send one canonical conversation event. */
-  sendConversationEvent(event: ConversationEvent): void
-
-  /** Send one response to a routed client request. */
-  sendResponse(response: RoutedResponse): void
+/** Optional lifecycle output for one outbound relay connection. */
+export interface PorteRelayObserver {
+  connected(): void
+  reconnecting(delayMs: number): void
 }
 
-/** Callbacks for validated messages from one Porte connection. */
+type WithoutSyncEnvelope<Message> = Message extends unknown
+  ? Omit<Message, 'v' | 'type' | 'operationId'>
+  : never
+
+/** Catalog chunk data before the WebSocket adapter adds its protocol envelope. */
+export type ConversationSyncChunk = WithoutSyncEnvelope<HostConversationSyncMessage>
+
+/** One authenticated connection from the Mac host to its relay Agent. */
+export interface PorteConnection {
+  /**
+   * The last event sequence this host numbered for each conversation.
+   *
+   * A conversation missing here is one this host cannot number safely, so the
+   * relay answers with the position its own records already hold.
+   */
+  eventHeads(): Record<ConversationId, EventSequence>
+
+  /** Sends one command result or command error. */
+  sendCommandResponse(response: HostCommandResponse): void
+
+  /** Stores and sends one event until the relay acknowledges it. */
+  sendConversationEvent(emission: ConversationEmission): void
+
+  /** Stores and sends one state checkpoint until the relay acknowledges it. */
+  sendConversationSnapshot(
+    conversationId: ConversationId,
+    snapshot: ConversationStateSnapshot,
+  ): void
+
+  /** Sends one chunk from a full conversation catalog sync. */
+  sendConversationChunk(operationId: OperationId, chunk: ConversationSyncChunk): void
+
+  /** Sends one changed conversation summary. */
+  sendConversationSummary(conversation: ConversationSummary): void
+
+  /** Removes one conversation from the relay catalog. */
+  sendConversationRemoved(conversationId: ConversationId): void
+}
+
+/** Callbacks for validated relay messages. */
 export type PorteRelayHandlers<THandlerError> = {
   readonly onConnected: (connection: PorteConnection) => Promise<Result<void, THandlerError>>
-  readonly onRequest: (
-    request: RoutedRequest,
+  readonly onCommand: (
+    command: HostCommand,
     connection: PorteConnection,
   ) => Promise<Result<void, THandlerError>>
 }
@@ -53,9 +73,9 @@ export type RunPorteRelay<THandlerError> = {
   readonly handlers: PorteRelayHandlers<THandlerError>
 }
 
-/** Outbound Porte connection used by the host application. */
+/** Outbound relay transport used by the host application. */
 export interface PorteRelay {
-  /** Keep one authenticated connection active until it stops. */
+  /** Keeps one authenticated PartySocket active until the caller stops it. */
   run<THandlerError>(
     input: RunPorteRelay<THandlerError>,
   ): Promise<Result<void, HostRelayError | RelayHandshakeRefused | THandlerError>>

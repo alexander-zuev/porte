@@ -1,4 +1,4 @@
-import type { PorteRelayObserver } from '@host/adapters/websocket/websocket-porte-relay.ts'
+import type { PorteRelayObserver } from '@host/application/ports/porte-relay.ts'
 
 /** Writes host relay lifecycle events when verbose output is active. */
 export class CliRelayObserver implements PorteRelayObserver {

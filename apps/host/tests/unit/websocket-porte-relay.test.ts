@@ -1,132 +1,162 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { FileHostLedger } from '@host/adapters/node/host-ledger.ts'
 import {
   WebSocketPorteRelay,
   retryDelayMs,
-  WebSocketPorteConnection,
 } from '@host/adapters/websocket/websocket-porte-relay.ts'
-import {
-  ConversationEventSchema,
-  RELAY_HEARTBEAT_INTERVAL_MS,
-  RELAY_HEARTBEAT_TIMEOUT_MS,
-} from '@porte/core/client'
+import { createOperationId } from '@porte/core/client'
 import { Result } from 'better-result'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { WebSocket } from 'ws'
+import { describe, expect, it, vi } from 'vitest'
 
-class TestSocket extends EventTarget {
-  readyState: number = WebSocket.CONNECTING
-  pings = 0
-  terminations = 0
-  private pongListener: (() => void) | undefined
+class MockPartySocket extends EventTarget {
+  readonly retryCount = 0
+  reconnectCalls = 0
+  closeCalls = 0
+  sendCalls = 0
+  private openState = false
 
-  send(): void {}
-  ping(): void {
-    this.pings++
+  send(): boolean {
+    this.sendCalls += 1
+    return this.openState
   }
-  terminate(): void {
-    this.terminations++
-    this.finish()
-  }
+
   close(): void {
-    this.finish()
+    this.closeCalls += 1
+    this.openState = false
   }
-  on(event: string, listener: () => void): this {
-    if (event === 'pong') this.pongListener = listener
-    return this
+
+  reconnect(): void {
+    this.reconnectCalls += 1
   }
+
   open(): void {
-    this.readyState = WebSocket.OPEN
+    this.openState = true
     this.dispatchEvent(new Event('open'))
   }
-  pong(): void {
-    this.pongListener?.()
-  }
-  private finish(): void {
-    if (this.readyState === WebSocket.CLOSED) return
-    this.readyState = WebSocket.CLOSED
-    this.dispatchEvent(new Event('close'))
+
+  receive(data: string): void {
+    this.dispatchEvent(new MessageEvent('message', { data }))
   }
 }
-
-function asWebSocket(socket: TestSocket): WebSocket {
-  // SAFETY: TestSocket implements each WebSocket member that WebSocketPorteRelay uses.
-  // @ts-expect-error The test double omits WebSocket members that the adapter never reads.
-  return socket as WebSocket
-}
-
-afterEach(() => vi.useRealTimers())
 
 describe('retryDelayMs', () => {
-  it('uses bounded exponential delays', () => {
-    expect([0, 1, 2, 3, 4, 5].map(retryDelayMs)).toEqual([250, 500, 1_000, 2_000, 4_000, 5_000])
-  })
-})
-
-describe('WebSocketPorteConnection', () => {
-  it('routes a canonical event to its conversation audience', () => {
-    const sent: string[] = []
-    const connection = new WebSocketPorteConnection((frame) => sent.push(frame))
-    const event = ConversationEventSchema.parse({
-      eventId: 'event-1',
-      conversationId: 'conversation-1',
-      type: 'turn.started',
-      turnId: '0198b55e-49d6-7e0f-9917-b08777b451b9',
-    })
-
-    connection.sendConversationEvent(event)
-
-    expect(sent).toEqual([
-      JSON.stringify({
-        audience: { type: 'conversation', conversationId: 'conversation-1' },
-        message: { v: 1, type: 'event', event: 'conversation.event', data: event },
-      }),
+  it('uses a bounded exponential delay', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map(retryDelayMs)).toEqual([
+      0, 250, 500, 1_000, 2_000, 4_000, 5_000,
     ])
   })
 })
 
 describe('WebSocketPorteRelay', () => {
-  it('keeps checking after the host receives pong', async () => {
-    vi.useFakeTimers()
-    const socket = new TestSocket()
-    const { controller, running } = runRelay(() => asWebSocket(socket))
-    socket.open()
-    await vi.advanceTimersByTimeAsync(RELAY_HEARTBEAT_INTERVAL_MS)
-    socket.pong()
-    await vi.advanceTimersByTimeAsync(RELAY_HEARTBEAT_INTERVAL_MS)
-    expect(socket).toMatchObject({ pings: 2, terminations: 0 })
+  it('does not open storage or a socket for a stopped connection', async () => {
+    const controller = new AbortController()
     controller.abort()
-    expect((await running).isOk()).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
+    const relay = new WebSocketPorteRelay(
+      { connected: () => undefined, reconnecting: () => undefined },
+      new FileHostLedger('/not-opened/host-ledger.json'),
+    )
+
+    const result = await relay.run({
+      relayUrl: 'not a URL',
+      token: 'unused',
+      signal: controller.signal,
+      handlers: {
+        onConnected: async () => Result.ok(),
+        onCommand: async () => Result.ok(),
+      },
+    })
+
+    expect(result.isOk()).toBe(true)
   })
 
-  it('terminates and reconnects after a missed pong', async () => {
-    vi.useFakeTimers()
-    const first = new TestSocket()
-    const second = new TestSocket()
-    const available = [first, second]
-    const { controller, running } = runRelay(() =>
-      asWebSocket(available.shift() ?? new TestSocket()),
-    )
-    first.open()
-    await vi.advanceTimersByTimeAsync(RELAY_HEARTBEAT_INTERVAL_MS + RELAY_HEARTBEAT_TIMEOUT_MS)
-    expect(first).toMatchObject({ pings: 1, terminations: 1 })
-    await vi.advanceTimersByTimeAsync(retryDelayMs(0))
-    expect(available).toHaveLength(0)
-    controller.abort()
-    expect((await running).isOk()).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
+  it('does not reconnect when delayed command work finishes after stop', async () => {
+    const test = await delayedCommandTest()
+    try {
+      test.socket.open()
+      test.socket.receive(syncCommand(test.operationId))
+      test.controller.abort()
+      expect((await test.running).isOk()).toBe(true)
+      test.releaseCommand()
+      await vi.waitFor(() => {
+        expect(test.socket.sendCalls).toBe(1)
+      })
+      expect(test.socket.reconnectCalls).toBe(0)
+      test.socket.open()
+      expect([test.socket.closeCalls, test.connectedCalls()]).toEqual([2, 1])
+    } finally {
+      await rm(test.folder, { recursive: true, force: true })
+    }
   })
 })
 
-function runRelay(createSocket: () => WebSocket) {
+async function delayedCommandTest() {
+  const folder = await mkdtemp(join(tmpdir(), 'porte-relay-'))
+  const socket = new MockPartySocket()
+  const operationId = createOperationId()
   const controller = new AbortController()
-  const relay = new WebSocketPorteRelay({ connected() {}, reconnecting() {} }, createSocket)
+  const commandGate = deferred()
+  let connectedCalls = 0
+  const socketReady = deferred()
+  const relay = new WebSocketPorteRelay(
+    {
+      connected: () => {
+        connectedCalls += 1
+      },
+      reconnecting: () => undefined,
+    },
+    new FileHostLedger(join(folder, 'host-ledger.json')),
+    () => {
+      socketReady.resolve()
+      return socket
+    },
+  )
+  const running = relay.run({
+    relayUrl: 'wss://relay.test/api/host/ws',
+    token: 'token',
+    signal: controller.signal,
+    handlers: {
+      onConnected: async () => Result.ok(),
+      onCommand: async (_command, connection) => {
+        await commandGate.promise
+        connection.sendCommandResponse({
+          v: 2,
+          type: 'command.result',
+          operationId,
+          result: { eventHeads: {} },
+        })
+        return Result.ok()
+      },
+    },
+  })
+  await socketReady.promise
   return {
+    connectedCalls: () => connectedCalls,
     controller,
-    running: relay.run({
-      relayUrl: 'wss://relay.test',
-      token: 'test-token',
-      signal: controller.signal,
-      handlers: { onConnected: async () => Result.ok(), onRequest: async () => Result.ok() },
-    }),
+    folder,
+    operationId,
+    releaseCommand: commandGate.resolve,
+    running,
+    socket,
   }
+}
+
+function deferred() {
+  let resolvePromise: (() => void) | undefined
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve
+  })
+  return { promise, resolve: () => resolvePromise?.() }
+}
+
+function syncCommand(operationId: ReturnType<typeof createOperationId>): string {
+  return JSON.stringify({
+    v: 2,
+    type: 'command',
+    operationId,
+    method: 'conversations.sync',
+    params: {},
+  })
 }

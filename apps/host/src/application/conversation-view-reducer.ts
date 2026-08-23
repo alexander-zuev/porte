@@ -24,10 +24,6 @@ export function applyConversationEvents(
 ): ResultType<ConversationView, ConversationViewError> {
   let view = ConversationViewSchema.parse(current)
   for (const event of events) {
-    if (event.type === 'conversation.snapshot') {
-      view = ConversationViewSchema.parse(event.view)
-      continue
-    }
     const applied = applyEvent(view, event)
     if (applied.isErr()) return applied
   }
@@ -39,7 +35,7 @@ export function applyConversationEvents(
 
 function applyEvent(
   view: ConversationView,
-  event: Exclude<ConversationEvent, { type: 'conversation.snapshot' }>,
+  event: ConversationEvent,
 ): ResultType<void, ConversationViewError> {
   switch (event.type) {
     case 'message.started':
@@ -66,7 +62,10 @@ function applyEvent(
       return Result.ok()
     }
     case 'plan.updated':
-      view.plan = [...event.entries]
+      view.plans = [...view.plans.filter((plan) => plan.planId !== event.plan.planId), event.plan]
+      return Result.ok()
+    case 'plan.removed':
+      view.plans = view.plans.filter((plan) => plan.planId !== event.planId)
       return Result.ok()
     case 'conversation.usage.updated':
       view.usage = event.usage

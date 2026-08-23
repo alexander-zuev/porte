@@ -1,6 +1,5 @@
 import { GrokEventMapper, GrokReplayMapper } from '@host/adapters/grok/grok-event-mapper.ts'
 import {
-  EventIdSchema,
   MessageIdSchema,
   PermissionIdSchema,
   ConversationIdSchema,
@@ -14,7 +13,7 @@ const turnId = TurnIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451b9')
 describe('GrokEventMapper', () => {
   it('maps one streamed message lifecycle', () => {
     const mapper = createMapper()
-    const started = mapper.start('Question')
+    const started = mapper.start(userMessage())
     const chunk = mapper.map({
       sessionId,
       update: {
@@ -39,7 +38,7 @@ describe('GrokEventMapper', () => {
 
   it('uses the submitted prompt instead of the ACP echo', () => {
     const mapper = createMapper()
-    const started = mapper.start('Question')
+    const started = mapper.start(userMessage())
     const echoed = mapper.map({
       sessionId,
       update: {
@@ -58,7 +57,7 @@ describe('GrokEventMapper', () => {
 
   it('maps full tool state from partial updates', () => {
     const mapper = createMapper()
-    mapper.start('Question')
+    mapper.start(userMessage())
     mapper.map({
       sessionId,
       update: { sessionUpdate: 'tool_call', toolCallId: 'tool-1', title: 'Change mode' },
@@ -68,21 +67,31 @@ describe('GrokEventMapper', () => {
       update: {
         sessionUpdate: 'tool_call_update',
         toolCallId: 'tool-1',
+        name: 'switch_mode',
         kind: 'switch_mode',
         status: 'completed',
+        rawInput: { mode: 'code' },
+        rawOutput: { changed: true },
         content: [{ type: 'terminal', terminalId: 'terminal-1' }],
       },
     })
 
     expect(mapped.isOk() && mapped.value[0]).toMatchObject({
       type: 'tool.updated',
-      tool: { kind: 'switch_mode', status: 'completed', content: [{ type: 'terminal' }] },
+      tool: {
+        name: 'switch_mode',
+        kind: 'switch_mode',
+        status: 'completed',
+        rawInput: { mode: 'code' },
+        rawOutput: { changed: true },
+        content: [{ type: 'terminal' }],
+      },
     })
   })
 
   it('maps ACP controls and conversation progress', () => {
     const mapper = createMapper()
-    mapper.start('Question')
+    mapper.start(userMessage())
     const mode = mapper.map({
       sessionId,
       update: { sessionUpdate: 'current_mode_update', currentModeId: 'code' },
@@ -98,9 +107,49 @@ describe('GrokEventMapper', () => {
     ])
   })
 
+  it('maps ID-addressed ACP plans', () => {
+    const mapper = createMapper()
+    mapper.start(userMessage())
+    const updated = mapper.map({
+      sessionId,
+      update: {
+        sessionUpdate: 'plan_update',
+        plan: { type: 'markdown', planId: 'review', content: '# Review' },
+      },
+    })
+    const removed = mapper.map({
+      sessionId,
+      update: { sessionUpdate: 'plan_removed', planId: 'review' },
+    })
+
+    expect(updated.isOk() && updated.value[0]).toMatchObject({
+      type: 'plan.updated',
+      plan: { type: 'markdown', planId: 'review', content: '# Review' },
+    })
+    expect(removed.isOk() && removed.value[0]).toMatchObject({
+      type: 'plan.removed',
+      planId: 'review',
+    })
+  })
+
+  it('rejects unadvertised compaction updates', () => {
+    const mapper = createMapper()
+    mapper.start(userMessage())
+    const mapped = mapper.map({
+      sessionId,
+      update: {
+        sessionUpdate: 'compaction_update',
+        compactionId: 'compact-1',
+        status: 'in_progress',
+      },
+    })
+
+    expect(mapped.isErr() && mapped.error.code).toBe('INVALID_VALUE')
+  })
+
   it('separates messages around a tool call', () => {
     const mapper = createMapper()
-    mapper.start('Question')
+    mapper.start(userMessage())
     mapper.map(replayChunk('agent_message_chunk', 'Before'))
     const tool = mapper.map({
       sessionId,
@@ -118,7 +167,7 @@ describe('GrokEventMapper', () => {
 
   it('maps permission cancellation', () => {
     const mapper = createMapper()
-    mapper.start('Question')
+    mapper.start(userMessage())
     const permissionId = PermissionIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451c0')
     const cancelled = mapper.permissionCancelled(permissionId)
 
@@ -130,7 +179,7 @@ describe('GrokEventMapper', () => {
 
   it('rejects updates for another conversation', () => {
     const mapper = createMapper()
-    mapper.start('Question')
+    mapper.start(userMessage())
     const mapped = mapper.map({
       sessionId: 'session-2',
       update: { sessionUpdate: 'plan', entries: [] },
@@ -140,7 +189,7 @@ describe('GrokEventMapper', () => {
   })
 
   it('builds a complete view from load updates', () => {
-    const replay = new GrokReplayMapper(createIds())
+    const replay = new GrokReplayMapper()
     replay.map(replayChunk('user_message_chunk', 'Question'))
     replay.map(replayChunk('agent_message_chunk', 'Answer'))
     replay.map({
@@ -165,7 +214,7 @@ describe('GrokEventMapper', () => {
   })
 
   it('rejects replay updates from two conversations', () => {
-    const replay = new GrokReplayMapper(createIds())
+    const replay = new GrokReplayMapper()
     replay.map(replayChunk('user_message_chunk', 'Question'))
     const mapped = replay.map({
       sessionId: 'session-2',
@@ -177,16 +226,13 @@ describe('GrokEventMapper', () => {
 })
 
 function createMapper(): GrokEventMapper {
-  return new GrokEventMapper(sessionId, turnId, createIds())
+  return new GrokEventMapper(sessionId, turnId)
 }
 
-function createIds() {
-  let event = 0
-  let message = 0
+function userMessage() {
   return {
-    eventId: () => EventIdSchema.parse(`event-${String(++event)}`),
-    messageId: () => MessageIdSchema.parse(`message-${String(++message)}`),
-    permissionId: () => PermissionIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451c0'),
+    id: MessageIdSchema.parse('message-user'),
+    content: [{ type: 'text' as const, text: 'Question' }],
   }
 }
 

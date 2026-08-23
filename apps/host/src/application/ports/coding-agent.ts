@@ -1,16 +1,20 @@
 import type {
   ConversationTurnState,
+  ConversationStateSnapshot,
+  ConversationEmission,
+  CanonicalContent,
   FailureClassification,
+  MessageId,
   PermissionId,
   ConversationIdentity as ProtocolConversationIdentity,
   ConversationId as ProtocolConversationId,
   ConversationSummary as ProtocolConversationSummary,
   TurnId,
+  ActiveConversationTurn,
+  ConversationTranscript as ProtocolConversationTranscript,
+  ReadConversation as ProtocolReadConversation,
 } from '@porte/core/client'
-import type {
-  ConversationEvent as ProtocolConversationEvent,
-  ConversationView as ProtocolConversationView,
-} from '@porte/core/client'
+import type { ConversationEvent as ProtocolConversationEvent } from '@porte/core/client'
 import { TaggedError, type Result } from 'better-result'
 
 /** Porte identifier for one persisted agent conversation. */
@@ -27,6 +31,7 @@ export type { ConversationTurnState }
 
 /** Provider-independent event from one conversation. */
 export type ConversationEvent = ProtocolConversationEvent
+export type { ConversationEmission }
 
 /**
  * Complete state returned when Porte opens a conversation.
@@ -36,13 +41,13 @@ export type ConversationEvent = ProtocolConversationEvent
  */
 export type ConversationSnapshot = {
   readonly summary: ConversationIdentity
-  readonly view: ProtocolConversationView
+  readonly state: ConversationStateSnapshot
 }
 
 /** Complete state returned when Porte creates one. The repository is known here. */
 export type CreatedConversation = {
   readonly summary: ConversationSummary
-  readonly view: ProtocolConversationView
+  readonly state: ConversationStateSnapshot
 }
 
 /** What went wrong, in the provider-independent words the CLI and relay use. */
@@ -96,35 +101,28 @@ export class CodingAgentError extends TaggedError('CodingAgentError')<{
   }
 }
 
-export type ReadConversation = {
-  readonly conversationId: ConversationId
-  readonly cursor: string | null
-  readonly limit: number
-}
+export type ReadConversation = ProtocolReadConversation
 
 /** One page of a stored transcript, newest turn last. */
-export type ConversationTranscript = {
-  readonly conversation: ConversationIdentity
-  readonly events: readonly ConversationEvent[]
-  readonly next: string | null
-  /** What the agent is doing now, which the stored file cannot say. */
-  readonly turn: ConversationTurnState
-}
+export type ConversationTranscript = ProtocolConversationTranscript
 
 export type OpenConversation = {
   readonly conversationId: ConversationId
-  readonly onEvent: (event: ConversationEvent) => void
+  readonly onEvent: (emission: ConversationEmission) => void
 }
 
 export type CreateConversation = {
   readonly cwd: string
-  readonly onEvent: (event: ConversationEvent) => void
+  readonly onEvent: (emission: ConversationEmission) => void
 }
 
 export type StartTurn = {
   readonly conversationId: ConversationId
   readonly turnId: TurnId
-  readonly prompt: string
+  readonly userMessage: {
+    readonly id: MessageId
+    readonly content: readonly CanonicalContent[]
+  }
 }
 
 export type CancelTurn = {
@@ -143,6 +141,9 @@ export type AnswerPermission = {
 export interface CodingAgent {
   /** List persisted conversations in display order. */
   listConversations(): Promise<Result<ConversationSummary[], CodingAgentError>>
+
+  /** List turns that this host process still owns. */
+  activeTurns(): readonly ActiveConversationTurn[]
 
   /** Read one stored conversation without starting an agent process. */
   readConversation(

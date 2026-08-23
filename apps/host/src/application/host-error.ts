@@ -31,6 +31,21 @@ export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
   }
 }
 
+/** The durable host delivery ledger could not preserve its contract. */
+export class HostLedgerError extends TaggedError('HostLedgerError')<{
+  cause: unknown
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { cause: unknown }) {
+    super({
+      ...args,
+      message: 'could not access the host delivery ledger',
+      classification: 'unknown',
+    })
+  }
+}
+
 /**
  * The relay answered the handshake with a status instead of upgrading.
  *

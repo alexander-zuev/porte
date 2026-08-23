@@ -5,7 +5,12 @@ import { ConfigError } from '@host/application/host-error.ts'
 import { pairHost } from '@host/application/pair-host.ts'
 import { createHost, type HostComposition } from '@host/composition/create-host.ts'
 import { loadConfig, relayUrlFor } from '@host/composition/host-config.ts'
-import { ConversationIdSchema, createTurnId, formatPairingCode } from '@porte/core/client'
+import {
+  ConversationIdSchema,
+  createMessageId,
+  createTurnId,
+  formatPairingCode,
+} from '@porte/core/client'
 
 import { UsageError, exitCodeFor, formatError, type CliError } from './cli-error.ts'
 import { CliRelayObserver } from './cli-relay-observer.ts'
@@ -118,9 +123,10 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   })
   const opened = await host.agent.openConversation({
     conversationId: conversationId.data,
-    onEvent: (event) => {
-      io.stdout.write(`${JSON.stringify(event)}\n`)
-      if (event.type === 'turn.finished' && event.turnId === turnId) finishTurn?.()
+    onEvent: (emission) => {
+      io.stdout.write(`${JSON.stringify(emission)}\n`)
+      if (emission.event.type === 'turn.finished' && emission.event.turnId === turnId)
+        finishTurn?.()
     },
   })
   if (opened.isErr()) return writeError(io, opened.error)
@@ -128,7 +134,10 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   const started = await host.agent.startTurn({
     conversationId: conversationId.data,
     turnId,
-    prompt: command.prompt,
+    userMessage: {
+      id: createMessageId(),
+      content: [{ type: 'text', text: command.prompt }],
+    },
   })
   if (started.isErr()) {
     await host.agent.closeConversation(conversationId.data)

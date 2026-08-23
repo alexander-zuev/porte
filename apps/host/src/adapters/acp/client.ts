@@ -1,7 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { createInterface } from 'node:readline'
+import { Readable, Writable } from 'node:stream'
 
+import * as acp from '@agentclientprotocol/sdk'
 import { Result, type Result as ResultType } from 'better-result'
+import { z } from 'zod'
 
 import {
   AcpExitedError,
@@ -10,28 +12,16 @@ import {
   AcpTimeoutError,
   AcpTransportError,
 } from './error.ts'
-import {
-  parseAcpLine,
-  type AcpRequest,
-  type AcpSessionNotification,
-  type JsonRpcError,
-  type JsonValue,
-} from './message.ts'
+import type { AcpSessionNotification, JsonRpcError, JsonValue } from './message.ts'
 
-type Pending = {
-  readonly timer: ReturnType<typeof setTimeout>
-  readonly resolve: (
-    result: ResultType<
-      JsonValue | undefined,
-      AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
-    >,
-  ) => void
-}
+type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
+type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
 
 /** Handles one request sent by an ACP agent. */
 export type AcpRequestHandler = (
-  method: string,
-  params: JsonValue | undefined,
+  id: acp.JsonRpcId,
+  method: acp.ClientRequestMethod,
+  params: JsonValue,
 ) => Promise<ResultType<JsonValue, JsonRpcError>>
 
 /** Input required to start one ACP client. */
@@ -41,9 +31,10 @@ export type StartAcpClient = {
   readonly cwd: string
   readonly onUpdate: (notification: AcpSessionNotification) => void
   readonly onRequest: AcpRequestHandler
+  readonly onElicitationComplete?: (notification: acp.CompleteElicitationNotification) => void
 }
 
-/** Start one ACP process and connect its standard streams. */
+/** Start one ACP process through the official typed SDK. */
 export function startAcpClient(
   input: StartAcpClient,
 ): Promise<ResultType<AcpClient, AcpStartError>> {
@@ -59,37 +50,39 @@ export function startAcpClient(
     child.once('error', onError)
     child.once('spawn', () => {
       child.removeListener('error', onError)
-      resolve(Result.ok(new AcpClient(child, input.onUpdate, input.onRequest)))
+      resolve(Result.ok(new AcpClient(child, input)))
     })
   })
 }
 
-/** One active ACP connection over a child process. */
+/** One active typed ACP connection over a child process. */
 export class AcpClient {
-  private nextId = 1
-  private readonly pending = new Map<number, Pending>()
+  private readonly connection: acp.ClientConnection
   private closed = false
   private readonly onSignal: () => void
 
   constructor(
     private readonly child: ChildProcessWithoutNullStreams,
-    private readonly onUpdate: (notification: AcpSessionNotification) => void,
-    private readonly onRequest: AcpRequestHandler,
+    input: StartAcpClient,
   ) {
-    const lines = createInterface({ input: child.stdout })
-    lines.on('line', (line) => {
-      this.handleLine(line)
-    })
+    const app = acp
+      .client({ name: 'porte' })
+      .onNotification(acp.methods.client.session.update, ({ params }) => {
+        input.onUpdate(params)
+      })
+      .onNotification(acp.methods.client.elicitation.complete, ({ params }) => {
+        input.onElicitationComplete?.(params)
+      })
+
+    registerClientRequests(app, input.onRequest)
     child.stderr.resume()
-    child.on('exit', (code) => {
-      this.failAll(new AcpExitedError({ code }))
-    })
-    child.on('error', (cause) => {
-      this.failAll(new AcpTransportError({ cause }))
-    })
-    child.stdin.on('error', (cause) => {
-      this.failAll(new AcpTransportError({ cause }))
-    })
+
+    // SAFETY: Node exposes byte streams here because the child stdio encoding is not set.
+    const output = Writable.toWeb(child.stdin) as WritableStream<Uint8Array>
+    // SAFETY: Node exposes byte streams here because the child stdio encoding is not set.
+    const source = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>
+    this.connection = app.connect(acp.ndJsonStream(output, source))
+
     this.onSignal = () => {
       void this.stop()
     }
@@ -97,167 +90,149 @@ export class AcpClient {
     process.once('SIGTERM', this.onSignal)
   }
 
-  /** Send one ACP request and wait for its response. */
-  request(
-    request: AcpRequest & { readonly timeoutMs: number },
-  ): Promise<
-    ResultType<
-      JsonValue | undefined,
-      AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
-    >
-  > {
-    const id = this.nextId
-    this.nextId += 1
-    const stdin = this.child.stdin
-    if (
-      this.closed ||
-      this.child.exitCode !== null ||
-      this.child.signalCode !== null ||
-      stdin.writableEnded
-    ) {
-      return Promise.resolve(Result.err(new AcpExitedError({ code: this.child.exitCode })))
+  /** Send one typed ACP request and wait for its response. */
+  request<Method extends acp.AgentRequestMethod>(request: {
+    readonly method: Method
+    readonly params: acp.AgentRequestParamsByMethod[Method]
+    readonly timeoutMs: number
+  }): Promise<ResultType<acp.AgentRequestResponsesByMethod[Method], AcpRequestFailure>>
+  /** Send one extension ACP request and wait for its response. */
+  request<Response>(request: {
+    readonly method: string
+    readonly params: JsonValue
+    readonly timeoutMs: number
+  }): Promise<ResultType<Response, AcpRequestFailure>>
+  async request<Response>(request: {
+    readonly method: string
+    readonly params: AcpOutgoingParams
+    readonly timeoutMs: number
+  }): Promise<ResultType<Response, AcpRequestFailure>> {
+    if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
+      return Result.err(new AcpExitedError({ code: this.child.exitCode }))
     }
 
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id)
+    const cancellation = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<ResultType<never, AcpTimeoutError>>((resolve) => {
+      timer = setTimeout(() => {
+        cancellation.abort()
         resolve(Result.err(new AcpTimeoutError({ timeoutMs: request.timeoutMs })))
       }, request.timeoutMs)
-      this.pending.set(id, { resolve, timer })
-      const body = `${JSON.stringify({
-        jsonrpc: '2.0',
-        id,
-        method: request.method,
-        params: request.params,
-      })}\n`
-      stdin.write(body, (cause) => {
-        if (cause === null || cause === undefined) return
-        const pending = this.pending.get(id)
-        if (pending === undefined) return
-        this.pending.delete(id)
-        clearTimeout(pending.timer)
-        pending.resolve(Result.err(new AcpTransportError({ cause })))
-      })
     })
-  }
+    const response = this.connection.agent
+      .request<Response, AcpOutgoingParams>(request.method, request.params, {
+        cancellationSignal: cancellation.signal,
+      })
+      .then(
+        (value) => Result.ok(value),
+        (cause: unknown) => Result.err(this.mapRequestError(cause)),
+      )
 
-  /** Send one ACP notification without waiting for a response. */
-  notify(notification: AcpRequest): Promise<ResultType<void, AcpExitedError | AcpTransportError>> {
-    const stdin = this.child.stdin
-    if (
-      this.closed ||
-      this.child.exitCode !== null ||
-      this.child.signalCode !== null ||
-      stdin.writableEnded
-    ) {
-      return Promise.resolve(Result.err(new AcpExitedError({ code: this.child.exitCode })))
+    try {
+      return await Promise.race([response, timeout])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
     }
-
-    return new Promise((resolve) => {
-      const body = `${JSON.stringify({
-        jsonrpc: '2.0',
-        method: notification.method,
-        params: notification.params,
-      })}\n`
-      stdin.write(body, (cause) => {
-        resolve(
-          cause === null || cause === undefined
-            ? Result.ok()
-            : Result.err(new AcpTransportError({ cause })),
-        )
-      })
-    })
   }
 
-  /** Stop the child process and remove its signal handlers. */
+  /** Send one typed ACP notification without waiting for a response. */
+  async notify<Method extends acp.AgentNotificationMethod>(notification: {
+    readonly method: Method
+    readonly params: acp.AgentNotificationParamsByMethod[Method]
+  }): Promise<ResultType<void, AcpExitedError | AcpTransportError>> {
+    if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
+      return Result.err(new AcpExitedError({ code: this.child.exitCode }))
+    }
+    try {
+      await this.connection.agent.notify(notification.method, notification.params)
+      return Result.ok()
+    } catch (cause) {
+      return Result.err(new AcpTransportError({ cause }))
+    }
+  }
+
+  /** Stop the ACP connection and its child process. */
   async stop(): Promise<void> {
     process.removeListener('SIGINT', this.onSignal)
     process.removeListener('SIGTERM', this.onSignal)
-    if (this.closed) {
-      return
-    }
+    if (this.closed) return
     this.closed = true
-    if (this.child.exitCode !== null || this.child.signalCode !== null) {
-      return
-    }
+    this.connection.close()
+    if (this.child.exitCode !== null || this.child.signalCode !== null) return
+
     this.child.kill('SIGTERM')
     const exited = await waitForExit(this.child, 2_000)
-    if (!exited) {
-      this.child.kill('SIGKILL')
-      await waitForExit(this.child, 2_000)
-    }
+    if (exited) return
+    this.child.kill('SIGKILL')
+    await waitForExit(this.child, 2_000)
   }
 
-  private handleLine(line: string): void {
-    const parsed = parseAcpLine(line)
-    if (parsed === undefined) {
-      return
+  private mapRequestError(cause: unknown): AcpRequestFailure {
+    if (cause instanceof acp.RequestError) {
+      return new AcpRpcError({ rpc: cause.toErrorResponse() })
     }
-    if (parsed.kind === 'update') {
-      this.onUpdate(parsed.notification)
-      return
+    if (this.child.exitCode !== null || this.child.signalCode !== null) {
+      return new AcpExitedError({ code: this.child.exitCode })
     }
-    if (parsed.kind === 'incoming') {
-      void this.replyToIncoming(parsed.id, parsed.method, parsed.params)
-      return
-    }
-    const pending = this.pending.get(parsed.id)
-    if (pending === undefined) {
-      return
-    }
-    this.pending.delete(parsed.id)
-    clearTimeout(pending.timer)
-    if (parsed.error !== undefined) {
-      pending.resolve(Result.err(new AcpRpcError({ rpc: parsed.error })))
-      return
-    }
-    pending.resolve(Result.ok(parsed.result))
-  }
-
-  private async replyToIncoming(
-    id: number,
-    method: string,
-    params: JsonValue | undefined,
-  ): Promise<void> {
-    const stdin = this.child.stdin
-    if (
-      this.closed ||
-      this.child.exitCode !== null ||
-      this.child.signalCode !== null ||
-      stdin.writableEnded
-    ) {
-      return
-    }
-    const answered = await this.onRequest(method, params)
-    const body = answered.isOk()
-      ? { jsonrpc: '2.0', id, result: answered.value }
-      : { jsonrpc: '2.0', id, error: answered.error }
-    stdin.write(`${JSON.stringify(body)}\n`, () => undefined)
-  }
-
-  private failAll(error: AcpExitedError | AcpTransportError): void {
-    for (const pending of this.pending.values()) {
-      clearTimeout(pending.timer)
-      pending.resolve(Result.err(error))
-    }
-    this.pending.clear()
+    return new AcpTransportError({ cause })
   }
 }
 
-function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<boolean> {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return Promise.resolve(true)
+function registerClientRequests(app: acp.ClientApp, handler: AcpRequestHandler): void {
+  app
+    .onRequest(acp.methods.client.session.requestPermission, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.session.requestPermission),
+    )
+    .onRequest(acp.methods.client.fs.readTextFile, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.fs.readTextFile),
+    )
+    .onRequest(acp.methods.client.fs.writeTextFile, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.fs.writeTextFile),
+    )
+    .onRequest(acp.methods.client.terminal.create, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.terminal.create),
+    )
+    .onRequest(acp.methods.client.terminal.output, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.terminal.output),
+    )
+    .onRequest(acp.methods.client.terminal.release, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.terminal.release),
+    )
+    .onRequest(acp.methods.client.terminal.waitForExit, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.terminal.waitForExit),
+    )
+    .onRequest(acp.methods.client.terminal.kill, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.terminal.kill),
+    )
+    .onRequest(acp.methods.client.elicitation.create, (context) =>
+      handleClientRequest(handler, context, acp.methods.client.elicitation.create),
+    )
+}
+
+async function handleClientRequest<Method extends acp.ClientRequestMethod>(
+  handler: AcpRequestHandler,
+  context: acp.ClientRequestContext<acp.ClientRequestParamsByMethod[Method]>,
+  method: Method,
+): Promise<acp.ClientRequestResponsesByMethod[Method]> {
+  const params = z.json().safeParse(context.params)
+  if (!params.success) throw acp.RequestError.invalidParams(params.error, 'Invalid JSON params')
+  const answered = await handler(context.requestId, method, params.data)
+  if (answered.isErr()) {
+    throw new acp.RequestError(answered.error.code, answered.error.message, answered.error.data)
   }
+  // SAFETY: The SDK parsed the request by method. The handler returns that method's response.
+  return answered.value as acp.ClientRequestResponsesByMethod[Method]
+}
+
+function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true)
   return new Promise((resolve) => {
     let settled = false
     const finish = (value: boolean) => {
-      if (settled) {
-        return
-      }
+      if (settled) return
       settled = true
       child.removeListener('exit', onExit)
       clearTimeout(timer)
-      // oxlint-disable-next-line promise/no-multiple-resolved -- The settled guard permits one resolve.
       resolve(value)
     }
     const timer = setTimeout(() => {

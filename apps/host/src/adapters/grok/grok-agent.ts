@@ -1,5 +1,13 @@
 import { homedir } from 'node:os'
 
+import {
+  PROTOCOL_VERSION,
+  type AgentCapabilities,
+  type ContentBlock,
+  type JsonRpcId,
+  type LoadSessionResponse,
+  type NewSessionResponse,
+} from '@agentclientprotocol/sdk'
 import { startAcpClient, type AcpClient, type StartAcpClient } from '@host/adapters/acp/client.ts'
 import {
   answerIncomingRequest,
@@ -13,6 +21,7 @@ import {
   type CancelTurn,
   type CodingAgent,
   type ConversationEvent,
+  type ConversationEmission,
   type ConversationId,
   type ConversationIdentity,
   type ConversationSnapshot,
@@ -28,11 +37,10 @@ import {
 import {
   IsoDateTimeSchema,
   ConversationIdSchema,
-  createLogger,
-  createEventId,
-  createMessageId,
-  createPermissionId,
+  PermissionIdSchema,
+  conversationStateSnapshot,
   makeConversationSummary,
+  type CanonicalContent,
   type PermissionId,
   type TurnId,
 } from '@porte/core/client'
@@ -42,17 +50,15 @@ import {
   type ConversationView,
 } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
-import { z } from 'zod'
 
 import { findGitRoot, normaliseGitRoot } from './git-root.ts'
-import { findGrokConversation } from './grok-conversation-files.ts'
 import {
   GrokEventMapper,
   GrokReplayMapper,
   type GrokEventMappingError,
 } from './grok-event-mapper.ts'
 import { listGrokSessions } from './grok-session-list.ts'
-import { pageOfTurns, readGrokTranscript } from './grok-transcript.ts'
+import { conversationViewToStoredTurns, pageOfTurns, type StoredTurn } from './grok-transcript.ts'
 
 export type GrokAgentConfig = {
   readonly grokHome: string
@@ -64,33 +70,44 @@ type PendingPermission = {
   readonly optionIds: ReadonlySet<string>
   readonly resolve: (result: ResultType<JsonValue, JsonRpcError>) => void
 }
+type AcpResourceLink = {
+  type: 'resource_link'
+  uri: string
+  name: string
+  title?: string
+  description?: string
+  mimeType?: string
+  size?: number
+}
+type AcpEmbeddedResource =
+  | { uri: string; mimeType?: string; text: string }
+  | { uri: string; mimeType?: string; blob: string }
 type StartedConversation = {
   readonly conversation: GrokConversation
   readonly view: ConversationView
 }
-
-const logger = createLogger('grok-agent')
-
-const ids = {
-  eventId: createEventId,
-  messageId: createMessageId,
-  permissionId: createPermissionId,
+type SelectedSession = {
+  readonly conversationId: ConversationId
+  readonly response: LoadSessionResponse | NewSessionResponse
 }
-const newSessionResponseSchema = z.object({ sessionId: ConversationIdSchema })
-const promptResponseSchema = z.object({
-  stopReason: z.enum(['end_turn', 'max_tokens', 'max_turn_requests', 'refusal', 'cancelled']),
-})
+type CachedTranscript = {
+  readonly conversation: ConversationIdentity
+  readonly turns: readonly StoredTurn[]
+  readonly state: ReturnType<typeof conversationStateSnapshot>
+}
+
 /** Implements all coding-agent operations for Grok. */
 export class GrokAgent implements CodingAgent {
   private readonly conversations = new Map<ConversationId, GrokConversation>()
+  private readonly history = new Map<ConversationId, CachedTranscript>()
   private readonly opening = new Map<
     ConversationId,
     Promise<ResultType<StartedConversation, CodingAgentError>>
   >()
 
-  private control: Promise<ResultType<AcpProcess, CodingAgentError>> | undefined
-
-  constructor(private readonly config: GrokAgentConfig) {}
+  constructor(config: GrokAgentConfig) {
+    void config
+  }
 
   /**
    * List conversations that Grok itself indexed.
@@ -99,15 +116,12 @@ export class GrokAgent implements CodingAgent {
    * repository each session was started in, and the files on disk do not.
    */
   async listConversations(): Promise<ResultType<ConversationSummary[], CodingAgentError>> {
-    const client = await this.controlClient()
+    const client = await startControlClient()
     if (client.isErr()) return Result.err(client.error)
 
     const listed = await listGrokSessions(client.value)
+    await client.value.stop()
     if (listed.isOk()) return Result.ok(listed.value)
-
-    // A control process that stopped answering is not one to keep: dropping it
-    // is what lets the next list start a live one.
-    if (listed.error.kind === 'unreachable') this.control = undefined
     return Result.err(
       operationError(
         'list',
@@ -117,46 +131,42 @@ export class GrokAgent implements CodingAgent {
     )
   }
 
-  /**
-   * Read one stored conversation from Grok's own files.
-   *
-   * No ACP session: starting one would boot the agent and its MCP servers just
-   * to look at a transcript. Paged newest turn first, so a phone opening a long
-   * conversation reads the end of it rather than all of it.
-   */
+  /** Lists only turns backed by a live ACP process in this host process. */
+  activeTurns() {
+    return [...this.conversations.entries()].flatMap(([conversationId, conversation]) =>
+      conversation.turn.state === 'running'
+        ? [{ conversationId, turnId: conversation.turn.turnId }]
+        : [],
+    )
+  }
+
+  /** Read one stored conversation from ACP session/load replay updates. */
   async readConversation(
     command: ReadConversation,
   ): Promise<ResultType<ConversationTranscript, CodingAgentError>> {
-    const found = await findGrokConversation(this.config.grokHome, command.conversationId)
-    if (found.isErr()) {
-      const code =
-        found.error._tag === 'GrokConversationNotFoundError'
-          ? 'CONVERSATION_NOT_FOUND'
-          : 'PROVIDER_UNAVAILABLE'
-      return Result.err(operationError('read', found.error, code))
+    let transcript = command.cursor === null ? undefined : this.history.get(command.conversationId)
+    if (transcript === undefined) {
+      const identity = await this.findConversation(command.conversationId, 'read')
+      if (identity.isErr()) return identity
+      const loaded = await this.loadConversation(identity.value, () => undefined, 'read')
+      if (loaded.isErr()) return loaded
+      transcript = {
+        conversation: identity.value,
+        turns: conversationViewToStoredTurns(loaded.value.view),
+        state: conversationStateSnapshot(loaded.value.view, { state: 'idle' }),
+      }
+      this.history.set(command.conversationId, transcript)
+      await loaded.value.conversation.close()
     }
 
-    const transcript = await readGrokTranscript(found.value.folderPath, command.conversationId)
-    if (transcript.isErr()) {
-      return Result.err(operationError('read', transcript.error, 'PROVIDER_UNAVAILABLE'))
-    }
-
-    if (transcript.value.skippedLines > 0) {
-      logger.warn('transcript_lines_skipped', {
-        conversationId: command.conversationId,
-        skippedLines: transcript.value.skippedLines,
-      })
-    }
-
-    const page = pageOfTurns(transcript.value.turns, command.cursor, command.limit)
+    const page = pageOfTurns(transcript.turns, command.cursor, command.limit)
     if (page.isErr()) {
       return Result.err(operationError('read', page.error, 'INVALID_PROVIDER_RESPONSE'))
     }
 
     return Result.ok({
-      conversation: found.value.identity,
-      // The file says what was said; only a live process says what is happening.
-      turn: this.conversations.get(command.conversationId)?.turn ?? { state: 'idle' },
+      conversation: transcript.conversation,
+      state: this.conversations.get(command.conversationId)?.state ?? transcript.state,
       ...page.value,
     })
   }
@@ -165,40 +175,37 @@ export class GrokAgent implements CodingAgent {
   async openConversation(
     command: OpenConversation,
   ): Promise<ResultType<ConversationSnapshot, CodingAgentError>> {
-    const found = await findGrokConversation(this.config.grokHome, command.conversationId)
-    if (found.isErr()) {
-      const code =
-        found.error._tag === 'GrokConversationNotFoundError'
-          ? 'CONVERSATION_NOT_FOUND'
-          : 'PROVIDER_UNAVAILABLE'
-      return Result.err(operationError('open', found.error, code))
-    }
+    const found = await this.findConversation(command.conversationId, 'open')
+    if (found.isErr()) return found
 
     const current = this.conversations.get(command.conversationId)
     if (current !== undefined) {
       current.setListener(command.onEvent)
-      return Result.ok(snapshot(found.value.identity, current.view))
+      return Result.ok(snapshot(found.value, current.view, current.turn))
     }
 
     let pending = this.opening.get(command.conversationId)
     if (pending === undefined) {
       pending = this.startConversation(
-        found.value.identity.cwd,
+        found.value.cwd,
         command.onEvent,
         'open',
-        async (client) => {
+        async (client, capabilities) => {
+          if (capabilities.loadSession !== true) {
+            return Result.err(unsupportedCapability('open', 'session/load'))
+          }
           const loaded = await client.request({
             method: 'session/load',
             params: {
               sessionId: command.conversationId,
-              cwd: found.value.identity.cwd,
+              cwd: found.value.cwd,
               mcpServers: [],
             },
             timeoutMs: 30_000,
           })
           return loaded.isErr()
             ? Result.err(operationError('open', loaded.error))
-            : Result.ok(command.conversationId)
+            : Result.ok({ conversationId: command.conversationId, response: loaded.value })
         },
       )
       this.opening.set(command.conversationId, pending)
@@ -209,7 +216,7 @@ export class GrokAgent implements CodingAgent {
 
     started.value.conversation.setListener(command.onEvent)
     this.conversations.set(command.conversationId, started.value.conversation)
-    return Result.ok(snapshot(found.value.identity, started.value.view))
+    return Result.ok(snapshot(found.value, started.value.view, started.value.conversation.turn))
   }
 
   /** Create one Grok conversation and keep its ACP process active. */
@@ -235,10 +242,10 @@ export class GrokAgent implements CodingAgent {
           timeoutMs: 30_000,
         })
         if (created.isErr()) return Result.err(operationError('create', created.error))
-        const parsed = newSessionResponseSchema.safeParse(created.value)
-        return parsed.success
-          ? Result.ok(parsed.data.sessionId)
-          : Result.err(operationError('create', parsed.error, 'INVALID_PROVIDER_RESPONSE'))
+        return Result.ok({
+          conversationId: ConversationIdSchema.parse(created.value.sessionId),
+          response: created.value,
+        })
       },
     )
     if (started.isErr()) return started
@@ -250,8 +257,11 @@ export class GrokAgent implements CodingAgent {
       title: '',
       updatedAt: IsoDateTimeSchema.parse(new Date().toISOString()),
     })
-    this.conversations.set(started.value.conversation.conversationId, started.value.conversation)
-    return Result.ok({ summary, view: started.value.view })
+    await started.value.conversation.close()
+    return Result.ok({
+      summary,
+      state: conversationStateSnapshot(started.value.view, started.value.conversation.turn),
+    })
   }
 
   /** Close one active Grok conversation. */
@@ -297,36 +307,55 @@ export class GrokAgent implements CodingAgent {
       : conversation.answerPermission(command)
   }
 
-  /**
-   * One Grok process for the questions that belong to no conversation.
-   *
-   * Listing needs an agent, and starting one per list would pay for a process
-   * and its MCP servers on every look at the list. The daemon already outlives
-   * every request, so it holds the connection instead.
-   *
-   * Started once and shared. The promise is cached, not the client, so two
-   * lists that race start one process between them.
-   */
-  private async controlClient(): Promise<ResultType<AcpProcess, CodingAgentError>> {
-    this.control ??= startControlClient()
-    const client = await this.control
-    // Nothing is cached but success: a Mac that had Grok closed the first time
-    // must not be told so for the rest of the day.
-    if (client.isErr()) this.control = undefined
-    return client
+  private async findConversation(
+    conversationId: ConversationId,
+    operation: 'read' | 'open',
+  ): Promise<ResultType<ConversationIdentity, CodingAgentError>> {
+    const listed = await this.listConversations()
+    if (listed.isErr()) return Result.err(operationError(operation, listed.error))
+    const found = listed.value.find((conversation) => conversation.id === conversationId)
+    return found === undefined
+      ? Result.err(operationError(operation, undefined, 'CONVERSATION_NOT_FOUND'))
+      : Result.ok(found)
+  }
+
+  private loadConversation(
+    identity: ConversationIdentity,
+    onEvent: (emission: ConversationEmission) => void,
+    operation: 'read' | 'open',
+  ): Promise<ResultType<StartedConversation, CodingAgentError>> {
+    return this.startConversation(
+      identity.cwd,
+      onEvent,
+      operation,
+      async (client, capabilities) => {
+        if (capabilities.loadSession !== true) {
+          return Result.err(unsupportedCapability(operation, 'session/load'))
+        }
+        const loaded = await client.request({
+          method: 'session/load',
+          params: { sessionId: identity.id, cwd: identity.cwd, mcpServers: [] },
+          timeoutMs: 30_000,
+        })
+        return loaded.isErr()
+          ? Result.err(operationError(operation, loaded.error))
+          : Result.ok({ conversationId: identity.id, response: loaded.value })
+      },
+    )
   }
 
   private async startConversation(
     cwd: string,
-    onEvent: (event: ConversationEvent) => void,
-    operation: 'open' | 'create',
+    onEvent: (emission: ConversationEmission) => void,
+    operation: 'read' | 'open' | 'create',
     selectConversation: (
       client: AcpProcess,
-    ) => Promise<ResultType<ConversationId, CodingAgentError>>,
+      capabilities: AgentCapabilities,
+    ) => Promise<ResultType<SelectedSession, CodingAgentError>>,
   ): Promise<ResultType<StartedConversation, CodingAgentError>> {
     let conversation: GrokConversation | undefined
     let replayError: GrokEventMappingError | undefined
-    const replay = new GrokReplayMapper(ids)
+    const replay = new GrokReplayMapper()
     const started = await startAcpClient({
       command: 'grok',
       args: ['--no-auto-update', 'agent', 'stdio'],
@@ -340,10 +369,10 @@ export class GrokAgent implements CodingAgent {
         const mapped = replay.map(notification)
         if (mapped.isErr()) replayError = mapped.error
       },
-      onRequest: (method, params) =>
+      onRequest: (id, method, params) =>
         conversation === undefined
           ? answerIncomingRequest(cwd, method, params)
-          : conversation.answerIncoming(method, params),
+          : conversation.answerIncoming(id, method, params),
     })
     if (started.isErr()) return Result.err(operationError(operation, started.error))
 
@@ -353,7 +382,7 @@ export class GrokAgent implements CodingAgent {
       await client.stop()
       return prepared
     }
-    const selected = await selectConversation(client)
+    const selected = await selectConversation(client, prepared.value)
     if (selected.isErr()) {
       await client.stop()
       return selected
@@ -363,13 +392,26 @@ export class GrokAgent implements CodingAgent {
       await client.stop()
       return Result.err(operationError(operation, replayError, 'INVALID_PROVIDER_RESPONSE'))
     }
-    const view = replay.snapshot(selected.value)
+    replay.seedSession(selected.value.response)
+    const view = replay.snapshot(selected.value.conversationId)
     if (view.isErr()) {
       await client.stop()
       return Result.err(operationError(operation, view.error, 'INVALID_PROVIDER_RESPONSE'))
     }
 
-    conversation = new GrokConversation(selected.value, client, cwd, onEvent, view.value)
+    conversation = new GrokConversation(
+      selected.value.conversationId,
+      client,
+      cwd,
+      onEvent,
+      view.value,
+      prepared.value,
+      () => {
+        if (this.conversations.get(selected.value.conversationId) !== conversation) return
+        this.conversations.delete(selected.value.conversationId)
+        this.history.delete(selected.value.conversationId)
+      },
+    )
     return Result.ok({ conversation, view: view.value })
   }
 }
@@ -380,15 +422,17 @@ class GrokConversation {
   private activeTurnId: TurnId | undefined
   private closed = false
   private currentView: ConversationView
-  private listener: (event: ConversationEvent) => void
+  private listener: (emission: ConversationEmission) => void
   private readonly permissions = new Map<PermissionId, PendingPermission>()
 
   constructor(
     readonly conversationId: ConversationId,
     private readonly client: AcpProcess,
     private readonly cwd: string,
-    onEvent: (event: ConversationEvent) => void,
+    onEvent: (emission: ConversationEmission) => void,
     view: ConversationView,
+    private readonly capabilities: AgentCapabilities,
+    private readonly onClosed: () => void,
   ) {
     this.currentView = ConversationViewSchema.parse(view)
     this.listener = onEvent
@@ -398,6 +442,10 @@ class GrokConversation {
     return ConversationViewSchema.parse(this.currentView)
   }
 
+  get state() {
+    return conversationStateSnapshot(this.currentView, this.turn)
+  }
+
   /** What this conversation is doing now, which no stored file records. */
   get turn(): ConversationTurnState {
     return this.activeTurnId === undefined
@@ -405,7 +453,7 @@ class GrokConversation {
       : { state: 'running', turnId: this.activeTurnId }
   }
 
-  setListener(listener: (event: ConversationEvent) => void): void {
+  setListener(listener: (emission: ConversationEmission) => void): void {
     this.listener = listener
   }
 
@@ -417,8 +465,8 @@ class GrokConversation {
       return Result.err(operationError('start_turn', undefined, 'CONVERSATION_BUSY'))
     }
 
-    const mapper = new GrokEventMapper(this.conversationId, command.turnId, ids)
-    const started = mapper.start(command.prompt)
+    const mapper = new GrokEventMapper(this.conversationId, command.turnId)
+    const started = mapper.start(command.userMessage)
     if (started.isErr()) {
       return Result.err(operationError('start_turn', started.error, 'INVALID_PROVIDER_RESPONSE'))
     }
@@ -428,6 +476,7 @@ class GrokConversation {
     if (sent.isErr()) {
       this.mapper = undefined
       this.activeTurnId = undefined
+      await this.close()
       return sent
     }
     void this.executeTurn(command, mapper)
@@ -488,12 +537,31 @@ class GrokConversation {
   async close(): Promise<ResultType<void, CodingAgentError>> {
     if (this.closed) return Result.ok()
     this.closed = true
+    if (this.activeTurnId !== undefined) {
+      await this.client.notify({
+        method: 'session/cancel',
+        params: { sessionId: this.conversationId },
+      })
+    }
     for (const pending of this.permissions.values()) {
       pending.resolve(Result.ok({ outcome: { outcome: 'cancelled' } }))
     }
     this.permissions.clear()
+    let closeError: CodingAgentError | undefined
+    if (
+      this.capabilities.sessionCapabilities?.close !== undefined &&
+      this.capabilities.sessionCapabilities.close !== null
+    ) {
+      const closed = await this.client.request({
+        method: 'session/close',
+        params: { sessionId: this.conversationId },
+        timeoutMs: 30_000,
+      })
+      if (closed.isErr()) closeError = operationError('close', closed.error)
+    }
     await this.client.stop()
-    return Result.ok()
+    this.onClosed()
+    return closeError === undefined ? Result.ok() : Result.err(closeError)
   }
 
   receiveUpdate(notification: Parameters<StartAcpClient['onUpdate']>[0]): void {
@@ -510,6 +578,7 @@ class GrokConversation {
   }
 
   answerIncoming(
+    requestId: JsonRpcId,
     method: string,
     params: JsonValue | undefined,
   ): Promise<ResultType<JsonValue, JsonRpcError>> {
@@ -522,7 +591,9 @@ class GrokConversation {
       return Promise.resolve(Result.err({ code: -32600, message: 'no active turn' }))
     }
 
-    const permissionId = createPermissionId()
+    const permissionId = PermissionIdSchema.parse(
+      `${this.activeTurnId}:permission:${String(requestId)}`,
+    )
     const mapped = this.mapper.permissionRequested({
       permissionId,
       toolCallId: parsed.value.toolCall.toolCallId,
@@ -551,7 +622,7 @@ class GrokConversation {
       method: 'session/prompt',
       params: {
         sessionId: this.conversationId,
-        prompt: [{ type: 'text', text: command.prompt }],
+        prompt: command.userMessage.content.map(toAcpContent),
       },
       timeoutMs: 1_800_000,
     })
@@ -559,12 +630,7 @@ class GrokConversation {
       if (!this.closed) this.failTurn(codingAgentUnavailable())
       return
     }
-    const parsed = promptResponseSchema.safeParse(response.value)
-    if (!parsed.success) {
-      this.failTurn(invalidUpdate())
-      return
-    }
-    const finished = mapper.finish(parsed.data.stopReason)
+    const finished = mapper.finish(response.value.stopReason)
     if (finished.isErr()) {
       this.failTurn(invalidUpdate())
       return
@@ -576,6 +642,7 @@ class GrokConversation {
     }
     this.activeTurnId = undefined
     this.mapper = undefined
+    await this.close()
   }
 
   private failTurn(error: CanonicalCodingAgentError): void {
@@ -583,6 +650,7 @@ class GrokConversation {
     if (failed?.isOk()) void this.send(failed.value, 'start_turn')
     this.activeTurnId = undefined
     this.mapper = undefined
+    void this.close()
   }
 
   private send(
@@ -594,7 +662,7 @@ class GrokConversation {
       return Result.err(operationError(operation, next.error, 'INVALID_PROVIDER_RESPONSE'))
     }
     this.currentView = next.value
-    for (const event of events) this.listener(event)
+    for (const event of events) this.listener({ conversationId: this.conversationId, event })
     return Result.ok()
   }
 }
@@ -613,7 +681,7 @@ async function startControlClient(): Promise<ResultType<AcpProcess, CodingAgentE
     args: ['--no-auto-update', 'agent', 'stdio'],
     cwd: homedir(),
     onUpdate: () => undefined,
-    onRequest: (method) =>
+    onRequest: (_id, method) =>
       Promise.resolve(Result.err({ code: -32601, message: `method not found: ${method}` })),
   })
   if (started.isErr()) return Result.err(operationError('list', started.error))
@@ -623,35 +691,85 @@ async function startControlClient(): Promise<ResultType<AcpProcess, CodingAgentE
     await started.value.stop()
     return Result.err(prepared.error)
   }
+  if (
+    prepared.value.sessionCapabilities?.list === undefined ||
+    prepared.value.sessionCapabilities.list === null
+  ) {
+    await started.value.stop()
+    return Result.err(unsupportedCapability('list', 'session/list'))
+  }
   return Result.ok(started.value)
 }
 
 async function prepareClient(
   client: AcpProcess,
-  operation: 'open' | 'create' | 'list',
-): Promise<ResultType<void, CodingAgentError>> {
+  operation: 'read' | 'open' | 'create' | 'list',
+): Promise<ResultType<AgentCapabilities, CodingAgentError>> {
   const initialized = await client.request({
     method: 'initialize',
     params: {
-      protocolVersion: 1,
-      clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
+      protocolVersion: PROTOCOL_VERSION,
+      clientCapabilities: {
+        fs: { readTextFile: true, writeTextFile: true },
+        plan: {},
+        session: { configOptions: { boolean: {} } },
+      },
+      clientInfo: { name: 'porte', title: 'Porte', version: '0.1.0' },
     },
     timeoutMs: 30_000,
   })
   if (initialized.isErr()) return Result.err(operationError(operation, initialized.error))
+  if (initialized.value.protocolVersion !== PROTOCOL_VERSION) {
+    return Result.err(operationError(operation, undefined, 'INVALID_PROVIDER_RESPONSE'))
+  }
 
-  const authenticated = await client.request({
-    method: 'authenticate',
-    params: { methodId: 'cached_token', _meta: { headless: true } },
-    timeoutMs: 30_000,
-  })
-  return authenticated.isErr()
-    ? Result.err(operationError(operation, authenticated.error))
-    : Result.ok()
+  const cachedToken = initialized.value.authMethods?.find(
+    (method) => !('type' in method) && method.id === 'cached_token',
+  )
+  if (cachedToken !== undefined) {
+    const authenticated = await client.request({
+      method: 'authenticate',
+      params: { methodId: cachedToken.id, _meta: { headless: true } },
+      timeoutMs: 30_000,
+    })
+    if (authenticated.isErr()) return Result.err(operationError(operation, authenticated.error))
+  }
+  return Result.ok(initialized.value.agentCapabilities ?? {})
 }
 
-function snapshot(summary: ConversationIdentity, view: ConversationView): ConversationSnapshot {
-  return { summary, view }
+function snapshot(
+  summary: ConversationIdentity,
+  view: ConversationView,
+  turn: ConversationTurnState,
+): ConversationSnapshot {
+  return { summary, state: conversationStateSnapshot(view, turn) }
+}
+
+function toAcpContent(content: CanonicalContent): ContentBlock {
+  if (content.type === 'resource-link') {
+    const link: AcpResourceLink = {
+      type: 'resource_link',
+      uri: content.uri,
+      name: content.name,
+    }
+    if (content.title !== undefined) link.title = content.title
+    if (content.description !== undefined) link.description = content.description
+    if (content.mimeType !== undefined) link.mimeType = content.mimeType
+    if (content.size !== undefined) link.size = content.size
+    return link
+  }
+  if (content.type !== 'resource') return content
+
+  const resource = content.resource
+  const embedded: AcpEmbeddedResource =
+    resource.content.type === 'text'
+      ? { uri: resource.uri, text: resource.content.text }
+      : { uri: resource.uri, blob: resource.content.data }
+  if (resource.mimeType !== undefined) embedded.mimeType = resource.mimeType
+  return {
+    type: 'resource',
+    resource: embedded,
+  }
 }
 
 function codingAgentUnavailable(): CanonicalCodingAgentError {
@@ -679,4 +797,15 @@ function operationError(
           ? 'Grok could not create the conversation.'
           : `Grok could not ${operation.replace('_', ' ')}.`
   return new CodingAgentError({ code, operation, cause, message })
+}
+
+function unsupportedCapability(
+  operation: CodingAgentError['operation'],
+  capability: string,
+): CodingAgentError {
+  return operationError(
+    operation,
+    new TypeError(`Grok does not advertise ${capability}`),
+    'INVALID_PROVIDER_RESPONSE',
+  )
 }

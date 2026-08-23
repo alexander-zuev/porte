@@ -22,9 +22,11 @@
     "test:e2e": "vitest run tests/e2e"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "catalog:",
     "@better-fetch/fetch": "catalog:",
     "@porte/core": "workspace:*",
     "better-result": "catalog:",
+    "partysocket": "catalog:",
     "picocolors": "catalog:",
     "ws": "catalog:",
     "zod": "catalog:"

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const view = ConversationViewSchema.parse({
   items: [],
   tools: [],
-  plan: [],
+  plans: [],
   pending: { permissions: [], elicitations: [] },
 })
 const envelope = { eventId: 'event-1', conversationId: 'conversation-1' }

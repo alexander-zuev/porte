@@ -1,22 +1,18 @@
-import { randomUUID } from 'node:crypto'
-
+import { HostRelayError, type RelayHandshakeRefused } from '@host/application/host-error.ts'
+import { type CodingAgent, type CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import type { PorteConnection, PorteRelay } from '@host/application/ports/porte-relay.ts'
 import {
-  RoutedResponseSchema,
   createLogger,
-  type ApiErrorTag,
-  type ClientMethod,
-  type ClientMethodMap,
-  type RoutedRequest,
+  type DomainErrorTag,
+  type HostCommand,
+  type HostCommandError,
+  type HostCommandMethod,
+  type HostCommandResponse,
+  type OperationId,
 } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 
-import { HostRelayError, type RelayHandshakeRefused } from './host-error.ts'
-import { type CodingAgent, type CodingAgentError } from './ports/coding-agent.ts'
-import type { PorteConnection, PorteRelay } from './ports/porte-relay.ts'
-
 const logger = createLogger('host-controller')
-
-/** Summaries per sync frame. Small enough that one slow Mac does not stall the socket. */
 const SYNC_CHUNK_SIZE = 500
 
 export type ConnectHost = {
@@ -25,207 +21,163 @@ export type ConnectHost = {
   readonly signal: AbortSignal
 }
 
-/** Routes Porte requests to one configured coding agent. */
+/** Routes relay commands to one configured coding agent. */
 export class HostController {
   constructor(
     private readonly agent: CodingAgent,
     private readonly relay: PorteRelay,
   ) {}
 
-  /** Connect the host and handle requests until the signal stops. */
+  /** Connects the host and handles commands until the signal stops. */
   connect(
     command: ConnectHost,
   ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | CodingAgentError>> {
     return this.relay.run({
       ...command,
       handlers: {
-        onConnected: (connection) => this.sendConversations(connection),
-        onRequest: (request, connection) => this.handle(request, connection),
+        onConnected: async () => Result.ok(),
+        onCommand: (hostCommand, connection) => this.handle(hostCommand, connection),
       },
     })
   }
 
-  /**
-   * Give the relay the whole list, a chunk at a time.
-   *
-   * One id for the run, so the relay can tell this sync's rows from the ones
-   * left by the last. An empty history still sends one chunk: `done` is what
-   * clears whatever the relay is still holding, and a Mac with nothing left has
-   * the most to clear.
-   */
+  private async handle(
+    command: HostCommand,
+    connection: PorteConnection,
+  ): Promise<ResultType<void, CodingAgentError>> {
+    switch (command.method) {
+      case 'conversations.sync': {
+        const synced = await this.sendConversations(command.operationId, connection)
+        if (synced.isErr()) return sendError(command, connection, synced.error)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, { eventHeads: connection.eventHeads() }),
+        )
+        return Result.ok()
+      }
+
+      case 'conversation.read': {
+        const read = await this.agent.readConversation(command.params)
+        if (read.isErr()) return sendError(command, connection, read.error)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, {
+            conversation: read.value.conversation,
+            events: [...read.value.events],
+            next: read.value.next,
+            state: read.value.state,
+          }),
+        )
+        return Result.ok()
+      }
+
+      case 'conversation.create': {
+        const created = await this.agent.createConversation({
+          cwd: command.params.cwd,
+          onEvent: (emission) => {
+            connection.sendConversationEvent(emission)
+          },
+        })
+        if (created.isErr()) return sendError(command, connection, created.error)
+        connection.sendConversationSnapshot(created.value.summary.id, created.value.state)
+        connection.sendConversationSummary(created.value.summary)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, { conversation: created.value.summary }),
+        )
+        return Result.ok()
+      }
+
+      case 'turn.start': {
+        const opened = await this.agent.openConversation({
+          conversationId: command.params.conversationId,
+          onEvent: (emission) => {
+            connection.sendConversationEvent(emission)
+          },
+        })
+        if (opened.isErr()) return sendError(command, connection, opened.error)
+        connection.sendConversationSnapshot(command.params.conversationId, opened.value.state)
+
+        const started = await this.agent.startTurn(command.params)
+        if (started.isErr()) return sendError(command, connection, started.error)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, { turnId: command.params.turnId }),
+        )
+        return Result.ok()
+      }
+
+      case 'turn.cancel': {
+        const cancelled = await this.agent.cancelTurn(command.params)
+        if (cancelled.isErr()) return sendError(command, connection, cancelled.error)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, { turnId: command.params.turnId }),
+        )
+        return Result.ok()
+      }
+
+      case 'permission.answer': {
+        const answered = await this.agent.answerPermission(command.params)
+        if (answered.isErr()) return sendError(command, connection, answered.error)
+        connection.sendCommandResponse(
+          commandResult(command.operationId, { permissionId: command.params.permissionId }),
+        )
+        return Result.ok()
+      }
+    }
+
+    return command satisfies never
+  }
+
   private async sendConversations(
+    operationId: OperationId,
     connection: PorteConnection,
   ): Promise<ResultType<void, CodingAgentError>> {
     const listed = await this.agent.listConversations()
     if (listed.isErr()) return Result.err(listed.error)
 
-    const syncRunId = randomUUID()
     const chunks = intoChunks(listed.value, SYNC_CHUNK_SIZE)
     chunks.forEach((conversations, index) => {
-      connection.sendConversationChunk({
-        syncRunId,
-        conversations,
-        done: index === chunks.length - 1,
-      })
+      const done = index === chunks.length - 1
+      connection.sendConversationChunk(
+        operationId,
+        done
+          ? { conversations, done: true, activeTurns: [...this.agent.activeTurns()] }
+          : { conversations, done: false },
+      )
     })
-
     return Result.ok()
   }
-
-  private async handle(
-    request: RoutedRequest,
-    connection: PorteConnection,
-  ): Promise<ResultType<void, CodingAgentError>> {
-    const message = request.message
-    switch (message.method) {
-      case 'conversations.sync': {
-        // Answered before the list is read: the relay is not waiting on it, and
-        // the sweep arrives as its own frames however long the disk takes.
-        sendResult(request, connection, {})
-        return this.sendConversations(connection)
-      }
-      case 'conversation.read': {
-        const read = await this.agent.readConversation({
-          conversationId: message.params.conversationId,
-          cursor: message.params.cursor,
-          limit: message.params.limit,
-        })
-        if (read.isErr()) return sendError(request, connection, read.error)
-        sendResult(request, connection, {
-          conversation: read.value.conversation,
-          events: [...read.value.events],
-          next: read.value.next,
-          turn: read.value.turn,
-        })
-        return Result.ok()
-      }
-      case 'conversation.open': {
-        const opened = await this.agent.openConversation({
-          conversationId: message.params.conversationId,
-          onEvent: (event) => {
-            connection.sendConversationEvent(event)
-          },
-        })
-        if (opened.isErr()) return sendError(request, connection, opened.error)
-        sendResult(request, connection, {
-          conversation: opened.value.summary,
-          turn: { state: 'idle' },
-        })
-        return Result.ok()
-      }
-      case 'conversation.create': {
-        const created = await this.agent.createConversation({
-          cwd: message.params.cwd,
-          onEvent: (event) => {
-            connection.sendConversationEvent(event)
-          },
-        })
-        if (created.isErr()) return sendError(request, connection, created.error)
-        sendResult(request, connection, { conversation: created.value.summary })
-        return Result.ok()
-      }
-      case 'conversation.close': {
-        const closed = await this.agent.closeConversation(message.params.conversationId)
-        if (closed.isErr()) return sendError(request, connection, closed.error)
-        sendResult(request, connection, {})
-        return Result.ok()
-      }
-      case 'turn.start': {
-        const started = await this.agent.startTurn({
-          conversationId: message.params.conversationId,
-          turnId: message.params.turnId,
-          prompt: message.params.prompt,
-        })
-        if (started.isErr()) return sendError(request, connection, started.error)
-        sendResult(request, connection, { turnId: message.params.turnId })
-        return Result.ok()
-      }
-      case 'turn.cancel': {
-        const cancelled = await this.agent.cancelTurn({
-          conversationId: message.params.conversationId,
-          turnId: message.params.turnId,
-        })
-        if (cancelled.isErr()) return sendError(request, connection, cancelled.error)
-        sendResult(request, connection, { turnId: message.params.turnId })
-        return Result.ok()
-      }
-      case 'permission.answer': {
-        const answered = await this.agent.answerPermission({
-          conversationId: message.params.conversationId,
-          turnId: message.params.turnId,
-          permissionId: message.params.permissionId,
-          optionId: message.params.optionId,
-        })
-        if (answered.isErr()) return sendError(request, connection, answered.error)
-        sendResult(request, connection, { permissionId: message.params.permissionId })
-        return Result.ok()
-      }
-    }
-    const exhaustive: never = message
-    return exhaustive
-  }
 }
 
-/**
- * Answer the browser that asked.
- *
- * The result is keyed to the method it answers, so pairing one method's answer
- * with another's shape is a compile error rather than a socket the relay closes.
- */
-function sendResult<Method extends ClientMethod>(
-  request: RoutedRequest & { message: { method: Method } },
-  connection: PorteConnection,
-  result: ClientMethodMap[Method]['result'],
-): void {
-  connection.sendResponse(
-    RoutedResponseSchema.parse({
-      route: request.route,
-      method: request.message.method,
-      message: {
-        v: 1,
-        type: 'result',
-        requestId: request.message.requestId,
-        result,
-      },
-    }),
-  )
+function commandResult<Method extends HostCommandMethod>(
+  operationId: OperationId,
+  result: Extract<HostCommandResponse<Method>, { type: 'command.result' }>['result'],
+): HostCommandResponse<Method> {
+  return { v: 2, type: 'command.result', operationId, result }
 }
 
-/**
- * Refuse one request, and say why here.
- *
- * Every failed request passes through this, so it is the one place that logs:
- * the browser is told a safe tag, and the Mac keeps the cause that produced it.
- */
 function sendError(
-  request: RoutedRequest,
+  command: HostCommand,
   connection: PorteConnection,
   error: CodingAgentError,
 ): ResultType<void, CodingAgentError> {
-  const tag = apiErrorTagFor(error.code)
-  logger.error('request_failed', {
+  logger.error('command_failed', {
     error: error.cause ?? error,
-    details: { method: request.message.method, code: error.code, operation: error.operation },
+    details: { method: command.method, code: error.code, operation: error.operation },
   })
-  connection.sendResponse(
-    RoutedResponseSchema.parse({
-      route: request.route,
-      method: request.message.method,
-      message: {
-        v: 1,
-        type: 'error',
-        requestId: request.message.requestId,
-        error: { _tag: tag, message: publicErrorMessage(tag) },
-      },
-    }),
-  )
+  connection.sendCommandResponse({
+    v: 2,
+    type: 'command.error',
+    operationId: command.operationId,
+    error: publicPorteErrorPayload(error),
+  })
   return Result.ok()
 }
 
-/** Always at least one chunk: an empty history is a fact the relay has to be told. */
+function publicPorteErrorPayload(error: CodingAgentError): HostCommandError['error'] {
+  const tag = domainErrorTagFor(error.code)
+  return { _tag: tag, message: errorPayloadMessage(tag) }
+}
+
 function intoChunks<T>(items: readonly T[], size: number): T[][] {
   if (items.length === 0) return [[]]
-
   const chunks: T[][] = []
   for (let start = 0; start < items.length; start += size) {
     chunks.push(items.slice(start, start + size))
@@ -233,20 +185,19 @@ function intoChunks<T>(items: readonly T[], size: number): T[][] {
   return chunks
 }
 
-/** The agent's own vocabulary, as the published one names the same failure. */
-function apiErrorTagFor(code: CodingAgentError['code']): ApiErrorTag {
+type HostDomainErrorTag = Exclude<DomainErrorTag, 'ValidationError'>
+
+function domainErrorTagFor(code: CodingAgentError['code']): HostDomainErrorTag {
   if (code === 'CONVERSATION_NOT_FOUND' || code === 'CONVERSATION_NOT_OPEN') {
     return 'ConversationNotFoundError'
   }
   if (code === 'CONVERSATION_BUSY') return 'ConversationBusyError'
   if (code === 'PERMISSION_NOT_FOUND') return 'PermissionNotFoundError'
-  // The caller's directory, not the Mac's fault. `ValidationError` would owe an
-  // issue list this failure has nothing to put in.
   if (code === 'NOT_A_REPOSITORY') return 'WorkspaceNotAllowedError'
   return 'InternalServerError'
 }
 
-function publicErrorMessage(tag: ApiErrorTag): string {
+function errorPayloadMessage(tag: HostDomainErrorTag): string {
   if (tag === 'ConversationNotFoundError') return 'Conversation is not open.'
   if (tag === 'ConversationBusyError') return 'Conversation already has an active turn.'
   if (tag === 'PermissionNotFoundError') return 'Permission request is not pending.'

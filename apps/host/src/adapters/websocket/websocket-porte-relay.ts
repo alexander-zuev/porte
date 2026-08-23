@@ -1,249 +1,357 @@
+import { FileHostLedger } from '@host/adapters/node/host-ledger.ts'
 import { HostRelayError, RelayHandshakeRefused } from '@host/application/host-error.ts'
 import type {
+  ConversationSyncChunk,
   PorteConnection,
   PorteRelay,
+  PorteRelayObserver,
   RunPorteRelay,
 } from '@host/application/ports/porte-relay.ts'
 import {
   RelayHeartbeat,
-  RoutedRequestSchema,
+  RelayToHostMessageSchema,
+  RELAY_HEARTBEAT_REQUEST,
+  RELAY_HEARTBEAT_RESPONSE,
+  type ConversationEmission,
   type ConversationId,
+  type ConversationStateSnapshot,
   type ConversationSummary,
-  type RelayMessage,
-  type RoutedEvent,
-  type RoutedRequest,
-  type RoutedResponse,
+  type EventSequence,
+  type HostCommand,
+  type HostCommandResponse,
+  type HostToRelayMessage,
+  type OperationId,
 } from '@porte/core/client'
-import type { ConversationEvent } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
-// Node's own WebSocket follows the browser constructor, whose second argument is
-// the subprotocol list. It drops an options object without a word, so the bearer
-// token never left this machine. `ws` is the client that can carry a header.
-import { WebSocket, type ClientOptions } from 'ws'
+import PartySocket from 'partysocket'
+import { WebSocket } from 'ws'
 import { z } from 'zod'
 
 const MAX_RETRY_DELAY_MS = 5_000
-const textFrameSchema = z.string()
 
-type SocketFactory = (url: string, init: ClientOptions) => WebSocket
-type ConnectionEnd = 'aborted' | 'closed'
+type RelaySocket = Pick<
+  PartySocket,
+  'addEventListener' | 'close' | 'reconnect' | 'retryCount' | 'send'
+>
+type RelaySocketFactory = (options: ConstructorParameters<typeof PartySocket>[0]) => RelaySocket
 
-/** Optional connection status output owned by the WebSocket adapter. */
-export interface PorteRelayObserver {
-  connected(): void
-  reconnecting(delayMs: number): void
+class HostConnectionSendError extends Error {
+  constructor(cause?: unknown) {
+    super('Host connection send failed', { cause })
+    this.name = 'HostConnectionSendError'
+  }
 }
 
-/** Sends validated Porte messages through one WebSocket. */
-export class WebSocketPorteConnection implements PorteConnection {
-  constructor(private readonly send: (frame: string) => void) {}
+class HostConnectionClosedError extends Error {
+  constructor(
+    readonly code: number,
+    readonly reason: string,
+  ) {
+    super(`Host connection closed with code ${String(code)}`)
+    this.name = 'HostConnectionClosedError'
+  }
+}
 
-  sendConversationChunk(chunk: {
-    syncRunId: string
-    conversations: readonly ConversationSummary[]
-    done: boolean
-  }): void {
-    this.sendRelay({
-      relay: 'conversations.sync',
-      syncRunId: chunk.syncRunId,
+class RelayProtocolError extends Error {
+  constructor() {
+    super('Relay message failed its protocol contract')
+    this.name = 'RelayProtocolError'
+  }
+}
+
+/** Sends v2 relay messages and persists command and event delivery. */
+class PartySocketPorteConnection implements PorteConnection {
+  private outgoing: Promise<void> = Promise.resolve()
+
+  constructor(
+    private readonly socket: RelaySocket,
+    private readonly ledger: FileHostLedger,
+    private readonly onFailure: (cause: unknown) => void,
+  ) {}
+
+  eventHeads() {
+    return this.ledger.eventHeads()
+  }
+
+  sendCommandResponse(response: HostCommandResponse): void {
+    this.enqueue(async () => {
+      await this.ledger.completeOperation(response)
+      this.send(response)
+    })
+  }
+
+  sendConversationEvent(emission: ConversationEmission): void {
+    this.enqueue(async () => {
+      const message = await this.ledger.recordEvent(emission)
+      this.send(message)
+    })
+  }
+
+  sendConversationSnapshot(
+    conversationId: ConversationId,
+    snapshot: ConversationStateSnapshot,
+  ): void {
+    this.enqueue(async () => {
+      const message = await this.ledger.recordSnapshot(conversationId, snapshot)
+      this.send(message)
+    })
+  }
+
+  sendConversationChunk(operationId: OperationId, chunk: ConversationSyncChunk): void {
+    if (chunk.done) {
+      this.send({
+        v: 2,
+        type: 'conversations.sync',
+        operationId,
+        conversations: [...chunk.conversations],
+        done: true,
+        activeTurns: [...chunk.activeTurns],
+      })
+      return
+    }
+    this.send({
+      v: 2,
+      type: 'conversations.sync',
+      operationId,
       conversations: [...chunk.conversations],
-      done: chunk.done,
+      done: false,
     })
   }
 
   sendConversationSummary(conversation: ConversationSummary): void {
-    this.sendRelay({ relay: 'conversation.summary', conversation })
-  }
-
-  sendConversationRemoved(conversationId: ConversationId): void {
-    this.sendRelay({ relay: 'conversation.removed', conversationId })
-  }
-
-  sendConversationEvent(event: ConversationEvent): void {
-    this.sendEvent({
-      audience: { type: 'conversation', conversationId: event.conversationId },
-      message: { v: 1, type: 'event', event: 'conversation.event', data: event },
+    this.enqueue(() => {
+      this.send({ v: 2, type: 'conversation.summary', conversation })
     })
   }
 
-  sendResponse(response: RoutedResponse): void {
-    this.send(JSON.stringify(response))
+  sendConversationRemoved(conversationId: ConversationId): void {
+    this.enqueue(() => {
+      this.send({ v: 2, type: 'conversation.removed', conversationId })
+    })
   }
 
-  /** No schema on the way out: the type is the contract, and this built it. */
-  private sendEvent(event: RoutedEvent): void {
-    this.send(JSON.stringify(event))
+  /** Replays events that did not receive an acknowledgment. */
+  replayEvents(): void {
+    this.enqueue(() => {
+      for (const message of this.ledger.pendingEvents()) this.send(message)
+    })
   }
 
-  /** Addressed to the relay itself, not carried through it to an audience. */
-  private sendRelay(message: RelayMessage): void {
-    this.send(JSON.stringify(message))
+  /** Waits until all ledger writes started by one command finish. */
+  async flush(): Promise<void> {
+    await this.outgoing
+  }
+
+  private send(message: HostToRelayMessage): void {
+    const frame = JSON.stringify(message)
+    try {
+      if (!this.socket.send(frame)) throw new HostConnectionSendError()
+    } catch (cause) {
+      if (cause instanceof HostConnectionSendError) throw cause
+      throw new HostConnectionSendError(cause)
+    }
+  }
+
+  private enqueue(work: () => void | Promise<void>): void {
+    const next = this.outgoing.then(work)
+    this.outgoing = next.catch((cause) => {
+      this.onFailure(cause)
+    })
   }
 }
 
-/** Connects the host to Porte through an authenticated WebSocket. */
+/** Connects the host through PartySocket with bounded reconnect delay. */
 export class WebSocketPorteRelay implements PorteRelay {
   constructor(
     private readonly observer: PorteRelayObserver,
-    private readonly createSocket: SocketFactory = (url, init) => new WebSocket(url, init),
+    private readonly ledger: FileHostLedger,
+    private readonly createSocket: RelaySocketFactory = (options) => new PartySocket(options),
   ) {}
 
   async run<THandlerError>(
     input: RunPorteRelay<THandlerError>,
   ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | THandlerError>> {
-    return this.connectWithRetry(input, 0)
-  }
-
-  private async connectWithRetry<THandlerError>(
-    input: RunPorteRelay<THandlerError>,
-    attempt: number,
-  ): Promise<ResultType<void, HostRelayError | RelayHandshakeRefused | THandlerError>> {
     if (input.signal.aborted) return Result.ok()
-    const connected = await this.connectOnce(input)
-    if (connected.isErr()) return Result.err(connected.error)
-    if (connected.value === 'aborted') return Result.ok()
+    const relayUrl = new URL(input.relayUrl)
+    try {
+      await this.ledger.open(`${relayUrl.origin}${relayUrl.pathname}\n${input.token}`)
+    } catch (cause) {
+      return Result.err(new HostRelayError({ cause }))
+    }
 
-    const delayMs = retryDelayMs(attempt)
-    this.observer.reconnecting(delayMs)
-    await waitForAbort(input.signal, delayMs)
-    return this.connectWithRetry(input, attempt + 1)
-  }
-
-  private connectOnce<THandlerError>(
-    input: RunPorteRelay<THandlerError>,
-  ): Promise<ResultType<ConnectionEnd, HostRelayError | RelayHandshakeRefused | THandlerError>> {
-    return new Promise((resolve) => {
-      let socket: WebSocket
-      let heartbeat: RelayHeartbeat | undefined
-      try {
-        socket = this.createSocket(input.relayUrl, {
-          headers: { Authorization: `Bearer ${input.token}` },
-        })
-      } catch (cause) {
-        resolve(Result.err(new HostRelayError({ cause })))
-        return
-      }
-
+    return await new Promise((resolve) => {
       let settled = false
-      const settle = (
-        result: ResultType<ConnectionEnd, HostRelayError | RelayHandshakeRefused | THandlerError>,
+      let heartbeat: RelayHeartbeat | undefined
+      const inFlight = new Map<OperationId, Promise<ResultType<void, THandlerError>>>()
+      const finish = (
+        result: ResultType<void, HostRelayError | RelayHandshakeRefused | THandlerError>,
       ): void => {
         if (settled) return
         settled = true
         heartbeat?.stop()
         input.signal.removeEventListener('abort', onAbort)
+        socket.close(1000, 'host stopped')
         resolve(result)
       }
       const fail = (cause: unknown): void => {
-        socket.close(1011, 'host handler failed')
-        settle(Result.err(new HostRelayError({ cause })))
+        finish(Result.err(new HostRelayError({ cause })))
+      }
+      const recover = (cause: unknown): void => {
+        if (settled) return
+        if (cause instanceof HostConnectionSendError) {
+          socket.reconnect(1011, 'host send failed')
+          return
+        }
+        fail(cause)
       }
       const onAbort = (): void => {
-        socket.close(1000, 'host stopped')
-        settle(Result.ok('aborted'))
+        finish(Result.ok())
       }
+      const AuthenticatedWebSocket = authenticatedWebSocket(input.token, (status) => {
+        finish(Result.err(new RelayHandshakeRefused({ status })))
+      })
+      const socket = this.createSocket({
+        host: relayUrl.host,
+        protocol: relayUrl.protocol === 'ws:' ? 'ws' : 'wss',
+        basePath: relayUrl.pathname.replace(/^\//, ''),
+        WebSocket: AuthenticatedWebSocket,
+        minReconnectionDelay: 250,
+        maxReconnectionDelay: MAX_RETRY_DELAY_MS,
+        reconnectionDelayGrowFactor: 2,
+        maxEnqueuedMessages: 0,
+        shouldReconnectOnClose: (event) => event.code !== 1000 && event.code !== 1008,
+      })
+      const connection = new PartySocketPorteConnection(socket, this.ledger, recover)
 
       input.signal.addEventListener('abort', onAbort, { once: true })
       socket.addEventListener('open', () => {
+        if (settled) {
+          socket.close(1000, 'host stopped')
+          return
+        }
+        heartbeat?.stop()
         heartbeat = new RelayHeartbeat(
+          () => socket.send(RELAY_HEARTBEAT_REQUEST),
           () => {
-            socket.ping()
-          },
-          () => {
-            socket.terminate()
+            socket.reconnect(1011, 'relay heartbeat expired')
           },
         )
-        socket.on('pong', () => heartbeat?.acknowledge())
         heartbeat.start()
         this.observer.connected()
-        const connection = new WebSocketPorteConnection((frame) => {
-          if (socket.readyState === WebSocket.OPEN) socket.send(frame)
-        })
-        void input.handlers
-          .onConnected(connection)
-          .then((handled) => {
-            if (handled.isErr()) {
-              socket.close(1011, 'host handler failed')
-              settle(Result.err(handled.error))
-            }
+        connection.replayEvents()
+        void input.handlers.onConnected(connection).then((handled) => {
+          if (handled.isErr()) {
+            finish(Result.err(handled.error))
             return undefined
-          })
-          .catch(fail)
-
-        socket.addEventListener('message', (event) => {
-          const text = textFrameSchema.safeParse(event.data)
-          if (!text.success) {
-            socket.close(1003, 'text messages required')
-            return
           }
-          const request = parseRequest(socket, text.data)
-          if (request === undefined) return
-          void input.handlers
-            .onRequest(request, connection)
-            .then((handled) => {
-              if (handled.isErr()) {
-                socket.close(1011, 'host handler failed')
-                settle(Result.err(handled.error))
-              }
-              return undefined
-            })
+          return undefined
+        }, fail)
+      })
+      socket.addEventListener('message', (event) => {
+        if (event.data === RELAY_HEARTBEAT_RESPONSE) {
+          heartbeat?.acknowledge()
+          return
+        }
+        const frame = z.string().safeParse(event.data)
+        const message = frame.success ? parseRelayMessage(frame.data) : undefined
+        if (message === undefined) {
+          fail(new RelayProtocolError())
+          return
+        }
+        if (message.type === 'event.ack') {
+          void this.ledger
+            .acknowledgeEvents(message.conversationId, message.throughEventSequence)
             .catch(fail)
-        })
+          return
+        }
+
+        const current = inFlight.get(message.operationId)
+        if (current !== undefined) return
+        const handling = this.handleCommand(message, connection, input)
+        inFlight.set(message.operationId, handling)
+        void handling.then(
+          (handled) => {
+            inFlight.delete(message.operationId)
+            if (handled.isErr()) finish(Result.err(handled.error))
+            return undefined
+          },
+          (cause) => {
+            inFlight.delete(message.operationId)
+            recover(cause)
+            return undefined
+          },
+        )
       })
-      // The server answered the handshake with a status instead of upgrading.
-      // A refused credential never becomes accepted by asking again, so this
-      // stops rather than joining the reconnect loop.
-      socket.on('unexpected-response', (_request, response) => {
-        socket.close()
-        settle(Result.err(new RelayHandshakeRefused({ status: response.statusCode ?? 0 })))
-      })
-      socket.addEventListener('error', () => {
-        socket.close()
-      })
-      socket.addEventListener('close', () => {
-        settle(Result.ok('closed'))
+      socket.addEventListener('close', (event) => {
+        heartbeat?.stop()
+        if (settled) return
+        if (event.code === 1000) {
+          finish(Result.ok())
+          return
+        }
+        if (event.code === 1008) {
+          fail(new HostConnectionClosedError(event.code, event.reason))
+          return
+        }
+        this.observer.reconnecting(retryDelayMs(socket.retryCount))
       })
     })
   }
+
+  private async handleCommand<THandlerError>(
+    command: HostCommand,
+    connection: PartySocketPorteConnection,
+    input: RunPorteRelay<THandlerError>,
+  ): Promise<ResultType<void, THandlerError>> {
+    if (this.ledger.conflicts(command)) {
+      connection.sendCommandResponse(operationConflict(command.operationId))
+      await connection.flush()
+      return Result.ok()
+    }
+    const terminal = this.ledger.terminalResponse(command)
+    if (terminal !== undefined) {
+      connection.sendCommandResponse(terminal)
+      await connection.flush()
+      return Result.ok()
+    }
+
+    await this.ledger.startOperation(command)
+    const handled = await input.handlers.onCommand(command, connection)
+    if (handled.isErr()) return handled
+    await connection.flush()
+    return Result.ok()
+  }
 }
 
-function parseRequest(socket: WebSocket, frame: string): RoutedRequest | undefined {
-  let json: unknown
+function parseRelayMessage(frame: string) {
   try {
-    json = JSON.parse(frame)
+    const parsed = RelayToHostMessageSchema.safeParse(JSON.parse(frame))
+    return parsed.success ? parsed.data : undefined
   } catch {
-    socket.close(1007, 'invalid JSON')
     return undefined
   }
-  const parsed = RoutedRequestSchema.safeParse(json)
-  if (!parsed.success) {
-    socket.close(1007, 'invalid host request')
-    return undefined
+}
+
+function authenticatedWebSocket(token: string, onRefused: (status: number) => void) {
+  return class AuthenticatedWebSocket extends WebSocket {
+    constructor(address: string | URL, protocols?: string | string[]) {
+      super(address, protocols ?? [], { headers: { Authorization: `Bearer ${token}` } })
+      this.on('unexpected-response', (_request, response) => {
+        onRefused(response.statusCode ?? 0)
+      })
+    }
   }
-  return parsed.data
+}
+
+function operationConflict(operationId: OperationId): HostCommandResponse {
+  return {
+    v: 2,
+    type: 'command.error',
+    operationId,
+    error: { _tag: 'OperationConflictError', message: 'Operation identifier is already in use.' },
+  }
 }
 
 export function retryDelayMs(attempt: number): number {
-  return Math.min(250 * 2 ** attempt, MAX_RETRY_DELAY_MS)
-}
-
-/**
- * Hold for the backoff, or stop early when the caller aborts.
- *
- * A plain timer rather than `AbortSignal.timeout`, whose timer Node does not
- * count as work: with nothing else pending, the loop drained mid-backoff and
- * the process exited on an unsettled await instead of reconnecting.
- */
-function waitForAbort(signal: AbortSignal, delayMs: number): Promise<void> {
-  if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
-    const timer = setTimeout(finish, delayMs)
-    signal.addEventListener('abort', finish, { once: true })
-
-    function finish(): void {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', finish)
-      resolve()
-    }
-  })
+  return attempt <= 0 ? 0 : Math.min(250 * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
 }
