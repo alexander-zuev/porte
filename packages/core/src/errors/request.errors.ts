@@ -1,6 +1,7 @@
 import { TaggedError } from 'better-result'
 import { z } from 'zod'
 
+import type { RetryAfterHeader } from '../http/retry-after.ts'
 import type { FailureClassification } from './failure-classification.ts'
 
 /** One field a request got wrong, as the client may see it. */
@@ -11,6 +12,8 @@ export const ValidationIssueSchema = z.object({
 export type ValidationIssue = z.infer<typeof ValidationIssueSchema>
 
 export const VALIDATION_ERROR = 'ValidationError'
+export const MALFORMED_REQUEST_ERROR = 'MalformedRequestError'
+export const RESOURCE_NOT_FOUND_ERROR = 'ResourceNotFoundError'
 export const UPGRADE_REQUIRED_ERROR = 'UpgradeRequiredError'
 export const RATE_LIMITED_ERROR = 'RateLimitedError'
 export const REQUEST_TIMEOUT_ERROR = 'RequestTimeoutError'
@@ -45,6 +48,27 @@ export class ValidationError extends TaggedError(VALIDATION_ERROR)<{
   }
 }
 
+/** The server could not parse the request syntax. */
+export class MalformedRequestError extends TaggedError(MALFORMED_REQUEST_ERROR)<{
+  cause: unknown
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { cause: unknown }) {
+    super({ ...args, message: 'The request was malformed', classification: 'terminal' })
+  }
+}
+
+/** No resource matches the requested HTTP path. */
+export class ResourceNotFoundError extends TaggedError(RESOURCE_NOT_FOUND_ERROR)<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor() {
+    super({ message: 'Resource not found', classification: 'terminal' })
+  }
+}
+
 /** A route that only answers a WebSocket received a plain request. */
 export class UpgradeRequiredError extends TaggedError(UPGRADE_REQUIRED_ERROR)<{
   message: string
@@ -58,10 +82,11 @@ export class UpgradeRequiredError extends TaggedError(UPGRADE_REQUIRED_ERROR)<{
 /** Too many requests from one caller. Waiting is the whole remedy. */
 export class RateLimitedError extends TaggedError(RATE_LIMITED_ERROR)<{
   message: string
+  retryAfter: RetryAfterHeader
   classification: FailureClassification
 }> {
-  constructor() {
-    super({ message: 'Too many requests', classification: 'transient' })
+  constructor(retryAfter: RetryAfterHeader) {
+    super({ message: 'Too many requests', retryAfter, classification: 'transient' })
   }
 }
 

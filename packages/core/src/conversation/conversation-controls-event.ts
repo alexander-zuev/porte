@@ -1,12 +1,24 @@
 import { z } from 'zod'
 
-import { EventIdSchema, ConversationIdSchema } from '../identity/identity.ts'
-
 const selectConfigurationValueSchema = z.object({
+  type: z.literal('option'),
   value: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
 })
+
+const selectConfigurationGroupSchema = z.object({
+  type: z.literal('group'),
+  group: z.string().min(1),
+  name: z.string().min(1),
+  options: z.array(selectConfigurationValueSchema).min(1),
+})
+
+const selectableValues = (
+  options: readonly z.infer<
+    typeof selectConfigurationValueSchema | typeof selectConfigurationGroupSchema
+  >[],
+) => options.flatMap((option) => (option.type === 'group' ? option.options : [option]))
 
 const selectConfigurationSchema = z
   .object({
@@ -16,11 +28,15 @@ const selectConfigurationSchema = z
     description: z.string().optional(),
     category: z.string().optional(),
     currentValue: z.string().min(1),
-    options: z.array(selectConfigurationValueSchema).min(1),
+    options: z
+      .array(z.union([selectConfigurationValueSchema, selectConfigurationGroupSchema]))
+      .min(1),
   })
   .refine(
     (configuration) =>
-      configuration.options.some((option) => option.value === configuration.currentValue),
+      selectableValues(configuration.options).some(
+        (option) => option.value === configuration.currentValue,
+      ),
     { error: 'Current value must match one select option' },
   )
 
@@ -65,10 +81,7 @@ const controlsEventDataSchema = z.discriminatedUnion('type', [
 ])
 
 /** Canonical configuration or command replacement for one conversation. */
-export const ConversationControlsEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  controlsEventDataSchema,
-)
+export const ConversationControlsEventSchema = controlsEventDataSchema
 
 /** Canonical configuration or command replacement for one conversation. */
 export type ConversationControlsEvent = z.infer<typeof ConversationControlsEventSchema>

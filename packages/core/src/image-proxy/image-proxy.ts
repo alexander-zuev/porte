@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
-// Query params schema - validates URL with security checks
+const ALLOWED_IMAGE_HOST =
+  /\.(googleusercontent|ggpht|apple|facebook|fbsbx|microsoft|live|githubusercontent|gravatar)\.com$/i
+
+/** The machine request accepted by the public image proxy route. */
 export const imageProxyQuerySchema = z.object({
-  url: z.url({
-    hostname: /^(?!localhost|0\.0\.0\.0|127\.|192\.168\.|10\.|172\.)/i,
-  }),
+  url: z.url({ hostname: ALLOWED_IMAGE_HOST }),
 })
 
+/** A parsed request for one approved external image URL. */
 export type ImageQuery = z.infer<typeof imageProxyQuerySchema>
 
 /** Builds the public image-proxy URL used by browser clients. */

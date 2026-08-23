@@ -1,11 +1,6 @@
 import { z } from 'zod'
 
-import {
-  ElicitationIdSchema,
-  EventIdSchema,
-  ConversationIdSchema,
-  TurnIdSchema,
-} from '../identity/identity.ts'
+import { ElicitationIdSchema, TurnIdSchema } from '../identity/identity.ts'
 
 const textFieldOptionsSchema = z
   .array(z.string())
@@ -101,10 +96,7 @@ const elicitationEventDataSchema = z.discriminatedUnion('type', [
 ])
 
 /** Canonical elicitation interaction event for one conversation. */
-export const ConversationElicitationEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  elicitationEventDataSchema,
-)
+export const ConversationElicitationEventSchema = elicitationEventDataSchema
 
 /** Canonical elicitation interaction event for one conversation. */
 export type ConversationElicitationEvent = z.infer<typeof ConversationElicitationEventSchema>

@@ -8,8 +8,9 @@ import {
 } from './conversation-controls-event.ts'
 import { PendingElicitationSchema } from './conversation-elicitation-event.ts'
 import { PendingPermissionSchema } from './conversation-permission-event.ts'
-import { PlanEntrySchema, ConversationUsageSchema } from './conversation-progress-event.ts'
+import { ConversationPlanSchema, ConversationUsageSchema } from './conversation-progress-event.ts'
 import { ToolViewSchema } from './conversation-tool-event.ts'
+import { ConversationTurnStateSchema } from './conversation.ts'
 
 /** Complete rendered user or assistant message in a conversation snapshot. */
 export const MessageViewSchema = z.object({
@@ -55,7 +56,7 @@ export type PendingInteractions = z.infer<typeof PendingInteractionsSchema>
 export const ConversationViewSchema = z.object({
   items: z.array(ConversationItemSchema),
   tools: z.array(ToolViewSchema),
-  plan: z.array(PlanEntrySchema),
+  plans: z.array(ConversationPlanSchema),
   usage: ConversationUsageSchema.optional(),
   configuration: z.array(ConversationConfigurationOptionSchema).optional(),
   commands: z.array(ConversationCommandSchema).optional(),
@@ -65,3 +66,33 @@ export const ConversationViewSchema = z.object({
 
 /** Complete current view of one open conversation. */
 export type ConversationView = z.infer<typeof ConversationViewSchema>
+
+/** Mutable conversation state at one live stream position. */
+export const ConversationStateSnapshotSchema = z.object({
+  turn: ConversationTurnStateSchema,
+  plans: z.array(ConversationPlanSchema),
+  usage: ConversationUsageSchema.nullable(),
+  configuration: z.array(ConversationConfigurationOptionSchema).nullable(),
+  commands: z.array(ConversationCommandSchema).nullable(),
+  modeId: z.string().min(1).nullable(),
+  pending: PendingInteractionsSchema,
+})
+
+/** Mutable conversation state at one live stream position. */
+export type ConversationStateSnapshot = z.infer<typeof ConversationStateSnapshotSchema>
+
+/** Selects non-transcript state from one complete provider view. */
+export function conversationStateSnapshot(
+  view: ConversationView,
+  turn: z.infer<typeof ConversationTurnStateSchema>,
+): ConversationStateSnapshot {
+  return ConversationStateSnapshotSchema.parse({
+    turn,
+    plans: view.plans,
+    usage: view.usage ?? null,
+    configuration: view.configuration ?? null,
+    commands: view.commands ?? null,
+    modeId: view.modeId ?? null,
+    pending: view.pending,
+  })
+}

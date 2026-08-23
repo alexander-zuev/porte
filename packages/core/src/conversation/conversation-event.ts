@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { EventIdSchema, ConversationIdSchema } from '../identity/identity.ts'
+import { ConversationIdSchema } from '../identity/identity.ts'
 import { ConversationControlsEventSchema } from './conversation-controls-event.ts'
 import { ConversationElicitationEventSchema } from './conversation-elicitation-event.ts'
 import { ConversationLifecycleEventSchema } from './conversation-lifecycle-event.ts'
@@ -8,22 +8,9 @@ import { ConversationMessageEventSchema } from './conversation-message-event.ts'
 import { ConversationPermissionEventSchema } from './conversation-permission-event.ts'
 import { ConversationProgressEventSchema } from './conversation-progress-event.ts'
 import { ConversationToolEventSchema } from './conversation-tool-event.ts'
-import { ConversationViewSchema } from './conversation-view.ts'
-
-/** Canonical full-state snapshot for one open conversation. */
-export const ConversationSnapshotEventSchema = z.object({
-  eventId: EventIdSchema,
-  conversationId: ConversationIdSchema,
-  type: z.literal('conversation.snapshot'),
-  view: ConversationViewSchema,
-})
-
-/** Canonical full-state snapshot for one open conversation. */
-export type ConversationSnapshotEvent = z.infer<typeof ConversationSnapshotEventSchema>
 
 /** Complete provider-independent event union for one conversation. */
 export const ConversationEventSchema = z.union([
-  ConversationSnapshotEventSchema,
   ConversationMessageEventSchema,
   ConversationToolEventSchema,
   ConversationProgressEventSchema,
@@ -35,6 +22,15 @@ export const ConversationEventSchema = z.union([
 
 /** Complete provider-independent event union for one conversation. */
 export type ConversationEvent = z.infer<typeof ConversationEventSchema>
+
+/** One event emitted by an open coding-agent conversation. */
+export const ConversationEmissionSchema = z.object({
+  conversationId: ConversationIdSchema,
+  event: ConversationEventSchema,
+})
+
+/** One event emitted by an open coding-agent conversation. */
+export type ConversationEmission = z.infer<typeof ConversationEmissionSchema>
 
 export * from './canonical-content.ts'
 export * from './coding-agent-error.ts'

@@ -1,11 +1,6 @@
 import { z } from 'zod'
 
-import {
-  EventIdSchema,
-  MessageIdSchema,
-  ConversationIdSchema,
-  TurnIdSchema,
-} from '../identity/identity.ts'
+import { MessageIdSchema, TurnIdSchema } from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
 import { CodingAgentErrorSchema } from './coding-agent-error.ts'
 
@@ -57,10 +52,7 @@ const conversationEventDataSchema = z.discriminatedUnion('type', [
 ])
 
 /** Canonical turn, message, or reasoning event for one conversation. */
-export const ConversationMessageEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  conversationEventDataSchema,
-)
+export const ConversationMessageEventSchema = conversationEventDataSchema
 
 /** Canonical turn, message, or reasoning event for one conversation. */
 export type ConversationMessageEvent = z.infer<typeof ConversationMessageEventSchema>

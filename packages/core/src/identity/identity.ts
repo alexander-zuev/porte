@@ -13,6 +13,10 @@ export const createHostId = (): HostId => HostIdSchema.parse(uuidv7())
 export const UserIdSchema = z.uuidv7().brand<'UserId'>()
 export type UserId = z.infer<typeof UserIdSchema>
 
+export const OperationIdSchema = z.string().min(1).max(1024).brand<'OperationId'>()
+export type OperationId = z.infer<typeof OperationIdSchema>
+export const createOperationId = (): OperationId => OperationIdSchema.parse(uuidv7())
+
 export const RequestIdSchema = z.uuidv7().brand<'RequestId'>()
 export type RequestId = z.infer<typeof RequestIdSchema>
 export const createRequestId = (): RequestId => RequestIdSchema.parse(uuidv7())
@@ -21,16 +25,17 @@ export const ConnectionIdSchema = z.uuidv7().brand<'ConnectionId'>()
 export type ConnectionId = z.infer<typeof ConnectionIdSchema>
 export const createConnectionId = (): ConnectionId => ConnectionIdSchema.parse(uuidv7())
 
-export const TurnIdSchema = z.uuidv7().brand<'TurnId'>()
+/** Identifier supplied by the client that owns one conversation turn. */
+export const TurnIdSchema = z.string().min(1).max(512).brand<'TurnId'>()
 export type TurnId = z.infer<typeof TurnIdSchema>
 export const createTurnId = (): TurnId => TurnIdSchema.parse(uuidv7())
 
-export const PermissionIdSchema = z.uuidv7().brand<'PermissionId'>()
+export const PermissionIdSchema = z.string().min(1).max(1024).brand<'PermissionId'>()
 export type PermissionId = z.infer<typeof PermissionIdSchema>
 export const createPermissionId = (): PermissionId => PermissionIdSchema.parse(uuidv7())
 
 /** Identifier for one pending elicitation in a conversation. */
-export const ElicitationIdSchema = z.uuidv7().brand<'ElicitationId'>()
+export const ElicitationIdSchema = z.string().min(1).max(1024).brand<'ElicitationId'>()
 
 /** Identifier for one pending elicitation in a conversation. */
 export type ElicitationId = z.infer<typeof ElicitationIdSchema>
@@ -47,11 +52,9 @@ export type MessageId = z.infer<typeof MessageIdSchema>
 /** Create one time-ordered message identifier. */
 export const createMessageId = (): MessageId => MessageIdSchema.parse(uuidv7())
 
-export const EventIdSchema = z.string().min(1).brand<'EventId'>()
-export type EventId = z.infer<typeof EventIdSchema>
-
-/** Create one time-ordered event identifier. */
-export const createEventId = (): EventId => EventIdSchema.parse(uuidv7())
+/** Ordered position of one live record within a conversation. */
+export const EventSequenceSchema = z.number().int().positive().brand<'EventSequence'>()
+export type EventSequence = z.infer<typeof EventSequenceSchema>
 
 export const ToolCallIdSchema = z.string().min(1).brand<'ToolCallId'>()
 export type ToolCallId = z.infer<typeof ToolCallIdSchema>

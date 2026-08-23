@@ -11,7 +11,11 @@ describe('ConversationProgressEventSchema', () => {
       ...base,
       type: 'plan.updated',
       turnId,
-      entries: [{ content: 'Run tests', status: 'in_progress', priority: 'high' }],
+      plan: {
+        type: 'items',
+        planId: 'primary',
+        entries: [{ content: 'Run tests', status: 'in_progress', priority: 'high' }],
+      },
     })
 
     expect(result.success).toBe(true)

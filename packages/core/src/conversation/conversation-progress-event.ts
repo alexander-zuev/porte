@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { EventIdSchema, ConversationIdSchema, TurnIdSchema } from '../identity/identity.ts'
+import { TurnIdSchema } from '../identity/identity.ts'
 
 /** One ordered entry in the current coding-agent plan. */
 export const PlanEntrySchema = z.object({
@@ -11,6 +11,20 @@ export const PlanEntrySchema = z.object({
 
 /** One ordered entry in the current coding-agent plan. */
 export type PlanEntry = z.infer<typeof PlanEntrySchema>
+
+/** One complete ACP plan with its provider ID and content form. */
+export const ConversationPlanSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('items'),
+    planId: z.string().min(1),
+    entries: z.array(PlanEntrySchema),
+  }),
+  z.object({ type: z.literal('file'), planId: z.string().min(1), uri: z.string().min(1) }),
+  z.object({ type: z.literal('markdown'), planId: z.string().min(1), content: z.string() }),
+])
+
+/** One complete ACP plan with its provider ID and content form. */
+export type ConversationPlan = z.infer<typeof ConversationPlanSchema>
 
 /** Current context usage and optional cumulative cost for one conversation. */
 export const ConversationUsageSchema = z
@@ -30,16 +44,14 @@ const progressEventDataSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('plan.updated'),
     turnId: TurnIdSchema,
-    entries: z.array(PlanEntrySchema),
+    plan: ConversationPlanSchema,
   }),
+  z.object({ type: z.literal('plan.removed'), turnId: TurnIdSchema, planId: z.string().min(1) }),
   z.object({ type: z.literal('conversation.usage.updated'), usage: ConversationUsageSchema }),
 ])
 
 /** Canonical plan or usage replacement for one conversation. */
-export const ConversationProgressEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  progressEventDataSchema,
-)
+export const ConversationProgressEventSchema = progressEventDataSchema
 
 /** Canonical plan or usage replacement for one conversation. */
 export type ConversationProgressEvent = z.infer<typeof ConversationProgressEventSchema>

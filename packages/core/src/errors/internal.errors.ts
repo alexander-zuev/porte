@@ -4,6 +4,18 @@ import type { FailureClassification } from './failure-classification.ts'
 
 export const INTERNAL_SERVER_ERROR = 'InternalServerError'
 export const SERVICE_UNAVAILABLE_ERROR = 'ServiceUnavailableError'
+export const APPLICATION_INVARIANT_ERROR = 'ApplicationInvariantError'
+
+/** Server code produced a state that its own contract does not permit. */
+export class ApplicationInvariantError extends TaggedError(APPLICATION_INVARIANT_ERROR)<{
+  message: string
+  classification: FailureClassification
+  cause: unknown
+}> {
+  constructor(args: { message: string; cause: unknown }) {
+    super({ ...args, classification: 'terminal' })
+  }
+}
 
 /** What an unnamed failure becomes on its way out. Carries nothing. */
 export class InternalServerError extends TaggedError(INTERNAL_SERVER_ERROR)<{

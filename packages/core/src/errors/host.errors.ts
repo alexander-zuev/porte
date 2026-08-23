@@ -12,7 +12,7 @@ export class HostOfflineError extends TaggedError(HOST_OFFLINE_ERROR)<{
   classification: FailureClassification
 }> {
   constructor() {
-    super({ message: 'Host is offline', classification: 'transient' })
+    super({ message: 'Host is offline', classification: 'terminal' })
   }
 }
 

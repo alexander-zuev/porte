@@ -1,12 +1,6 @@
 import { z } from 'zod'
 
-import {
-  EventIdSchema,
-  PermissionIdSchema,
-  ConversationIdSchema,
-  ToolCallIdSchema,
-  TurnIdSchema,
-} from '../identity/identity.ts'
+import { PermissionIdSchema, ToolCallIdSchema, TurnIdSchema } from '../identity/identity.ts'
 
 /** One user decision offered for a coding-agent permission request. */
 export const PermissionOptionSchema = z.object({
@@ -51,10 +45,7 @@ const permissionEventDataSchema = z.discriminatedUnion('type', [
 ])
 
 /** Canonical permission interaction event for one conversation. */
-export const ConversationPermissionEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  permissionEventDataSchema,
-)
+export const ConversationPermissionEventSchema = permissionEventDataSchema
 
 /** Canonical permission interaction event for one conversation. */
 export type ConversationPermissionEvent = z.infer<typeof ConversationPermissionEventSchema>

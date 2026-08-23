@@ -1,12 +1,9 @@
 import { z } from 'zod'
 
-import {
-  EventIdSchema,
-  ConversationIdSchema,
-  ToolCallIdSchema,
-  TurnIdSchema,
-} from '../identity/identity.ts'
+import { ToolCallIdSchema, TurnIdSchema } from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
+
+const metaSchema = z.record(z.string(), z.json())
 
 /** Provider-independent category used to present one tool call. */
 export const ToolKindSchema = z.enum([
@@ -33,13 +30,22 @@ export type ToolStatus = z.infer<typeof ToolStatusSchema>
 
 /** Display content or file diff produced by one tool call. */
 export const ToolContentSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('content'), content: CanonicalContentSchema }),
-  z.object({ type: z.literal('terminal'), terminalId: z.string().min(1) }),
+  z.object({
+    type: z.literal('content'),
+    content: CanonicalContentSchema,
+    _meta: metaSchema.optional(),
+  }),
+  z.object({
+    type: z.literal('terminal'),
+    terminalId: z.string().min(1),
+    _meta: metaSchema.optional(),
+  }),
   z.object({
     type: z.literal('diff'),
     path: z.string().min(1),
     oldText: z.string().nullable(),
     newText: z.string(),
+    _meta: metaSchema.optional(),
   }),
 ])
 
@@ -59,10 +65,14 @@ export type ToolLocation = z.infer<typeof ToolLocationSchema>
 export const ToolViewSchema = z.object({
   toolCallId: ToolCallIdSchema,
   title: z.string(),
+  name: z.string().min(1).optional(),
   kind: ToolKindSchema,
   status: ToolStatusSchema,
   content: z.array(ToolContentSchema),
   locations: z.array(ToolLocationSchema),
+  rawInput: z.json().optional(),
+  rawOutput: z.json().optional(),
+  _meta: metaSchema.optional(),
 })
 
 /** Complete current view of one tool call. */
@@ -70,8 +80,6 @@ export type ToolView = z.infer<typeof ToolViewSchema>
 
 /** Canonical full-state update for one coding-agent tool call. */
 export const ConversationToolEventSchema = z.object({
-  eventId: EventIdSchema,
-  conversationId: ConversationIdSchema,
   type: z.literal('tool.updated'),
   turnId: TurnIdSchema,
   tool: ToolViewSchema,

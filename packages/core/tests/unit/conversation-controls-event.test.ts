@@ -8,7 +8,7 @@ const select = {
   id: 'mode',
   name: 'Mode',
   currentValue: 'ask',
-  options: [{ value: 'ask', name: 'Ask' }],
+  options: [{ type: 'option', value: 'ask', name: 'Ask' }],
 }
 
 describe('ConversationControlsEventSchema', () => {
@@ -30,6 +30,28 @@ describe('ConversationControlsEventSchema', () => {
     })
 
     expect(result.success).toBe(false)
+  })
+
+  it('parses grouped select values', () => {
+    const result = ConversationControlsEventSchema.safeParse({
+      ...base,
+      type: 'conversation.configuration.updated',
+      options: [
+        {
+          ...select,
+          options: [
+            {
+              type: 'group',
+              group: 'fast',
+              name: 'Fast models',
+              options: [{ type: 'option', value: 'ask', name: 'Ask' }],
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(result.success).toBe(true)
   })
 
   it('parses the complete command list', () => {

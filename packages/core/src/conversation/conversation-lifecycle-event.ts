@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { EventIdSchema, IsoDateTimeSchema, ConversationIdSchema } from '../identity/identity.ts'
+import { IsoDateTimeSchema } from '../identity/identity.ts'
 import { CodingAgentErrorSchema } from './coding-agent-error.ts'
 
 /** Non-empty metadata change with explicit clear values. */
@@ -25,10 +25,7 @@ const lifecycleEventDataSchema = z.discriminatedUnion('type', [
 ])
 
 /** Canonical metadata change or terminal failure for one conversation. */
-export const ConversationLifecycleEventSchema = z.intersection(
-  z.object({ eventId: EventIdSchema, conversationId: ConversationIdSchema }),
-  lifecycleEventDataSchema,
-)
+export const ConversationLifecycleEventSchema = lifecycleEventDataSchema
 
 /** Canonical metadata change or terminal failure for one conversation. */
 export type ConversationLifecycleEvent = z.infer<typeof ConversationLifecycleEventSchema>
