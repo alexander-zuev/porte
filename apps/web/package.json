@@ -33,7 +33,6 @@
   "dependencies": {
     "@ai-sdk/react": "catalog:",
     "@base-ui/react": "catalog:",
-    "@better-fetch/fetch": "catalog:",
     "@cloudflare/ai-chat": "catalog:",
     "@fontsource/inter": "catalog:",
     "@fontsource/space-grotesk": "catalog:",

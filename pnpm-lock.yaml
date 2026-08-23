@@ -363,9 +363,6 @@ importers:
       '@base-ui/react':
         specifier: 'catalog:'
         version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@better-fetch/fetch':
-        specifier: 'catalog:'
-        version: 1.3.1
       '@cloudflare/ai-chat':
         specifier: 'catalog:'
         version: 0.10.2(@ai-sdk/react@4.0.71(react@19.2.8)(zod@4.4.3))(agents@0.21.0(@ai-sdk/react@4.0.71(react@19.2.8)(zod@4.4.3))(@babel/core@8.0.1)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260820.1)(@modelcontextprotocol/client@2.0.0)(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.4.3))(@modelcontextprotocol/server@2.0.0)(ai@7.0.68(zod@4.4.3))(react@19.2.8)(rolldown@1.2.4)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(zod@4.4.3))(ai@7.0.68(zod@4.4.3))(react@19.2.8)

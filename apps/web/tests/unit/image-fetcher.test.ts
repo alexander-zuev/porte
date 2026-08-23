@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   UpstreamRequestError,
@@ -10,57 +10,50 @@ import {
 } from '../../src/server/infrastructure/images/image-fetcher.ts'
 
 describe('ImageFetcher', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it('returns one validated image', async () => {
-    const fetcher = new ImageFetcher(async () =>
+    vi.stubGlobal('fetch', async () =>
       Response.json([1, 2, 3], { headers: { 'Content-Type': 'image/png' } }),
     )
-    const result = await fetcher.fetch('https://images.example/avatar.png')
+    const image = await new ImageFetcher().fetch('https://images.example/avatar.png')
 
-    expect(result.isOk()).toBe(true)
-    if (result.isErr()) return
-    expect(result.value.contentType).toBe('image/png')
+    expect(image.contentType).toBe('image/png')
   })
 
-  it('returns a generic error for an unsuccessful request', async () => {
-    const fetcher = new ImageFetcher(async () => new Response(null, { status: 503 }))
-    const result = await fetcher.fetch('https://images.example/avatar.png')
+  it('throws a generic error for an unsuccessful request', async () => {
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 503 }))
+    const request = new ImageFetcher().fetch('https://images.example/avatar.png')
 
-    expect(result.isErr()).toBe(true)
-    if (result.isOk()) return
-    expect(result.error).toBeInstanceOf(UpstreamRequestError)
+    await expect(request).rejects.toBeInstanceOf(UpstreamRequestError)
   })
 
-  it('returns an image error for unsupported content', async () => {
-    const fetcher = new ImageFetcher(async () =>
+  it('throws an image error for unsupported content', async () => {
+    vi.stubGlobal('fetch', async () =>
       Response.json({}, { headers: { 'Content-Type': 'application/pdf' } }),
     )
-    const result = await fetcher.fetch('https://images.example/avatar.pdf')
+    const request = new ImageFetcher().fetch('https://images.example/avatar.pdf')
 
-    expect(result.isErr()).toBe(true)
-    if (result.isOk()) return
-    expect(result.error).toBeInstanceOf(InvalidImageResponseError)
+    await expect(request).rejects.toBeInstanceOf(InvalidImageResponseError)
   })
 
   it('stops a chunked response above the image size limit', async () => {
     const body = new Uint8Array(2 * 1024 * 1024 + 1)
-    const fetcher = new ImageFetcher(
+    vi.stubGlobal(
+      'fetch',
       async () => new Response(body, { headers: { 'Content-Type': 'image/png' } }),
     )
-    const result = await fetcher.fetch('https://images.example/avatar.png')
+    const request = new ImageFetcher().fetch('https://images.example/avatar.png')
 
-    expect(result.isErr()).toBe(true)
-    if (result.isOk()) return
-    expect(result.error).toBeInstanceOf(InvalidImageResponseError)
+    await expect(request).rejects.toBeInstanceOf(InvalidImageResponseError)
   })
 
-  it('returns a timeout error for an aborted request', async () => {
-    const fetcher = new ImageFetcher(async () => {
+  it('throws a timeout error for an aborted request', async () => {
+    vi.stubGlobal('fetch', async () => {
       throw new DOMException('Timed out', 'AbortError')
     })
-    const result = await fetcher.fetch('https://images.example/avatar.png')
+    const request = new ImageFetcher().fetch('https://images.example/avatar.png')
 
-    expect(result.isErr()).toBe(true)
-    if (result.isOk()) return
-    expect(result.error).toBeInstanceOf(UpstreamTimeoutError)
+    await expect(request).rejects.toBeInstanceOf(UpstreamTimeoutError)
   })
 })

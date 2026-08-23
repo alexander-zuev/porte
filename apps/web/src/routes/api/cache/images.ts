@@ -22,10 +22,8 @@ export const Route = createFileRoute('/api/cache/images')({
         const cached = await cache.match(request)
         if (cached) return withCacheStatus(cached, 'HIT')
 
-        const fetched = await context.deps.imageFetcher.fetch(parsed.data.url)
-        if (fetched.isErr()) throw fetched.error
-
-        const response = imageResponse(fetched.value)
+        const image = await context.deps.imageFetcher.fetch(parsed.data.url)
+        const response = imageResponse(image)
         waitUntil(cache.put(request, response.clone()))
         return withCacheStatus(response, 'MISS')
       },
