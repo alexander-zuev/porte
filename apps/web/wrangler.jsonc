@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "porte",
   "main": "./src/server.ts",
-  "compatibility_date": "2026-08-17",
+  "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
   "observability": {
@@ -12,6 +12,7 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["HostCoordinatorDO"] },
     { "tag": "v2", "renamed_classes": [{ "from": "HostCoordinatorDO", "to": "HostRelayDO" }] },
+    { "tag": "v3", "renamed_classes": [{ "from": "HostRelayDO", "to": "HostRelayAgent" }] },
   ],
   "env": {
     "dev": {
@@ -60,11 +61,13 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
     "prod": {
       "name": "porte",
+      // Custom Domain: Cloudflare owns the DNS record and cert, so no manual DNS entry.
+      "routes": [{ "pattern": "useporte.dev", "custom_domain": true }],
       "triggers": { "crons": ["*/15 * * * *"] },
       "vars": {
         "ENVIRONMENT": "prod",
@@ -108,7 +111,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
     "test": {
@@ -150,7 +153,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [{ "name": "HOST_RELAY_DO", "class_name": "HostRelayDO" }],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
   },

@@ -25,7 +25,7 @@ const READ_METHODS = new Set(['GET', 'HEAD'])
  * The daemon polls the device grant while the phone approves it, so the
  * approval it waits for was written under a bookmark it never receives.
  */
-const CROSS_CLIENT_PREFIX = '/api/auth'
+const CROSS_CLIENT_PREFIXES = ['/api/auth', '/api/host/ws']
 
 /**
  * Bound the cookie's life, matching Cloudflare's own example.
@@ -47,7 +47,7 @@ const BOOKMARK_MAX_AGE = 60 * 60
  */
 const pickConstraint = createServerOnlyFn((method: string, pathname: string) => {
   if (!READ_METHODS.has(method)) return 'first-primary'
-  if (pathname.startsWith(CROSS_CLIENT_PREFIX)) return 'first-primary'
+  if (CROSS_CLIENT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return 'first-primary'
   return getCookie(BOOKMARK_COOKIE) ?? 'first-unconstrained'
 })
 
@@ -96,6 +96,7 @@ const persistBookmark = createServerOnlyFn((session: { getBookmark: () => string
  */
 export const d1SessionMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ next, context, pathname, request }) => {
+    const isWebSocketUpgrade = request.headers.get('upgrade')?.toLowerCase() === 'websocket'
     const session = bindD1Session(
       context.deps,
       pickConstraint(request.method, pathname),
@@ -104,7 +105,8 @@ export const d1SessionMiddleware = createMiddleware({ type: 'request' }).server(
 
     // getBookmark reports where the session ended, so it has to follow the queries.
     const result = await next()
-    persistBookmark(session)
+    // A WebSocket upgrade has immutable response headers, so it cannot carry a bookmark cookie.
+    if (!isWebSocketUpgrade) persistBookmark(session)
     return result
   },
 )

@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers'
 declare global {
   namespace Cloudflare {
     interface Env {
-      TEST_DATABASE_MIGRATIONS: D1Migration[]
+      TEST_DATABASE_MIGRATIONS?: D1Migration[]
     }
   }
 }
@@ -13,5 +13,7 @@ declare global {
 export async function applyDatabaseTestMigrations(): Promise<void> {
   const database = env.DB
   if (database === undefined) throw new Error('DB is not bound')
-  await applyD1Migrations(database, env.TEST_DATABASE_MIGRATIONS)
+  const migrations = env.TEST_DATABASE_MIGRATIONS
+  if (migrations === undefined) throw new Error('Test migrations are not bound')
+  await applyD1Migrations(database, migrations)
 }

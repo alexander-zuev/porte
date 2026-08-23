@@ -1,7 +1,7 @@
 import { StaleSessionError } from '@porte/core/client'
 import { clearStaleSessionCookies } from '@server/infrastructure/auth/session-cookies.ts'
-import { apiErrorResponse } from '@server/infrastructure/errors/api-error-response.ts'
-import { serializeError } from '@server/infrastructure/errors/serialize-error.ts'
+import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
+import { toHttpErrorResponse } from '@server/infrastructure/http/http-error-response.ts'
 import { isNotFound, isRedirect, redirect } from '@tanstack/react-router'
 import { createMiddleware } from '@tanstack/react-start'
 
@@ -17,7 +17,7 @@ function handleFunctionError(cause: unknown): never {
   }
 
   // oxlint-disable-next-line typescript/only-throw-error -- The client rejects with this and reads its tag.
-  throw serializeError(cause)
+  throw toErrorPayload(cause)
 }
 
 /** A program cannot: a fetch that follows a redirect gets the HTML app shell. */
@@ -26,7 +26,7 @@ function handleRouteError(cause: unknown): Response {
   if (isNotFound(cause) || isRedirect(cause)) throw cause
 
   if (cause instanceof StaleSessionError) clearStaleSessionCookies()
-  return apiErrorResponse(serializeError(cause))
+  return toHttpErrorResponse(cause)
 }
 
 /** Global: every signed-in function runs `requireAuth`, whose refusals land here. */

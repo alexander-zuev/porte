@@ -6,7 +6,7 @@ import {
   ServiceUnavailableError,
   ValidationError,
   ValidationIssueSchema,
-  type ApiError,
+  type PorteErrorPayload,
   type DomainError,
 } from '@porte/core/client'
 import { z } from 'zod'
@@ -33,7 +33,7 @@ function reconstructValidationError(cause: unknown): ValidationError | null {
 }
 
 /** A failure the table names crosses with its own tag and message. */
-function serializeDomainError(failure: DomainError): ApiError {
+function serializeDomainError(failure: DomainError): PorteErrorPayload {
   logger.warn('handled_domain_error', { error: failure, details: { tag: failure._tag } })
 
   return failure._tag === 'ValidationError'
@@ -48,7 +48,7 @@ function serializeDomainError(failure: DomainError): ApiError {
  * coming back is worth it. One that says nothing was never wrapped by the
  * boundary it came from, and is unknown by that fact alone.
  */
-function serializeUnknownFailure(cause: unknown): ApiError {
+function serializeUnknownFailure(cause: unknown): PorteErrorPayload {
   const classification = isClassifiedError(cause) ? cause.classification : 'unknown'
   logger.error('unexpected_error', { error: cause, details: { classification } })
 
@@ -58,7 +58,7 @@ function serializeUnknownFailure(cause: unknown): ApiError {
 }
 
 /** Convert an unknown server throw into the contract a client may see. Logs once. */
-export function serializeError(cause: unknown): ApiError {
+export function toErrorPayload(cause: unknown): PorteErrorPayload {
   const failure = reconstructValidationError(cause) ?? cause
 
   return isDomainError(failure) ? serializeDomainError(failure) : serializeUnknownFailure(failure)

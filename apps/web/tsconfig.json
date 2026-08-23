@@ -3,6 +3,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "composite": false,
+    "target": "ES2021",
     "jsx": "react-jsx",
     // Drizzle generates the relay's migration bundle as JavaScript importing JSON.
     "allowJs": true,

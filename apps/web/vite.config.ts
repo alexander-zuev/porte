@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
+import agents from 'agents/vite'
 import { defineConfig } from 'vite'
 
 /** Named tunnel, so the dev URL survives restarts and OAuth callbacks stay registered. */
@@ -19,6 +20,7 @@ export default defineConfig(() => {
     server: { allowedHosts: ['.trycloudflare.com', '.useporte.dev'] },
     preview: { allowedHosts: ['.trycloudflare.com', '.useporte.dev'] },
     plugins: [
+      agents(),
       cloudflare({
         viteEnvironment: { name: 'ssr' },
         tunnel: { name: TUNNEL_NAME, autoStart: true },

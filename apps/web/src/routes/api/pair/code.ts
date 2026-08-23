@@ -1,4 +1,4 @@
-import { DeviceCodeRequestSchema, ValidationError } from '@porte/core/client'
+import { DeviceCodeRequestSchema, MalformedRequestError, ValidationError } from '@porte/core/client'
 import {
   issuePairingCode,
   type PairingCodeRequest,
@@ -46,7 +46,14 @@ export const Route = createFileRoute('/api/pair/code')({
 async function readRequest(request: Request): Promise<PairingCodeRequest> {
   // Only the CLI asks for a code, and it always names itself. An unnamed
   // machine is a malformed request, never one to invent a name for.
-  const body = DeviceCodeRequestSchema.safeParse(await request.json())
+  let input: unknown
+  try {
+    input = await request.json()
+  } catch (cause) {
+    throw new MalformedRequestError({ cause })
+  }
+
+  const body = DeviceCodeRequestSchema.safeParse(input)
   if (!body.success) {
     throw ValidationError.fromZod(body.error, 'The device must identify and name itself')
   }

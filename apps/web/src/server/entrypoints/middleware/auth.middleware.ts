@@ -20,11 +20,8 @@ export interface RequiredAuthContext {
 /**
  * Shared auth resolution — called by both extractAuth and requireAuth.
  *
- * Headers are passed in rather than read here. `getRequestHeaders` is a
- * server-only import, and the compiler drops it from the client bundle only
- * when every reference sits inside a `.server()` body it strips. The relay
- * upgrade needs the parameter regardless: it answers before the router runs,
- * where the ambient request context does not exist yet.
+ * Headers are passed in rather than read here. Function and request middleware
+ * obtain them from different TanStack APIs.
  */
 async function resolveSession(deps: AppDeps, headers: Headers) {
   // SAFETY: `advanced.database.generateId` in options.ts mints every id as uuid
@@ -34,7 +31,7 @@ async function resolveSession(deps: AppDeps, headers: Headers) {
   return { headers, result }
 }
 
-export async function resolveRequiredSession(
+async function resolveRequiredSession(
   deps: AppDeps,
   requestHeaders: Headers,
 ): Promise<SessionWithUser> {

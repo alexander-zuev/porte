@@ -5,7 +5,6 @@ import type {
   ConversationSummary,
   IsoDateTime,
 } from '@porte/core'
-import type { ConversationRepository } from '@server/domain/conversation/conversation.repository.ts'
 import type { RelayDb } from '@server/infrastructure/persistence/relay/connection.ts'
 import {
   conversation,
@@ -47,7 +46,7 @@ function toConversation(row: DbConversation): ConversationSummary {
 }
 
 /** The relay's conversations, over its Durable Object's SQLite. */
-export class DrizzleConversationRepository implements ConversationRepository {
+export class DrizzleConversationRepository {
   constructor(private readonly db: RelayDb) {}
 
   /**
@@ -94,18 +93,18 @@ export class DrizzleConversationRepository implements ConversationRepository {
     return row?.syncRunId ?? null
   }
 
-  save(toSave: ConversationSummary, syncRunId: string): void {
-    this.saveAll([toSave], syncRunId)
+  save(toSave: ConversationSummary, operationId: string): void {
+    this.saveAll([toSave], operationId)
   }
 
   /** Split across statements: one insert holding every row would outrun the parameter cap. */
-  saveAll(conversations: readonly ConversationSummary[], syncRunId: string): void {
+  saveAll(conversations: readonly ConversationSummary[], operationId: string): void {
     for (let start = 0; start < conversations.length; start += ROWS_PER_INSERT) {
-      this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT), syncRunId)
+      this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT), operationId)
     }
   }
 
-  private insertRows(conversations: readonly ConversationSummary[], syncRunId: string): void {
+  private insertRows(conversations: readonly ConversationSummary[], operationId: string): void {
     if (conversations.length === 0) return
 
     const rows = conversations.map((one) => ({
@@ -114,7 +113,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
       gitRoot: one.gitRoot,
       title: one.title,
       updatedAt: new Date(one.updatedAt),
-      syncRunId,
+      syncRunId: operationId,
     }))
 
     this.db
@@ -137,8 +136,8 @@ export class DrizzleConversationRepository implements ConversationRepository {
     this.db.delete(conversation).where(eq(conversation.id, conversationId)).run()
   }
 
-  deleteOtherThan(syncRunId: string): void {
-    this.db.delete(conversation).where(ne(conversation.syncRunId, syncRunId)).run()
+  deleteOtherThan(operationId: string): void {
+    this.db.delete(conversation).where(ne(conversation.syncRunId, operationId)).run()
   }
 
   /**

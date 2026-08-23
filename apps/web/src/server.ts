@@ -5,11 +5,19 @@ import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
 import { scheduledHandler } from './server/entrypoints/scheduled/scheduled-handler.ts'
 import { createAppDeps } from './server/infrastructure/app-deps'
+import { ConversationAgent as ConversationAgentBase } from './server/infrastructure/durable-objects/conversation-agent'
+import { HostRelayAgent as HostRelayAgentBase } from './server/infrastructure/durable-objects/host-relay-agent'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
-import { handleRelayUpgrade, isRelayUpgrade } from './server/infrastructure/ws/relay-upgrade.ts'
 
-export { HostRelayDO } from './server/infrastructure/durable-objects/host-relay-do'
+export const ConversationAgent = Sentry.instrumentAgentWithSentry(
+  createSentryOptions,
+  ConversationAgentBase,
+)
+export const HostRelayAgent = Sentry.instrumentAgentWithSentry(
+  createSentryOptions,
+  HostRelayAgentBase,
+)
 
 setLoggerErrorHook(({ error, distinctId, context }) => {
   Sentry.captureException(error, {
@@ -24,10 +32,6 @@ const serverEntry = createServerEntry(wrapFetchWithSentry(handler))
 export default Sentry.withSentry(createSentryOptions, {
   fetch(request, env, ctx) {
     const deps = createAppDeps(env, ctx)
-
-    // Before the router: its response merge destroys the upgrade's headers.
-    if (isRelayUpgrade(request)) return handleRelayUpgrade(request, deps)
-
     return serverEntry.fetch(request, { context: { deps } })
   },
   scheduled(controller, env, ctx) {

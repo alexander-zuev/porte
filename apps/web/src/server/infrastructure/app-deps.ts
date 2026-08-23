@@ -9,6 +9,7 @@ import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
 import { HostRelayClient } from './durable-objects/host-relay-client.ts'
+import { ImageFetcher } from './images/image-fetcher.ts'
 import {
   SentryObservabilityService,
   type ObservabilityService,
@@ -45,6 +46,8 @@ export type AppDeps = {
   /** Where each pairing code was asked for. Written when one is issued. */
   pairingOrigins: PairingOrigins
   hostRelay: HostRelay
+  /** Fetches external images without exposing their HTTP response. */
+  imageFetcher: ImageFetcher
   executionCtx: BackgroundWork
   /** Boundaries that report outward, or resolve who is asking. */
   services: {
@@ -86,7 +89,8 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): Ap
     pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
-    hostRelay: new HostRelayClient(env.HOST_RELAY_DO),
+    hostRelay: new HostRelayClient(env.HOST_RELAY_AGENT),
+    imageFetcher: new ImageFetcher(),
     services: {
       // A test run reports to nobody, and the type says so: the key is a secret
       // the test environment never carries.

@@ -1,4 +1,14 @@
-import type { ConversationPage, ConversationPageQuery, HostId, HostStatus } from '@porte/core'
+import type {
+  PorteErrorPayload,
+  ConversationId,
+  ConversationPage,
+  ConversationPageQuery,
+  ConversationTranscript,
+  HostId,
+  HostStatus,
+  ReadConversation,
+} from '@porte/core'
+import type { Result } from 'better-result'
 
 /**
  * Which side of the relay a connection is.
@@ -13,6 +23,9 @@ export type HostRole = 'daemon' | 'client'
 export type ConnectHost = {
   hostId: HostId
   role: HostRole
+  target:
+    | { readonly type: 'host' }
+    | { readonly type: 'conversation'; conversationId: ConversationId }
   request: Request
 }
 
@@ -22,6 +35,12 @@ export interface HostRelay {
 
   /** One page of what a Mac has reported, newest first. */
   readConversations(hostId: HostId, query: ConversationPageQuery): Promise<ConversationPage>
+
+  /** Reads one transcript page from the Mac through an idempotent command. */
+  readConversation(
+    hostId: HostId,
+    query: ReadConversation,
+  ): Promise<Result<ConversationTranscript, PorteErrorPayload>>
 
   /** Whether the relay holds the Mac's socket. The only liveness anything can see. */
   readStatus(hostId: HostId): Promise<HostStatus>

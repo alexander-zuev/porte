@@ -1,4 +1,4 @@
-import type { UserId } from '@porte/core'
+import type { ConversationId, UserId } from '@porte/core'
 import type { HostRelay, HostRole } from '@server/application/ports/host-relay.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
@@ -7,6 +7,7 @@ export type ConnectHostRequest = {
   readonly userId: UserId
   /** Carried through: only the original request can become a WebSocket. */
   readonly request: Request
+  readonly conversationId?: ConversationId
 }
 
 /**
@@ -37,10 +38,15 @@ export async function connectHost(
 ): Promise<ConnectHostResult> {
   const pairing = await hosts.findPairing(input.userId)
   if (pairing.state !== 'paired') return { ok: false, reason: pairing.state }
+  const role = roleOf(input.request)
 
   const response = await relay.connect({
     hostId: pairing.host.id,
-    role: roleOf(input.request),
+    role,
+    target:
+      role === 'daemon' || input.conversationId === undefined
+        ? { type: 'host' }
+        : { type: 'conversation', conversationId: input.conversationId },
     request: input.request,
   })
   return { ok: true, response }

@@ -1,6 +1,7 @@
 import {
   CONVERSATION_PAGE_SIZE,
   IsoDateTimeSchema,
+  createHostId,
   type ConversationId,
   type ConversationSummary,
 } from '@porte/core'
@@ -19,15 +20,15 @@ const RUN = 'run-1'
  * a deployed relay actually has.
  */
 async function withStore(
-  name: string,
+  _name: string,
   body: (conversations: DrizzleConversationRepository) => void,
 ) {
   // `wrangler types` unions every environment, so every binding is optional in
   // that type. Checked rather than asserted, so a missing binding says so.
-  const relays = env.HOST_RELAY_DO
-  if (relays === undefined) throw new Error('HOST_RELAY_DO is not bound in the test environment')
+  const relays = env.HOST_RELAY_AGENT
+  if (relays === undefined) throw new Error('HOST_RELAY_AGENT is not bound in the test environment')
 
-  const stub = relays.get(relays.idFromName(name))
+  const stub = relays.get(relays.idFromName(createHostId()))
   await runInDurableObject(stub, (_relay, state) => {
     body(new DrizzleConversationRepository(createRelayDatabase(state.storage)))
   })

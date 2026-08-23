@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import agents from 'agents/vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 
 const alias = {
@@ -14,13 +15,7 @@ const databaseMigrationsPath = fileURLToPath(
   new URL('./src/server/infrastructure/persistence/database/migrations', import.meta.url),
 )
 
-/**
- * Load `.sql` as a string, which is how Drizzle ships migrations.
- *
- * The app build gets this from `@cloudflare/vite-plugin`, which is not loaded
- * here. Without it the bundler parses the migration as JavaScript and fails on
- * its first line. `load` rather than `transform`, because parsing comes first.
- */
+/** Loads Drizzle SQL before the integration bundler tries to parse it as JavaScript. */
 function sqlAsText(): Plugin {
   return {
     name: 'sql-as-text',
@@ -33,17 +28,7 @@ function sqlAsText(): Plugin {
   }
 }
 
-/**
- * Two projects, because they need different runtimes.
- *
- * `unit` is plain Node: pure functions, with no Worker to wait for.
- * `integration` runs in workerd, which is the only place a Durable Object's
- * SQLite and its migrations exist.
- *
- * The Vite app config is not reused on purpose: it loads the Cloudflare and
- * TanStack Start plugins, which need the whole app to be meaningful. Playwright
- * owns the browser, so nothing here starts one.
- */
+/** Separates fast Node tests from integration tests that need workerd and Durable Objects. */
 export default defineConfig({
   test: {
     projects: [
@@ -59,6 +44,7 @@ export default defineConfig({
         resolve: { alias },
         plugins: [
           sqlAsText(),
+          agents(),
           // The relay reaches TanStack Start through `createAppDeps`, so its
           // entry aliases have to resolve even though no route is exercised.
           tanstackStart({
@@ -67,13 +53,18 @@ export default defineConfig({
               generatedRouteTree: './lib/router/routeTree.gen.ts',
             },
           }),
-          // The real Worker and the real bindings. Nothing is redeclared here,
-          // so a binding these tests use is one the deployed Worker also has.
+          // The facet binding is test-only because workerd cannot discover it through ctx.exports.
           cloudflareTest(async () => ({
             main: './tests/integration/relay.worker.ts',
             miniflare: {
               bindings: {
                 TEST_DATABASE_MIGRATIONS: await readD1Migrations(databaseMigrationsPath),
+              },
+              durableObjects: {
+                CONVERSATION_AGENT_TEST: {
+                  className: 'ConversationAgent',
+                  useSQLite: true,
+                },
               },
             },
             wrangler: { configPath: './wrangler.jsonc', environment: 'test' },
