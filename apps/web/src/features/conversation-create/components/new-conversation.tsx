@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, FolderSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { repoName } from '@web/entities/conversation/group-conversations.ts'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { HostConnectionStatus } from '@web/entities/host/host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -54,8 +54,8 @@ export type NewConversationProps =
 
 /** Render the complete new-conversation flow without server effects. */
 export function NewConversation(props: NewConversationProps) {
-  const hostStatus: HostConnection =
-    props.view === 'form' && props.state.status === 'offline' ? 'offline' : 'online'
+  const hostStatus: HostConnectionStatus =
+    props.view === 'form' && props.state.status === 'offline' ? 'disconnected' : 'connected'
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
       <NewConversationHeader
@@ -84,7 +84,7 @@ function NewConversationHeader({
   onBack,
 }: {
   readonly hostName: string
-  readonly connection: HostConnection
+  readonly connection: HostConnectionStatus
   readonly onBack: () => void
 }) {
   return (

@@ -1,4 +1,4 @@
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { HostConnectionStatus } from '@web/entities/host/host-connection.ts'
 import { cn } from '@web/lib/utils.ts'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
@@ -9,14 +9,13 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
  * A dot and nothing else. The word it replaces said the same thing twice, and
  * a status that appears and then leaves moves the line beside it.
  *
- * `offline` is red: nothing on these screens works without the Mac, so it is
- * the one state a glance has to catch.
+ * `disconnected` is red because these screens cannot work without the Mac.
  */
 const SETTLED = {
-  online: { label: 'Online', dot: 'bg-status-success' },
-  offline: { label: 'Offline', dot: 'bg-destructive' },
+  connected: { label: 'Online', dot: 'bg-status-success' },
+  disconnected: { label: 'Offline', dot: 'bg-destructive' },
 } as const satisfies Record<
-  Exclude<HostConnection, 'loading'>,
+  Exclude<HostConnectionStatus, 'loading'>,
   { readonly label: string; readonly dot: string }
 >
 
@@ -27,7 +26,7 @@ const SETTLED = {
  * in some state, and a fading one reads as a state we are reporting instead of
  * a question we have not answered yet.
  */
-export function HostStatus({ connection }: { readonly connection: HostConnection }) {
+export function HostStatus({ connection }: { readonly connection: HostConnectionStatus }) {
   if (connection === 'loading') {
     return <Spinner aria-label="Looking for your Mac" className="size-3 text-muted-foreground" />
   }

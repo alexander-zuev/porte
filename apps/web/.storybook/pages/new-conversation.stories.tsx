@@ -1,5 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { NewConversationPage } from '@web/pages/new-conversation/new-conversation-page.tsx'
+import {
+  NewConversationPage,
+  type NewConversationPageProps,
+} from '@web/pages/new-conversation/new-conversation-page.tsx'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 import { useState } from 'react'
 
 const HOST_NAME = "Alexander's MacBook Pro"
@@ -8,10 +13,11 @@ const REPOSITORIES = ['/Users/az/projects/porte', '/Users/az/projects/typist'] a
 const meta = {
   title: 'Pages/New Conversation',
   component: NewConversationPage,
+  render: (args) => <NewConversationStoryPage {...args} />,
 } satisfies Meta<typeof NewConversationPage>
 
 export default meta
-type Story = StoryObj<typeof meta>
+type Story = StoryObj<NewConversationPageProps>
 
 // The wrapper owns its own state, so the args exist only to satisfy the props.
 const UNUSED = { hostName: HOST_NAME, view: 'loading', onBack: () => undefined } as const
@@ -40,9 +46,29 @@ function ConversationFormStory({
   )
 }
 
+function NewConversationStoryPage(props: NewConversationPageProps) {
+  return (
+    <AppShell header={<AppHeader />} variant="scroll">
+      <NewConversationPage {...props} />
+    </AppShell>
+  )
+}
+
+function ConversationFormPage({
+  state,
+}: {
+  readonly state: 'ready' | 'offline' | 'creating' | 'opening' | 'failed' | 'unknown'
+}) {
+  return (
+    <AppShell header={<AppHeader />} variant="scroll">
+      <ConversationFormStory state={state} />
+    </AppShell>
+  )
+}
+
 export const Ready: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="ready" />,
+  render: () => <ConversationFormPage state="ready" />,
 }
 
 export const LoadingRepositories: Story = {
@@ -55,25 +81,25 @@ export const NoKnownRepositories: Story = {
 
 export const HostOffline: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="offline" />,
+  render: () => <ConversationFormPage state="offline" />,
 }
 
 export const Creating: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="creating" />,
+  render: () => <ConversationFormPage state="creating" />,
 }
 
 export const CreatedAndOpening: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="opening" />,
+  render: () => <ConversationFormPage state="opening" />,
 }
 
 export const CreationFailed: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="failed" />,
+  render: () => <ConversationFormPage state="failed" />,
 }
 
 export const CreationUnknown: Story = {
   args: UNUSED,
-  render: () => <ConversationFormStory state="unknown" />,
+  render: () => <ConversationFormPage state="unknown" />,
 }

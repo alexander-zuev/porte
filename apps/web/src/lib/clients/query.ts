@@ -1,7 +1,7 @@
-import { createLogger, isTransientTransportError, type ApiErrorTag } from '@porte/core/client'
+import { createLogger, isTransientTransportError, type DomainErrorTag } from '@porte/core/client'
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { isNotFound, isRedirect } from '@tanstack/react-router'
-import { apiErrorTagOf } from '@web/lib/errors/rpc-error.ts'
+import { errorPayloadTagOf } from '@web/lib/errors/error-payload.ts'
 
 const logger = createLogger('query-client')
 
@@ -14,7 +14,7 @@ const RETRY_ATTEMPTS = 2
  * An offline Mac is deliberately absent: it comes back when someone starts the
  * daemon, and the relay says so on its own, so asking again only burns requests.
  */
-const RETRIED: ReadonlySet<ApiErrorTag> = new Set([
+const RETRIED: ReadonlySet<DomainErrorTag> = new Set([
   'ServiceUnavailableError',
   'RequestTimeoutError',
 ])
@@ -29,7 +29,7 @@ const RETRIED: ReadonlySet<ApiErrorTag> = new Set([
 function shouldRetry(attempt: number, cause: unknown): boolean {
   if (attempt >= RETRY_ATTEMPTS) return false
 
-  const tag = apiErrorTagOf(cause)
+  const tag = errorPayloadTagOf(cause)
   return tag === null ? isTransientTransportError(cause) : RETRIED.has(tag)
 }
 

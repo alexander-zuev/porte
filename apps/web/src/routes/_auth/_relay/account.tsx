@@ -22,7 +22,7 @@ function AccountRoute() {
 
   return (
     <AccountFlow
-      connection={connection}
+      connection={connection.status}
       host={host}
       identity={{ name: user.name, email: user.email }}
     />

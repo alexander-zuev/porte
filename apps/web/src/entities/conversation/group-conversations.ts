@@ -1,4 +1,4 @@
-import type { ConversationSummary } from '@porte/core/client'
+import type { ConversationListItem } from './conversation-list.ts'
 
 /**
  * One repository on the Mac and the conversations opened inside it.
@@ -9,7 +9,7 @@ import type { ConversationSummary } from '@porte/core/client'
 export type Project = {
   readonly gitRoot: string
   readonly name: string
-  readonly conversations: readonly ConversationSummary[]
+  readonly conversations: readonly ConversationListItem[]
 }
 
 /**
@@ -20,18 +20,20 @@ export type Project = {
  * list. Repositories appear in the order their newest conversation does.
  */
 export function groupConversationsByRepo(
-  conversations: readonly ConversationSummary[],
+  conversations: readonly ConversationListItem[],
 ): readonly Project[] {
-  const groups = new Map<string, ConversationSummary[]>()
-  for (const conversation of conversations) {
-    const rows = groups.get(conversation.gitRoot) ?? []
-    rows.push(conversation)
-    groups.set(conversation.gitRoot, rows)
+  const groups = new Map<string, ConversationListItem[]>()
+  for (const item of conversations) {
+    const rows = groups.get(item.conversation.gitRoot) ?? []
+    rows.push(item)
+    groups.set(item.conversation.gitRoot, rows)
   }
   return [...groups.entries()].map(([gitRoot, rows]) => ({
     gitRoot,
     name: repoName(gitRoot),
-    conversations: rows.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    conversations: rows.toSorted((left, right) =>
+      right.conversation.updatedAt.localeCompare(left.conversation.updatedAt),
+    ),
   }))
 }
 

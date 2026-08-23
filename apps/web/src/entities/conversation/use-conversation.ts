@@ -1,72 +1,120 @@
-import type { ConversationId, ConversationIdentity } from '@porte/core/client'
+import type { UseAgentChatOptions } from '@cloudflare/ai-chat/react'
+import type {
+  ConversationId,
+  ConversationIdentity,
+  ConversationRelayState,
+  ReadyConversationRelayState,
+  PendingPermission,
+} from '@porte/core/client'
+import type { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
 import { useRelay } from '@web/entities/host/relay-context.tsx'
-import type { ChatTransport, UIMessage } from 'ai'
-import { useMemo } from 'react'
+import { useAgentHeartbeat } from '@web/lib/host/use-agent-heartbeat.ts'
+import { useAgent } from 'agents/react'
+import type { UIMessage } from 'ai'
+import { useMemo, useState } from 'react'
 
-import { PorteChatTransport } from './porte-chat-transport.ts'
 import { useConversationHistory } from './use-conversation-history.ts'
-import { usePendingPermissions, type ConversationPermission } from './use-pending-permissions.ts'
 
-/** Everything one conversation screen renders, in the three states a read can be in. */
-export type ConversationView =
+export type ConversationPermission = {
+  readonly permission: PendingPermission
+  readonly answering: boolean
+}
+
+type ConversationAgentClient = ReturnType<
+  typeof useAgent<ConversationAgent, ConversationRelayState>
+>
+
+/** The ConversationAgent fields that the chat component uses. */
+export type ConversationAgentConnection = UseAgentChatOptions<ConversationRelayState>['agent'] &
+  Pick<ConversationAgentClient, 'OPEN' | 'readyState'>
+
+/** The complete state that one conversation page can render. */
+export type ConversationState =
   | { readonly status: 'pending' }
   | { readonly status: 'failed'; readonly error: unknown; readonly onRetry: () => void }
   | {
       readonly status: 'ready'
-      readonly conversation: ConversationIdentity
+      readonly identity: ConversationIdentity
       readonly messages: readonly UIMessage[]
-      /** How a turn reaches the Mac. Given to the chat, which never sees the socket. */
-      readonly transport: ChatTransport<UIMessage>
+      readonly agent: ConversationAgentConnection
       readonly permissions: readonly ConversationPermission[]
-      /** Older turns exist. Absent once the whole transcript has been read. */
+      readonly state: ReadyConversationRelayState
       readonly onReadOlder: (() => void) | null
       readonly readingOlder: boolean
-      /** A turn was already running when this was read, so the chat re-attaches. */
-      readonly resuming: boolean
       readonly actions: ConversationActions
     }
 
+/** User actions that change the active conversation. */
 export type ConversationActions = {
   readonly onAnswerPermission: (waiting: ConversationPermission, optionId: string) => void
 }
 
-/**
- * One conversation, ready to render.
- *
- * The screen never touches the socket: reading, streaming, and answering the
- * agent's questions are assembled here, so every state can be handed to a
- * story as a value.
- */
-export function useConversation(conversationId: ConversationId): ConversationView {
-  const relay = useRelay()
+/** Combines the HTTP transcript with one direct ConversationAgent connection. */
+export function useConversation(conversationId: ConversationId): ConversationState {
   const history = useConversationHistory(conversationId)
-  const { waiting, answer } = usePendingPermissions(conversationId)
-
-  const transport = useMemo(
-    () => new PorteChatTransport(relay, conversationId),
-    [relay, conversationId],
+  const relay = useRelay()
+  const agent = useAgent<ConversationAgent, ConversationRelayState>({
+    agent: 'HostRelayAgent',
+    basePath: 'api/host/ws',
+    sub: [{ agent: 'ConversationAgent', name: conversationId }],
+  })
+  useAgentHeartbeat(agent)
+  const [answering, setAnswering] = useState<ReadonlySet<string>>(new Set())
+  const initialState = history.status === 'ready' ? history.initial.state : undefined
+  const state = agent.state?.status === 'ready' ? agent.state : initialState
+  const permissions = useMemo<ConversationPermission[]>(
+    () =>
+      state?.status === 'ready'
+        ? state.pending.permissions.map((permission) => ({
+            permission,
+            answering: answering.has(permission.permissionId),
+          }))
+        : [],
+    [answering, state],
   )
-
   const actions = useMemo<ConversationActions>(
     () => ({
-      onAnswerPermission: (permission, optionId) => {
-        void answer(permission.permission, optionId)
+      onAnswerPermission: (waiting, optionId) => {
+        setAnswering((current) => new Set(current).add(waiting.permission.permissionId))
+        void relay.stub
+          .answerPermission({
+            conversationId,
+            turnId: waiting.permission.turnId,
+            permissionId: waiting.permission.permissionId,
+            optionId,
+          })
+          .then((response) => {
+            if (response.type === 'command.error') {
+              setAnswering((current) => without(current, waiting.permission.permissionId))
+              return undefined
+            }
+            return undefined
+          })
+          .catch(() => {
+            setAnswering((current) => without(current, waiting.permission.permissionId))
+          })
       },
     }),
-    [answer],
+    [conversationId, relay.stub],
   )
 
   if (history.status !== 'ready') return history
-
+  const readyState = state?.status === 'ready' ? state : history.initial.state
   return {
     status: 'ready',
-    conversation: history.conversation,
+    identity: history.initial.conversation,
     messages: history.messages,
-    transport,
-    permissions: waiting,
+    agent,
+    permissions,
+    state: readyState,
     onReadOlder: history.onReadOlder,
     readingOlder: history.readingOlder,
-    resuming: history.resuming,
     actions,
   }
+}
+
+function without(values: ReadonlySet<string>, removed: string): ReadonlySet<string> {
+  const next = new Set(values)
+  next.delete(removed)
+  return next
 }

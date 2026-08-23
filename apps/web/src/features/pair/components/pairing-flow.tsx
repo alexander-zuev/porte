@@ -10,6 +10,7 @@ import {
   PairingStatusIcon,
   type PairingTone,
 } from '@web/features/pair/components/pairing-layout.tsx'
+import { UP_COMMAND } from '@web/lib/product.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -138,17 +139,20 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
  * What happens next happens in the terminal, and the dashboard still reads
  * unpaired until the daemon connects, so a button here would lead nowhere good.
  */
+/** Paired, not yet connected: nothing reaches this Mac until the daemon runs. */
 function ApprovedPairing() {
   return (
     <PairingLayout
-      title="Mac connected"
+      title="Mac paired"
       icon={
         <PairingStatusIcon tone="success">
           <CheckCircleIcon aria-hidden className="size-6" />
         </PairingStatusIcon>
       }
     >
-      <p className="text-muted-foreground">You can close this tab and go back to your terminal</p>
+      <p className="text-muted-foreground">
+        Back in your terminal, run <code>{UP_COMMAND}</code> to connect this Mac.
+      </p>
     </PairingLayout>
   )
 }

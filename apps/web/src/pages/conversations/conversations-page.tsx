@@ -1,14 +1,11 @@
 import type { PairedHost } from '@porte/core/client'
 import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import {
-  NoConversationsYet,
-  StartPorteOnMac,
-} from '@web/features/conversations/components/conversation-list-states.tsx'
+import { NoConversationsYet } from '@web/features/conversations/components/conversation-list-states.tsx'
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
 import { ProjectListSkeleton } from '@web/features/conversations/components/project-list-skeleton.tsx'
 import { ProjectList } from '@web/features/conversations/components/project-list.tsx'
-import type { ReachHost } from '@web/lib/host/use-reach-host.ts'
+import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -17,7 +14,6 @@ export type ConversationsPageProps = {
   readonly host: PairedHost
   readonly conversationList: ConversationList
   readonly connection: HostConnection
-  readonly reach: ReachHost
 }
 
 /**
@@ -37,18 +33,18 @@ export function ConversationsPage(props: ConversationsPageProps) {
  * row on it opens a conversation that cannot be read, and offering a list that
  * does nothing when tapped is worse than saying where the Mac went.
  */
-function body({ host, connection, conversationList, reach }: ConversationsPageProps) {
+function body({ host, connection, conversationList }: ConversationsPageProps) {
   // Opening the line and reading the list are one wait to the person watching,
   // so they get one skeleton rather than a spinner that hands over to another.
-  if (connection === 'loading') return <ProjectListSkeleton />
+  if (connection.status === 'loading') return <ProjectListSkeleton />
 
-  if (connection === 'offline') {
+  if (connection.status === 'disconnected') {
     return (
       <StartPorteOnMac
         hostName={host.name}
         lastSeenAt={host.lastSeenAt}
-        reconnecting={reach.reconnecting}
-        onReconnect={reach.onReconnect}
+        reconnecting={connection.reconnecting}
+        onReconnect={connection.reconnect}
       />
     )
   }

@@ -1,8 +1,8 @@
 import {
-  ApiErrorSchema,
+  PorteErrorPayloadSchema,
   InternalServerError,
-  type ApiError,
-  type ApiErrorTag,
+  type PorteErrorPayload,
+  type DomainErrorTag,
 } from '@porte/core/client'
 
 /**
@@ -12,8 +12,8 @@ import {
  * request — because the boundary tags everything it produces. A decision needs
  * to tell those apart, so this says so rather than inventing a tag.
  */
-export function apiErrorTagOf(cause: unknown): ApiErrorTag | null {
-  const parsed = ApiErrorSchema.safeParse(cause)
+export function errorPayloadTagOf(cause: unknown): DomainErrorTag | null {
+  const parsed = PorteErrorPayloadSchema.safeParse(cause)
   return parsed.success ? parsed.data._tag : null
 }
 
@@ -24,8 +24,8 @@ export function apiErrorTagOf(cause: unknown): ApiErrorTag | null {
  * something either way. Only display should use this: a decision that blanks an
  * unreached request loses the one fact that made it worth retrying.
  */
-export function toApiError(cause: unknown): ApiError {
-  const parsed = ApiErrorSchema.safeParse(cause)
+export function readErrorPayload(cause: unknown): PorteErrorPayload {
+  const parsed = PorteErrorPayloadSchema.safeParse(cause)
   if (parsed.success) return parsed.data
 
   const unreached = new InternalServerError()

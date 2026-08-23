@@ -1,6 +1,11 @@
 import { CaretRightIcon, FolderIcon, NotePencilIcon } from '@phosphor-icons/react'
 import type { ConversationSummary } from '@porte/core/client'
 import { Link } from '@tanstack/react-router'
+import type {
+  ConversationAttentionStatus,
+  ConversationListItem,
+  ConversationTurnStatus,
+} from '@web/entities/conversation/conversation-list.ts'
 import {
   groupConversationsByRepo,
   type Project,
@@ -12,9 +17,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@web/ui/components/ui/collapsible.tsx'
+import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 type ProjectListProps = {
-  readonly conversations: readonly ConversationSummary[]
+  readonly conversations: readonly ConversationListItem[]
   readonly selectedConversationId?: string
 }
 
@@ -55,7 +61,7 @@ function ProjectRow({
   readonly selectedConversationId?: string
 }) {
   const holdsSelected = project.conversations.some(
-    (conversation) => conversation.id === selectedConversationId,
+    ({ conversation }) => conversation.id === selectedConversationId,
   )
 
   return (
@@ -73,7 +79,7 @@ function ProjectRow({
           <strong className="truncate">{project.name}</strong>
           <CaretRightIcon
             aria-hidden
-            className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+            className="size-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
           />
         </CollapsibleTrigger>
 
@@ -94,17 +100,19 @@ function ProjectRow({
       <CollapsibleContent
         className={cn(
           'flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden pb-2',
-          '[transition:height_200ms_ease-out,opacity_140ms_ease-out]',
+          '[transition:height_150ms_ease-out,opacity_100ms_ease-out]',
           'data-starting-style:h-0 data-starting-style:opacity-0',
           'data-ending-style:h-0 data-ending-style:opacity-0',
           'motion-reduce:transition-none',
         )}
       >
-        {project.conversations.map((conversation) => (
+        {project.conversations.map(({ attentionStatus, conversation, turnStatus }) => (
           <ConversationLink
             key={conversation.id}
+            attentionStatus={attentionStatus}
             conversation={conversation}
             selected={selectedConversationId === conversation.id}
+            turnStatus={turnStatus}
           />
         ))}
       </CollapsibleContent>
@@ -114,11 +122,15 @@ function ProjectRow({
 
 /** A real link, so a conversation can be opened in a new tab or its address copied. */
 function ConversationLink({
+  attentionStatus,
   conversation,
   selected,
+  turnStatus,
 }: {
+  readonly attentionStatus: ConversationAttentionStatus
   readonly conversation: ConversationSummary
   readonly selected: boolean
+  readonly turnStatus: ConversationTurnStatus
 }) {
   return (
     <Link
@@ -131,11 +143,30 @@ function ConversationLink({
       params={{ conversationId: conversation.id }}
       to="/conversations/$conversationId"
     >
-      <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+      <span className={cn('min-w-0 flex-1 truncate', !selected && 'text-muted-foreground')}>
         {conversationTitle(conversation)}
+      </span>
+      <span className="flex size-5 shrink-0 items-center justify-center">
+        <ConversationRowStatus attentionStatus={attentionStatus} turnStatus={turnStatus} />
       </span>
     </Link>
   )
+}
+
+function ConversationRowStatus({
+  attentionStatus,
+  turnStatus,
+}: {
+  readonly attentionStatus: ConversationAttentionStatus
+  readonly turnStatus: ConversationTurnStatus
+}) {
+  if (turnStatus === 'running') {
+    return <Spinner aria-label="Conversation is running" className="text-muted-foreground" />
+  }
+  if (attentionStatus === 'unseen') {
+    return <output aria-label="New message" className="size-2 rounded-full bg-status-info" />
+  }
+  return null
 }
 
 /**

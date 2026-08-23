@@ -14,7 +14,7 @@ test('pairing runs from code entry to a connected Mac', async ({ page }) => {
   expect(await axeViolations(page)).toEqual([])
 
   await page.getByRole('button', { name: 'Connect this Mac' }).click()
-  await expect(page.getByRole('heading', { name: 'Mac connected' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mac paired' })).toBeVisible()
 
   // The daemon reconnects on its own poll, so the list arrives a beat later.
   await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()

@@ -15,6 +15,12 @@ import {
   ReasoningTrigger,
 } from '@web/ui/components/ai-elements/reasoning.tsx'
 import {
+  Source,
+  Sources,
+  SourcesContent,
+  SourcesTrigger,
+} from '@web/ui/components/ai-elements/sources.tsx'
+import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -23,6 +29,9 @@ import {
 } from '@web/ui/components/ai-elements/tool.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { isDynamicToolUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
+
+import { ConversationContentPart } from './conversation-content-part.tsx'
+import { ConversationToolOutput } from './conversation-tool-output.tsx'
 
 export type ConversationMessagesProps = {
   readonly messages: readonly UIMessage[]
@@ -66,15 +75,38 @@ export function ConversationMessages({
         {messages.map((message) => (
           <Message key={message.id} from={message.role}>
             <MessageContent>
-              {message.parts.map((part, index) => (
-                <MessagePart key={`${message.id}-${String(index)}`} part={part} />
-              ))}
+              <MessageParts message={message} />
             </MessageContent>
           </Message>
         ))}
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>
+  )
+}
+
+function MessageParts({ message }: { readonly message: UIMessage }) {
+  const sources = message.parts.filter((part) => part.type === 'source-url')
+  return (
+    <>
+      {sources.length === 0 ? null : (
+        <Sources>
+          <SourcesTrigger count={sources.length} />
+          <SourcesContent>
+            {sources.map((source) => (
+              <Source key={source.sourceId} href={source.url}>
+                {source.title ?? source.url}
+              </Source>
+            ))}
+          </SourcesContent>
+        </Sources>
+      )}
+      {message.parts.map((part, index) =>
+        part.type === 'source-url' ? null : (
+          <MessagePart key={`${message.id}-${String(index)}`} part={part} />
+        ),
+      )}
+    </>
   )
 }
 
@@ -99,7 +131,7 @@ function MessagePart({ part }: { readonly part: UIMessage['parts'][number] }) {
         <ToolContent>
           <ToolInput input={part.input} />
           {part.state === 'output-available' ? (
-            <ToolOutput errorText={undefined} output={part.output} />
+            <ConversationToolOutput output={part.output} />
           ) : null}
           {part.state === 'output-error' ? (
             <ToolOutput errorText={part.errorText} output={undefined} />
@@ -109,5 +141,5 @@ function MessagePart({ part }: { readonly part: UIMessage['parts'][number] }) {
     )
   }
 
-  return null
+  return <ConversationContentPart part={part} />
 }

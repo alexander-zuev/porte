@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 import { PairingPlay } from '../harnesses/pairing-play.tsx'
 
@@ -6,6 +8,11 @@ const meta = {
   title: 'Pages/Pair',
   component: PairingPlay,
   args: { start: 'code-entry' },
+  render: (args) => (
+    <AppShell header={<AppHeader />} variant="card">
+      <PairingPlay {...args} />
+    </AppShell>
+  ),
 } satisfies Meta<typeof PairingPlay>
 
 export default meta

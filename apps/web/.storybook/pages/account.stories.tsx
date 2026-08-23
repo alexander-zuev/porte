@@ -1,6 +1,7 @@
 import type { PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AccountPage } from '@web/pages/account/account-page.tsx'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 const identity = { name: 'Alexander Zuev', email: 'azuevpersonal@gmail.com' }
@@ -28,15 +29,12 @@ const meta = {
   title: 'Pages/Account',
   component: AccountPage,
   parameters: { layout: 'fullscreen' },
-  args: { ...actions, identity, connection: 'online', pending: 'none', deleteConfirming: false },
-  // The frame comes from the `_auth` route, so the story supplies it instead.
-  decorators: [
-    (Story) => (
-      <AppShell variant="scroll">
-        <Story />
-      </AppShell>
-    ),
-  ],
+  args: { ...actions, identity, connection: 'connected', pending: 'none', deleteConfirming: false },
+  render: (args) => (
+    <AppShell header={<AppHeader />} variant="scroll">
+      <AccountPage {...args} />
+    </AppShell>
+  ),
 } satisfies Meta<typeof AccountPage>
 
 export default meta
@@ -47,7 +45,7 @@ export const Paired: Story = {
 }
 
 export const HostOffline: Story = {
-  args: { host: seenHost, connection: 'offline' },
+  args: { host: seenHost, connection: 'disconnected' },
 }
 
 export const Unpaired: Story = {}

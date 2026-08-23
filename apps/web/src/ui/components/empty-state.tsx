@@ -20,13 +20,14 @@ export type EmptyStateProps = {
 export function EmptyState({ icon, title, meta, body, action }: EmptyStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-5 py-16 text-center">
-      <span className="text-muted-foreground [&>svg]:size-12">{icon}</span>
+      <div className="flex flex-col items-center gap-3">
+        <span className="text-muted-foreground [&>svg]:size-12">{icon}</span>
 
-      {/* The title and what it is stay together; what to do about it is a step
-          away. Held in one group so the gap between them never grows. */}
-      <div className="flex flex-col gap-1">
-        <h2 className="break-words">{title}</h2>
-        {meta === undefined ? null : <small className="text-muted-foreground">{meta}</small>}
+        {/* The icon, title, and meta identify one state. */}
+        <div className="flex flex-col gap-1">
+          <h2 className="break-words">{title}</h2>
+          {meta === undefined ? null : <small className="text-muted-foreground">{meta}</small>}
+        </div>
       </div>
 
       <p className="mx-auto max-w-[38ch] text-muted-foreground">{body}</p>

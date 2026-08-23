@@ -1,14 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
+import { PublicShell } from '@web/ui/components/layout/public-shell.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { toast } from '@web/ui/components/ui/sonner.tsx'
 
-import { PairingPlay, SignInPlay } from '../harnesses/pairing-play.tsx'
+import { PairingPlay } from '../harnesses/pairing-play.tsx'
 
 const meta = {
   title: 'Pages/SignIn',
   component: SignInPage,
+  render: (args) => (
+    <PublicShell variant="card">
+      <SignInPage {...args} />
+    </PublicShell>
+  ),
 } satisfies Meta<typeof SignInPage>
 
 export default meta
@@ -19,12 +25,15 @@ const UNUSED = { pendingProvider: undefined, onSocial: () => undefined }
 
 export const Ready: Story = {
   args: UNUSED,
-  render: () => <SignInPlay />,
 }
 
 export const PairingRedirect: Story = {
   args: UNUSED,
-  render: () => <PairingPlay start="sign-in" />,
+  render: () => (
+    <PublicShell variant="card">
+      <PairingPlay start="sign-in" />
+    </PublicShell>
+  ),
 }
 
 export const Pending: Story = {

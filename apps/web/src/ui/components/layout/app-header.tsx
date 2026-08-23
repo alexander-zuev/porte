@@ -62,7 +62,7 @@ function RemoteHost() {
     <div className="flex min-w-0 flex-col items-center">
       <strong>Remote</strong>
       <small className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-        <HostStatus connection={connection} />
+        <HostStatus connection={connection.status} />
         <LaptopIcon aria-hidden className="size-3.5 shrink-0" />
         <span className="truncate">{owned.data.host.name}</span>
       </small>

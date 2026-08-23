@@ -31,11 +31,18 @@ const HOST = {
 function homeList(paired: boolean) {
   return {
     host: HOST,
-    reach: { reconnecting: false, onReconnect: () => undefined },
-    connection: paired ? 'online' : 'offline',
+    connection: paired
+      ? ({ status: 'connected' } as const)
+      : ({ status: 'disconnected', reconnecting: false, reconnect: () => undefined } as const),
     conversationList: {
       status: 'ready',
-      conversations: paired ? conversations : [],
+      conversations: paired
+        ? conversations.map((conversation) => ({
+            conversation,
+            turnStatus: 'idle' as const,
+            attentionStatus: 'none' as const,
+          }))
+        : [],
       hasMore: false,
       isLoadingMore: false,
       onLoadMore: () => undefined,

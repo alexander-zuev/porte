@@ -33,6 +33,8 @@ function MenuLink({
 }) {
   return (
     <DrawerClose
+      // The chain ends in a `Link`, so every layer has to stop asking for a `<button>`.
+      nativeButton={false}
       render={
         <Button
           className="h-11 w-full justify-start gap-2"

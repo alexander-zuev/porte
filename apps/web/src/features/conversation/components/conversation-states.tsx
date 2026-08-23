@@ -1,24 +1,25 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
-import { toApiError } from '@web/lib/errors/rpc-error.ts'
+import type { PairedHost } from '@porte/core/client'
+import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
+import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
-import { Spinner } from '@web/ui/components/ui/spinner.tsx'
-
-/** The transcript is being read from the Mac. No agent has started. */
-export function ConversationOpening() {
-  return <EmptyState body="Reading this conversation." icon={<Spinner />} title="One moment" />
-}
 
 /** The read failed. The tag decides what to say about it. */
 export function ConversationFailed({
   error,
+  host,
   onRetry,
+  connection,
 }: {
   readonly error: unknown
+  readonly host: PairedHost
   readonly onRetry: () => void
+  readonly connection: HostConnection
 }) {
-  const failure = toApiError(error)
+  const failure = readErrorPayload(error)
   const retry = (
     <Button className="min-h-11" variant="outline" onClick={onRetry}>
       Try again
@@ -26,12 +27,15 @@ export function ConversationFailed({
   )
 
   if (failure._tag === 'HostOfflineError') {
+    const reconnecting = connection.status === 'disconnected' && connection.reconnecting
+    const reconnect = connection.status === 'disconnected' ? connection.reconnect : onRetry
+
     return (
-      <EmptyState
-        action={retry}
-        body="Porte is not running on it right now. Start it and this opens."
-        icon={<WarningCircleIcon aria-hidden />}
-        title="Your Mac is offline"
+      <StartPorteOnMac
+        hostName={host.name}
+        lastSeenAt={host.lastSeenAt}
+        reconnecting={reconnecting}
+        onReconnect={reconnect}
       />
     )
   }

@@ -1,5 +1,5 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
-import { toApiError } from '@web/lib/errors/rpc-error.ts'
+import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
@@ -13,11 +13,11 @@ export type ConversationsFailureProps = {
  *
  * An `EmptyState` like every other outcome, so a failed read is one more thing
  * the page can say rather than a screen that replaces it. The tag is the whole
- * decision: `toApiError` gives one to every failure, including a request that
+ * decision: `readErrorPayload` gives one to every failure, including a request that
  * never arrived.
  */
 export function ConversationsFailure({ error, onRetry }: ConversationsFailureProps) {
-  const failure = toApiError(error)
+  const failure = readErrorPayload(error)
   const retry = (
     <Button className="min-h-11" variant="outline" onClick={onRetry}>
       Try again

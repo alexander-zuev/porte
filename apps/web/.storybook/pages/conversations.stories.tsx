@@ -1,15 +1,19 @@
 import type { ConversationSummary, PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
+import type {
+  ConversationAttentionStatus,
+  ConversationList,
+  ConversationTurnStatus,
+} from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
-import { ConversationListFooter } from '@web/features/conversations/components/conversation-list-footer.tsx'
 import {
   ConversationsPage,
   type ConversationsPageProps,
 } from '@web/pages/conversations/conversations-page.tsx'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
-import { conversations, storyUser } from '../fixtures/conversations.ts'
+import { conversations } from '../fixtures/conversations.ts'
 
 const NONE: readonly ConversationSummary[] = []
 
@@ -19,7 +23,13 @@ const HOST = {
   lastSeenAt: '2026-08-22T14:02:00.000Z',
 } as PairedHost
 
-const REACH = { reconnecting: false, onReconnect: () => undefined }
+const CONNECTING = { status: 'loading' } satisfies HostConnection
+const CONNECTED = { status: 'connected' } satisfies HostConnection
+const DISCONNECTED = {
+  status: 'disconnected',
+  reconnecting: false,
+  reconnect: () => undefined,
+} satisfies HostConnection
 
 /**
  * One story per situation the page can be in.
@@ -31,14 +41,22 @@ function page(
   connection: HostConnection,
   conversationList: ConversationList,
 ): ConversationsPageProps {
-  return { connection, conversationList, host: HOST, reach: REACH }
+  return { connection, conversationList, host: HOST }
 }
 
 /** The list arrived. Paging is off unless a story says otherwise. */
-function listed(conversations: readonly ConversationSummary[]): ConversationList {
+function listed(
+  conversations: readonly ConversationSummary[],
+  firstTurnStatus: ConversationTurnStatus = 'idle',
+  firstAttentionStatus: ConversationAttentionStatus = 'none',
+): ConversationList {
   return {
     status: 'ready',
-    conversations,
+    conversations: conversations.map((conversation, index) => ({
+      conversation,
+      turnStatus: index === 0 ? firstTurnStatus : 'idle',
+      attentionStatus: index === 0 ? firstAttentionStatus : 'none',
+    })),
     hasMore: false,
     isLoadingMore: false,
     onLoadMore: () => undefined,
@@ -49,14 +67,11 @@ const meta = {
   title: 'Pages/Conversations',
   component: ConversationsPage,
   parameters: { layout: 'fullscreen' },
-  // The frame comes from the `_app` route, so the story supplies it instead.
-  decorators: [
-    (Story) => (
-      <AppShell variant="scroll">
-        <Story />
-      </AppShell>
-    ),
-  ],
+  render: (args) => (
+    <AppShell header={<AppHeader />} variant="scroll">
+      <ConversationsPage {...args} />
+    </AppShell>
+  ),
 } satisfies Meta<typeof ConversationsPage>
 
 export default meta
@@ -64,37 +79,31 @@ type Story = StoryObj<typeof meta>
 
 /** The line is opening. A healthy Mac must never flash the offline screen here. */
 export const Connecting: Story = {
-  args: page('loading', listed(NONE)),
-}
-
-/** Paired, and no daemon has ever arrived. */
-export const NeverConnected: Story = {
-  args: page('offline', listed(NONE)),
+  args: page(CONNECTING, listed(NONE)),
 }
 
 export const MacOffline: Story = {
-  args: page('offline', listed(conversations)),
+  args: page(DISCONNECTED, listed(conversations)),
 }
 
 /** Reachable, with nothing on it yet. */
 export const NoConversations: Story = {
-  args: page('online', listed(NONE)),
+  args: page(CONNECTED, listed(NONE)),
 }
 
 export const Ready: Story = {
-  args: page('online', listed(conversations)),
+  args: page(CONNECTED, listed(conversations)),
 }
 
-/** Long enough to be worth saying out loud. */
-export const LineLost: Story = {
-  args: page('online', listed(conversations)),
+export const Running: Story = {
+  args: page(CONNECTED, listed(conversations, 'running')),
 }
 
-/** The read itself failed. The layout stays; only the body changes. */
-export const ListFailed: Story = {
-  args: page('online', {
-    status: 'failed',
-    error: { _tag: 'ServiceUnavailableError', message: 'Try again shortly' },
-    onRetry: () => undefined,
-  }),
+export const Unseen: Story = {
+  args: page(CONNECTED, listed(conversations, 'idle', 'unseen')),
+}
+
+/** Running occupies the shared slot while unseen remains an independent fact. */
+export const RunningWithUnseen: Story = {
+  args: page(CONNECTED, listed(conversations, 'running', 'unseen')),
 }

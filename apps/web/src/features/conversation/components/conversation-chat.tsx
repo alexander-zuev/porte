@@ -1,65 +1,81 @@
-import { useChat } from '@ai-sdk/react'
-import type { ConversationId } from '@porte/core/client'
-import type { ConversationActions } from '@web/entities/conversation/use-conversation.ts'
-import type { ConversationPermission } from '@web/entities/conversation/use-pending-permissions.ts'
+import { useAgentChat } from '@cloudflare/ai-chat/react'
+import type { ReadyConversationRelayState } from '@porte/core/client'
+import { mergeConversationHistory } from '@web/entities/conversation/merge-conversation-history.ts'
+import type {
+  ConversationActions,
+  ConversationAgentConnection,
+  ConversationPermission,
+} from '@web/entities/conversation/use-conversation.ts'
+import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuItem,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
+  PromptInputTools,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
-import type { ChatTransport, UIMessage } from 'ai'
+import type { UIMessage } from 'ai'
+import { useMemo } from 'react'
 
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
+import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
 import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
-  readonly conversationId: ConversationId
   /** The stored transcript. Read before this mounts, so the chat opens with it. */
   readonly history: readonly UIMessage[]
-  /** How a turn reaches the Mac. Given rather than built, so a story can pass its own. */
-  readonly transport: ChatTransport<UIMessage>
+  readonly agent: ConversationAgentConnection
   readonly permissions: readonly ConversationPermission[]
+  readonly state: ReadyConversationRelayState
   readonly actions: ConversationActions
   readonly canSend: boolean
   /** Older turns exist. Absent once the whole transcript has been read. */
   readonly onReadOlder: (() => void) | null
   readonly readingOlder: boolean
-  /** A turn was already running when this was read, so the chat re-attaches. */
-  readonly resuming: boolean
 }
 
 /**
- * One conversation's messages and its composer.
- *
- * Mounted only once history has been read, so the chat opens with the
- * transcript instead of being seeded into it afterwards. Everything about a
- * running turn — status, streaming, stopping — belongs to `useChat`.
+ * Renders one conversation after HTTP history is ready.
+ * `useAgentChat` owns prompt, stream, recovery, and cancellation state.
  */
 export function ConversationChat({
-  conversationId,
   history,
-  transport,
+  agent,
   permissions,
+  state,
   actions,
   canSend,
   onReadOlder,
   readingOlder,
-  resuming,
 }: ConversationChatProps) {
-  // Resume only when a turn really is running. Re-attaching opens the
-  // conversation on the Mac, and opening starts an agent.
-  const chat = useChat({ id: conversationId, messages: [...history], transport, resume: resuming })
+  const chat = useAgentChat({
+    agent,
+    getInitialMessages: null,
+    syncMessagesToServer: false,
+  })
+  const messages = useMemo(
+    () => mergeConversationHistory(chat.messages, history),
+    [chat.messages, history],
+  )
+  const childReady = agent.readyState === agent.OPEN
+  const canSubmit = canSend && childReady
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <ConversationMessages
-        messages={chat.messages}
+        messages={messages}
         readingOlder={readingOlder}
         onReadOlder={onReadOlder}
       />
+
+      <ConversationPlans plans={state.plans} running={state.turn.state === 'running'} />
 
       {chat.error === undefined ? null : <ConversationTurnFailed error={chat.error} />}
 
@@ -68,19 +84,61 @@ export function ConversationChat({
       <PromptInput
         className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onSubmit={(message) => {
-          if (message.text.trim() === '') return
-          void chat.sendMessage({ text: message.text })
+          if (!canSubmit) return
+          if (message.text.trim() === '' && message.files.length === 0) return
+          void chat.sendMessage({ text: message.text, files: message.files })
         }}
       >
         <PromptInputBody>
           <PromptInputTextarea
-            disabled={!canSend}
-            placeholder={canSend ? 'Ask your Mac…' : 'Your Mac is offline'}
+            disabled={!canSubmit}
+            placeholder={promptPlaceholder(canSend, childReady)}
           />
           <PromptInputFooter>
+            <PromptInputTools>
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger aria-label="Add attachment" disabled={!canSubmit} />
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments />
+                  {state.commands?.map((command) => (
+                    <PromptInputActionMenuItem
+                      key={command.name}
+                      disabled={!canSubmit}
+                      onClick={() => {
+                        void chat.sendMessage({ text: `/${command.name}` })
+                      }}
+                    >
+                      /{command.name} — {command.description}
+                    </PromptInputActionMenuItem>
+                  ))}
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+              {state.configuration?.map((option) => (
+                <small key={option.id} className="hidden text-muted-foreground md:inline">
+                  {option.name}: {configurationValue(option)}
+                </small>
+              ))}
+              {state.modeId === null ? null : (
+                <small className="hidden text-muted-foreground md:inline">
+                  Mode: {state.modeId}
+                </small>
+              )}
+              {state.usage === null ? null : (
+                <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
+                  <ContextTrigger aria-label="Show context usage" />
+                  <ContextContent>
+                    {conversationCost(state.usage) === undefined ? null : (
+                      <small className="text-muted-foreground">
+                        Cost {conversationCost(state.usage)}
+                      </small>
+                    )}
+                  </ContextContent>
+                </Context>
+              )}
+            </PromptInputTools>
             <PromptInputSubmit
               className="ml-auto"
-              disabled={!canSend}
+              disabled={!canSubmit}
               status={chat.status}
               onStop={() => {
                 void chat.stop()
@@ -91,4 +149,20 @@ export function ConversationChat({
       </PromptInput>
     </div>
   )
+}
+
+function configurationValue(
+  option: NonNullable<ReadyConversationRelayState['configuration']>[number],
+): string {
+  if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
+  const values = option.options.flatMap((value) =>
+    value.type === 'group' ? value.options : [value],
+  )
+  return values.find((value) => value.value === option.currentValue)?.name ?? option.currentValue
+}
+
+function promptPlaceholder(canSend: boolean, childReady: boolean): string {
+  if (!canSend) return 'Your Mac is offline'
+  if (!childReady) return 'Reconnecting…'
+  return 'Ask your Mac…'
 }

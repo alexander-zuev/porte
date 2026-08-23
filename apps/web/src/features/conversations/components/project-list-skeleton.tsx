@@ -41,7 +41,8 @@ export function ProjectListSkeleton() {
       </div>
 
       {GROUPS.map(([folder, ...conversations]) => (
-        <div key={folder} className="flex flex-col">
+        // Two groups can share a folder width, so the whole row is the identity.
+        <div key={`${folder} ${conversations.join(' ')}`} className="flex flex-col">
           <div className="flex min-h-11 items-center gap-2">
             <Skeleton className="size-4 shrink-0 rounded-sm" />
             <Skeleton className={`h-3.5 ${folder}`} />

@@ -25,6 +25,12 @@ const RULE_OVERRIDES = {
 /** Wait until the story is painted in the requested theme and no longer moving. */
 export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
   await page.locator('#storybook-root').waitFor()
+  await page.waitForFunction(() => {
+    const channel = Reflect.get(globalThis, '__STORYBOOK_ADDONS_CHANNEL__')
+    const storyId = new URLSearchParams(location.search).get('id')
+    return channel?.last('storyRendered')?.[0] === storyId
+  })
+  await page.locator('#storybook-root > *').first().waitFor()
   // The theme decorator applies its class in an effect. Without this wait a
   // check measures the unthemed DOM and reports colors the product never ships.
   await page.locator(`html.${theme}`).waitFor()

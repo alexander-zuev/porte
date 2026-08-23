@@ -1,5 +1,5 @@
 import { platformLabel, type PairedHost } from '@porte/core/client'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { HostConnectionStatus } from '@web/entities/host/host-connection.ts'
 import { formatDateTime } from '@web/lib/format-date.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import {
@@ -39,7 +39,7 @@ export type AccountPanelProps = {
   /** Absent when the account controls no Mac. */
   readonly host?: PairedHost
   /** Whether that Mac is reachable right now. */
-  readonly connection: HostConnection
+  readonly connection: HostConnectionStatus
   readonly pending: AccountPending
   /** Set when the last destructive action failed. */
   readonly failure?: string
@@ -128,7 +128,7 @@ function PairedMac({
   onUnpair,
 }: {
   readonly host?: PairedHost
-  readonly connection: HostConnection
+  readonly connection: HostConnectionStatus
   readonly pending: AccountPending
   readonly busy: boolean
   readonly onUnpair: () => void

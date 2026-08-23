@@ -1,27 +1,23 @@
 import {
-  createEventId,
   createMessageId,
   createTurnId,
   ToolCallIdSchema,
   type ConversationEvent,
-  type ConversationId,
   type ToolView,
 } from '@porte/core/client'
-import { ConversationIdSchema, PermissionIdSchema } from '@porte/core/client'
+import { PermissionIdSchema } from '@porte/core/client'
 import {
-  createChunkStreamState,
-  porteEventToChunks,
-} from '@web/entities/conversation/porte-event-to-chunks.ts'
+  ConversationEventProjector,
+  createConversationEventProjectionState,
+} from '@web/lib/conversation/conversation-event-projector.ts'
 import { describe, expect, it } from 'vitest'
 
-const conversationId: ConversationId = ConversationIdSchema.parse(
-  '01a01e5d-e64c-76e2-9c93-ca69580001fd',
-)
 const turnId = createTurnId()
 
 function chunks(...events: ConversationEvent[]) {
-  const state = createChunkStreamState()
-  return events.flatMap((event) => porteEventToChunks(event, state))
+  const projector = new ConversationEventProjector()
+  const state = createConversationEventProjectionState()
+  return events.flatMap((event) => projector.project(event, state))
 }
 
 function tool(overrides: Partial<ToolView> = {}): ToolView {
@@ -40,10 +36,8 @@ describe('porteEventToChunks', () => {
   it('opens and closes a turn', () => {
     expect(
       chunks(
-        { eventId: createEventId(), conversationId, type: 'turn.started', turnId },
+        { type: 'turn.started', turnId },
         {
-          eventId: createEventId(),
-          conversationId,
           type: 'turn.finished',
           turnId,
           outcome: { type: 'completed', reason: 'completed' },
@@ -56,8 +50,6 @@ describe('porteEventToChunks', () => {
   it('ends a failed turn as an error', () => {
     expect(
       chunks({
-        eventId: createEventId(),
-        conversationId,
         type: 'turn.finished',
         turnId,
         outcome: { type: 'failed', error: { code: 'INTERNAL_ERROR', message: 'Grok stopped.' } },
@@ -68,8 +60,6 @@ describe('porteEventToChunks', () => {
   it('ends a cancelled turn as a finish, because the person asked for it', () => {
     expect(
       chunks({
-        eventId: createEventId(),
-        conversationId,
         type: 'turn.finished',
         turnId,
         outcome: { type: 'cancelled' },
@@ -79,8 +69,6 @@ describe('porteEventToChunks', () => {
 
   it('reports what a failed tool said, not what it was called', () => {
     const failure = chunks({
-      eventId: createEventId(),
-      conversationId,
       type: 'tool.updated',
       turnId,
       tool: tool({
@@ -98,22 +86,18 @@ describe('porteEventToChunks', () => {
     expect(
       chunks(
         {
-          eventId: createEventId(),
-          conversationId,
           type: 'message.started',
           turnId,
           messageId,
           role: 'assistant',
         },
         {
-          eventId: createEventId(),
-          conversationId,
           type: 'message.delta',
           turnId,
           messageId,
           content: { type: 'text', text: 'Hello' },
         },
-        { eventId: createEventId(), conversationId, type: 'message.completed', turnId, messageId },
+        { type: 'message.completed', turnId, messageId },
       ),
     ).toEqual([
       { type: 'text-start', id: messageId },
@@ -128,22 +112,18 @@ describe('porteEventToChunks', () => {
     expect(
       chunks(
         {
-          eventId: createEventId(),
-          conversationId,
           type: 'message.started',
           turnId,
           messageId,
           role: 'user',
         },
         {
-          eventId: createEventId(),
-          conversationId,
           type: 'message.delta',
           turnId,
           messageId,
           content: { type: 'text', text: 'Compare the two.' },
         },
-        { eventId: createEventId(), conversationId, type: 'message.completed', turnId, messageId },
+        { type: 'message.completed', turnId, messageId },
       ),
     ).toEqual([])
   })
@@ -155,8 +135,6 @@ describe('porteEventToChunks', () => {
 
     expect(
       chunks({
-        eventId: createEventId(),
-        conversationId,
         type: 'reasoning.delta',
         turnId,
         messageId,
@@ -167,8 +145,8 @@ describe('porteEventToChunks', () => {
 
   it('announces a tool call once, however many views arrive', () => {
     const types = chunks(
-      { eventId: createEventId(), conversationId, type: 'tool.updated', turnId, tool: tool() },
-      { eventId: createEventId(), conversationId, type: 'tool.updated', turnId, tool: tool() },
+      { type: 'tool.updated', turnId, tool: tool() },
+      { type: 'tool.updated', turnId, tool: tool() },
     ).map((chunk) => chunk.type)
 
     expect(types).toEqual(['tool-input-available'])
@@ -176,10 +154,8 @@ describe('porteEventToChunks', () => {
 
   it('turns a completed view into an output', () => {
     const types = chunks(
-      { eventId: createEventId(), conversationId, type: 'tool.updated', turnId, tool: tool() },
+      { type: 'tool.updated', turnId, tool: tool() },
       {
-        eventId: createEventId(),
-        conversationId,
         type: 'tool.updated',
         turnId,
         tool: tool({ status: 'completed' }),
@@ -191,8 +167,6 @@ describe('porteEventToChunks', () => {
 
   it('reports a failed tool as an output error', () => {
     const types = chunks({
-      eventId: createEventId(),
-      conversationId,
       type: 'tool.updated',
       turnId,
       tool: tool({ status: 'failed' }),
@@ -208,8 +182,6 @@ describe('porteEventToChunks', () => {
 
     expect(
       chunks({
-        eventId: createEventId(),
-        conversationId,
         type: 'permission.requested',
         turnId,
         permissionId,
@@ -223,8 +195,6 @@ describe('porteEventToChunks', () => {
   it('ignores conversation state, which is not a message', () => {
     expect(
       chunks({
-        eventId: createEventId(),
-        conversationId,
         type: 'conversation.mode.updated',
         modeId: 'plan',
       }),

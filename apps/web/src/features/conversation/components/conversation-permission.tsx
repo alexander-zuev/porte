@@ -1,5 +1,5 @@
 import type { PermissionOption } from '@porte/core/client'
-import type { ConversationPermission } from '@web/entities/conversation/use-pending-permissions.ts'
+import type { ConversationPermission } from '@web/entities/conversation/use-conversation.ts'
 import {
   Confirmation,
   ConfirmationAction,

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 
 /**
  * `hero` is one screen at full width. `article` is a document at the reading
- * measure. `card` is one thing to do, centred under the wordmark.
+ * measure. `card` is one thing to do, centred in what the bar and footer leave.
  */
 export type PublicShellVariant = 'hero' | 'article' | 'card'
 
@@ -29,9 +29,8 @@ export function PublicShell({ variant, back = true, children }: PublicShellProps
         {/* Null, not unset: unset falls back to the wordmark and the account
             control, and a page built around one decision carries neither. */}
         <PublicHeader action={null} lead={back ? <HomeLink /> : null} />
-        {/* Offset, not centred: a taller step would otherwise move everything
-            above it, and consecutive steps share what sits at the top. */}
-        <main className="shell-x flex flex-1 flex-col items-center gap-10 pt-[18svh] pb-12">
+        {/* Same shape as the app shell's `card`, so one word means one layout. */}
+        <main className="shell-x flex flex-1 flex-col items-center justify-center gap-10 py-12">
           {children}
         </main>
         <PublicFooter variant="legal" />

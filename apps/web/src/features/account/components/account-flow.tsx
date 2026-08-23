@@ -1,7 +1,7 @@
 import type { PairedHost } from '@porte/core/client'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { HostConnectionStatus } from '@web/entities/host/host-connection.ts'
 import { hostMutations } from '@web/entities/host/host-mutations.ts'
 import { hostQueryKeys } from '@web/entities/host/host-queries.ts'
 import { authService } from '@web/lib/auth/auth-service.ts'
@@ -13,7 +13,7 @@ import type { AccountIdentity, AccountPending } from './account-panel.tsx'
 export type AccountFlowProps = {
   readonly identity: AccountIdentity
   readonly host?: PairedHost
-  readonly connection: HostConnection
+  readonly connection: HostConnectionStatus
 }
 
 /** Run the account actions and route the user to wherever each one leaves them. */
