@@ -19,7 +19,7 @@ import {
   type ConversationRelayState,
   type ConversationStateSnapshot,
   type EventSequence,
-  type HostCommandResponse,
+  type PorteErrorPayload,
   type MessageId,
   type TurnId,
 } from '@porte/core'
@@ -291,7 +291,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
           userMessage: active.turn.userMessage,
         },
       })
-      if (response.type === 'command.error' && !keepsTurnPending(response)) {
+      if (!response.success && !keepsTurnPending(response.error)) {
         await this.closeActiveStreamWithError(active, response.error.message)
       }
     } catch (error) {
@@ -340,10 +340,21 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   /** Stores cancellation in the parent ledger before it removes the child turn. */
   private async cancelTurn(turn: ActiveTurn): Promise<void> {
     const parent = await this.parentAgent(HostRelayAgent)
-    await parent.cancelTurn({
+    const cancelled = await parent.cancelTurn({
       operationId: turnCancelOperationId(this.conversationId, turn.turnId),
       params: { conversationId: this.conversationId, turnId: turn.turnId },
     })
+    // A refusal arrives as a value now, so it is logged here rather than by the caller's catch.
+    if (!cancelled.success) {
+      logger.error('turn_cancel_failed', {
+        details: {
+          conversationId: this.conversationId,
+          turnId: turn.turnId,
+          tag: cancelled.error._tag,
+        },
+      })
+      return
+    }
 
     await this.serializeStreamWork(async () => {
       const stored = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
@@ -591,11 +602,8 @@ function canonicalFileContent(
   }
 }
 
-function keepsTurnPending(response: HostCommandResponse<'turn.start'>): boolean {
-  return (
-    response.type === 'command.error' &&
-    (response.error._tag === 'HostOfflineError' || response.error._tag === 'RequestTimeoutError')
-  )
+function keepsTurnPending(error: PorteErrorPayload): boolean {
+  return error._tag === 'HostOfflineError' || error._tag === 'RequestTimeoutError'
 }
 
 function errorStreamResponse(message: string): Response {

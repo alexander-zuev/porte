@@ -6,18 +6,14 @@ import type {
   HostId,
   HostStatus,
   ReadConversation,
+  RpcResponse,
 } from '@porte/core'
-import { DurableObjectClient } from '@porte/core'
+import { DurableObjectClient, rpcErr, rpcOk } from '@porte/core'
 import type { ConnectHost, HostRelay } from '@server/application/ports/host-relay.ts'
 import { routeSubAgentRequest } from 'agents'
-import { Result, type Result as ResultType } from 'better-result'
 
-import type { ConversationReadResponse, HostRelayAgent } from './host-relay-agent.ts'
+import type { HostRelayAgent } from './host-relay-agent.ts'
 import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from './relay/relay-headers.ts'
-
-type ConversationReader = {
-  readConversation(query: ReadConversation): Promise<ConversationReadResponse>
-}
 
 /**
  * How the Worker reaches one Mac's relay.
@@ -46,13 +42,14 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
   async readConversation(
     hostId: HostId,
     query: ReadConversation,
-  ): Promise<ResultType<ConversationTranscript, PorteErrorPayload>> {
-    const response = await this.once(
+  ): Promise<RpcResponse<ConversationTranscript, PorteErrorPayload>> {
+    const response = await this.once<RpcResponse<ConversationTranscript, PorteErrorPayload>>(
       hostId,
-      async (relay): Promise<ConversationReadResponse> =>
-        await readConversationFromRelay(relay, query),
+      (relay) => relay.readConversation(query),
     )
-    return copyConversationResponse(response)
+    // The stub hands back a disposable proxy; the answer has to outlive it.
+    if (!response.success) return rpcErr(response.error)
+    return rpcOk({ ...response.data, events: [...response.data.events] })
   }
 
   async readStatus(hostId: HostId): Promise<HostStatus> {
@@ -64,20 +61,6 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
   disconnect(hostId: HostId): Promise<void> {
     return this.repeatable(hostId, (relay) => relay.disconnectAll())
   }
-}
-
-async function readConversationFromRelay(
-  relay: ConversationReader,
-  query: ReadConversation,
-): Promise<ConversationReadResponse> {
-  return await relay.readConversation(query)
-}
-
-function copyConversationResponse(
-  response: ConversationReadResponse,
-): ResultType<ConversationTranscript, PorteErrorPayload> {
-  if (response.type === 'command.error') return Result.err(response.error)
-  return Result.ok({ ...response.result, events: [...response.result.events] })
 }
 
 /**

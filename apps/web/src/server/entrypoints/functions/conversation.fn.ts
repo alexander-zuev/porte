@@ -28,13 +28,5 @@ export const getConversation = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
   .validator(ReadConversationSchema)
   .handler(async ({ context, data }): Promise<ConversationTranscript> => {
-    const result = await getConversationQuery(
-      context.deps.hosts,
-      context.deps.hostRelay,
-      context.user.id,
-      data,
-    )
-    // oxlint-disable-next-line typescript/only-throw-error -- The client rejects with this and reads its tag.
-    if (result.isErr()) throw result.error
-    return result.value
+    return getConversationQuery(context.deps.hosts, context.deps.hostRelay, context.user.id, data)
   })

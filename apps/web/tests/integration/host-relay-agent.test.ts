@@ -68,9 +68,9 @@ describe('HostRelayAgent', () => {
     const first = stub.startTurn(call)
     expect((await nextCommand(inbox)).operationId).toBe(operationId)
     socket.send(JSON.stringify({ v: 2, type: 'command.result', operationId, result: { turnId } }))
-    expect(await first).toMatchObject({ type: 'command.result', result: { turnId } })
+    expect(await first).toMatchObject({ success: true, data: { turnId } })
 
-    expect(await stub.startTurn(call)).toMatchObject({ type: 'command.result', result: { turnId } })
+    expect(await stub.startTurn(call)).toMatchObject({ success: true, data: { turnId } })
     socket.close(1000, 'test complete')
   })
 
@@ -83,7 +83,7 @@ describe('HostRelayAgent', () => {
     expect((await nextCommand(first.inbox)).operationId).toBe(operationId)
     first.socket.close(1011, 'connection lost')
     expect(await waiting).toMatchObject({
-      type: 'command.error',
+      success: false,
       error: { _tag: 'HostOfflineError' },
     })
 
@@ -94,7 +94,7 @@ describe('HostRelayAgent', () => {
     second.socket.send(
       JSON.stringify({ v: 2, type: 'command.result', operationId, result: { turnId } }),
     )
-    expect(await repeated).toMatchObject({ type: 'command.result' })
+    expect(await repeated).toMatchObject({ success: true, data: { turnId } })
     second.socket.close(1000, 'test complete')
   })
 

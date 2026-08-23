@@ -17,10 +17,13 @@ import {
   RequestTimeoutError,
   ValidationError,
   createHostCommand,
+  rpcErr,
+  rpcOk,
   createLogger,
   createOperationId,
   reduceHostRelayActivity,
   type ConversationId,
+  type ConversationTranscript,
   type ConversationPage,
   type ConversationPageQuery,
   type EventSequence,
@@ -36,7 +39,9 @@ import {
   type HostStatus,
   type HostRelayState,
   type OperationId,
+  type PorteErrorPayload,
   type RelayToHostMessage,
+  type RpcResponse,
 } from '@porte/core'
 import { recordHostSeen } from '@server/application/commands/record-host-seen.command.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
@@ -106,9 +111,6 @@ type HostCommandCall<Method extends HostCommandMethod> = {
   readonly operationId: OperationId
   readonly params: HostCommandMap[Method]['params']
 }
-
-/** The exact response from the conversation read RPC. */
-export type ConversationReadResponse = HostCommandResponse<'conversation.read'>
 
 class HostConnectionSendError extends Error {
   constructor(
@@ -355,27 +357,34 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     return { status: this.state.hostStatus }
   }
 
-  /** Web flow: reads one transcript page through an exact parent RPC type. */
+  /**
+   * Web flow: reads one transcript page.
+   *
+   * The frame stops here. A caller reached over RPC, which keeps no error type,
+   * so the Mac's refusal leaves as the union's error arm instead of a throw.
+   */
   async readConversation(
     params: HostCommandMap['conversation.read']['params'],
-  ): Promise<ConversationReadResponse> {
+  ): Promise<RpcResponse<ConversationTranscript, PorteErrorPayload>> {
     const response = await this.executeHostCommand<'conversation.read'>({
       operationId: createOperationId(),
       method: 'conversation.read',
       params,
     })
-    if (response.type === 'command.result') {
-      await this.authorizeConversation(params.conversationId)
-      const child = await this.subAgent(ConversationAgent, params.conversationId)
-      await child.initializeConversation(response.result.state)
-      await this.armCatalogExpiry()
-    }
-    return response
+    if (response.type === 'command.error') return rpcErr(response.error)
+
+    await this.authorizeConversation(params.conversationId)
+    const child = await this.subAgent(ConversationAgent, params.conversationId)
+    await child.initializeConversation(response.result.state)
+    await this.armCatalogExpiry()
+    return rpcOk(response.result)
   }
 
   /** Chat flow: starts one idempotent turn on the Mac. */
-  async startTurn(call: HostCommandCall<'turn.start'>): Promise<HostCommandResponse<'turn.start'>> {
-    return await this.executeHostCommand(
+  async startTurn(
+    call: HostCommandCall<'turn.start'>,
+  ): Promise<RpcResponse<HostCommandMap['turn.start']['result'], PorteErrorPayload>> {
+    const response = await this.executeHostCommand<'turn.start'>(
       {
         operationId: call.operationId,
         method: 'turn.start',
@@ -383,10 +392,18 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       },
       true,
     )
+    return response.type === 'command.error' ? rpcErr(response.error) : rpcOk(response.result)
   }
 
-  /** Chat flow: stores one cancel before the child removes its active turn. */
-  async cancelTurn(call: HostCommandCall<'turn.cancel'>): Promise<void> {
+  /**
+   * Chat flow: stores one cancel before the child removes its active turn.
+   *
+   * A child calls this over RPC, which keeps no error type, so a refused
+   * cancel leaves as the union's error arm rather than as a throw.
+   */
+  async cancelTurn(
+    call: HostCommandCall<'turn.cancel'>,
+  ): Promise<RpcResponse<undefined, PorteErrorPayload>> {
     const command = createHostCommand({
       operationId: call.operationId,
       method: 'turn.cancel',
@@ -394,21 +411,24 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     })
     const existing = await this.readOperation(command.operationId)
     if (existing !== undefined && !sameCommand(existing.command, command)) {
-      throw new OperationConflictError()
+      return rpcErr(toErrorPayload(new OperationConflictError()))
     }
-    if (existing?.status === 'expired') throw new OperationExpiredError()
-    if (existing?.status === 'completed') return
+    if (existing?.status === 'expired') {
+      return rpcErr(toErrorPayload(new OperationExpiredError()))
+    }
+    if (existing?.status === 'completed') return rpcOk(undefined)
 
     if (existing === undefined) await this.storePendingOperation(command)
 
     const host = this.hostConnection()
-    if (host === undefined) return
+    if (host === undefined) return rpcOk(undefined)
     try {
       this.sendHostMessage(host, command)
     } catch (error) {
       if (!(error instanceof HostConnectionSendError)) throw error
       this.handleHostSendFailure(host, error)
     }
+    return rpcOk(undefined)
   }
 
   /** Web flow: validates and sends one permission answer through the parent Agent. */
