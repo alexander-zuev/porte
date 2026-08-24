@@ -1,4 +1,4 @@
-import { GrokEventMapper, GrokReplayMapper } from '@host/adapters/grok/grok-event-mapper.ts'
+import { GrokEventMapper, GrokReplayMapper } from '@host/infrastructure/grok/grok-event-mapper.ts'
 import {
   MessageIdSchema,
   PermissionIdSchema,

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import {
   answerIncomingRequest,
   parsePermissionRequest,
-} from '@host/adapters/acp/incoming-request.ts'
+} from '@host/infrastructure/acp/incoming-request.ts'
 import { describe, expect, it } from 'vitest'
 
 describe('answerIncomingRequest', () => {

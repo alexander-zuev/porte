@@ -1,4 +1,4 @@
-import { startAcpClient } from '@host/adapters/acp/client.ts'
+import { startAcpClient } from '@host/infrastructure/acp/client.ts'
 import { Result } from 'better-result'
 import { describe, expect, it } from 'vitest'
 

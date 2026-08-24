@@ -1,5 +1,5 @@
-import { ConfigError } from '@host/application/host-error.ts'
-import { loadConfig, relayUrlFor } from '@host/composition/host-config.ts'
+import { ConfigError } from '@host/application/config-error.ts'
+import { loadConfig } from '@host/entrypoints/cli/host-config.ts'
 import { describe, expect, it } from 'vitest'
 
 describe('loadConfig', () => {
@@ -18,15 +18,5 @@ describe('loadConfig', () => {
 
   it('refuses a scheme that is not http', () => {
     expect(() => loadConfig({ PORTE_URL: 'ftp://example.com' })).toThrow(ConfigError)
-  })
-})
-
-describe('relayUrlFor', () => {
-  it('upgrades https to wss', () => {
-    expect(relayUrlFor('https://useporte.dev')).toBe('wss://useporte.dev/api/host/ws')
-  })
-
-  it('keeps a local origin unencrypted, so dev needs no certificate', () => {
-    expect(relayUrlFor('http://localhost:8788')).toBe('ws://localhost:8788/api/host/ws')
   })
 })

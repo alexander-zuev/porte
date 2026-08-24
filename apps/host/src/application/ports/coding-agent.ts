@@ -1,83 +1,57 @@
 import type {
-  ConversationTurnState,
-  ConversationStateSnapshot,
-  ConversationEmission,
   CanonicalContent,
+  Conversation,
+  ConversationConfigurationValue,
+  ConversationEmission,
+  ConversationEvent,
+  ConversationId as ProtocolConversationId,
+  ConversationState,
+  ElicitationAnswer,
+  ElicitationId,
   FailureClassification,
   MessageId,
   PermissionId,
-  ConversationIdentity as ProtocolConversationIdentity,
-  ConversationId as ProtocolConversationId,
-  ConversationSummary as ProtocolConversationSummary,
   TurnId,
-  ActiveConversationTurn,
-  ConversationTranscript as ProtocolConversationTranscript,
-  ReadConversation as ProtocolReadConversation,
 } from '@porte/core/client'
-import type { ConversationEvent as ProtocolConversationEvent } from '@porte/core/client'
 import { TaggedError, type Result } from 'better-result'
 
-/** Porte identifier for one persisted agent conversation. */
+/** Porte identifier for one persisted coding-agent conversation. */
 export type ConversationId = ProtocolConversationId
 
-/** Provider-independent summary for one persisted conversation. */
-export type ConversationSummary = ProtocolConversationSummary
-
-/** What every answer about one conversation names it by. */
-export type ConversationIdentity = ProtocolConversationIdentity
-
-/** Whether a conversation is running a turn right now. */
-export type { ConversationTurnState }
-
 /** Provider-independent event from one conversation. */
-export type ConversationEvent = ProtocolConversationEvent
-export type { ConversationEmission }
+export type { ConversationEmission, ConversationEvent }
 
-/**
- * Complete state returned when Porte opens a conversation.
- *
- * Identity, not a summary: opening reads stored files, and no stored file says
- * which repository the conversation belongs to.
- */
-export type ConversationSnapshot = {
-  readonly summary: ConversationIdentity
-  readonly state: ConversationStateSnapshot
-}
-
-/** Complete state returned when Porte creates one. The repository is known here. */
-export type CreatedConversation = {
-  readonly summary: ConversationSummary
-  readonly state: ConversationStateSnapshot
-}
-
-/** What went wrong, in the provider-independent words the CLI and relay use. */
+/** What went wrong, in the provider-independent words the Host uses. */
 export type CodingAgentFailure =
   | 'CONVERSATION_NOT_FOUND'
   | 'CONVERSATION_NOT_OPEN'
   | 'CONVERSATION_BUSY'
   | 'PERMISSION_NOT_FOUND'
+  | 'ELICITATION_NOT_FOUND'
+  | 'CONFIGURATION_NOT_FOUND'
   | 'PROVIDER_UNAVAILABLE'
   | 'INVALID_PROVIDER_RESPONSE'
-  /** The caller named a directory outside any repository, which cannot be listed. */
   | 'NOT_A_REPOSITORY'
 
-/** Which call it went wrong in. */
+/** The coding-agent operation that failed. */
 export type CodingAgentOperation =
   | 'list'
-  | 'read'
   | 'open'
   | 'create'
   | 'close'
   | 'start_turn'
   | 'cancel_turn'
+  | 'set_configuration'
   | 'answer_permission'
+  | 'answer_elicitation'
 
-/** Only a busy conversation and an absent provider may answer differently later. */
 const CLASSIFICATIONS = {
   CONVERSATION_NOT_FOUND: 'terminal',
   CONVERSATION_NOT_OPEN: 'terminal',
   CONVERSATION_BUSY: 'transient',
   PERMISSION_NOT_FOUND: 'terminal',
+  ELICITATION_NOT_FOUND: 'terminal',
+  CONFIGURATION_NOT_FOUND: 'terminal',
   PROVIDER_UNAVAILABLE: 'transient',
   INVALID_PROVIDER_RESPONSE: 'terminal',
   NOT_A_REPOSITORY: 'terminal',
@@ -101,20 +75,12 @@ export class CodingAgentError extends TaggedError('CodingAgentError')<{
   }
 }
 
-export type ReadConversation = ProtocolReadConversation
-
-/** One page of a stored transcript, newest turn last. */
-export type ConversationTranscript = ProtocolConversationTranscript
-
 export type OpenConversation = {
   readonly conversationId: ConversationId
   readonly onEvent: (emission: ConversationEmission) => void
 }
 
-export type CreateConversation = {
-  readonly cwd: string
-  readonly onEvent: (emission: ConversationEmission) => void
-}
+export type CreateConversation = { readonly cwd: string }
 
 export type StartTurn = {
   readonly conversationId: ConversationId
@@ -130,6 +96,12 @@ export type CancelTurn = {
   readonly turnId: TurnId
 }
 
+export type SetConfiguration = {
+  readonly conversationId: ConversationId
+  readonly optionId: string
+  readonly value: ConversationConfigurationValue
+}
+
 export type AnswerPermission = {
   readonly conversationId: ConversationId
   readonly turnId: TurnId
@@ -137,38 +109,22 @@ export type AnswerPermission = {
   readonly optionId: string
 }
 
+export type AnswerElicitation = {
+  readonly conversationId: ConversationId
+  readonly turnId: TurnId
+  readonly elicitationId: ElicitationId
+  readonly answer: ElicitationAnswer
+}
+
 /** Provider-independent control surface for one installed coding agent. */
 export interface CodingAgent {
-  /** List persisted conversations in display order. */
-  listConversations(): Promise<Result<ConversationSummary[], CodingAgentError>>
-
-  /** List turns that this host process still owns. */
-  activeTurns(): readonly ActiveConversationTurn[]
-
-  /** Read one stored conversation without starting an agent process. */
-  readConversation(
-    command: ReadConversation,
-  ): Promise<Result<ConversationTranscript, CodingAgentError>>
-
-  /** Open one persisted conversation and load its complete state. */
-  openConversation(
-    command: OpenConversation,
-  ): Promise<Result<ConversationSnapshot, CodingAgentError>>
-
-  /** Create one conversation and return its complete initial state. */
-  createConversation(
-    command: CreateConversation,
-  ): Promise<Result<CreatedConversation, CodingAgentError>>
-
-  /** Close one open conversation and stop its provider resources. */
+  listConversations(): Promise<Result<Conversation[], CodingAgentError>>
+  openConversation(command: OpenConversation): Promise<Result<ConversationState, CodingAgentError>>
+  createConversation(command: CreateConversation): Promise<Result<Conversation, CodingAgentError>>
   closeConversation(conversationId: ConversationId): Promise<Result<void, CodingAgentError>>
-
-  /** Accept one turn for an open conversation. */
   startTurn(command: StartTurn): Promise<Result<void, CodingAgentError>>
-
-  /** Cancel the active turn for one conversation. */
   cancelTurn(command: CancelTurn): Promise<Result<void, CodingAgentError>>
-
-  /** Answer one pending permission request. */
+  setConfiguration(command: SetConfiguration): Promise<Result<void, CodingAgentError>>
   answerPermission(command: AnswerPermission): Promise<Result<void, CodingAgentError>>
+  answerElicitation(command: AnswerElicitation): Promise<Result<void, CodingAgentError>>
 }

@@ -1,5 +1,20 @@
-import type { CredentialStoreError } from '@host/application/host-error.ts'
-import type { Result } from 'better-result'
+import type { FailureClassification } from '@porte/core/client'
+import { TaggedError, type Result } from 'better-result'
+
+/** The credential file could not be read, written, or removed. */
+export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
+  cause: unknown
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { cause: unknown }) {
+    super({
+      ...args,
+      message: 'could not access the stored Porte credential',
+      classification: 'terminal',
+    })
+  }
+}
 
 /**
  * What pairing leaves behind on this Mac.
@@ -17,7 +32,7 @@ export type StoredCredential = {
 /** Where this machine keeps its Porte credential. */
 export interface CredentialStore {
   /** The stored credential, or null when this Mac has never paired. */
-  read(): Promise<Result<StoredCredential | null, CredentialStoreError>>
+  read(): Promise<StoredCredential | null>
 
   /** Replace whatever is stored. Readable only by this user. */
   write(credential: StoredCredential): Promise<Result<void, CredentialStoreError>>

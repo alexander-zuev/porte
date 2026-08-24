@@ -1,4 +1,4 @@
-import { applyConversationEvents } from '@host/application/conversation-view-reducer.ts'
+import { applyConversationEvents } from '@host/domain/conversation/conversation-view-reducer.ts'
 import { ConversationEventSchema, ConversationViewSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 

@@ -1,7 +1,10 @@
-import { CredentialStoreError } from '@host/application/host-error.ts'
-import { pairHost } from '@host/application/pair-host.ts'
+import { pairHost } from '@host/application/commands/pair-host.ts'
 import { PairingError } from '@host/application/pairing-error.ts'
-import type { CredentialStore, StoredCredential } from '@host/application/ports/credential-store.ts'
+import {
+  CredentialStoreError,
+  type CredentialStore,
+  type StoredCredential,
+} from '@host/application/ports/credential-store.ts'
 import type {
   DeviceAuthorizer,
   DeviceCodeGrant,
@@ -36,7 +39,7 @@ function credentialSpy(): CredentialStore & { written: () => StoredCredential | 
   let saved: StoredCredential | null = null
   return {
     written: () => saved,
-    read: () => Promise.resolve(Result.ok(saved)),
+    read: () => Promise.resolve(saved),
     write: (credential) => {
       saved = credential
       return Promise.resolve(Result.ok(undefined))
