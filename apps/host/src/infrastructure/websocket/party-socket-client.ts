@@ -3,7 +3,6 @@ import { WebSocket as NodeWebSocket } from 'ws'
 
 /** A terminal failure found while PartySocket opens its WebSocket. */
 export type WebSocketConnectionFailure = {
-  readonly _tag: 'HandshakeRejected'
   readonly status: number
 }
 
@@ -29,14 +28,15 @@ export type WebSocketClientFactory = (input: PartySocketClientInput) => WebSocke
 /** Create one authenticated PartySocket client with transport buffering disabled. */
 export const createPartySocketClient: WebSocketClientFactory = (input) => {
   let connectionFailure: WebSocketConnectionFailure | undefined
+  let handshakeResponseStatus: number | undefined
 
   const AuthenticatedWebSocket = class extends NodeWebSocket {
     constructor(address: string | URL, protocols?: string | string[]) {
       super(address, protocols ?? [], { headers: { Authorization: input.authorization } })
       this.once('unexpected-response', (_request, response) => {
-        connectionFailure = {
-          _tag: 'HandshakeRejected',
-          status: response.statusCode ?? 0,
+        handshakeResponseStatus = response.statusCode ?? 0
+        if (!shouldRetryHandshake(handshakeResponseStatus)) {
+          connectionFailure = { status: handshakeResponseStatus }
         }
         response.resume()
         this.close()
@@ -47,8 +47,13 @@ export const createPartySocketClient: WebSocketClientFactory = (input) => {
   const socket = new PartySocket(input.url, input.subprotocol, {
     WebSocket: AuthenticatedWebSocket,
     maxEnqueuedMessages: 0,
-    shouldReconnectOnClose: (event) =>
-      connectionFailure === undefined && event.code !== 1000 && event.code !== 1008,
+    shouldReconnectOnClose: (event) => {
+      if (handshakeResponseStatus !== undefined) {
+        handshakeResponseStatus = undefined
+        return connectionFailure === undefined
+      }
+      return event.code !== 1000 && event.code !== 1008
+    },
   })
 
   return {
@@ -64,4 +69,14 @@ export const createPartySocketClient: WebSocketClientFactory = (input) => {
       return connectionFailure
     },
   }
+}
+
+function shouldRetryHandshake(status: number): boolean {
+  return (
+    status === 0 ||
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    (status >= 500 && status <= 599)
+  )
 }
