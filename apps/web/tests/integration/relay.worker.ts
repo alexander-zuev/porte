@@ -7,5 +7,6 @@
  */
 export { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
 export { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
+export { RpcErrorA, RpcErrorB } from '@server/infrastructure/durable-objects/rpc-error-lab.ts'
 
 export default { fetch: () => new Response('the relay is reached by binding, not by fetch') }

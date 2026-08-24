@@ -4,11 +4,16 @@ import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
 import { scheduledHandler } from './server/entrypoints/scheduled/scheduled-handler.ts'
-import { createAppDeps } from './server/infrastructure/app-deps'
+import { createPorteWorkerResources } from './server/infrastructure/porte-worker-resources'
 import { ConversationAgent as ConversationAgentBase } from './server/infrastructure/durable-objects/conversation-agent'
 import { HostRelayAgent as HostRelayAgentBase } from './server/infrastructure/durable-objects/host-relay-agent'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
+
+export {
+  RpcErrorA,
+  RpcErrorB,
+} from './server/infrastructure/durable-objects/rpc-error-lab.ts'
 
 export const ConversationAgent = Sentry.instrumentAgentWithSentry(
   createSentryOptions,
@@ -31,10 +36,10 @@ const serverEntry = createServerEntry(wrapFetchWithSentry(handler))
 
 export default Sentry.withSentry(createSentryOptions, {
   fetch(request, env, ctx) {
-    const deps = createAppDeps(env, ctx)
+    const deps = createPorteWorkerResources(env, ctx)
     return serverEntry.fetch(request, { context: { deps } })
   },
   scheduled(controller, env, ctx) {
-    return scheduledHandler(controller, createAppDeps(env, ctx))
+    return scheduledHandler(controller, createPorteWorkerResources(env, ctx))
   },
 }) satisfies ExportedHandler<RuntimeEnv>

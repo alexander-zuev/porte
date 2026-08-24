@@ -35,17 +35,17 @@ const logger = createLogger('http-error-boundary')
 
 /** Convert one allowlisted server error into its public HTTP response. */
 export function toHttpErrorResponse(cause: unknown): Response {
-  const response = mapKnownHttpError(cause)
-  if (response !== null) {
-    logger.warn('handled_http_error', {
-      status: response.status,
-      title: getReasonPhrase(response.status),
-    })
-    return response
+  const response =
+    mapKnownHttpError(cause) ?? createHttpErrorResponse(StatusCodes.INTERNAL_SERVER_ERROR)
+  const details = { status: response.status, title: getReasonPhrase(response.status) }
+
+  if (response.status >= 500) {
+    logger.error('http_request_failed', { error: cause, details })
+  } else {
+    logger.warn('http_request_rejected', details)
   }
 
-  logger.error('unexpected_http_error', { error: cause })
-  return createHttpErrorResponse(StatusCodes.INTERNAL_SERVER_ERROR)
+  return response
 }
 
 function mapKnownHttpError(cause: unknown): Response | null {

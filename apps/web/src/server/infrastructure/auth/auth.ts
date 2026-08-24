@@ -1,4 +1,4 @@
-import type { AppDeps } from '@server/infrastructure/app-deps.ts'
+import type { PorteWorkerResources } from '@server/infrastructure/porte-worker-resources.ts'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
@@ -12,12 +12,12 @@ import { createBetterAuthOptions } from './options.ts'
  * during Vite SSR module evaluation.
  *
  * Reads `deps.db()` at construction, so build it only after D1 middleware has
- * bound the request connection. `AppDeps.auth` enforces that by deferring to
+ * bound the request connection. `PorteWorkerResources.auth` enforces that by deferring to
  * first use.
  *
  * @param deps - Per-request composition root.
  */
-export function getAuthInstance(deps: AppDeps) {
+export function getAuthInstance(deps: PorteWorkerResources) {
   const env = deps.env
   const database = drizzleAdapter(deps.db(), { provider: 'sqlite' })
 

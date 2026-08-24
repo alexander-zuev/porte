@@ -68,9 +68,9 @@ describe('HostRelayAgent', () => {
     const first = stub.startTurn(call)
     expect((await nextCommand(inbox)).operationId).toBe(operationId)
     socket.send(JSON.stringify({ v: 2, type: 'command.result', operationId, result: { turnId } }))
-    expect(await first).toMatchObject({ success: true, data: { turnId } })
+    expect(await first).toMatchObject({ turnId })
 
-    expect(await stub.startTurn(call)).toMatchObject({ success: true, data: { turnId } })
+    expect(await stub.startTurn(call)).toMatchObject({ turnId })
     socket.close(1000, 'test complete')
   })
 
@@ -80,12 +80,10 @@ describe('HostRelayAgent', () => {
     await settleCatalog(first.inbox, first.socket)
     const operationId = createOperationId()
     const waiting = first.stub.startTurn(startCall(operationId))
+    const rejected = expect(waiting).rejects.toMatchObject({ _tag: 'HostOfflineError' })
     expect((await nextCommand(first.inbox)).operationId).toBe(operationId)
     first.socket.close(1011, 'connection lost')
-    expect(await waiting).toMatchObject({
-      success: false,
-      error: { _tag: 'HostOfflineError' },
-    })
+    await rejected
 
     const second = await connect(hostId)
     await settleCatalog(second.inbox, second.socket)
@@ -94,7 +92,7 @@ describe('HostRelayAgent', () => {
     second.socket.send(
       JSON.stringify({ v: 2, type: 'command.result', operationId, result: { turnId } }),
     )
-    expect(await repeated).toMatchObject({ success: true, data: { turnId } })
+    expect(await repeated).toMatchObject({ turnId })
     second.socket.close(1000, 'test complete')
   })
 

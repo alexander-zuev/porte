@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { FileHostLedger } from '@host/adapters/node/host-ledger.ts'
-import { HostLedgerError } from '@host/application/host-error.ts'
 import {
   HOST_OPERATION_RETENTION_MS,
   ConversationEventSchema,
@@ -97,13 +96,13 @@ describe('FileHostLedger', () => {
     expect(recorded.eventSequence).toBe(13)
   })
 
-  it('rejects a corrupt ledger instead of repeating work', async () => {
+  it('starts fresh on a ledger this build cannot read', async () => {
     const { file } = await ledgerPath()
     await writeFile(file, '{"operations":"invalid"}', 'utf8')
 
-    await expect(new FileHostLedger(file).open(PAIRING_SCOPE)).rejects.toBeInstanceOf(
-      HostLedgerError,
-    )
+    const ledger = new FileHostLedger(file)
+    await expect(ledger.open(PAIRING_SCOPE)).resolves.toBeUndefined()
+    expect(ledger.pendingEvents()).toEqual([])
   })
 
   it('keeps an expired command as a terminal response', async () => {

@@ -1,5 +1,4 @@
 import type {
-  PorteErrorPayload,
   ConversationId,
   ConversationPage,
   ConversationPageQuery,
@@ -7,7 +6,6 @@ import type {
   HostId,
   HostStatus,
   ReadConversation,
-  RpcResponse,
 } from '@porte/core'
 
 /**
@@ -40,7 +38,7 @@ export interface HostRelay {
   readConversation(
     hostId: HostId,
     query: ReadConversation,
-  ): Promise<RpcResponse<ConversationTranscript, PorteErrorPayload>>
+  ): Promise<ConversationTranscript>
 
   /** Whether the relay holds the Mac's socket. The only liveness anything can see. */
   readStatus(hostId: HostId): Promise<HostStatus>

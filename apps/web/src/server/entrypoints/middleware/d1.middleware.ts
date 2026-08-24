@@ -7,7 +7,7 @@ import { getCookie, setCookie } from '@tanstack/react-start/server'
  * The narrow rebinding contract this middleware needs.
  *
  * Declared here rather than imported from the composition root, so the
- * middleware never pulls Worker-only modules into a client bundle. `AppDeps`
+ * middleware never pulls Worker-only modules into a client bundle. `PorteWorkerResources`
  * satisfies it structurally.
  */
 export type RequestConnectionBinder = {
@@ -92,7 +92,7 @@ const persistBookmark = createServerOnlyFn((session: { getBookmark: () => string
  * Registered globally in `start.ts`, so it covers routes and server functions
  * alike and always runs before a handler resolves the connection. Contexts with
  * no request — Durable Objects, and later queues or cron — never reach it and
- * stay on the primary connection that `createAppDeps` builds.
+ * stay on the primary connection that `createPorteWorkerResources` builds.
  */
 export const d1SessionMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ next, context, pathname, request }) => {

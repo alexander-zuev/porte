@@ -8,6 +8,7 @@ import {
   conversationRelayStateFromSnapshot,
   createLogger,
   createTurnId,
+  isDomainError,
   reduceConversationRelayState,
   RELAY_HEARTBEAT_REQUEST,
   RELAY_HEARTBEAT_RESPONSE,
@@ -19,14 +20,12 @@ import {
   type ConversationRelayState,
   type ConversationStateSnapshot,
   type EventSequence,
-  type PorteErrorPayload,
   type MessageId,
   type TurnId,
 } from '@porte/core'
 import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import {
-  ConversationEventProjector,
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
 import type { AgentContext } from 'agents'
@@ -40,6 +39,10 @@ import {
 
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
+import {
+  createConversationAgentResources,
+  type ConversationAgentResources,
+} from './conversation-agent-resources.ts'
 
 const logger = createLogger('conversation-agent')
 
@@ -100,7 +103,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   chatRecovery = true
 
   private readonly conversationId: ConversationId
-  private readonly projector: ConversationEventProjector
+  private readonly resources: ConversationAgentResources
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
 
@@ -111,7 +114,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       new WebSocketRequestResponsePair(RELAY_HEARTBEAT_REQUEST, RELAY_HEARTBEAT_RESPONSE),
     )
     this.conversationId = ConversationIdSchema.parse(this.name)
-    this.projector = new ConversationEventProjector()
+    this.resources = createConversationAgentResources(() => this.parentAgent(HostRelayAgent))
   }
 
   /** Starts a Mac turn or reconnects SDK recovery to the current Mac turn. */
@@ -282,8 +285,8 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       await this.serializeStreamWork(() => this.drainPendingEvents(active))
       if (this.activeStream !== active) return
 
-      const parent = await this.parentAgent(HostRelayAgent)
-      const response = await parent.startTurn({
+      const parent = await this.resources.hostRelay()
+      await parent.startTurn({
         operationId: turnStartOperationId(this.conversationId, active.turn.turnId),
         params: {
           conversationId: this.conversationId,
@@ -291,10 +294,13 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
           userMessage: active.turn.userMessage,
         },
       })
-      if (!response.success && !keepsTurnPending(response.error)) {
-        await this.closeActiveStreamWithError(active, response.error.message)
-      }
     } catch (error) {
+      if (
+        isDomainError(error) &&
+        (error._tag === 'HostOfflineError' || error._tag === 'RequestTimeoutError')
+      ) {
+        return
+      }
       logger.error('turn_resume_failed', {
         error,
         details: { conversationId: this.conversationId, turnId: active.turn.turnId },
@@ -339,22 +345,11 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   /** Stores cancellation in the parent ledger before it removes the child turn. */
   private async cancelTurn(turn: ActiveTurn): Promise<void> {
-    const parent = await this.parentAgent(HostRelayAgent)
-    const cancelled = await parent.cancelTurn({
+    const parent = await this.resources.hostRelay()
+    await parent.cancelTurn({
       operationId: turnCancelOperationId(this.conversationId, turn.turnId),
       params: { conversationId: this.conversationId, turnId: turn.turnId },
     })
-    // A refusal arrives as a value now, so it is logged here rather than by the caller's catch.
-    if (!cancelled.success) {
-      logger.error('turn_cancel_failed', {
-        details: {
-          conversationId: this.conversationId,
-          turnId: turn.turnId,
-          tag: cancelled.error._tag,
-        },
-      })
-      return
-    }
 
     await this.serializeStreamWork(async () => {
       const stored = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
@@ -430,7 +425,10 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     active: ActiveStream,
   ): Promise<boolean> {
     try {
-      await writeChunks(active.writer, this.projector.project(record.event, active.projection))
+      await writeChunks(
+        active.writer,
+        this.resources.eventProjector.project(record.event, active.projection),
+      )
     } catch (error) {
       logger.warn('conversation_stream_detached', {
         error: toErrorPayload(error),
@@ -600,10 +598,6 @@ function canonicalFileContent(
     name: part.filename ?? `Attachment ${index + 1}`,
     mimeType: part.mediaType,
   }
-}
-
-function keepsTurnPending(error: PorteErrorPayload): boolean {
-  return error._tag === 'HostOfflineError' || error._tag === 'RequestTimeoutError'
 }
 
 function errorStreamResponse(message: string): Response {

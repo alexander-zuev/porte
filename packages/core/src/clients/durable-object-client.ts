@@ -1,6 +1,9 @@
 import { Result } from 'better-result'
 
-import { DurableObjectCallError } from '../errors/durable-object.errors.ts'
+import {
+  DurableObjectCallError,
+  isDurableObjectCallError,
+} from '../errors/durable-object.errors.ts'
 import { shouldRetryFailure } from '../errors/retry-policy.ts'
 
 /**
@@ -9,8 +12,13 @@ import { shouldRetryFailure } from '../errors/retry-policy.ts'
  */
 const RETRY = { times: 2, delayMs: 25, backoff: 'exponential', jitter: true } as const
 
-/** One call against one named object. The stub keeps the object's own types. */
-type Call<T extends Rpc.DurableObjectBranded, R> = (object: DurableObjectStub<T>) => Promise<R>
+/** Resolves a fresh RPC stub for one named Durable Object. */
+export type DurableObjectResolver<Object extends object> = {
+  getByName(name: string): Object | Promise<Object>
+}
+
+/** One call against one resolved object. */
+type Call<Object extends object, R> = (object: Object) => Promise<R>
 
 /**
  * How the Worker reaches one namespace of Durable Objects.
@@ -19,16 +27,19 @@ type Call<T extends Rpc.DurableObjectBranded, R> = (object: DurableObjectStub<T>
  * of them may be repeated. Everything else — picking the object, retrying,
  * converting a failure — happens here, once, for every Durable Object.
  */
-export abstract class DurableObjectClient<T extends Rpc.DurableObjectBranded> {
-  constructor(private readonly namespace: DurableObjectNamespace<T>) {}
+export abstract class DurableObjectClient<
+  T extends Rpc.DurableObjectBranded,
+  Object extends object = DurableObjectStub<T>,
+> {
+  constructor(private readonly objects: DurableObjectResolver<Object>) {}
 
   /** Running this twice equals running it once, so a dropped call is retried. */
-  protected repeatable<R>(name: string, work: Call<T, R>): Promise<R> {
+  protected repeatable<R>(name: string, work: Call<Object, R>): Promise<R> {
     return this.run(name, work, true)
   }
 
   /** One shot. A dropped call stays dropped, because repeating it is not safe. */
-  protected once<R>(name: string, work: Call<T, R>): Promise<R> {
+  protected once<R>(name: string, work: Call<Object, R>): Promise<R> {
     return this.run(name, work, false)
   }
 
@@ -42,10 +53,10 @@ export abstract class DurableObjectClient<T extends Rpc.DurableObjectBranded> {
    * The stub is taken inside each attempt, because a reset leaves the previous
    * one permanently broken and a retry that reused it could only fail again.
    */
-  private async run<R>(name: string, work: Call<T, R>, repeatSafe: boolean): Promise<R> {
+  private async run<R>(name: string, work: Call<Object, R>, repeatSafe: boolean): Promise<R> {
     const called = await Result.tryPromise(
       {
-        try: () => work(this.namespace.getByName(name)),
+        try: async () => work(await this.objects.getByName(name)),
         catch: (cause) => new DurableObjectCallError({ cause }),
       },
       {
@@ -61,8 +72,13 @@ export abstract class DurableObjectClient<T extends Rpc.DurableObjectBranded> {
       },
     )
 
-    // The Result stops here. Everything above this boundary throws.
-    if (called.isErr()) throw called.error
+    if (called.isErr()) {
+      const failure = called.error
+      if (failure.classification === 'unknown' || isDurableObjectCallError(failure.cause)) {
+        throw failure.cause
+      }
+      throw failure
+    }
     return called.value
   }
 }

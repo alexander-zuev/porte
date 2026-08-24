@@ -2,6 +2,7 @@ import {
   classifyDurableObjectError,
   DurableObjectCallError,
   DurableObjectClient,
+  HostOfflineError,
 } from '@porte/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -98,14 +99,24 @@ describe('DurableObjectClient', () => {
     expect(call).toHaveBeenCalledOnce()
   })
 
-  it('does not repeat an unknown failure for a waiting caller', async () => {
+  it('preserves an unknown failure without repeating it', async () => {
     const cause = new TypeError('invalid client code')
     const call = vi.fn(async () => Promise.reject(cause))
 
-    await expect(run(call, true)).rejects.toMatchObject({
-      cause,
-      classification: 'unknown',
-    })
+    await expect(run(call, true)).rejects.toBe(cause)
     expect(call).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a tagged application failure', async () => {
+    const cause = new HostOfflineError()
+
+    await expect(run(async () => Promise.reject(cause), false)).rejects.toBe(cause)
+  })
+
+  it('does not wrap an existing call failure again', async () => {
+    const platform = Object.assign(new Error('DO reset'), { retryable: true })
+    const cause = new DurableObjectCallError({ cause: platform })
+
+    await expect(run(async () => Promise.reject(cause), false)).rejects.toBe(cause)
   })
 })

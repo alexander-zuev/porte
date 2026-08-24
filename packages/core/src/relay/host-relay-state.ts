@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 import type { ConversationEvent } from '../conversation/conversation-event.ts'
 import type { ConversationStateSnapshot } from '../conversation/conversation-view.ts'
-import { ConversationIdSchema, TurnIdSchema } from '../identity/identity.ts'
-import type { ActiveConversationTurn } from './protocol.ts'
+import { CatalogRevisionSchema, ConversationIdSchema, TurnIdSchema } from '../identity/identity.ts'
+import type { ActiveConversationTurn } from './host-methods.ts'
 
 export const HOST_OPERATION_DELIVERY_DEADLINE_MS = 2 * 60 * 1000
 export const HOST_OPERATION_RETENTION_MS = 60 * 60 * 1000
@@ -21,7 +21,7 @@ export type RelayActiveConversation = z.infer<typeof RelayActiveConversationSche
 /** Reactive parent Agent state sent to web clients. */
 export const HostRelayStateSchema = z.object({
   hostStatus: z.enum(['online', 'offline']),
-  catalogRevision: z.number().int().nonnegative(),
+  catalogRevision: CatalogRevisionSchema,
   activeConversations: z.array(RelayActiveConversationSchema),
 })
 

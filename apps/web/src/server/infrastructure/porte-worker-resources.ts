@@ -23,7 +23,7 @@ import type { RuntimeEnv } from './runtime-env.ts'
 export type AuthInstance = ReturnType<typeof getAuthInstance>
 
 /** Dependencies constructed for one Worker invocation. */
-export type AppDeps = {
+export type PorteWorkerResources = {
   env: RuntimeEnv
   db: () => Db
   /** Rebind the connection for this request, so reads can route to a replica. */
@@ -66,13 +66,16 @@ export type AppDeps = {
 export type BackgroundWork = Pick<ExecutionContext, 'waitUntil'>
 
 /** Construct Worker adapters from generated Cloudflare bindings. */
-export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): AppDeps {
+export function createPorteWorkerResources(
+  env: RuntimeEnv,
+  executionCtx: BackgroundWork,
+): PorteWorkerResources {
   // Lazy primary handle. A request may swap in a replica-routed session through
   // useDb; background contexts never rebind and stay on the primary.
   const rootDb = once(() => createDatabase(env.DB))
   let current: () => Db = rootDb
 
-  const deps: AppDeps = {
+  const resources: PorteWorkerResources = {
     env,
     db: () => current(),
     useDb: (next) => {
@@ -80,13 +83,12 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): Ap
     },
     // Self-reference into the composition root. The factory runs on first call,
     // long after deps is built, so reading deps here is safe.
-    auth: once(() => getAuthInstance(deps)),
+    auth: once(() => getAuthInstance(resources)),
     authStorage: createKvSecondaryStorage(env.AUTH_KV),
     authRateLimit: createAuthRateLimitStorage(env.AUTH_RATE_LIMIT),
-    // Takes the getter, not the connection, so it follows a middleware rebind.
     hosts: new DrizzleHostRepository(() => current()),
     // Same reason it takes the getter: the auth instance is built on first use.
-    pairingAuthority: new BetterAuthPairingAuthority(() => deps.auth()),
+    pairingAuthority: new BetterAuthPairingAuthority(() => resources.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
     executionCtx,
     hostRelay: new HostRelayClient(env.HOST_RELAY_AGENT),
@@ -110,7 +112,7 @@ export function createAppDeps(env: RuntimeEnv, executionCtx: BackgroundWork): Ap
     },
   }
 
-  return deps
+  return resources
 }
 
 /** Defer a dependency to first use and build it at most once per request. */

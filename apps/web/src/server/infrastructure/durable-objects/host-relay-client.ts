@@ -1,14 +1,12 @@
 import type {
-  PorteErrorPayload,
   ConversationPage,
   ConversationPageQuery,
   ConversationTranscript,
   HostId,
   HostStatus,
   ReadConversation,
-  RpcResponse,
 } from '@porte/core'
-import { DurableObjectClient, rpcErr, rpcOk } from '@porte/core'
+import { DurableObjectClient } from '@porte/core'
 import type { ConnectHost, HostRelay } from '@server/application/ports/host-relay.ts'
 import { routeSubAgentRequest } from 'agents'
 
@@ -42,14 +40,10 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
   async readConversation(
     hostId: HostId,
     query: ReadConversation,
-  ): Promise<RpcResponse<ConversationTranscript, PorteErrorPayload>> {
-    const response = await this.once<RpcResponse<ConversationTranscript, PorteErrorPayload>>(
-      hostId,
-      (relay) => relay.readConversation(query),
-    )
+  ): Promise<ConversationTranscript> {
+    const transcript = await this.once(hostId, (relay) => relay.readConversation(query))
     // The stub hands back a disposable proxy; the answer has to outlive it.
-    if (!response.success) return rpcErr(response.error)
-    return rpcOk({ ...response.data, events: [...response.data.events] })
+    return { ...transcript, events: [...transcript.events] }
   }
 
   async readStatus(hostId: HostId): Promise<HostStatus> {

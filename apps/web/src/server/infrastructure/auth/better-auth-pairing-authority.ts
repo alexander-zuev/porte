@@ -10,7 +10,7 @@ import type {
   PairingAuthority,
   PairingCodeStatus,
 } from '@server/application/ports/pairing-authority.ts'
-import type { AuthInstance } from '@server/infrastructure/app-deps.ts'
+import type { AuthInstance } from '@server/infrastructure/porte-worker-resources.ts'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { APIError } from 'better-auth/api'
 

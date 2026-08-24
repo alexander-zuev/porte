@@ -18,6 +18,9 @@ import {
   TurnIdSchema,
 } from '../identity/identity.ts'
 
+export * from './host-methods.ts'
+
+// TEMPORARY: Keep the old relay protocol until the Host JSON-RPC refactor resumes.
 const EmptyPayloadSchema = z.object({})
 
 /**
@@ -27,8 +30,7 @@ const EmptyPayloadSchema = z.object({})
 export const HostCommandSchemas = {
   'conversations.sync': {
     params: EmptyPayloadSchema,
-    // The Mac numbers its own events, so its counters say which conversations
-    // still need the relay to restore a position after a new ledger.
+    // The event heads let the relay restore its position after a new Host ledger.
     result: z.object({ eventHeads: z.record(ConversationIdSchema, EventSequenceSchema) }),
   },
   'conversation.read': {

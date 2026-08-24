@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 
 import { HostLedgerError } from '@host/application/host-error.ts'
 import {
+  createLogger,
   HOST_OPERATION_DELIVERY_DEADLINE_MS,
   HOST_OPERATION_RETENTION_MS,
   EventSequenceSchema,
@@ -21,6 +22,8 @@ import {
   type HostLedger,
 } from '@porte/core/client'
 
+const logger = createLogger('host-ledger')
+
 const FILE_MODE = 0o600
 const DIRECTORY_MODE = 0o700
 
@@ -31,23 +34,36 @@ export class FileHostLedger {
 
   constructor(private readonly filePath: string) {}
 
-  /** Loads records only for this pairing and closes indeterminate commands. */
+  /**
+   * Loads records only for this pairing and closes indeterminate commands.
+   *
+   * A file this build cannot read is replaced rather than refused. It holds
+   * delivery records and replay positions, both of which the relay rebuilds,
+   * so keeping it would stop the Mac from starting to protect a cache.
+   */
   async open(pairingScope: string): Promise<void> {
     const scopeId = createHash('sha256').update(pairingScope).digest('hex')
+    let contents
     try {
-      const contents = await readFile(this.filePath, 'utf8')
-      const parsed = HostLedgerSchema.safeParse(JSON.parse(contents))
-      if (!parsed.success) throw new HostLedgerError({ cause: parsed.error })
-      this.state = parsed.data.scopeId === scopeId ? parsed.data : createEmptyHostLedger(scopeId)
+      contents = await readFile(this.filePath, 'utf8')
     } catch (cause) {
-      if (isMissing(cause)) {
-        this.state = createEmptyHostLedger(scopeId)
-        await this.update(() => undefined)
-        return
-      }
-      if (cause instanceof HostLedgerError) throw cause
-      throw new HostLedgerError({ cause })
+      if (!isMissing(cause)) throw new HostLedgerError({ cause })
+      this.state = createEmptyHostLedger(scopeId)
+      await this.update(() => undefined)
+      return
     }
+
+    // A ledger this build cannot read, or one written for another pairing,
+    // holds nothing this run may use.
+    const parsed = readHostLedger(contents)
+    if (parsed === undefined || parsed.scopeId !== scopeId) {
+      logger.warn('host_ledger_reset', { details: { path: this.filePath } })
+      this.state = createEmptyHostLedger(scopeId)
+      await this.update(() => undefined)
+      return
+    }
+
+    this.state = parsed
     expirePendingAfterRestart(this.state, Date.now())
     await this.update(() => undefined)
   }
@@ -238,6 +254,16 @@ function operationExpired(operationId: HostCommand['operationId']): HostCommandR
 
 function sameCommand(left: HostCommand, right: HostCommand): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
+}
+
+/** Parses one stored ledger, or nothing when this build cannot read it. */
+function readHostLedger(contents: string): HostLedger | undefined {
+  try {
+    const parsed = HostLedgerSchema.safeParse(JSON.parse(contents))
+    return parsed.success ? parsed.data : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function isMissing(cause: unknown): boolean {

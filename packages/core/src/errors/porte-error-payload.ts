@@ -1,4 +1,4 @@
-import { TaggedError, type AnyTaggedError } from 'better-result'
+import { TaggedError } from 'better-result'
 import { z } from 'zod'
 
 import { AUTHENTICATION_ERROR, NOT_AUTHORIZED_ERROR, STALE_SESSION_ERROR } from './auth.errors.ts'
@@ -69,12 +69,8 @@ export type DomainErrorTag = keyof typeof DOMAIN_ERROR_TAGS
  * carries the fields it found wrong, and every other one is its tag alone.
  */
 export type DomainError =
-  | (AnyTaggedError & { _tag: Exclude<DomainErrorTag, typeof VALIDATION_ERROR> })
-  | (AnyTaggedError & { _tag: typeof VALIDATION_ERROR; issues: readonly ValidationIssue[] })
-
-export function isDomainError(cause: unknown): cause is DomainError {
-  return TaggedError.is(cause) && Object.hasOwn(DOMAIN_ERROR_TAGS, cause._tag)
-}
+  | (Error & { readonly _tag: Exclude<DomainErrorTag, typeof VALIDATION_ERROR> })
+  | (Error & { readonly _tag: typeof VALIDATION_ERROR; readonly issues: readonly ValidationIssue[] })
 
 /**
  * The same tags, in the shape zod discriminates on.
@@ -91,6 +87,39 @@ const DOMAIN_ERROR_TAG_VALUES = Object.keys(DOMAIN_ERROR_TAGS) as [
 
 const DomainErrorTagSchema = z.enum(DOMAIN_ERROR_TAG_VALUES)
 
+const validationErrorPayloadFields = {
+  _tag: z.literal(VALIDATION_ERROR),
+  message: z.string(),
+  issues: z.array(ValidationIssueSchema),
+}
+
+const nonValidationErrorPayloadFields = {
+  _tag: DomainErrorTagSchema.exclude([VALIDATION_ERROR]),
+  message: z.string(),
+}
+
+const remoteErrorFields = { remote: z.literal(true) }
+
+const RemoteDomainErrorSchema = z.intersection(
+  z.instanceof(Error),
+  z.discriminatedUnion('_tag', [
+    z.object({
+      ...validationErrorPayloadFields,
+      ...remoteErrorFields,
+    }),
+    z.object({
+      ...nonValidationErrorPayloadFields,
+      ...remoteErrorFields,
+    }),
+  ]),
+)
+
+/** Identify a native tagged error or a valid tagged error from Workers RPC. */
+export function isDomainError(cause: unknown): cause is DomainError {
+  if (TaggedError.is(cause)) return Object.hasOwn(DOMAIN_ERROR_TAGS, cause._tag)
+  return RemoteDomainErrorSchema.safeParse(cause).success
+}
+
 /**
  * One failure, as any client may see it.
  *
@@ -99,14 +128,7 @@ const DomainErrorTagSchema = z.enum(DOMAIN_ERROR_TAG_VALUES)
  * its issues name fields a person can correct.
  */
 export const PorteErrorPayloadSchema = z.discriminatedUnion('_tag', [
-  z.strictObject({
-    _tag: z.literal(VALIDATION_ERROR),
-    message: z.string(),
-    issues: z.array(ValidationIssueSchema),
-  }),
-  z.strictObject({
-    _tag: DomainErrorTagSchema.exclude([VALIDATION_ERROR]),
-    message: z.string(),
-  }),
+  z.strictObject(validationErrorPayloadFields),
+  z.strictObject(nonValidationErrorPayloadFields),
 ])
 export type PorteErrorPayload = z.infer<typeof PorteErrorPayloadSchema>

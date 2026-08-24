@@ -1,6 +1,6 @@
 import { createLogger } from '@porte/core'
 import { forgetStalePairingRequests } from '@server/application/commands/forget-stale-pairing-requests.command.ts'
-import type { AppDeps } from '@server/infrastructure/app-deps.ts'
+import type { PorteWorkerResources } from '@server/infrastructure/porte-worker-resources.ts'
 
 import { CRON, CronSchema, type CronExpression } from './cron-registry.ts'
 
@@ -13,13 +13,13 @@ const logger = createLogger('scheduled')
  * work to do fails to compile instead of falling through at run time.
  */
 const RUNS = {
-  [CRON.EVERY_15_MINUTES]: async (deps: AppDeps, at: Date) => {
+  [CRON.EVERY_15_MINUTES]: async (deps: PorteWorkerResources, at: Date) => {
     await forgetStalePairingRequests(deps.pairingOrigins, at)
   },
 } satisfies Record<CronExpression, ScheduledRun>
 
 /** Nothing is returned to the platform, so each run reports its own outcome. */
-type ScheduledRun = (deps: AppDeps, at: Date) => Promise<void>
+type ScheduledRun = (deps: PorteWorkerResources, at: Date) => Promise<void>
 
 /**
  * Route one Cloudflare schedule to its work.
@@ -29,7 +29,7 @@ type ScheduledRun = (deps: AppDeps, at: Date) => Promise<void>
  */
 export async function scheduledHandler(
   controller: ScheduledController,
-  deps: AppDeps,
+  deps: PorteWorkerResources,
 ): Promise<void> {
   const parsed = CronSchema.safeParse(controller.cron)
   if (!parsed.success) {

@@ -1,9 +1,12 @@
 import {
   ConversationIdSchema,
+  ConversationBusyError,
+  ConversationNotFoundError,
   HostCommandResponseSchema,
   HostCommandSchemas,
   HostIdSchema,
   HostOfflineError,
+  InternalServerError,
   HostToRelayMessageSchema,
   HOST_OPERATION_DELIVERY_DEADLINE_MS,
   HOST_OPERATION_RETENTION_MS,
@@ -17,8 +20,6 @@ import {
   RequestTimeoutError,
   ValidationError,
   createHostCommand,
-  rpcErr,
-  rpcOk,
   createLogger,
   createOperationId,
   reduceHostRelayActivity,
@@ -41,16 +42,12 @@ import {
   type OperationId,
   type PorteErrorPayload,
   type RelayToHostMessage,
-  type RpcResponse,
 } from '@porte/core'
 import { recordHostSeen } from '@server/application/commands/record-host-seen.command.ts'
-import type { HostRepository } from '@server/domain/host/host.repository.ts'
 import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
 import { createDatabase } from '@server/infrastructure/persistence/database/connection.ts'
 import { createRelayDatabase } from '@server/infrastructure/persistence/relay/connection.ts'
 import migrations from '@server/infrastructure/persistence/relay/migrations/migrations.js'
-import { DrizzleConversationRepository } from '@server/infrastructure/persistence/repositories/conversation.repository.ts'
-import { DrizzleHostRepository } from '@server/infrastructure/persistence/repositories/host.repository.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import {
   Agent,
@@ -66,6 +63,10 @@ import { z } from 'zod'
 
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime child class.
 import { ConversationAgent } from './conversation-agent.ts'
+import {
+  createHostRelayResources,
+  type HostRelayResources,
+} from './host-relay-resources.ts'
 import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from './relay/relay-headers.ts'
 
 const logger = createLogger('host-relay-agent')
@@ -133,8 +134,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     activeConversations: [],
   }
 
-  private readonly conversations: DrizzleConversationRepository
-  private readonly hosts: HostRepository
+  private readonly resources: HostRelayResources
   private readonly hostId: HostId
   private readonly operationWaiters = new Map<OperationId, Set<OperationWaiter>>()
 
@@ -148,9 +148,10 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
     const db = createRelayDatabase(ctx.storage)
     void ctx.blockConcurrencyWhile(() => migrate(db, migrations))
-    this.conversations = new DrizzleConversationRepository(db)
     const applicationDb = createDatabase(env.DB)
-    this.hosts = new DrizzleHostRepository(() => applicationDb)
+    this.resources = createHostRelayResources(db, () => applicationDb, {
+      getByName: (name) => this.subAgent(ConversationAgent, name),
+    })
 
     // SAFETY: the name comes from a HostId the host repository already parsed.
     this.hostId = this.name as HostId
@@ -344,7 +345,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
    * @public
    */
   readConversations(query: ConversationPageQuery): ConversationPage {
-    const page = this.conversations.findPage(query)
+    const page = this.resources.conversationRepository.findPage(query)
     this.requestCatalogSyncInBackground()
     return page
   }
@@ -360,30 +361,31 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   /**
    * Web flow: reads one transcript page.
    *
-   * The frame stops here. A caller reached over RPC, which keeps no error type,
-   * so the Mac's refusal leaves as the union's error arm instead of a throw.
+   * The frame stops here. Expected host failures become typed throws.
    */
   async readConversation(
     params: HostCommandMap['conversation.read']['params'],
-  ): Promise<RpcResponse<ConversationTranscript, PorteErrorPayload>> {
+  ): Promise<ConversationTranscript> {
     const response = await this.executeHostCommand<'conversation.read'>({
       operationId: createOperationId(),
       method: 'conversation.read',
       params,
     })
-    if (response.type === 'command.error') return rpcErr(response.error)
+    if (response.type === 'command.error') throwConversationReadError(response.error)
 
     await this.authorizeConversation(params.conversationId)
-    const child = await this.subAgent(ConversationAgent, params.conversationId)
-    await child.initializeConversation(response.result.state)
+    await this.resources.conversationAgents.initializeConversation(
+      params.conversationId,
+      response.result.state,
+    )
     await this.armCatalogExpiry()
-    return rpcOk(response.result)
+    return response.result
   }
 
   /** Chat flow: starts one idempotent turn on the Mac. */
   async startTurn(
     call: HostCommandCall<'turn.start'>,
-  ): Promise<RpcResponse<HostCommandMap['turn.start']['result'], PorteErrorPayload>> {
+  ): Promise<HostCommandMap['turn.start']['result']> {
     const response = await this.executeHostCommand<'turn.start'>(
       {
         operationId: call.operationId,
@@ -392,18 +394,18 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       },
       true,
     )
-    return response.type === 'command.error' ? rpcErr(response.error) : rpcOk(response.result)
+    if (response.type === 'command.error') throwTurnStartError(response.error)
+    return response.result
   }
 
   /**
    * Chat flow: stores one cancel before the child removes its active turn.
    *
-   * A child calls this over RPC, which keeps no error type, so a refused
-   * cancel leaves as the union's error arm rather than as a throw.
+   * A child calls this before it removes the active turn.
    */
   async cancelTurn(
     call: HostCommandCall<'turn.cancel'>,
-  ): Promise<RpcResponse<undefined, PorteErrorPayload>> {
+  ): Promise<void> {
     const command = createHostCommand({
       operationId: call.operationId,
       method: 'turn.cancel',
@@ -411,24 +413,23 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     })
     const existing = await this.readOperation(command.operationId)
     if (existing !== undefined && !sameCommand(existing.command, command)) {
-      return rpcErr(toErrorPayload(new OperationConflictError()))
+      throw new OperationConflictError()
     }
     if (existing?.status === 'expired') {
-      return rpcErr(toErrorPayload(new OperationExpiredError()))
+      throw new OperationExpiredError()
     }
-    if (existing?.status === 'completed') return rpcOk(undefined)
+    if (existing?.status === 'completed') return
 
     if (existing === undefined) await this.storePendingOperation(command)
 
     const host = this.hostConnection()
-    if (host === undefined) return rpcOk(undefined)
+    if (host === undefined) return
     try {
       this.sendHostMessage(host, command)
     } catch (error) {
       if (!(error instanceof HostConnectionSendError)) throw error
       this.handleHostSendFailure(host, error)
     }
-    return rpcOk(undefined)
   }
 
   /** Web flow: validates and sends one permission answer through the parent Agent. */
@@ -620,11 +621,18 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       return
     }
     try {
-      const child = await this.subAgent(ConversationAgent, message.conversationId)
       const throughEventSequence =
         message.type === 'conversation.event'
-          ? await child.acceptHostEvent(message.eventSequence, message.event)
-          : await child.acceptHostSnapshot(message.throughEventSequence, message.snapshot)
+          ? await this.resources.conversationAgents.acceptHostEvent(
+              message.conversationId,
+              message.eventSequence,
+              message.event,
+            )
+          : await this.resources.conversationAgents.acceptHostSnapshot(
+              message.conversationId,
+              message.throughEventSequence,
+              message.snapshot,
+            )
       this.sendHostEventAck(connection, message.conversationId, throughEventSequence)
     } catch (error) {
       logger.error('conversation_stream_forward_failed', {
@@ -645,11 +653,11 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       const sync = await this.readCatalogSyncState()
       if (sync?.operationId !== message.operationId) return
 
-      this.conversations.saveAll(message.conversations, message.operationId)
+      this.resources.conversationRepository.saveAll(message.conversations, message.operationId)
       if (!message.done) return
 
-      this.conversations.deleteOtherThan(message.operationId)
-      this.conversations.deleteBeyond(MAX_CONVERSATION_ROWS)
+      this.resources.conversationRepository.deleteOtherThan(message.operationId)
+      this.resources.conversationRepository.deleteBeyond(MAX_CONVERSATION_ROWS)
       this.publishConversationActivity({ type: 'sync', activeTurns: message.activeTurns })
       await this.reconcileConversationTurns(message.activeTurns)
       await this.markCatalogSyncCompleted(message.operationId, Date.now())
@@ -659,16 +667,16 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     }
 
     if (message.type === 'conversation.summary') {
-      this.conversations.save(
+      this.resources.conversationRepository.save(
         message.conversation,
-        this.conversations.currentSyncRunId() ?? UNSYNCED,
+        this.resources.conversationRepository.currentSyncRunId() ?? UNSYNCED,
       )
       await this.armCatalogExpiry()
       this.bumpCatalogRevision()
       return
     }
 
-    this.conversations.delete(message.conversationId)
+    this.resources.conversationRepository.delete(message.conversationId)
     this.publishConversationActivity({
       type: 'removed',
       conversationId: message.conversationId,
@@ -687,8 +695,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     const active = new Map(activeTurns.map((turn) => [turn.conversationId, turn.turnId]))
     await Promise.all(
       this.listSubAgents(ConversationAgent).map(async (reference) => {
-        const child = await this.subAgent(ConversationAgent, reference.name)
-        await child.reconcileHostTurn(
+        await this.resources.conversationAgents.reconcileHostTurn(
+          reference.name,
           active.get(ConversationIdSchema.parse(reference.name)) ?? null,
         )
       }),
@@ -784,7 +792,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       return
     }
 
-    this.conversations.deleteAll()
+    this.resources.conversationRepository.deleteAll()
     const access = await this.ctx.storage.list<boolean>({ prefix: CONVERSATION_ACCESS_PREFIX })
     if (access.size > 0) await this.ctx.storage.delete([...access.keys()])
     await this.ctx.storage.delete(CATALOG_SYNC_KEY)
@@ -864,9 +872,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       unknown.map(async (reference) => ({
         // SAFETY: the facet was named from a ConversationId this object parsed.
         conversationId: reference.name as ConversationId,
-        eventSequence: await (
-          await this.subAgent(ConversationAgent, reference.name)
-        ).acceptedEventHead(),
+        eventSequence: await this.resources.conversationAgents.acceptedEventHead(reference.name),
       })),
     )
     for (const head of heads) {
@@ -1086,7 +1092,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Records host activity through the shared application command. */
   private async rememberSeen(hostId: HostId): Promise<void> {
-    await recordHostSeen(this.hosts, hostId, new Date())
+    await recordHostSeen(this.resources.hostRepository, hostId, new Date())
   }
 
   /** Starts host activity recording and owns its final error log. */
@@ -1146,6 +1152,41 @@ function removeWaiter(
 
   operationWaiters.delete(waiter)
   if (operationWaiters.size === 0) waiters.delete(operationId)
+}
+
+// TEMPORARY: The host WebSocket error contract is not decided; these mappings preserve the current protocol.
+/** Rebuilds the errors declared by the transcript RPC method. */
+function throwConversationReadError(error: PorteErrorPayload): never {
+  switch (error._tag) {
+    case 'HostOfflineError':
+      throw new HostOfflineError()
+    case 'RequestTimeoutError':
+      throw new RequestTimeoutError()
+    case 'ConversationNotFoundError':
+      throw new ConversationNotFoundError()
+    default:
+      throw new InternalServerError()
+  }
+}
+
+/** Rebuilds the errors declared by the turn start RPC method. */
+function throwTurnStartError(error: PorteErrorPayload): never {
+  switch (error._tag) {
+    case 'HostOfflineError':
+      throw new HostOfflineError()
+    case 'RequestTimeoutError':
+      throw new RequestTimeoutError()
+    case 'ConversationNotFoundError':
+      throw new ConversationNotFoundError()
+    case 'ConversationBusyError':
+      throw new ConversationBusyError()
+    case 'OperationConflictError':
+      throw new OperationConflictError()
+    case 'OperationExpiredError':
+      throw new OperationExpiredError()
+    default:
+      throw new InternalServerError()
+  }
 }
 
 /** Builds the typed response for an operation attempted without a Mac. */

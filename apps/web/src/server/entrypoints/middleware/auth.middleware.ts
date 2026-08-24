@@ -1,5 +1,5 @@
 import { AuthenticationError, createLogger, StaleSessionError } from '@porte/core/client'
-import type { AppDeps } from '@server/infrastructure/app-deps.ts'
+import type { PorteWorkerResources } from '@server/infrastructure/porte-worker-resources.ts'
 import type { Session, SessionWithUser, User } from '@server/infrastructure/auth/auth-types.ts'
 import { createMiddleware } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
@@ -23,7 +23,7 @@ export interface RequiredAuthContext {
  * Headers are passed in rather than read here. Function and request middleware
  * obtain them from different TanStack APIs.
  */
-async function resolveSession(deps: AppDeps, headers: Headers) {
+async function resolveSession(deps: PorteWorkerResources, headers: Headers) {
   // SAFETY: `advanced.database.generateId` in options.ts mints every id as uuid
   // v7, so a resolved session carries one of ours. Better Auth types `id` as a
   // bare string and offers no way to say otherwise, so the brand is attached here.
@@ -32,7 +32,7 @@ async function resolveSession(deps: AppDeps, headers: Headers) {
 }
 
 async function resolveRequiredSession(
-  deps: AppDeps,
+  deps: PorteWorkerResources,
   requestHeaders: Headers,
 ): Promise<SessionWithUser> {
   const { headers, result } = await resolveSession(deps, requestHeaders)
