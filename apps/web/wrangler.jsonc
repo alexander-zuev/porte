@@ -14,6 +14,7 @@
     { "tag": "v2", "renamed_classes": [{ "from": "HostCoordinatorDO", "to": "HostRelayDO" }] },
     { "tag": "v3", "renamed_classes": [{ "from": "HostRelayDO", "to": "HostRelayAgent" }] },
     { "tag": "v4", "new_sqlite_classes": ["RpcErrorA", "RpcErrorB"] },
+    { "tag": "v5", "deleted_classes": ["RpcErrorA", "RpcErrorB"] },
   ],
   "env": {
     "dev": {
@@ -62,11 +63,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [
-          { "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" },
-          { "name": "RPC_ERROR_A", "class_name": "RpcErrorA" },
-          { "name": "RPC_ERROR_B", "class_name": "RpcErrorB" },
-        ],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
     "prod": {
@@ -116,11 +113,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [
-          { "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" },
-          { "name": "RPC_ERROR_A", "class_name": "RpcErrorA" },
-          { "name": "RPC_ERROR_B", "class_name": "RpcErrorB" },
-        ],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
     "test": {
@@ -162,11 +155,7 @@
         },
       ],
       "durable_objects": {
-        "bindings": [
-          { "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" },
-          { "name": "RPC_ERROR_A", "class_name": "RpcErrorA" },
-          { "name": "RPC_ERROR_B", "class_name": "RpcErrorB" },
-        ],
+        "bindings": [{ "name": "HOST_RELAY_AGENT", "class_name": "HostRelayAgent" }],
       },
     },
   },

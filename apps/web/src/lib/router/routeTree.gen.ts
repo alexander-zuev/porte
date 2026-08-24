@@ -27,7 +27,6 @@ import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
 import { Route as ApiCacheImagesRouteImport } from './../../routes/api/cache/images'
 import { Route as ApiHostWsRouteImport } from './../../routes/api/host/ws'
 import { Route as ApiPairCodeRouteImport } from './../../routes/api/pair/code'
-import { Route as ApiTestRpcErrorsRouteImport } from './../../routes/api/test/rpc-errors'
 import { Route as AuthRelayConversationsIndexRouteImport } from './../../routes/_auth/_relay/conversations/index'
 import { Route as AuthRelayConversationsConversationIdRouteImport } from './../../routes/_auth/_relay/conversations/$conversationId'
 import { Route as ApiHostWsSubConversationAgentConversationIdRouteImport } from './../../routes/api/host/ws/sub/conversation-agent/$conversationId'
@@ -119,11 +118,6 @@ const ApiPairCodeRoute = ApiPairCodeRouteImport.update({
   path: '/api/pair/code',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTestRpcErrorsRoute = ApiTestRpcErrorsRouteImport.update({
-  id: '/api/test/rpc-errors',
-  path: '/api/test/rpc-errors',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRelayConversationsIndexRoute =
   AuthRelayConversationsIndexRouteImport.update({
     id: '/conversations/',
@@ -158,7 +152,6 @@ export interface FileRoutesByFullPath {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRouteWithChildren
   '/api/pair/code': typeof ApiPairCodeRoute
-  '/api/test/rpc-errors': typeof ApiTestRpcErrorsRoute
   '/pair/': typeof AuthPairIndexRoute
   '/conversations/$conversationId': typeof AuthRelayConversationsConversationIdRoute
   '/conversations/': typeof AuthRelayConversationsIndexRoute
@@ -178,7 +171,6 @@ export interface FileRoutesByTo {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRouteWithChildren
   '/api/pair/code': typeof ApiPairCodeRoute
-  '/api/test/rpc-errors': typeof ApiTestRpcErrorsRoute
   '/pair': typeof AuthPairIndexRoute
   '/conversations/$conversationId': typeof AuthRelayConversationsConversationIdRoute
   '/conversations': typeof AuthRelayConversationsIndexRoute
@@ -203,7 +195,6 @@ export interface FileRoutesById {
   '/api/cache/images': typeof ApiCacheImagesRoute
   '/api/host/ws': typeof ApiHostWsRouteWithChildren
   '/api/pair/code': typeof ApiPairCodeRoute
-  '/api/test/rpc-errors': typeof ApiTestRpcErrorsRoute
   '/_auth/pair/': typeof AuthPairIndexRoute
   '/_auth/_relay/conversations/$conversationId': typeof AuthRelayConversationsConversationIdRoute
   '/_auth/_relay/conversations/': typeof AuthRelayConversationsIndexRoute
@@ -226,7 +217,6 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
-    | '/api/test/rpc-errors'
     | '/pair/'
     | '/conversations/$conversationId'
     | '/conversations/'
@@ -246,7 +236,6 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
-    | '/api/test/rpc-errors'
     | '/pair'
     | '/conversations/$conversationId'
     | '/conversations'
@@ -270,7 +259,6 @@ export interface FileRouteTypes {
     | '/api/cache/images'
     | '/api/host/ws'
     | '/api/pair/code'
-    | '/api/test/rpc-errors'
     | '/_auth/pair/'
     | '/_auth/_relay/conversations/$conversationId'
     | '/_auth/_relay/conversations/'
@@ -284,7 +272,6 @@ export interface RootRouteChildren {
   ApiCacheImagesRoute: typeof ApiCacheImagesRoute
   ApiHostWsRoute: typeof ApiHostWsRouteWithChildren
   ApiPairCodeRoute: typeof ApiPairCodeRoute
-  ApiTestRpcErrorsRoute: typeof ApiTestRpcErrorsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -415,13 +402,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPairCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/test/rpc-errors': {
-      id: '/api/test/rpc-errors'
-      path: '/api/test/rpc-errors'
-      fullPath: '/api/test/rpc-errors'
-      preLoaderRoute: typeof ApiTestRpcErrorsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_auth/_relay/conversations/': {
       id: '/_auth/_relay/conversations/'
       path: '/conversations'
@@ -535,7 +515,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCacheImagesRoute: ApiCacheImagesRoute,
   ApiHostWsRoute: ApiHostWsRouteWithChildren,
   ApiPairCodeRoute: ApiPairCodeRoute,
-  ApiTestRpcErrorsRoute: ApiTestRpcErrorsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -4,16 +4,11 @@ import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
 import { scheduledHandler } from './server/entrypoints/scheduled/scheduled-handler.ts'
-import { createPorteWorkerResources } from './server/infrastructure/porte-worker-resources'
 import { ConversationAgent as ConversationAgentBase } from './server/infrastructure/durable-objects/conversation-agent'
 import { HostRelayAgent as HostRelayAgentBase } from './server/infrastructure/durable-objects/host-relay-agent'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
+import { createPorteWorkerResources } from './server/infrastructure/porte-worker-resources'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
-
-export {
-  RpcErrorA,
-  RpcErrorB,
-} from './server/infrastructure/durable-objects/rpc-error-lab.ts'
 
 export const ConversationAgent = Sentry.instrumentAgentWithSentry(
   createSentryOptions,
