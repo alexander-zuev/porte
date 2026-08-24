@@ -52,7 +52,7 @@ export const createPartySocketClient: WebSocketClientFactory = (input) => {
         handshakeResponseStatus = undefined
         return connectionFailure === undefined
       }
-      return event.code !== 1000 && event.code !== 1008
+      return !isTerminalWebSocketCloseCode(event.code)
     },
   })
 
@@ -69,6 +69,11 @@ export const createPartySocketClient: WebSocketClientFactory = (input) => {
       return connectionFailure
     },
   }
+}
+
+/** Test whether a relay close means that the connection cannot continue. */
+export function isTerminalWebSocketCloseCode(code: number): boolean {
+  return code === 1002 || code === 1003 || code === 1007 || code === 1008 || code === 1009
 }
 
 function shouldRetryHandshake(status: number): boolean {

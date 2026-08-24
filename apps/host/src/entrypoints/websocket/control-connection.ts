@@ -4,7 +4,10 @@ import {
   RelayHandshakeRefused,
   RelayProtocolError,
 } from '@host/entrypoints/websocket/websocket-errors.ts'
-import type { WebSocketClient } from '@host/infrastructure/websocket/party-socket-client.ts'
+import {
+  isTerminalWebSocketCloseCode,
+  type WebSocketClient,
+} from '@host/infrastructure/websocket/party-socket-client.ts'
 import {
   createLogger,
   RelayHeartbeat,
@@ -93,11 +96,7 @@ export class WebSocketControlConnection implements ControlConnection {
       this.reject(new RelayHandshakeRefused({ status: failure.status }))
       return
     }
-    if (event.code === 1000) {
-      this.resolve()
-      return
-    }
-    if (event.code === 1007 || event.code === 1008) {
+    if (isTerminalWebSocketCloseCode(event.code)) {
       this.reject(new RelayProtocolError({ message: `Control connection closed: ${event.reason}` }))
       return
     }

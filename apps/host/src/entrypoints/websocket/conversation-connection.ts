@@ -10,7 +10,10 @@ import {
   RelayHandshakeRefused,
   RelayProtocolError,
 } from '@host/entrypoints/websocket/websocket-errors.ts'
-import type { WebSocketClient } from '@host/infrastructure/websocket/party-socket-client.ts'
+import {
+  isTerminalWebSocketCloseCode,
+  type WebSocketClient,
+} from '@host/infrastructure/websocket/party-socket-client.ts'
 import type { ConversationId } from '@porte/core/client'
 import { Result, type Result as ResultType } from 'better-result'
 
@@ -103,12 +106,7 @@ export class WebSocketConversationConnection implements ConversationConnection {
       this.rejectClosed(new RelayHandshakeRefused({ status: failure.status }))
       return
     }
-    if (event.code === 1000) {
-      this.resolveReady(Result.err(new ConversationConnectionUnavailableError()))
-      this.resolveClosed()
-      return
-    }
-    if (event.code === 1007 || event.code === 1008) {
+    if (isTerminalWebSocketCloseCode(event.code)) {
       this.resolveReady(Result.err(new ConversationConnectionUnavailableError()))
       this.rejectClosed(
         new RelayProtocolError({ message: `Conversation connection closed: ${event.reason}` }),

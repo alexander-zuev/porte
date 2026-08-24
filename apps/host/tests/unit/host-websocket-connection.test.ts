@@ -4,6 +4,7 @@ import { retryDelayMs } from '@host/entrypoints/websocket/control-connection.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager'
+import { RelayProtocolError } from '@host/entrypoints/websocket/websocket-errors.ts'
 import type {
   PartySocketClientInput,
   WebSocketClient,
@@ -33,6 +34,12 @@ class MockPartySocket extends EventTarget implements WebSocketClient {
 
   close(): void {
     this.openState = false
+  }
+
+  closeFromRelay(code: number, reason = ''): void {
+    const event = new Event('close')
+    Object.defineProperties(event, { code: { value: code }, reason: { value: reason } })
+    this.dispatchEvent(event)
   }
 
   reconnect(): void {}
@@ -67,6 +74,27 @@ describe('Host WebSocket connections', () => {
       ),
     )
     expect(test.conversations).toHaveLength(0)
+  })
+
+  it('keeps the control lifecycle open after a retryable close', async () => {
+    const test = connectionTest()
+    test.control.closeFromRelay(1000)
+    const state = await Promise.race([
+      test.connection.closed.then(() => 'closed'),
+      new Promise((resolve) =>
+        setTimeout(() => {
+          resolve('open')
+        }, 0),
+      ),
+    ])
+    expect(state).toBe('open')
+    test.manager.closeControlConnection()
+  })
+
+  it('rejects the control lifecycle after a protocol close', async () => {
+    const test = connectionTest()
+    test.control.closeFromRelay(1008, 'policy violation')
+    await expect(test.connection.closed).rejects.toBeInstanceOf(RelayProtocolError)
   })
 
   it('answers one validated control query', async () => {
@@ -119,8 +147,8 @@ function connectionTest() {
     },
     createClient,
   )
-  manager.openControlConnection()
-  return { control, conversations, manager }
+  const connection = manager.openControlConnection()
+  return { connection, control, conversations, manager }
 }
 
 function resources(): HostApplicationResources {
