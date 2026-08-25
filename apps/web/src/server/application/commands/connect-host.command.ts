@@ -44,7 +44,7 @@ export async function connectHost(
     hostId: pairing.host.id,
     role,
     target:
-      role === 'daemon' || input.conversationId === undefined
+      input.conversationId === undefined
         ? { type: 'host' }
         : { type: 'conversation', conversationId: input.conversationId },
     request: input.request,

@@ -2,21 +2,21 @@ import { z } from 'zod'
 
 import type { ConversationEvent } from '../conversation/conversation-event.ts'
 import {
-  ConversationStateSnapshotSchema,
-  type ConversationStateSnapshot,
+  ConversationStateSchema,
+  type ConversationState,
 } from '../conversation/conversation-view.ts'
 
-const ReadyConversationRelayStateSchema = ConversationStateSnapshotSchema.extend({
+const ReadyConversationRelayStateSchema = ConversationStateSchema.extend({
   status: z.literal('ready'),
 })
 
-/** Client state that is not part of the AI SDK message transcript. */
+/** Durable child state sent to browser connections. */
 export const ConversationRelayStateSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('uninitialized') }),
+  z.strictObject({ status: z.literal('uninitialized') }),
   ReadyConversationRelayStateSchema,
 ])
 
-/** Client state that is not part of the AI SDK message transcript. */
+/** Durable child state sent to browser connections. */
 export type ConversationRelayState = z.infer<typeof ConversationRelayStateSchema>
 export type ReadyConversationRelayState = z.infer<typeof ReadyConversationRelayStateSchema>
 
@@ -24,100 +24,135 @@ export const INITIAL_CONVERSATION_RELAY_STATE: ConversationRelayState = {
   status: 'uninitialized',
 }
 
-const EMPTY_READY_STATE: ReadyConversationRelayState = {
-  status: 'ready',
+const EMPTY_STATE: ConversationState = {
   turn: { state: 'idle' },
-  pending: { permissions: [], elicitations: [] },
+  items: [],
+  tools: [],
   plans: [],
-  usage: null,
-  configuration: null,
-  commands: null,
-  modeId: null,
+  pending: { permissions: [], elicitations: [] },
 }
 
-/** Applies one canonical event to the client state outside the transcript. */
+/** Apply one ordered Host event to durable child state. */
 export function reduceConversationRelayState(
   current: ConversationRelayState,
   event: ConversationEvent,
 ): ConversationRelayState {
-  const state = current.status === 'ready' ? current : EMPTY_READY_STATE
+  const source = current.status === 'ready' ? current : { status: 'ready' as const, ...EMPTY_STATE }
+  const state = structuredClone(source)
+
   switch (event.type) {
     case 'turn.started':
-      return { ...state, turn: { state: 'running', turnId: event.turnId } }
+      state.turn = { state: 'running', turnId: event.turnId }
+      break
     case 'turn.finished':
     case 'conversation.failed':
-      return { ...state, turn: { state: 'idle' } }
+      state.turn = { state: 'idle' }
+      state.pending = { permissions: [], elicitations: [] }
+      break
+    case 'message.started':
+      if (!hasItem(state, event.messageId)) {
+        state.items.push({
+          type: 'message',
+          messageId: event.messageId,
+          role: event.role,
+          content: [],
+        })
+      }
+      break
+    case 'reasoning.started':
+      if (!hasItem(state, event.messageId)) {
+        state.items.push({ type: 'reasoning', messageId: event.messageId, content: [] })
+      }
+      break
+    case 'message.delta':
+      appendContent(state, event.messageId, 'message', event.content)
+      break
+    case 'reasoning.delta':
+      appendContent(state, event.messageId, 'reasoning', event.content)
+      break
+    case 'tool.updated': {
+      const index = state.tools.findIndex((tool) => tool.toolCallId === event.tool.toolCallId)
+      if (index === -1) {
+        state.tools.push(event.tool)
+        state.items.push({ type: 'tool', toolCallId: event.tool.toolCallId })
+      } else {
+        state.tools[index] = event.tool
+      }
+      break
+    }
     case 'permission.requested':
-      return {
-        ...state,
-        pending: {
-          ...state.pending,
-          permissions: [
-            ...state.pending.permissions.filter(
-              (permission) => permission.permissionId !== event.permissionId,
-            ),
-            event,
-          ],
-        },
-      }
+      state.pending.permissions = [
+        ...state.pending.permissions.filter(
+          (permission) => permission.permissionId !== event.permissionId,
+        ),
+        event,
+      ]
+      break
     case 'permission.resolved':
-      return {
-        ...state,
-        pending: {
-          ...state.pending,
-          permissions: state.pending.permissions.filter(
-            (permission) => permission.permissionId !== event.permissionId,
-          ),
-        },
-      }
+      state.pending.permissions = state.pending.permissions.filter(
+        (permission) => permission.permissionId !== event.permissionId,
+      )
+      break
     case 'elicitation.requested':
-      return {
-        ...state,
-        pending: {
-          ...state.pending,
-          elicitations: [
-            ...state.pending.elicitations.filter(
-              (elicitation) => elicitation.elicitationId !== event.elicitationId,
-            ),
-            event,
-          ],
-        },
-      }
+      state.pending.elicitations = [
+        ...state.pending.elicitations.filter(
+          (elicitation) => elicitation.elicitationId !== event.elicitationId,
+        ),
+        event,
+      ]
+      break
     case 'elicitation.resolved':
     case 'elicitation.completed':
-      return {
-        ...state,
-        pending: {
-          ...state.pending,
-          elicitations: state.pending.elicitations.filter(
-            (elicitation) => elicitation.elicitationId !== event.elicitationId,
-          ),
-        },
-      }
+      state.pending.elicitations = state.pending.elicitations.filter(
+        (elicitation) => elicitation.elicitationId !== event.elicitationId,
+      )
+      break
     case 'plan.updated':
-      return {
-        ...state,
-        plans: [...state.plans.filter((plan) => plan.planId !== event.plan.planId), event.plan],
-      }
+      state.plans = [...state.plans.filter((plan) => plan.planId !== event.plan.planId), event.plan]
+      break
     case 'plan.removed':
-      return { ...state, plans: state.plans.filter((plan) => plan.planId !== event.planId) }
+      state.plans = state.plans.filter((plan) => plan.planId !== event.planId)
+      break
     case 'conversation.usage.updated':
-      return { ...state, usage: event.usage }
+      state.usage = event.usage
+      break
     case 'conversation.configuration.updated':
-      return { ...state, configuration: event.options }
+      state.configuration = [...event.options]
+      break
     case 'conversation.commands.updated':
-      return { ...state, commands: event.commands }
+      state.commands = [...event.commands]
+      break
     case 'conversation.mode.updated':
-      return { ...state, modeId: event.modeId }
-    default:
-      return current
+      state.modeId = event.modeId
+      break
+    case 'message.completed':
+    case 'reasoning.completed':
+    case 'conversation.metadata.updated':
+      break
   }
+
+  return ConversationRelayStateSchema.parse(state)
 }
 
-/** Converts one provider snapshot to the child Agent state. */
-export function conversationRelayStateFromSnapshot(
-  snapshot: ConversationStateSnapshot,
+/** Convert one complete Host state into durable child state. */
+export function conversationRelayStateFromState(
+  state: ConversationState,
 ): ReadyConversationRelayState {
-  const parsed = ConversationStateSnapshotSchema.parse(snapshot)
-  return { status: 'ready', ...parsed }
+  return ReadyConversationRelayStateSchema.parse({ status: 'ready', ...state })
+}
+
+function hasItem(state: ConversationState, messageId: string): boolean {
+  return state.items.some((item) => item.type !== 'tool' && item.messageId === messageId)
+}
+
+function appendContent(
+  state: ConversationState,
+  messageId: string,
+  type: 'message' | 'reasoning',
+  content: Extract<ConversationEvent, { type: 'message.delta' }>['content'],
+): void {
+  const item = state.items.find(
+    (current) => current.type !== 'tool' && current.messageId === messageId,
+  )
+  if (item?.type === type) item.content.push(content)
 }

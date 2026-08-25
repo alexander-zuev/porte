@@ -17,8 +17,6 @@ export const conversation = sqliteTable(
     gitRoot: text('git_root').notNull(),
     title: text('title').notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-    /** Which sync run wrote this row. The sweep deletes every other run's, which is how a deletion propagates. */
-    syncRunId: text('sync_run_id').notNull(),
   },
   (table) => [index('conversation_recent_idx').on(table.updatedAt, table.id)],
 )

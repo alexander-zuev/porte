@@ -1,16 +1,14 @@
 import {
-  CONVERSATION_PAGE_SIZE,
+  LIST_CONVERSATIONS_LIMIT_DEFAULT,
   IsoDateTimeSchema,
   createHostId,
   type ConversationId,
-  type ConversationSummary,
+  type Conversation,
 } from '@porte/core'
 import { createRelayDatabase } from '@server/infrastructure/persistence/relay/connection.ts'
 import { DrizzleConversationRepository } from '@server/infrastructure/persistence/repositories/conversation.repository.ts'
 import { env, runInDurableObject } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-
-const RUN = 'run-1'
 
 /**
  * The repository over one relay's real storage.
@@ -34,7 +32,7 @@ async function withStore(
   })
 }
 
-function conversation(index: number, at: string): ConversationSummary {
+function conversation(index: number, at: string): Conversation {
   return {
     id: `01a0292c-0000-7000-8000-${String(index).padStart(12, '0')}` as ConversationId,
     cwd: '/Users/az/projects/porte',
@@ -52,28 +50,25 @@ function minutesIn(index: number): string {
 describe('conversation repository', () => {
   it('applies its migration and reads back what it wrote', async () => {
     await withStore('migrate', (conversations) => {
-      conversations.saveAll([conversation(1, '2026-08-20T10:00:00.000Z')], RUN)
+      conversations.saveAll([conversation(1, '2026-08-20T10:00:00.000Z')])
 
-      const page = conversations.findPage({ cursor: null, limit: CONVERSATION_PAGE_SIZE })
+      const page = conversations.findList({ limit: LIST_CONVERSATIONS_LIMIT_DEFAULT })
       expect(page.conversations).toHaveLength(1)
       expect(page.conversations[0]?.title).toBe('conversation 1')
       expect(page.conversations[0]?.updatedAt).toBe('2026-08-20T10:00:00.000Z')
-      expect(page.next).toBeNull()
+      expect(page.next).toBeUndefined()
     })
   })
 
   it('orders newest first', async () => {
     await withStore('order', (conversations) => {
-      conversations.saveAll(
-        [
-          conversation(1, '2026-08-20T10:00:00.000Z'),
-          conversation(2, '2026-08-22T10:00:00.000Z'),
-          conversation(3, '2026-08-21T10:00:00.000Z'),
-        ],
-        RUN,
-      )
+      conversations.saveAll([
+        conversation(1, '2026-08-20T10:00:00.000Z'),
+        conversation(2, '2026-08-22T10:00:00.000Z'),
+        conversation(3, '2026-08-21T10:00:00.000Z'),
+      ])
 
-      const page = conversations.findPage({ cursor: null, limit: 10 })
+      const page = conversations.findList({ limit: 10 })
       expect(page.conversations.map((one) => one.title)).toEqual([
         'conversation 2',
         'conversation 3',
@@ -87,15 +82,17 @@ describe('conversation repository', () => {
       const all = Array.from({ length: 7 }, (_, index) =>
         conversation(index, `2026-08-2${String(index)}T10:00:00.000Z`),
       )
-      conversations.saveAll(all, RUN)
+      conversations.saveAll(all)
 
       const seen: string[] = []
-      let cursor: string | null = null
+      let cursor: ReturnType<typeof conversations.findList>['next']
       do {
-        const page = conversations.findPage({ cursor, limit: 3 })
+        const page = conversations.findList(
+          cursor === undefined ? { limit: 3 } : { cursor, limit: 3 },
+        )
         seen.push(...page.conversations.map((one) => one.id))
         cursor = page.next
-      } while (cursor !== null)
+      } while (cursor !== undefined)
 
       expect(seen).toHaveLength(7)
       expect(new Set(seen).size).toBe(7)
@@ -105,56 +102,31 @@ describe('conversation repository', () => {
   it('breaks a tie on updatedAt with the id, so a cursor never repeats a row', async () => {
     await withStore('ties', (conversations) => {
       const sameMoment = '2026-08-20T10:00:00.000Z'
-      conversations.saveAll(
-        [conversation(1, sameMoment), conversation(2, sameMoment), conversation(3, sameMoment)],
-        RUN,
-      )
+      conversations.saveAll([
+        conversation(1, sameMoment),
+        conversation(2, sameMoment),
+        conversation(3, sameMoment),
+      ])
 
-      const first = conversations.findPage({ cursor: null, limit: 2 })
-      const second = conversations.findPage({ cursor: first.next, limit: 2 })
+      const first = conversations.findList({ limit: 2 })
+      if (first.next === undefined) throw new Error('Expected a second page')
+      const second = conversations.findList({ cursor: first.next, limit: 2 })
       const ids = [...first.conversations, ...second.conversations].map((one) => one.id)
 
       expect(new Set(ids).size).toBe(3)
     })
   })
 
-  it('sweeps only the rows an earlier run wrote', async () => {
-    await withStore('sweep', (conversations) => {
-      conversations.saveAll(
-        [conversation(1, '2026-08-20T10:00:00.000Z'), conversation(2, '2026-08-21T10:00:00.000Z')],
-        'run-old',
-      )
-      // The next run reports only one of them: the other is gone from the Mac.
-      conversations.saveAll([conversation(1, '2026-08-22T10:00:00.000Z')], 'run-new')
-      conversations.deleteOtherThan('run-new')
-
-      const page = conversations.findPage({ cursor: null, limit: 10 })
-      expect(page.conversations.map((one) => one.title)).toEqual(['conversation 1'])
-    })
-  })
-
-  it('reads the current run back from the rows', async () => {
-    await withStore('run-id', (conversations) => {
-      expect(conversations.currentSyncRunId()).toBeNull()
-
-      conversations.saveAll([conversation(1, '2026-08-20T10:00:00.000Z')], RUN)
-      expect(conversations.currentSyncRunId()).toBe(RUN)
-    })
-  })
-
-  it('keeps the newest rows when capped', async () => {
-    await withStore('cap', (conversations) => {
-      const all = Array.from({ length: 5 }, (_, index) =>
-        conversation(index, `2026-08-2${String(index)}T10:00:00.000Z`),
-      )
-      conversations.saveAll(all, RUN)
-      conversations.deleteBeyond(2)
-
-      const page = conversations.findPage({ cursor: null, limit: 10 })
-      expect(page.conversations.map((one) => one.title)).toEqual([
-        'conversation 4',
-        'conversation 3',
+  it('replaces the complete cache', async () => {
+    await withStore('replace', (conversations) => {
+      conversations.saveAll([
+        conversation(1, '2026-08-20T10:00:00.000Z'),
+        conversation(2, '2026-08-21T10:00:00.000Z'),
       ])
+      conversations.replaceAll([conversation(1, '2026-08-22T10:00:00.000Z')])
+
+      const page = conversations.findList({ limit: 10 })
+      expect(page.conversations.map((one) => one.title)).toEqual(['conversation 1'])
     })
   })
 
@@ -167,37 +139,22 @@ describe('conversation repository', () => {
     await withStore('bulk-save', (conversations) => {
       const all = Array.from({ length: 500 }, (_, index) => conversation(index, minutesIn(index)))
 
-      conversations.saveAll(all, RUN)
+      conversations.saveAll(all)
 
-      expect(conversations.findPage({ cursor: null, limit: 1000 }).conversations).toHaveLength(500)
-    })
-  })
-
-  it('caps far above the bound-parameter limit', async () => {
-    await withStore('bulk-cap', (conversations) => {
-      const all = Array.from({ length: 300 }, (_, index) => conversation(index, minutesIn(index)))
-      conversations.saveAll(all, RUN)
-
-      conversations.deleteBeyond(250)
-
-      const kept = conversations.findPage({ cursor: null, limit: 1000 }).conversations
-      expect(kept).toHaveLength(250)
-      // Newest first, so the survivors are the tail of what went in.
-      expect(kept[0]?.title).toBe('conversation 299')
-      expect(kept.at(-1)?.title).toBe('conversation 50')
+      expect(conversations.findList({ limit: 1000 }).conversations).toHaveLength(500)
     })
   })
 
   it('deletes one, and empties on demand', async () => {
     await withStore('delete', (conversations) => {
       const one = conversation(1, '2026-08-20T10:00:00.000Z')
-      conversations.saveAll([one, conversation(2, '2026-08-21T10:00:00.000Z')], RUN)
+      conversations.saveAll([one, conversation(2, '2026-08-21T10:00:00.000Z')])
 
       conversations.delete(one.id)
-      expect(conversations.findPage({ cursor: null, limit: 10 }).conversations).toHaveLength(1)
+      expect(conversations.findList({ limit: 10 }).conversations).toHaveLength(1)
 
       conversations.deleteAll()
-      expect(conversations.findPage({ cursor: null, limit: 10 }).conversations).toHaveLength(0)
+      expect(conversations.findList({ limit: 10 }).conversations).toHaveLength(0)
     })
   })
 })

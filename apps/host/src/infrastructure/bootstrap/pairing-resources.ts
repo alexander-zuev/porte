@@ -1,6 +1,6 @@
 import type { CredentialStore } from '@host/application/ports/credential-store.ts'
 import type { DeviceAuthorizer } from '@host/application/ports/device-authorizer.ts'
-import type { HostConfig } from '@host/entrypoints/cli/host-config.ts'
+import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import { FileCredentialStore } from '@host/infrastructure/persistence/credential-store.ts'
 import { DeviceAuthorizationClient } from '@host/infrastructure/porte/device-authorization-client.ts'
 

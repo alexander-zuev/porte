@@ -1,12 +1,12 @@
+import { CodingAgentResponseError } from '@host/application/errors/coding-agent-errors.ts'
 import type { AcpClient } from '@host/infrastructure/acp/client.ts'
 import {
+  CodingAgentUnavailableError,
   ConversationIdSchema,
   IsoDateTimeSchema,
   makeConversation,
   type Conversation,
-  type FailureClassification,
 } from '@porte/core/client'
-import { Result, TaggedError, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
 import { normaliseGitRoot } from './git-root.ts'
@@ -38,30 +38,6 @@ const sessionListSchema = z.object({
  */
 const MAX_PAGES = 40
 
-/**
- * Grok could not be asked for its sessions, or answered unreadably.
- *
- * The two are kept apart because only one is worth trying again: a control
- * process that died comes back, an answer this version cannot parse will not.
- */
-export class GrokSessionListError extends TaggedError('GrokSessionListError')<{
-  kind: 'unreachable' | 'unreadable'
-  cause: unknown
-  message: string
-  classification: FailureClassification
-}> {
-  constructor(args: { kind: 'unreachable' | 'unreadable'; cause: unknown }) {
-    super({
-      ...args,
-      message:
-        args.kind === 'unreachable'
-          ? 'Grok did not answer session/list'
-          : 'Grok returned an unreadable session list',
-      classification: args.kind === 'unreachable' ? 'transient' : 'terminal',
-    })
-  }
-}
-
 type AcpRequester = Pick<AcpClient, 'request'>
 
 /**
@@ -74,26 +50,26 @@ type AcpRequester = Pick<AcpClient, 'request'>
  *
  * Pages until the cursor runs out. Grok fixes the page size itself.
  */
-export async function listGrokSessions(
-  client: AcpRequester,
-): Promise<ResultType<Conversation[], GrokSessionListError>> {
+export async function listGrokSessions(client: AcpRequester): Promise<Conversation[]> {
   const listed: Conversation[] = []
   let cursor: string | undefined
 
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    // oxlint-disable-next-line no-await-in-loop -- Each page needs the previous page's cursor.
-    const answered = await client.request({
-      method: 'session/list',
-      params: cursor === undefined ? {} : { cursor },
-      timeoutMs: 30_000,
-    })
-    if (answered.isErr()) {
-      return Result.err(new GrokSessionListError({ kind: 'unreachable', cause: answered.error }))
+    let answered
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- Each page needs the previous page's cursor.
+      answered = await client.request({
+        method: 'session/list',
+        params: cursor === undefined ? {} : { cursor },
+        timeoutMs: 30_000,
+      })
+    } catch (cause) {
+      throw new CodingAgentUnavailableError({ cause })
     }
 
-    const parsed = sessionListSchema.safeParse(answered.value)
+    const parsed = sessionListSchema.safeParse(answered)
     if (!parsed.success) {
-      return Result.err(new GrokSessionListError({ kind: 'unreadable', cause: parsed.error }))
+      throw new CodingAgentResponseError({ cause: parsed.error })
     }
 
     for (const session of parsed.data.sessions) {
@@ -107,10 +83,11 @@ export async function listGrokSessions(
   }
 
   listed.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-  return Result.ok(listed)
+  return listed
 }
 
 function toSummary(session: z.infer<typeof sessionSchema>): Conversation | undefined {
+  // oxlint-disable-next-line no-underscore-dangle -- ACP requires the exact `_meta` name.
   const gitRoot = session._meta?.['x.ai/session']?.facets.gitRoot
   if (gitRoot === undefined) return undefined
 

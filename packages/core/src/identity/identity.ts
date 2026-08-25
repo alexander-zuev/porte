@@ -13,10 +13,6 @@ export const createHostId = (): HostId => HostIdSchema.parse(uuidv7())
 export const UserIdSchema = z.uuidv7().brand<'UserId'>()
 export type UserId = z.infer<typeof UserIdSchema>
 
-export const OperationIdSchema = z.string().min(1).max(1024).brand<'OperationId'>()
-export type OperationId = z.infer<typeof OperationIdSchema>
-export const createOperationId = (): OperationId => OperationIdSchema.parse(uuidv7())
-
 export const RequestIdSchema = z.uuidv7().brand<'RequestId'>()
 export type RequestId = z.infer<typeof RequestIdSchema>
 export const createRequestId = (): RequestId => RequestIdSchema.parse(uuidv7())
@@ -51,10 +47,6 @@ export type MessageId = z.infer<typeof MessageIdSchema>
 
 /** Create one time-ordered message identifier. */
 export const createMessageId = (): MessageId => MessageIdSchema.parse(uuidv7())
-
-/** Ordered position of one live record within a conversation. */
-export const EventSequenceSchema = z.number().int().positive().brand<'EventSequence'>()
-export type EventSequence = z.infer<typeof EventSequenceSchema>
 
 export const ToolCallIdSchema = z.string().min(1).brand<'ToolCallId'>()
 export type ToolCallId = z.infer<typeof ToolCallIdSchema>

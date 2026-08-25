@@ -1,14 +1,14 @@
-import type { HostApplicationResources } from '@host/application/host-application-resources.ts'
-import { ConversationCatalog } from '@host/domain/conversation/conversation-catalog.ts'
-import { retryDelayMs } from '@host/entrypoints/websocket/control-connection.ts'
+import { ConversationCatalog } from '@host/application/conversation-catalog.ts'
+import type { AgentSessionFactory } from '@host/application/ports/agent-session-factory.ts'
+import type { SessionOperations } from '@host/application/session-supervisor.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager'
-import { RelayProtocolError } from '@host/entrypoints/websocket/websocket-errors.ts'
 import type {
-  PartySocketClientInput,
-  WebSocketClient,
-} from '@host/infrastructure/websocket/party-socket-client.ts'
+  PartySocketTransportInput,
+  RelaySocket,
+  RelaySocketListeners,
+} from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
   ConversationIdSchema,
   ConversationSchema,
@@ -17,180 +17,188 @@ import {
   createRequestId,
   jsonRpcRequest,
   type JsonRpcDocument,
+  type JsonRpcParams,
 } from '@porte/core/client'
-import { Result } from 'better-result'
 import { describe, expect, it, vi } from 'vitest'
 
-class MockPartySocket extends EventTarget implements WebSocketClient {
-  readonly retryCount = 0
+const emptyOperation = async () => undefined
+
+class MockTransport implements RelaySocket {
+  private readonly stoppedState = Promise.withResolvers<void>()
+  private listeners: RelaySocketListeners | undefined
+  private connected = false
   readonly sent: string[] = []
-  readonly connectionFailure = undefined
-  private openState = false
 
-  send(data: string): boolean {
-    if (this.openState) this.sent.push(data)
-    return this.openState
+  readonly stopped = this.stoppedState.promise
+
+  start(listeners: RelaySocketListeners): void {
+    this.listeners = listeners
   }
 
-  close(): void {
-    this.openState = false
+  async send(frame: string): Promise<void> {
+    if (this.connected) this.sent.push(frame)
   }
 
-  closeFromRelay(code: number, reason = ''): void {
-    const event = new Event('close')
-    Object.defineProperties(event, { code: { value: code }, reason: { value: reason } })
-    this.dispatchEvent(event)
+  stop(): void {
+    this.connected = false
+    this.listeners = undefined
+    this.stoppedState.resolve()
   }
 
-  reconnect(): void {}
-
-  open(): void {
-    this.openState = true
-    this.dispatchEvent(new Event('open'))
+  async connect(): Promise<void> {
+    this.connected = true
+    await this.listeners?.onUp?.()
   }
 
-  receive(data: string): void {
-    this.dispatchEvent(new MessageEvent('message', { data }))
+  async receive(frame: string): Promise<void> {
+    const document = await this.listeners?.onFrame(frame)
+    if (document !== undefined) await this.send(JSON.stringify(document))
   }
 }
 
-describe('retryDelayMs', () => {
-  it('uses a bounded exponential delay', () => {
-    expect([0, 1, 2, 3, 4, 5, 6].map(retryDelayMs)).toEqual([
-      0, 250, 500, 1_000, 2_000, 4_000, 5_000,
-    ])
-  })
-})
-
 describe('Host WebSocket connections', () => {
-  it('does not process messages after closure', () => {
+  it('does not process messages after closure', async () => {
     const test = connectionTest()
-    test.manager.closeControlConnection()
-    test.control.receive(
-      JSON.stringify(
-        jsonRpcRequest(createRequestId(), 'conversation.attach', {
-          conversationId: ConversationIdSchema.parse('conversation-1'),
-        }),
-      ),
+    await test.manager.closeAll()
+    await test.control.receive(
+      request('conversation.attach', {
+        conversationId: ConversationIdSchema.parse('conversation-1'),
+      }),
     )
     expect(test.conversations).toHaveLength(0)
   })
 
-  it('keeps the control lifecycle open after a retryable close', async () => {
-    const test = connectionTest()
-    test.control.closeFromRelay(1000)
-    const state = await Promise.race([
-      test.connection.closed.then(() => 'closed'),
-      new Promise((resolve) =>
-        setTimeout(() => {
-          resolve('open')
-        }, 0),
-      ),
-    ])
-    expect(state).toBe('open')
-    test.manager.closeControlConnection()
-  })
-
-  it('rejects the control lifecycle after a protocol close', async () => {
-    const test = connectionTest()
-    test.control.closeFromRelay(1008, 'policy violation')
-    await expect(test.connection.closed).rejects.toBeInstanceOf(RelayProtocolError)
-  })
-
   it('answers one validated control query', async () => {
     const test = connectionTest()
-    test.control.open()
-    test.control.receive(
-      JSON.stringify(jsonRpcRequest(createRequestId(), 'conversations.list', { limit: 50 })),
-    )
-    await vi.waitFor(() => {
-      expect(jsonFrames(test.control).at(-1)?.result).toEqual({ conversations: [] })
-    })
-    test.manager.closeControlConnection()
+    await test.control.connect()
+    await test.control.receive(request('conversations.list', { limit: 50 }))
+    expect(jsonFrames(test.control).at(-1)?.result).toEqual({ conversations: [] })
+    await test.manager.closeAll()
   })
 
-  it('opens one conversation connection after attach', async () => {
+  it('opens one conversation transport after attach', async () => {
     const test = connectionTest()
     const conversationId = ConversationIdSchema.parse('conversation-1')
-    test.control.open()
-    test.control.receive(
-      JSON.stringify(jsonRpcRequest(createRequestId(), 'conversation.attach', { conversationId })),
-    )
+    await test.control.connect()
+    void test.control.receive(request('conversation.attach', { conversationId }))
     await vi.waitFor(() => {
       expect(test.conversations).toHaveLength(1)
     })
-    test.conversations[0]?.open()
+    await test.conversations[0]?.connect()
     await vi.waitFor(() => {
       expect(jsonFrames(test.control).at(-1)?.result).toBe(null)
     })
     expect(jsonFrames(test.conversations[0]).at(-1)?.method).toBe('conversation.state')
-    test.manager.closeControlConnection()
+    await test.manager.closeAll()
+  })
+
+  it('reattaches the same session after reconnect', async () => {
+    const test = connectionTest()
+    const conversationId = ConversationIdSchema.parse('conversation-1')
+    await test.control.connect()
+    void test.control.receive(request('conversation.attach', { conversationId }))
+    await vi.waitFor(() => {
+      expect(test.conversations).toHaveLength(1)
+    })
+    await test.conversations[0]?.connect()
+    await test.conversations[0]?.connect()
+    expect(test.sessions.openConversation).toHaveBeenCalledTimes(2)
+    await test.manager.closeAll()
+  })
+
+  it('removes a stopped conversation connection', async () => {
+    const test = connectionTest()
+    const conversationId = ConversationIdSchema.parse('conversation-1')
+    await test.control.connect()
+    const attached = test.control.receive(request('conversation.attach', { conversationId }))
+    await vi.waitFor(() => {
+      expect(test.conversations).toHaveLength(1)
+    })
+    await test.conversations[0]?.connect()
+    await attached
+    test.conversations[0]?.stop()
+    await Promise.resolve()
+    const reattached = test.control.receive(request('conversation.attach', { conversationId }))
+    await vi.waitFor(() => {
+      expect(test.conversations).toHaveLength(2)
+    })
+    await test.conversations[1]?.connect()
+    await reattached
+    await test.manager.closeAll()
   })
 })
 
 function connectionTest() {
-  const control = new MockPartySocket()
-  const conversations: MockPartySocket[] = []
-  const createClient = (input: PartySocketClientInput): WebSocketClient => {
+  const control = new MockTransport()
+  const conversations: MockTransport[] = []
+  const sessionOperations = sessions()
+  const createTransport = (input: PartySocketTransportInput): RelaySocket => {
     if (input.subprotocol === HOST_CONTROL_SUBPROTOCOL) return control
-    const socket = new MockPartySocket()
-    conversations.push(socket)
-    return socket
+    const transport = new MockTransport()
+    conversations.push(transport)
+    return transport
   }
   const manager = new HostConnectionManager(
     {
       baseUrl: 'https://relay.example.com',
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
-      resources: resources(),
+      catalog: new ConversationCatalog(),
+      creations: {
+        claim: async () => ({ status: 'claimed' as const }),
+        complete: async () => undefined,
+      },
+      factory: agentFactory(),
+      sessions: sessionOperations,
       token: 'secret',
     },
-    createClient,
+    createTransport,
   )
-  const connection = manager.openControlConnection()
-  return { connection, control, conversations, manager }
+  manager.connectControl()
+  return { control, conversations, manager, sessions: sessionOperations }
 }
 
-function resources(): HostApplicationResources {
-  const empty = async () => Result.ok()
+function sessions(): SessionOperations {
   return {
-    agent: {
-      listConversations: async () => Result.ok([]),
-      openConversation: async () =>
-        Result.ok({
-          turn: { state: 'idle' },
-          items: [],
-          tools: [],
-          plans: [],
-          pending: { permissions: [], elicitations: [] },
-        }),
-      createConversation: async () =>
-        Result.ok(
-          ConversationSchema.parse({
-            id: 'unused',
-            cwd: '/tmp',
-            gitRoot: '/tmp',
-            title: 'Unused',
-            updatedAt: '2026-01-01T00:00:00Z',
-          }),
-        ),
-      closeConversation: empty,
-      startTurn: empty,
-      cancelTurn: empty,
-      setConfiguration: empty,
-      answerPermission: empty,
-      answerElicitation: empty,
-    },
-    catalog: new ConversationCatalog(),
-    creations: {
-      claim: async () => Result.ok({ status: 'claimed' }),
-      complete: empty,
-    },
+    openConversation: vi.fn(async () => ({
+      turn: { state: 'idle' as const },
+      items: [],
+      tools: [],
+      plans: [],
+      pending: { permissions: [], elicitations: [] },
+    })),
+    createConversation: async () =>
+      ConversationSchema.parse({
+        id: 'unused',
+        cwd: '/tmp',
+        gitRoot: '/tmp',
+        title: 'Unused',
+        updatedAt: '2026-01-01T00:00:00Z',
+      }),
+    closeConversation: emptyOperation,
+    startTurn: emptyOperation,
+    cancelTurn: emptyOperation,
+    setConfiguration: emptyOperation,
+    answerPermission: emptyOperation,
+    answerElicitation: emptyOperation,
+    closeAll: emptyOperation,
   }
 }
 
-function jsonFrames(socket: MockPartySocket | undefined): JsonRpcDocument[] {
-  return (socket?.sent ?? []).flatMap((frame) => {
+function agentFactory(): AgentSessionFactory {
+  return {
+    list: async () => [],
+    open: () => Promise.reject(new TypeError('unexpected open')),
+    create: () => Promise.reject(new TypeError('unexpected create')),
+  }
+}
+
+function request(method: string, params: JsonRpcParams): string {
+  return JSON.stringify(jsonRpcRequest(createRequestId(), method, params))
+}
+
+function jsonFrames(transport: MockTransport | undefined): JsonRpcDocument[] {
+  return (transport?.sent ?? []).flatMap((frame) => {
     const parsed = JsonRpcDocumentSchema.safeParse(JSON.parse(frame))
     return parsed.success ? [parsed.data] : []
   })

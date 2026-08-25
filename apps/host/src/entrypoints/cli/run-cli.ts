@@ -3,11 +3,11 @@ import {
   reportUnexpectedCliError,
 } from '@host/entrypoints/cli/cli-error-boundary.ts'
 import { isCliError } from '@host/entrypoints/cli/cli-error.ts'
-import { loadConfig } from '@host/entrypoints/cli/host-config.ts'
 import { runPairCommand } from '@host/entrypoints/cli/pair-command.ts'
 import { VERSION, parseCommand } from '@host/entrypoints/cli/parse-command.ts'
 import { runUpCommand } from '@host/entrypoints/cli/run-up-command.ts'
 import { runUnpairCommand } from '@host/entrypoints/cli/unpair-command.ts'
+import { loadConfig } from '@host/infrastructure/config/host-config.ts'
 
 /** Process streams and environment used by one CLI invocation. */
 export type CliIo = {

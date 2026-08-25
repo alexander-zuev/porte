@@ -1,5 +1,4 @@
 import { pairHost } from '@host/application/commands/pair-host.ts'
-import { PairingError } from '@host/application/pairing-error.ts'
 import {
   CredentialStoreError,
   type CredentialStore,
@@ -10,7 +9,6 @@ import type {
   DeviceCodeGrant,
   DevicePollResult,
 } from '@host/application/ports/device-authorizer.ts'
-import { Result, type Result as ResultType } from 'better-result'
 import { describe, expect, it } from 'vitest'
 
 const GRANT: DeviceCodeGrant = {
@@ -23,14 +21,14 @@ const GRANT: DeviceCodeGrant = {
 
 /** Answers a scripted sequence of polls, so a test states the server's story. */
 function authorizerReturning(
-  polls: ResultType<DevicePollResult, PairingError>[],
+  polls: DevicePollResult[],
 ): DeviceAuthorizer & { pollCount: () => number } {
   let index = 0
   return {
     pollCount: () => index,
-    requestCode: () => Promise.resolve(Result.ok(GRANT)),
-    poll: () => Promise.resolve(polls[index++] ?? Result.ok({ status: 'pending' })),
-    revoke: () => Promise.resolve(Result.ok()),
+    requestCode: () => Promise.resolve(GRANT),
+    poll: () => Promise.resolve(polls[index++] ?? { status: 'pending' }),
+    revoke: () => Promise.resolve(),
     accountOf: () => Promise.resolve('someone@example.com'),
   }
 }
@@ -42,9 +40,9 @@ function credentialSpy(): CredentialStore & { written: () => StoredCredential | 
     read: () => Promise.resolve(saved),
     write: (credential) => {
       saved = credential
-      return Promise.resolve(Result.ok(undefined))
+      return Promise.resolve()
     },
-    clear: () => Promise.resolve(Result.ok(undefined)),
+    clear: () => Promise.resolve(),
   }
 }
 
@@ -81,13 +79,13 @@ describe('pairHost', () => {
   it('stores the token once the person approves', async () => {
     const credentials = credentialSpy()
     const authorizer = authorizerReturning([
-      Result.ok({ status: 'pending' }),
-      Result.ok({ status: 'granted', token: 'session-token' }),
+      { status: 'pending' },
+      { status: 'granted', token: 'session-token' },
     ])
 
     const result = await pair(authorizer, credentials)
 
-    expect(result.isOk()).toBe(true)
+    expect(result).toEqual({ status: 'paired', account: 'someone@example.com' })
     expect(credentials.written()).toEqual({
       baseUrl: 'https://useporte.dev',
       token: 'session-token',
@@ -96,7 +94,7 @@ describe('pairHost', () => {
 
   it('shows the code before waiting, so the person can act', async () => {
     let prompted: string | undefined
-    const authorizer = authorizerReturning([Result.ok({ status: 'granted', token: 't' })])
+    const authorizer = authorizerReturning([{ status: 'granted', token: 't' }])
 
     await pair(authorizer, credentialSpy(), (prompt) => {
       prompted = prompt.userCode
@@ -107,9 +105,9 @@ describe('pairHost', () => {
 
   it('keeps polling while approval is pending', async () => {
     const authorizer = authorizerReturning([
-      Result.ok({ status: 'pending' }),
-      Result.ok({ status: 'pending' }),
-      Result.ok({ status: 'granted', token: 't' }),
+      { status: 'pending' },
+      { status: 'pending' },
+      { status: 'granted', token: 't' },
     ])
 
     await pair(authorizer, credentialSpy())
@@ -119,24 +117,22 @@ describe('pairHost', () => {
 
   it('backs off when the server says to slow down', async () => {
     const authorizer = authorizerReturning([
-      Result.ok({ status: 'slow-down', intervalSeconds: 5 }),
-      Result.ok({ status: 'granted', token: 't' }),
+      { status: 'slow-down', intervalSeconds: 5 },
+      { status: 'granted', token: 't' },
     ])
 
     const result = await pair(authorizer, credentialSpy())
 
-    expect(result.isOk()).toBe(true)
+    expect(result.status).toBe('paired')
   })
 
   it('stores nothing when the person declines', async () => {
     const credentials = credentialSpy()
-    const authorizer = authorizerReturning([Result.ok({ status: 'denied' })])
+    const authorizer = authorizerReturning([{ status: 'denied' }])
 
     const result = await pair(authorizer, credentials)
 
-    // Being refused is how pairing ends, not a fault, so it comes back a value.
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) expect(result.value).toEqual({ status: 'denied' })
+    expect(result).toEqual({ status: 'denied' })
     expect(credentials.written()).toBeNull()
   })
 
@@ -146,20 +142,16 @@ describe('pairHost', () => {
 
     const result = await pair(authorizer, credentialSpy())
 
-    // Nobody answering is how pairing ends, not a fault, so it is a value.
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) expect(result.value).toEqual({ status: 'expired' })
+    expect(result).toEqual({ status: 'expired' })
   })
 
   it('reports a credential that cannot be written', async () => {
-    const authorizer = authorizerReturning([Result.ok({ status: 'granted', token: 't' })])
+    const authorizer = authorizerReturning([{ status: 'granted', token: 't' }])
     const credentials: CredentialStore = {
       ...credentialSpy(),
-      write: () => Promise.resolve(Result.err(new CredentialStoreError({ cause: 'read-only' }))),
+      write: () => Promise.reject(new CredentialStoreError({ cause: 'read-only' })),
     }
 
-    const result = await pair(authorizer, credentials)
-
-    expect(result.isErr()).toBe(true)
+    await expect(pair(authorizer, credentials)).rejects.toThrow(CredentialStoreError)
   })
 })

@@ -1,6 +1,4 @@
-import type { PairingError } from '@host/application/pairing-error.ts'
 import type { HostDescriptor } from '@porte/core/client'
-import type { Result } from 'better-result'
 
 /** What the server hands back when a device asks to be authorized. */
 export type DeviceCodeGrant = {
@@ -20,8 +18,7 @@ export type DeviceCodeGrant = {
  * Outcome of one poll.
  *
  * Every answer the grant defines is a state, including the two that end it.
- * Being refused or running out of time is how pairing finishes, not a fault,
- * so a failed Result is left for a server we cannot reach or cannot parse.
+ * Being refused or running out of time is how pairing finishes, not a fault.
  */
 export type DevicePollResult =
   | { readonly status: 'pending' }
@@ -43,13 +40,13 @@ export type DevicePollResult =
  */
 export interface DeviceAuthorizer {
   /** Ask for a code the person can approve elsewhere, naming the Mac that asked. */
-  requestCode(host: HostDescriptor): Promise<Result<DeviceCodeGrant, PairingError>>
+  requestCode(host: HostDescriptor): Promise<DeviceCodeGrant>
 
   /** Ask once whether approval has happened yet. */
-  poll(deviceCode: string): Promise<Result<DevicePollResult, PairingError>>
+  poll(deviceCode: string): Promise<DevicePollResult>
 
   /** End the pairing this token belongs to. Succeeds when it was already gone. */
-  revoke(token: string): Promise<Result<void, PairingError>>
+  revoke(token: string): Promise<void>
 
   /**
    * Who approved, so the Mac can say whose account it now answers to.

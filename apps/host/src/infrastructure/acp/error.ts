@@ -1,7 +1,19 @@
 import type { FailureClassification } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 
-import type { JsonRpcError } from './message.ts'
+import type { JsonRpcError, JsonValue } from './message.ts'
+
+/** A request from the ACP agent cannot be completed by the Host. */
+export class AcpClientRequestError extends TaggedError('AcpClientRequestError')<{
+  code: number
+  data: JsonValue | undefined
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { code: number; message: string; data?: JsonValue }) {
+    super({ ...args, data: args.data, classification: 'terminal' })
+  }
+}
 
 /** The ACP agent process could not start. */
 export class AcpStartError extends TaggedError('AcpStartError')<{

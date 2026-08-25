@@ -5,7 +5,7 @@ import {
   type ConversationView,
   type FailureClassification,
 } from '@porte/core/client'
-import { Result, TaggedError, type Result as ResultType } from 'better-result'
+import { TaggedError } from 'better-result'
 
 /** A canonical event cannot update the current conversation view. */
 export class ConversationViewError extends TaggedError('ConversationViewError')<{
@@ -17,40 +17,40 @@ export class ConversationViewError extends TaggedError('ConversationViewError')<
   }
 }
 
-/** Applies canonical events and returns a validated conversation view. */
+/** Apply canonical events and return a validated conversation view. */
 export function applyConversationEvents(
   current: ConversationView,
   events: readonly ConversationEvent[],
-): ResultType<ConversationView, ConversationViewError> {
-  let view = ConversationViewSchema.parse(current)
-  for (const event of events) {
-    const applied = applyEvent(view, event)
-    if (applied.isErr()) return applied
-  }
+): ConversationView {
+  const view = ConversationViewSchema.parse(current)
+  for (const event of events) applyEvent(view, event)
+
   const parsed = ConversationViewSchema.safeParse(view)
-  return parsed.success
-    ? Result.ok(parsed.data)
-    : Result.err(new ConversationViewError({ message: 'The conversation view is invalid' }))
+  if (!parsed.success) {
+    throw new ConversationViewError({ message: 'The conversation view is invalid' })
+  }
+  return parsed.data
 }
 
-function applyEvent(
-  view: ConversationView,
-  event: ConversationEvent,
-): ResultType<void, ConversationViewError> {
+function applyEvent(view: ConversationView, event: ConversationEvent): void {
   switch (event.type) {
     case 'message.started':
-      return addItem(view, {
+      addItem(view, {
         type: 'message',
         messageId: event.messageId,
         role: event.role,
         content: [],
       })
+      return
     case 'reasoning.started':
-      return addItem(view, { type: 'reasoning', messageId: event.messageId, content: [] })
+      addItem(view, { type: 'reasoning', messageId: event.messageId, content: [] })
+      return
     case 'message.delta':
-      return appendContent(view, event.messageId, 'message', event.content)
+      appendContent(view, event.messageId, 'message', event.content)
+      return
     case 'reasoning.delta':
-      return appendContent(view, event.messageId, 'reasoning', event.content)
+      appendContent(view, event.messageId, 'reasoning', event.content)
+      return
     case 'tool.updated': {
       const index = view.tools.findIndex((tool) => tool.toolCallId === event.tool.toolCallId)
       if (index === -1) {
@@ -59,26 +59,26 @@ function applyEvent(
       } else {
         view.tools[index] = event.tool
       }
-      return Result.ok()
+      return
     }
     case 'plan.updated':
       view.plans = [...view.plans.filter((plan) => plan.planId !== event.plan.planId), event.plan]
-      return Result.ok()
+      return
     case 'plan.removed':
       view.plans = view.plans.filter((plan) => plan.planId !== event.planId)
-      return Result.ok()
+      return
     case 'conversation.usage.updated':
       view.usage = event.usage
-      return Result.ok()
+      return
     case 'conversation.configuration.updated':
       view.configuration = [...event.options]
-      return Result.ok()
+      return
     case 'conversation.commands.updated':
       view.commands = [...event.commands]
-      return Result.ok()
+      return
     case 'conversation.mode.updated':
       view.modeId = event.modeId
-      return Result.ok()
+      return
     case 'permission.requested':
       view.pending.permissions.push({
         turnId: event.turnId,
@@ -87,49 +87,41 @@ function applyEvent(
         title: event.title,
         options: [...event.options],
       })
-      return Result.ok()
+      return
     case 'permission.resolved':
       view.pending.permissions = view.pending.permissions.filter(
         (permission) => permission.permissionId !== event.permissionId,
       )
-      return Result.ok()
+      return
     case 'elicitation.requested':
       view.pending.elicitations.push({
         turnId: event.turnId,
         elicitationId: event.elicitationId,
         request: event.request,
       })
-      return Result.ok()
+      return
     case 'elicitation.resolved':
     case 'elicitation.completed':
       view.pending.elicitations = view.pending.elicitations.filter(
         (elicitation) => elicitation.elicitationId !== event.elicitationId,
       )
-      return Result.ok()
+      return
     case 'turn.started':
     case 'turn.finished':
     case 'message.completed':
     case 'reasoning.completed':
     case 'conversation.metadata.updated':
     case 'conversation.failed':
-      return Result.ok()
+      return
   }
-  const exhaustive: never = event
-  return exhaustive
 }
 
-function addItem(
-  view: ConversationView,
-  item: Exclude<ConversationItem, { type: 'tool' }>,
-): ResultType<void, ConversationViewError> {
+function addItem(view: ConversationView, item: Exclude<ConversationItem, { type: 'tool' }>): void {
   const exists = view.items.some(
     (current) => current.type !== 'tool' && current.messageId === item.messageId,
   )
-  if (exists) {
-    return Result.err(new ConversationViewError({ message: 'The message already exists' }))
-  }
+  if (exists) throw new ConversationViewError({ message: 'The message already exists' })
   view.items.push(item)
-  return Result.ok()
 }
 
 function appendContent(
@@ -137,13 +129,12 @@ function appendContent(
   messageId: string,
   type: 'message' | 'reasoning',
   content: Extract<ConversationEvent, { type: 'message.delta' }>['content'],
-): ResultType<void, ConversationViewError> {
+): void {
   const item = view.items.find(
     (current) => current.type !== 'tool' && current.messageId === messageId,
   )
   if (item === undefined || item.type !== type) {
-    return Result.err(new ConversationViewError({ message: 'The message does not exist' }))
+    throw new ConversationViewError({ message: 'The message does not exist' })
   }
   item.content.push(content)
-  return Result.ok()
 }

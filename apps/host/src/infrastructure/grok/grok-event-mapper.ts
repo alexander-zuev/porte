@@ -1,4 +1,4 @@
-/* oxlint-disable eslint(no-underscore-dangle) -- ACP requires the exact `_meta` boundary name. */
+/* oxlint-disable no-underscore-dangle -- ACP requires the exact `_meta` boundary name. */
 import type {
   LoadSessionResponse,
   NewSessionResponse,
@@ -18,8 +18,8 @@ import {
   ConversationViewSchema,
   ToolViewSchema,
   type CanonicalContent,
-  type CodingAgentError,
   type ConversationEvent,
+  type ConversationFailurePayload,
   type ConversationItem,
   type MessageView,
   type ReasoningView,
@@ -32,7 +32,7 @@ import {
   type ToolLocation,
   type ToolView,
 } from '@porte/core/client'
-import { Result, TaggedError, type Result as ResultType } from 'better-result'
+import { TaggedError } from 'better-result'
 import { z } from 'zod'
 
 type EventData = z.input<typeof ConversationEventSchema>
@@ -40,18 +40,47 @@ type TurnOutcome = Extract<EventData, { type: 'turn.finished' }>['outcome']
 type MessageStream = 'user' | 'assistant' | 'reasoning'
 type MapperState = 'ready' | 'active' | 'finished'
 
-/** A Grok update cannot become one canonical event. */
-export class GrokEventMappingError extends TaggedError('GrokEventMappingError')<{
-  code: 'INVALID_SEQUENCE' | 'INVALID_VALUE' | 'SESSION_MISMATCH'
+/** Grok sent an update in an invalid order. */
+export class GrokEventSequenceError extends TaggedError('GrokEventSequenceError')<{
   message: string
   classification: FailureClassification
 }> {
-  constructor(args: {
-    code: 'INVALID_SEQUENCE' | 'INVALID_VALUE' | 'SESSION_MISMATCH'
-    message: string
-  }) {
-    super({ ...args, classification: 'terminal' })
+  constructor(message: string) {
+    super({ message, classification: 'terminal' })
   }
+}
+
+/** Grok sent a value that cannot form a canonical event. */
+export class GrokEventValueError extends TaggedError('GrokEventValueError')<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(message: string) {
+    super({ message, classification: 'terminal' })
+  }
+}
+
+/** Grok sent an update for a different conversation. */
+export class GrokSessionMismatchError extends TaggedError('GrokSessionMismatchError')<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(message: string) {
+    super({ message, classification: 'terminal' })
+  }
+}
+
+export type GrokEventMappingError =
+  | GrokEventSequenceError
+  | GrokEventValueError
+  | GrokSessionMismatchError
+
+export function isGrokEventMappingError(cause: unknown): cause is GrokEventMappingError {
+  return (
+    cause instanceof GrokEventSequenceError ||
+    cause instanceof GrokEventValueError ||
+    cause instanceof GrokSessionMismatchError
+  )
 }
 
 /** Converts one live Grok ACP turn into canonical events. */
@@ -70,8 +99,8 @@ export class GrokEventMapper {
   start(userMessage: {
     readonly id: MessageId
     readonly content: readonly CanonicalContent[]
-  }): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'ready') return invalidSequence('The Grok turn already started')
+  }): readonly ConversationEvent[] {
+    if (this.state !== 'ready') throw new GrokEventSequenceError('The Grok turn already started')
     this.state = 'active'
     const events: EventData[] = [
       { type: 'turn.started', turnId: this.turnId },
@@ -96,17 +125,10 @@ export class GrokEventMapper {
   }
 
   /** Convert one ACP update from the active turn. */
-  map(
-    notification: AcpSessionNotification,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
+  map(notification: AcpSessionNotification): readonly ConversationEvent[] {
+    if (this.state !== 'active') throw new GrokEventSequenceError('The Grok turn is not active')
     if (notification.sessionId !== this.conversationId) {
-      return Result.err(
-        new GrokEventMappingError({
-          code: 'SESSION_MISMATCH',
-          message: 'The ACP update belongs to a different conversation',
-        }),
-      )
+      throw new GrokSessionMismatchError('The ACP update belongs to a different conversation')
     }
     return this.mapUpdate(notification.update)
   }
@@ -114,7 +136,7 @@ export class GrokEventMapper {
   /** Complete open content and map the ACP stop reason. */
   finish(
     stopReason: 'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled',
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  ): readonly ConversationEvent[] {
     let outcome: TurnOutcome
     if (stopReason === 'cancelled') {
       outcome = { type: 'cancelled' }
@@ -131,7 +153,7 @@ export class GrokEventMapper {
   }
 
   /** Complete open content after the active turn fails. */
-  fail(error: CodingAgentError): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  fail(error: ConversationFailurePayload): readonly ConversationEvent[] {
     return this.close({ type: 'failed', error })
   }
 
@@ -145,8 +167,8 @@ export class GrokEventMapper {
       readonly name: string
       readonly kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
     }[]
-  }): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
+  }): readonly ConversationEvent[] {
+    if (this.state !== 'active') throw new GrokEventSequenceError('The Grok turn is not active')
     return this.events([
       {
         type: 'permission.requested',
@@ -160,11 +182,8 @@ export class GrokEventMapper {
   }
 
   /** Map the selected answer for one ACP permission request. */
-  permissionResolved(
-    permissionId: PermissionId,
-    optionId: string,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
+  permissionResolved(permissionId: PermissionId, optionId: string): readonly ConversationEvent[] {
+    if (this.state !== 'active') throw new GrokEventSequenceError('The Grok turn is not active')
     return this.events([
       {
         type: 'permission.resolved',
@@ -176,10 +195,8 @@ export class GrokEventMapper {
   }
 
   /** Map cancellation for one pending ACP permission request. */
-  permissionCancelled(
-    permissionId: PermissionId,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
+  permissionCancelled(permissionId: PermissionId): readonly ConversationEvent[] {
+    if (this.state !== 'active') throw new GrokEventSequenceError('The Grok turn is not active')
     return this.events([
       {
         type: 'permission.resolved',
@@ -190,12 +207,10 @@ export class GrokEventMapper {
     ])
   }
 
-  private mapUpdate(
-    update: AcpSessionUpdate,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  private mapUpdate(update: AcpSessionUpdate): readonly ConversationEvent[] {
     switch (update.sessionUpdate) {
       case 'user_message_chunk':
-        return Result.ok([])
+        return []
       case 'agent_message_chunk':
         return this.mapContent('assistant', update)
       case 'agent_thought_chunk':
@@ -243,7 +258,7 @@ export class GrokEventMapper {
       }
       case 'compaction_update':
       case 'compaction_summary_chunk':
-        return invalidValue('ACP sent a compaction update that Porte did not advertise')
+        throw new GrokEventValueError('ACP sent a compaction update that Porte did not advertise')
     }
     const exhaustive: never = update
     return exhaustive
@@ -257,47 +272,46 @@ export class GrokEventMapper {
         sessionUpdate: 'user_message_chunk' | 'agent_message_chunk' | 'agent_thought_chunk'
       }
     >,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  ): readonly ConversationEvent[] {
     const parsedId =
       update.messageId === undefined || update.messageId === null
-        ? Result.ok(this.messages.get(stream) ?? this.fallbackMessageId(stream))
-        : resultFromParse(MessageIdSchema.safeParse(update.messageId), 'ACP message ID is invalid')
-    if (parsedId.isErr()) return parsedId
+        ? (this.messages.get(stream) ?? this.fallbackMessageId(stream))
+        : valueFromParse(MessageIdSchema.safeParse(update.messageId), 'ACP message ID is invalid')
 
     const currentId = this.messages.get(stream)
     const events: EventData[] = []
-    if (currentId !== undefined && currentId !== parsedId.value) {
+    if (currentId !== undefined && currentId !== parsedId) {
       events.push(
         stream === 'reasoning'
           ? { type: 'reasoning.completed', turnId: this.turnId, messageId: currentId }
           : { type: 'message.completed', turnId: this.turnId, messageId: currentId },
       )
     }
-    if (currentId !== parsedId.value) {
+    if (currentId !== parsedId) {
       if (stream === 'reasoning') {
-        events.push({ type: 'reasoning.started', turnId: this.turnId, messageId: parsedId.value })
+        events.push({ type: 'reasoning.started', turnId: this.turnId, messageId: parsedId })
       } else {
         events.push({
           type: 'message.started',
           turnId: this.turnId,
-          messageId: parsedId.value,
+          messageId: parsedId,
           role: stream,
         })
       }
-      this.messages.set(stream, parsedId.value)
+      this.messages.set(stream, parsedId)
     }
     events.push(
       stream === 'reasoning'
         ? {
             type: 'reasoning.delta',
             turnId: this.turnId,
-            messageId: parsedId.value,
+            messageId: parsedId,
             content: mapCanonicalContent(update.content),
           }
         : {
             type: 'message.delta',
             turnId: this.turnId,
-            messageId: parsedId.value,
+            messageId: parsedId,
             content: mapCanonicalContent(update.content),
           },
     )
@@ -306,7 +320,7 @@ export class GrokEventMapper {
 
   private mapToolCall(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call' }>,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  ): readonly ConversationEvent[] {
     const parsed = ToolViewSchema.safeParse({
       toolCallId: update.toolCallId,
       title: update.title,
@@ -319,7 +333,7 @@ export class GrokEventMapper {
       rawOutput: mapJson(update.rawOutput),
       _meta: mapMeta(update._meta),
     })
-    if (!parsed.success) return invalidValue('ACP tool call is invalid')
+    if (!parsed.success) throw new GrokEventValueError('ACP tool call is invalid')
     this.tools.set(update.toolCallId, parsed.data)
     const completed = this.completeMessages()
     completed.push({ type: 'tool.updated', turnId: this.turnId, tool: parsed.data })
@@ -328,9 +342,11 @@ export class GrokEventMapper {
 
   private mapToolCallUpdate(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call_update' }>,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  ): readonly ConversationEvent[] {
     const current = this.tools.get(update.toolCallId)
-    if (current === undefined) return invalidSequence('ACP updated a tool call before it started')
+    if (current === undefined) {
+      throw new GrokEventSequenceError('ACP updated a tool call before it started')
+    }
 
     const next: ToolView = { ...current }
     if (update.title !== undefined && update.title !== null) next.title = update.title
@@ -348,25 +364,23 @@ export class GrokEventMapper {
     if (update._meta !== undefined && update._meta !== null) next._meta = mapMeta(update._meta)
 
     const parsed = ToolViewSchema.safeParse(next)
-    if (!parsed.success) return invalidValue('ACP tool update is invalid')
+    if (!parsed.success) throw new GrokEventValueError('ACP tool update is invalid')
     this.tools.set(update.toolCallId, parsed.data)
     return this.events([{ type: 'tool.updated', turnId: this.turnId, tool: parsed.data }])
   }
 
   private mapSessionInfo(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'session_info_update' }>,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (update.title === undefined && update.updatedAt === undefined) return Result.ok([])
+  ): readonly ConversationEvent[] {
+    if (update.title === undefined && update.updatedAt === undefined) return []
     const metadata: Extract<EventData, { type: 'conversation.metadata.updated' }>['update'] = {}
     if (update.title !== undefined) metadata.title = update.title
     if (update.updatedAt !== undefined) metadata.updatedAt = update.updatedAt
     return this.events([{ type: 'conversation.metadata.updated', update: metadata }])
   }
 
-  private close(
-    outcome: TurnOutcome,
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
-    if (this.state !== 'active') return invalidSequence('The Grok turn is not active')
+  private close(outcome: TurnOutcome): readonly ConversationEvent[] {
+    if (this.state !== 'active') throw new GrokEventSequenceError('The Grok turn is not active')
     this.state = 'finished'
     const completed = this.completeMessages()
     completed.push({ type: 'turn.finished', turnId: this.turnId, outcome })
@@ -386,16 +400,16 @@ export class GrokEventMapper {
     return completed
   }
 
-  private events(
-    data: readonly EventData[],
-  ): ResultType<readonly ConversationEvent[], GrokEventMappingError> {
+  private events(data: readonly EventData[]): readonly ConversationEvent[] {
     const events: ConversationEvent[] = []
     for (const item of data) {
       const parsed = ConversationEventSchema.safeParse(item)
-      if (!parsed.success) return invalidValue('ACP update cannot form a canonical event')
+      if (!parsed.success) {
+        throw new GrokEventValueError('ACP update cannot form a canonical event')
+      }
       events.push(parsed.data)
     }
-    return Result.ok(events)
+    return events
   }
 
   private fallbackMessageId(stream: MessageStream): MessageId {
@@ -429,30 +443,18 @@ export class GrokReplayMapper {
   }
 
   /** Apply one ACP update received before session load completes. */
-  map(notification: AcpSessionNotification): ResultType<void, GrokEventMappingError> {
+  map(notification: AcpSessionNotification): void {
     if (this.conversationId !== undefined && notification.sessionId !== this.conversationId) {
-      return Result.err(
-        new GrokEventMappingError({
-          code: 'SESSION_MISMATCH',
-          message: 'ACP replay contains more than one conversation',
-        }),
-      )
+      throw new GrokSessionMismatchError('ACP replay contains more than one conversation')
     }
     this.conversationId = notification.sessionId
-    return this.mapUpdate(notification.update)
+    this.mapUpdate(notification.update)
   }
 
   /** Validate and return the complete view after ACP load completes. */
-  snapshot(
-    expectedConversationId: ConversationId,
-  ): ResultType<ConversationView, GrokEventMappingError> {
+  snapshot(expectedConversationId: ConversationId): ConversationView {
     if (this.conversationId !== undefined && this.conversationId !== expectedConversationId) {
-      return Result.err(
-        new GrokEventMappingError({
-          code: 'SESSION_MISMATCH',
-          message: 'ACP replay belongs to a different conversation',
-        }),
-      )
+      throw new GrokSessionMismatchError('ACP replay belongs to a different conversation')
     }
     const view: ConversationView = {
       items: [...this.items],
@@ -465,53 +467,64 @@ export class GrokReplayMapper {
     if (this.commands !== undefined) view.commands = this.commands
     if (this.modeId !== undefined) view.modeId = this.modeId
     const parsed = ConversationViewSchema.safeParse(view)
-    return parsed.success
-      ? Result.ok(parsed.data)
-      : invalidValue('ACP replay cannot form a complete conversation view')
+    if (!parsed.success) {
+      throw new GrokEventValueError('ACP replay cannot form a complete conversation view')
+    }
+    return parsed.data
   }
 
-  private mapUpdate(update: AcpSessionUpdate): ResultType<void, GrokEventMappingError> {
+  private mapUpdate(update: AcpSessionUpdate): void {
     switch (update.sessionUpdate) {
-      case 'user_message_chunk':
-        return this.mapMessage('user', update)
-      case 'agent_message_chunk':
-        return this.mapMessage('assistant', update)
-      case 'agent_thought_chunk':
-        return this.mapMessage('reasoning', update)
-      case 'tool_call':
-        return this.mapToolCall(update)
-      case 'tool_call_update':
-        return this.mapToolCallUpdate(update)
+      case 'user_message_chunk': {
+        this.mapMessage('user', update)
+        return
+      }
+      case 'agent_message_chunk': {
+        this.mapMessage('assistant', update)
+        return
+      }
+      case 'agent_thought_chunk': {
+        this.mapMessage('reasoning', update)
+        return
+      }
+      case 'tool_call': {
+        this.mapToolCall(update)
+        return
+      }
+      case 'tool_call_update': {
+        this.mapToolCallUpdate(update)
+        return
+      }
       case 'plan':
         this.plans.set('legacy', { type: 'items', planId: 'legacy', entries: update.entries })
-        return Result.ok()
+        return
       case 'plan_update': {
         const plan = mapPlan(update.plan)
         this.plans.set(plan.planId, plan)
-        return Result.ok()
+        return
       }
       case 'plan_removed':
         this.plans.delete(update.planId)
-        return Result.ok()
+        return
       case 'available_commands_update':
         this.commands = update.availableCommands.map(mapCommand)
-        return Result.ok()
+        return
       case 'current_mode_update':
         this.modeId = update.currentModeId
-        return Result.ok()
+        return
       case 'config_option_update':
         this.configuration = update.configOptions.map(mapConfiguration)
-        return Result.ok()
+        return
       case 'session_info_update':
-        return Result.ok()
+        return
       case 'usage_update': {
         this.usage = { usedTokens: update.used, sizeTokens: update.size }
         if (update.cost !== undefined && update.cost !== null) this.usage.cost = update.cost
-        return Result.ok()
+        return
       }
       case 'compaction_update':
       case 'compaction_summary_chunk':
-        return invalidValue('ACP sent a compaction update that Porte did not advertise')
+        throw new GrokEventValueError('ACP sent a compaction update that Porte did not advertise')
     }
     const exhaustive: never = update
     return exhaustive
@@ -525,17 +538,19 @@ export class GrokReplayMapper {
         sessionUpdate: 'user_message_chunk' | 'agent_message_chunk' | 'agent_thought_chunk'
       }
     >,
-  ): ResultType<void, GrokEventMappingError> {
+  ): void {
     let messageId: MessageId
     if (update.messageId !== undefined && update.messageId !== null) {
       const parsed = MessageIdSchema.safeParse(update.messageId)
-      if (!parsed.success) return invalidValue('ACP replay message ID is invalid')
+      if (!parsed.success) throw new GrokEventValueError('ACP replay message ID is invalid')
       messageId = parsed.data
     } else if (this.activeMessages.get(stream) !== undefined) {
       messageId = MessageIdSchema.parse(this.activeMessages.get(stream))
     } else {
       const conversationId = this.conversationId
-      if (conversationId === undefined) return invalidSequence('ACP replay has no conversation')
+      if (conversationId === undefined) {
+        throw new GrokEventSequenceError('ACP replay has no conversation')
+      }
       this.messageOrdinal += 1
       messageId = MessageIdSchema.parse(
         `${conversationId}:${update.sessionUpdate}:${String(this.messageOrdinal)}`,
@@ -554,17 +569,14 @@ export class GrokReplayMapper {
       (stream === 'reasoning' && message.type !== 'reasoning') ||
       (stream !== 'reasoning' && (message.type !== 'message' || message.role !== stream))
     ) {
-      return invalidSequence('ACP replay reused one message ID for different content')
+      throw new GrokEventSequenceError('ACP replay reused one message ID for different content')
     }
 
     message.content.push(mapCanonicalContent(update.content))
     this.activeMessages.set(stream, messageId)
-    return Result.ok()
   }
 
-  private mapToolCall(
-    update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call' }>,
-  ): ResultType<void, GrokEventMappingError> {
+  private mapToolCall(update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call' }>): void {
     const parsed = ToolViewSchema.safeParse({
       toolCallId: update.toolCallId,
       title: update.title,
@@ -577,20 +589,21 @@ export class GrokReplayMapper {
       rawOutput: mapJson(update.rawOutput),
       _meta: mapMeta(update._meta),
     })
-    if (!parsed.success) return invalidValue('ACP replay tool call is invalid')
+    if (!parsed.success) throw new GrokEventValueError('ACP replay tool call is invalid')
     if (!this.tools.has(update.toolCallId)) {
       this.items.push({ type: 'tool', toolCallId: parsed.data.toolCallId })
     }
     this.tools.set(update.toolCallId, parsed.data)
     this.activeMessages.clear()
-    return Result.ok()
   }
 
   private mapToolCallUpdate(
     update: Extract<AcpSessionUpdate, { sessionUpdate: 'tool_call_update' }>,
-  ): ResultType<void, GrokEventMappingError> {
+  ): void {
     const current = this.tools.get(update.toolCallId)
-    if (current === undefined) return invalidSequence('ACP replay updated an unknown tool call')
+    if (current === undefined) {
+      throw new GrokEventSequenceError('ACP replay updated an unknown tool call')
+    }
     const next: ToolView = { ...current }
     if (update.title !== undefined && update.title !== null) next.title = update.title
     if (update.name !== undefined && update.name !== null) next.name = update.name
@@ -606,9 +619,8 @@ export class GrokReplayMapper {
     if (update.rawOutput !== undefined) next.rawOutput = mapJson(update.rawOutput)
     if (update._meta !== undefined && update._meta !== null) next._meta = mapMeta(update._meta)
     const parsed = ToolViewSchema.safeParse(next)
-    if (!parsed.success) return invalidValue('ACP replay tool update is invalid')
+    if (!parsed.success) throw new GrokEventValueError('ACP replay tool update is invalid')
     this.tools.set(update.toolCallId, parsed.data)
-    return Result.ok()
   }
 }
 
@@ -828,17 +840,10 @@ function mapLocation(location: AcpToolLocation): ToolLocation {
   return mapped
 }
 
-function resultFromParse<T>(
+function valueFromParse<T>(
   parsed: { success: true; data: T } | { success: false },
   message: string,
-): ResultType<T, GrokEventMappingError> {
-  return parsed.success ? Result.ok(parsed.data) : invalidValue(message)
-}
-
-function invalidSequence(message: string): ResultType<never, GrokEventMappingError> {
-  return Result.err(new GrokEventMappingError({ code: 'INVALID_SEQUENCE', message }))
-}
-
-function invalidValue(message: string): ResultType<never, GrokEventMappingError> {
-  return Result.err(new GrokEventMappingError({ code: 'INVALID_VALUE', message }))
+): T {
+  if (!parsed.success) throw new GrokEventValueError(message)
+  return parsed.data
 }

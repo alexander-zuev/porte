@@ -1,11 +1,9 @@
 import type {
   ConversationId,
-  ConversationPage,
-  ConversationPageQuery,
-  ConversationTranscript,
   HostId,
   HostStatus,
-  ReadConversation,
+  ListConversationsParams,
+  ListConversationsResult,
 } from '@porte/core'
 
 /**
@@ -32,13 +30,10 @@ export interface HostRelay {
   connect(input: ConnectHost): Promise<Response>
 
   /** One page of what a Mac has reported, newest first. */
-  readConversations(hostId: HostId, query: ConversationPageQuery): Promise<ConversationPage>
-
-  /** Reads one transcript page from the Mac through an idempotent command. */
-  readConversation(
+  readConversations(
     hostId: HostId,
-    query: ReadConversation,
-  ): Promise<ConversationTranscript>
+    query: ListConversationsParams,
+  ): Promise<ListConversationsResult>
 
   /** Whether the relay holds the Mac's socket. The only liveness anything can see. */
   readStatus(hostId: HostId): Promise<HostStatus>

@@ -1,10 +1,4 @@
-import {
-  ConversationPageQuerySchema,
-  ReadConversationSchema,
-  type ConversationPage,
-  type ConversationTranscript,
-} from '@porte/core/client'
-import { getConversation as getConversationQuery } from '@server/application/queries/get-conversation.query.ts'
+import { ListConversationsParamsSchema, type ListConversationsResult } from '@porte/core/client'
 import { getConversations as getConversationsQuery } from '@server/application/queries/get-conversations.query.ts'
 import { requireAuth } from '@server/entrypoints/middleware/auth.middleware.ts'
 import { createServerFn } from '@tanstack/react-start'
@@ -12,21 +6,13 @@ import { createServerFn } from '@tanstack/react-start'
 /**
  * Conversation entrypoints for the web client.
  *
- * HTTP owns conversation lists and transcript pages. Agent sockets own live state.
+ * HTTP owns conversation lists. ConversationAgent owns conversation data.
  */
 
 /** Read one page of the conversations on the account's Mac. */
 export const getConversations = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
-  .validator(ConversationPageQuerySchema)
-  .handler(async ({ context, data }): Promise<ConversationPage> => {
+  .validator(ListConversationsParamsSchema)
+  .handler(async ({ context, data }): Promise<ListConversationsResult> => {
     return getConversationsQuery(context.deps.hosts, context.deps.hostRelay, context.user.id, data)
-  })
-
-/** Reads one canonical transcript page. */
-export const getConversation = createServerFn({ method: 'GET' })
-  .middleware([requireAuth])
-  .validator(ReadConversationSchema)
-  .handler(async ({ context, data }): Promise<ConversationTranscript> => {
-    return getConversationQuery(context.deps.hosts, context.deps.hostRelay, context.user.id, data)
   })

@@ -1,0 +1,1 @@
+ALTER TABLE `conversation` DROP COLUMN `sync_run_id`;

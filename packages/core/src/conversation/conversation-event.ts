@@ -33,7 +33,6 @@ export const ConversationEmissionSchema = z.object({
 export type ConversationEmission = z.infer<typeof ConversationEmissionSchema>
 
 export * from './canonical-content.ts'
-export * from './coding-agent-error.ts'
 export * from './conversation-controls-event.ts'
 export * from './conversation-message-event.ts'
 export * from './conversation-elicitation-event.ts'

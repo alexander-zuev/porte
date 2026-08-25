@@ -52,7 +52,10 @@ describe('porteEventToChunks', () => {
       chunks({
         type: 'turn.finished',
         turnId,
-        outcome: { type: 'failed', error: { code: 'INTERNAL_ERROR', message: 'Grok stopped.' } },
+        outcome: {
+          type: 'failed',
+          error: { _tag: 'InternalServerError', message: 'Grok stopped.' },
+        },
       }),
     ).toEqual([{ type: 'error', errorText: 'Grok stopped.' }])
   })

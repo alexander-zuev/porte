@@ -1,4 +1,9 @@
-import { GrokEventMapper, GrokReplayMapper } from '@host/infrastructure/grok/grok-event-mapper.ts'
+import {
+  GrokEventMapper,
+  GrokEventValueError,
+  GrokReplayMapper,
+  GrokSessionMismatchError,
+} from '@host/infrastructure/grok/grok-event-mapper.ts'
 import {
   MessageIdSchema,
   PermissionIdSchema,
@@ -76,7 +81,7 @@ describe('GrokEventMapper', () => {
       },
     })
 
-    expect(mapped.isOk() && mapped.value[0]).toMatchObject({
+    expect(mapped[0]).toMatchObject({
       type: 'tool.updated',
       tool: {
         name: 'switch_mode',
@@ -122,11 +127,11 @@ describe('GrokEventMapper', () => {
       update: { sessionUpdate: 'plan_removed', planId: 'review' },
     })
 
-    expect(updated.isOk() && updated.value[0]).toMatchObject({
+    expect(updated[0]).toMatchObject({
       type: 'plan.updated',
       plan: { type: 'markdown', planId: 'review', content: '# Review' },
     })
-    expect(removed.isOk() && removed.value[0]).toMatchObject({
+    expect(removed[0]).toMatchObject({
       type: 'plan.removed',
       planId: 'review',
     })
@@ -135,16 +140,16 @@ describe('GrokEventMapper', () => {
   it('rejects unadvertised compaction updates', () => {
     const mapper = createMapper()
     mapper.start(userMessage())
-    const mapped = mapper.map({
-      sessionId,
-      update: {
-        sessionUpdate: 'compaction_update',
-        compactionId: 'compact-1',
-        status: 'in_progress',
-      },
-    })
-
-    expect(mapped.isErr() && mapped.error.code).toBe('INVALID_VALUE')
+    expect(() =>
+      mapper.map({
+        sessionId,
+        update: {
+          sessionUpdate: 'compaction_update',
+          compactionId: 'compact-1',
+          status: 'in_progress',
+        },
+      }),
+    ).toThrow(GrokEventValueError)
   })
 
   it('separates messages around a tool call', () => {
@@ -171,7 +176,7 @@ describe('GrokEventMapper', () => {
     const permissionId = PermissionIdSchema.parse('0198b55e-49d6-7e0f-9917-b08777b451c0')
     const cancelled = mapper.permissionCancelled(permissionId)
 
-    expect(cancelled.isOk() && cancelled.value[0]).toMatchObject({
+    expect(cancelled[0]).toMatchObject({
       type: 'permission.resolved',
       outcome: { type: 'cancelled' },
     })
@@ -180,12 +185,12 @@ describe('GrokEventMapper', () => {
   it('rejects updates for another conversation', () => {
     const mapper = createMapper()
     mapper.start(userMessage())
-    const mapped = mapper.map({
-      sessionId: 'session-2',
-      update: { sessionUpdate: 'plan', entries: [] },
-    })
-
-    expect(mapped.isErr() && mapped.error.code).toBe('SESSION_MISMATCH')
+    expect(() =>
+      mapper.map({
+        sessionId: 'session-2',
+        update: { sessionUpdate: 'plan', entries: [] },
+      }),
+    ).toThrow(GrokSessionMismatchError)
   })
 
   it('builds a complete view from load updates', () => {
@@ -202,7 +207,7 @@ describe('GrokEventMapper', () => {
     })
 
     const view = replay.snapshot(sessionId)
-    expect(view.isOk() && view.value).toMatchObject({
+    expect(view).toMatchObject({
       items: [
         { type: 'message', role: 'user' },
         { type: 'message', role: 'assistant' },
@@ -216,12 +221,12 @@ describe('GrokEventMapper', () => {
   it('rejects replay updates from two conversations', () => {
     const replay = new GrokReplayMapper()
     replay.map(replayChunk('user_message_chunk', 'Question'))
-    const mapped = replay.map({
-      sessionId: 'session-2',
-      update: { sessionUpdate: 'plan', entries: [] },
-    })
-
-    expect(mapped.isErr() && mapped.error.code).toBe('SESSION_MISMATCH')
+    expect(() => {
+      replay.map({
+        sessionId: 'session-2',
+        update: { sessionUpdate: 'plan', entries: [] },
+      })
+    }).toThrow(GrokSessionMismatchError)
   })
 })
 
@@ -243,5 +248,5 @@ function replayChunk(sessionUpdate: 'user_message_chunk' | 'agent_message_chunk'
 type MappingResult = ReturnType<GrokEventMapper['map']>
 
 function eventTypes(...results: readonly MappingResult[]): string[] {
-  return results.flatMap((result) => (result.isOk() ? result.value.map((event) => event.type) : []))
+  return results.flatMap((result) => result.map((event) => event.type))
 }

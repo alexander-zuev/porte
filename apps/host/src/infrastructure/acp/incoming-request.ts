@@ -2,10 +2,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
 import type { PendingElicitation } from '@porte/core/client'
-import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
-import type { JsonRpcError, JsonValue } from './message.ts'
+import { AcpClientRequestError } from './error.ts'
+import type { JsonValue } from './message.ts'
 
 const permissionOptionSchema = z.object({
   optionId: z.string().min(1),
@@ -75,40 +75,40 @@ export async function answerIncomingRequest(
   cwd: string,
   method: string,
   params: JsonValue | undefined,
-): Promise<ResultType<JsonValue, JsonRpcError>> {
+): Promise<JsonValue> {
   if (method === 'fs/read_text_file') {
     return readTextFile(cwd, params)
   }
   if (method === 'fs/write_text_file') {
     return writeTextFile(cwd, params)
   }
-  return Result.err({ code: -32601, message: `method not found: ${method}` })
+  throw new AcpClientRequestError({ code: -32601, message: `method not found: ${method}` })
 }
 
 /** Parse one ACP permission request at the Grok boundary. */
-export function parsePermissionRequest(
-  params: JsonValue | undefined,
-): ResultType<AcpPermissionRequest, JsonRpcError> {
+export function parsePermissionRequest(params: JsonValue | undefined): AcpPermissionRequest {
   const parsed = permissionParamsSchema.safeParse(params)
-  return parsed.success
-    ? Result.ok(parsed.data)
-    : Result.err({ code: -32602, message: 'invalid session/request_permission params' })
+  if (!parsed.success) {
+    throw new AcpClientRequestError({
+      code: -32602,
+      message: 'invalid session/request_permission params',
+    })
+  }
+  return parsed.data
 }
 
 /** Parse the supported ACP elicitation subset at the Grok boundary. */
-export function parseElicitationRequest(
-  params: JsonValue | undefined,
-): ResultType<AcpElicitationRequest, JsonRpcError> {
+export function parseElicitationRequest(params: JsonValue | undefined): AcpElicitationRequest {
   const parsed = elicitationParamsSchema.safeParse(params)
   if (!parsed.success) {
-    return Result.err({ code: -32602, message: 'invalid elicitation/create params' })
+    throw new AcpClientRequestError({ code: -32602, message: 'invalid elicitation/create params' })
   }
   if (parsed.data.mode === 'url') {
-    return Result.ok({
+    return {
       sessionId: parsed.data.sessionId,
       elicitationId: parsed.data.elicitationId,
       request: { type: 'url', url: parsed.data.url },
-    })
+    }
   }
 
   const required = new Set(parsed.data.requestedSchema.required ?? [])
@@ -125,59 +125,54 @@ export function parseElicitationRequest(
     return { type: 'number' as const, id, label, required: required.has(id) }
   })
   if (fields.length === 0) {
-    return Result.err({ code: -32602, message: 'elicitation form has no supported fields' })
+    throw new AcpClientRequestError({
+      code: -32602,
+      message: 'elicitation form has no supported fields',
+    })
   }
-  return Result.ok({ sessionId: parsed.data.sessionId, request: { type: 'form', fields } })
+  return { sessionId: parsed.data.sessionId, request: { type: 'form', fields } }
 }
 
-async function readTextFile(
-  cwd: string,
-  params: JsonValue | undefined,
-): Promise<ResultType<JsonValue, JsonRpcError>> {
+async function readTextFile(cwd: string, params: JsonValue | undefined): Promise<JsonValue> {
   const parsed = readFileParamsSchema.safeParse(params)
   if (!parsed.success) {
-    return Result.err({ code: -32602, message: 'invalid fs/read_text_file params' })
+    throw new AcpClientRequestError({ code: -32602, message: 'invalid fs/read_text_file params' })
   }
   const path = resolveConversationPath(cwd, parsed.data.path)
-  if (path.isErr()) return path
   try {
-    const raw = await readFile(path.value, 'utf8')
-    return Result.ok({ content: sliceLines(raw, parsed.data.line, parsed.data.limit) })
+    const raw = await readFile(path, 'utf8')
+    return { content: sliceLines(raw, parsed.data.line, parsed.data.limit) }
   } catch (cause) {
-    return Result.err({ code: -32000, message: fileErrorMessage(cause) })
+    throw new AcpClientRequestError({ code: -32000, message: fileErrorMessage(cause) })
   }
 }
 
-async function writeTextFile(
-  cwd: string,
-  params: JsonValue | undefined,
-): Promise<ResultType<JsonValue, JsonRpcError>> {
+async function writeTextFile(cwd: string, params: JsonValue | undefined): Promise<JsonValue> {
   const parsed = writeFileParamsSchema.safeParse(params)
   if (!parsed.success) {
-    return Result.err({ code: -32602, message: 'invalid fs/write_text_file params' })
+    throw new AcpClientRequestError({ code: -32602, message: 'invalid fs/write_text_file params' })
   }
   const path = resolveConversationPath(cwd, parsed.data.path)
-  if (path.isErr()) return path
   try {
-    await mkdir(dirname(path.value), { recursive: true })
-    await writeFile(path.value, parsed.data.content)
-    return Result.ok({})
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, parsed.data.content)
+    return {}
   } catch (cause) {
-    return Result.err({ code: -32000, message: fileErrorMessage(cause) })
+    throw new AcpClientRequestError({ code: -32000, message: fileErrorMessage(cause) })
   }
 }
 
-function resolveConversationPath(
-  cwd: string,
-  requestedPath: string,
-): ResultType<string, JsonRpcError> {
+function resolveConversationPath(cwd: string, requestedPath: string): string {
   const root = resolve(cwd)
   const path = resolve(root, requestedPath)
   const fromRoot = relative(root, path)
   if (fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
-    return Result.err({ code: -32602, message: 'path is outside the conversation directory' })
+    throw new AcpClientRequestError({
+      code: -32602,
+      message: 'path is outside the conversation directory',
+    })
   }
-  return Result.ok(path)
+  return path
 }
 
 function sliceLines(raw: string, line: number | undefined, limit: number | undefined): string {

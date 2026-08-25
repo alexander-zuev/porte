@@ -1,9 +1,9 @@
-import type { ConversationPage, ConversationPageQuery, UserId } from '@porte/core'
+import type { ListConversationsParams, ListConversationsResult, UserId } from '@porte/core'
 import type { HostRelay } from '@server/application/ports/host-relay.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
 
 /** An account with no Mac has no conversations, which is not a failure to read them. */
-const NONE: ConversationPage = { conversations: [], next: null }
+const NONE: ListConversationsResult = { conversations: [] }
 
 /**
  * One page of the conversations on the account's Mac.
@@ -17,8 +17,8 @@ export async function getConversations(
   hosts: HostRepository,
   relay: HostRelay,
   userId: UserId,
-  query: ConversationPageQuery,
-): Promise<ConversationPage> {
+  query: ListConversationsParams,
+): Promise<ListConversationsResult> {
   const pairing = await hosts.findPairing(userId)
   if (pairing.state !== 'paired') return NONE
 

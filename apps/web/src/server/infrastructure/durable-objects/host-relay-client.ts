@@ -1,17 +1,15 @@
 import type {
-  ConversationPage,
-  ConversationPageQuery,
-  ConversationTranscript,
   HostId,
   HostStatus,
-  ReadConversation,
+  ListConversationsParams,
+  ListConversationsResult,
 } from '@porte/core'
 import { DurableObjectClient } from '@porte/core'
 import type { ConnectHost, HostRelay } from '@server/application/ports/host-relay.ts'
 import { routeSubAgentRequest } from 'agents'
 
 import type { HostRelayAgent } from './host-relay-agent.ts'
-import { RELAY_HOST_ID_HEADER, RELAY_ROLE_HEADER } from './relay/relay-headers.ts'
+import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
 
 /**
  * How the Worker reaches one Mac's relay.
@@ -31,19 +29,14 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
     })
   }
 
-  async readConversations(hostId: HostId, query: ConversationPageQuery): Promise<ConversationPage> {
-    const page = await this.repeatable(hostId, (relay) => relay.readConversations(query))
-    // The stub hands back a disposable proxy; the page has to outlive it.
-    return { conversations: page.conversations, next: page.next }
-  }
-
-  async readConversation(
+  async readConversations(
     hostId: HostId,
-    query: ReadConversation,
-  ): Promise<ConversationTranscript> {
-    const transcript = await this.once(hostId, (relay) => relay.readConversation(query))
-    // The stub hands back a disposable proxy; the answer has to outlive it.
-    return { ...transcript, events: [...transcript.events] }
+    query: ListConversationsParams,
+  ): Promise<ListConversationsResult> {
+    const read = await this.repeatable(hostId, (relay) => relay.readConversations(query))
+    const conversations = [...read.conversations]
+    // The stub hands back a disposable proxy, so the result is copied out.
+    return read.next === undefined ? { conversations } : { conversations, next: read.next }
   }
 
   async readStatus(hostId: HostId): Promise<HostStatus> {
@@ -66,7 +59,10 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
 function upgradeRequest(input: ConnectHost): Request {
   const headers = new Headers(input.request.headers)
   headers.delete('authorization')
-  headers.set(RELAY_ROLE_HEADER, input.role)
   headers.set(RELAY_HOST_ID_HEADER, input.hostId)
-  return new Request(input.request, { headers })
+  return new Request(input.request.url, {
+    body: input.request.body,
+    headers,
+    method: input.request.method,
+  })
 }

@@ -29,7 +29,7 @@ describe('ConversationLifecycleEventSchema', () => {
     const result = ConversationLifecycleEventSchema.safeParse({
       ...base,
       type: 'conversation.failed',
-      error: { code: 'CODING_AGENT_UNAVAILABLE', message: 'Agent unavailable' },
+      error: { _tag: 'CodingAgentUnavailableError', message: 'Agent unavailable' },
     })
 
     expect(result.success).toBe(true)

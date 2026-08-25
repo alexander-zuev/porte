@@ -1,18 +1,19 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { addAbortListener } from 'node:events'
 import { Readable, Writable } from 'node:stream'
 
 import * as acp from '@agentclientprotocol/sdk'
-import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
 import {
+  AcpClientRequestError,
   AcpExitedError,
   AcpRpcError,
   AcpStartError,
   AcpTimeoutError,
   AcpTransportError,
 } from './error.ts'
-import type { AcpSessionNotification, JsonRpcError, JsonValue } from './message.ts'
+import type { AcpSessionNotification, JsonValue } from './message.ts'
 
 type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
 type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
@@ -22,35 +23,57 @@ export type AcpRequestHandler = (
   id: acp.JsonRpcId,
   method: acp.ClientRequestMethod,
   params: JsonValue,
-) => Promise<ResultType<JsonValue, JsonRpcError>>
+) => Promise<JsonValue>
 
 /** Input required to start one ACP client. */
 export type StartAcpClient = {
   readonly command: string
   readonly args: readonly string[]
   readonly cwd: string
+  /** Stops this child when the Host lifespan ends. The CLI owns process signals. */
+  readonly signal: AbortSignal
   readonly onUpdate: (notification: AcpSessionNotification) => void
   readonly onRequest: AcpRequestHandler
   readonly onElicitationComplete?: (notification: acp.CompleteElicitationNotification) => void
 }
 
 /** Start one ACP process through the official typed SDK. */
-export function startAcpClient(
-  input: StartAcpClient,
-): Promise<ResultType<AcpClient, AcpStartError>> {
-  return new Promise((resolve) => {
+export function startAcpClient(input: StartAcpClient): Promise<AcpClient> {
+  if (input.signal.aborted) {
+    return Promise.reject(new AcpStartError({ cause: input.signal.reason }))
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false
     const child = spawn(input.command, [...input.args], {
       cwd: input.cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+    const abortListener = addAbortListener(input.signal, () => {
+      child.kill('SIGTERM')
+      finish(new AcpStartError({ cause: input.signal.reason }))
+    })
+    const finish = (cause: AcpStartError): void => {
+      if (settled) return
+      settled = true
+      abortListener[Symbol.dispose]()
+      reject(cause)
+    }
     const onError = (cause: unknown): void => {
-      resolve(Result.err(new AcpStartError({ cause })))
+      finish(new AcpStartError({ cause }))
     }
     child.once('error', onError)
     child.once('spawn', () => {
       child.removeListener('error', onError)
-      resolve(Result.ok(new AcpClient(child, input)))
+      const client = new AcpClient(child, input)
+      abortListener[Symbol.dispose]()
+      if (settled) {
+        void client.stop()
+        return
+      }
+      settled = true
+      resolve(client)
     })
   })
 }
@@ -59,7 +82,7 @@ export function startAcpClient(
 export class AcpClient {
   private readonly connection: acp.ClientConnection
   private closed = false
-  private readonly onSignal: () => void
+  private abortListener: Disposable | undefined
 
   constructor(
     private readonly child: ChildProcessWithoutNullStreams,
@@ -83,11 +106,9 @@ export class AcpClient {
     const source = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>
     this.connection = app.connect(acp.ndJsonStream(output, source))
 
-    this.onSignal = () => {
+    this.abortListener = addAbortListener(input.signal, () => {
       void this.stop()
-    }
-    process.once('SIGINT', this.onSignal)
-    process.once('SIGTERM', this.onSignal)
+    })
   }
 
   /** Send one typed ACP request and wait for its response. */
@@ -95,38 +116,37 @@ export class AcpClient {
     readonly method: Method
     readonly params: acp.AgentRequestParamsByMethod[Method]
     readonly timeoutMs: number
-  }): Promise<ResultType<acp.AgentRequestResponsesByMethod[Method], AcpRequestFailure>>
+  }): Promise<acp.AgentRequestResponsesByMethod[Method]>
   /** Send one extension ACP request and wait for its response. */
   request<Response>(request: {
     readonly method: string
     readonly params: JsonValue
     readonly timeoutMs: number
-  }): Promise<ResultType<Response, AcpRequestFailure>>
+  }): Promise<Response>
   async request<Response>(request: {
     readonly method: string
     readonly params: AcpOutgoingParams
     readonly timeoutMs: number
-  }): Promise<ResultType<Response, AcpRequestFailure>> {
+  }): Promise<Response> {
     if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
-      return Result.err(new AcpExitedError({ code: this.child.exitCode }))
+      throw new AcpExitedError({ code: this.child.exitCode })
     }
 
     const cancellation = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
-    const timeout = new Promise<ResultType<never, AcpTimeoutError>>((resolve) => {
+    const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         cancellation.abort()
-        resolve(Result.err(new AcpTimeoutError({ timeoutMs: request.timeoutMs })))
+        reject(new AcpTimeoutError({ timeoutMs: request.timeoutMs }))
       }, request.timeoutMs)
     })
     const response = this.connection.agent
       .request<Response, AcpOutgoingParams>(request.method, request.params, {
         cancellationSignal: cancellation.signal,
       })
-      .then(
-        (value) => Result.ok(value),
-        (cause: unknown) => Result.err(this.mapRequestError(cause)),
-      )
+      .catch((cause: unknown) => {
+        throw this.mapRequestError(cause)
+      })
 
     try {
       return await Promise.race([response, timeout])
@@ -139,22 +159,21 @@ export class AcpClient {
   async notify<Method extends acp.AgentNotificationMethod>(notification: {
     readonly method: Method
     readonly params: acp.AgentNotificationParamsByMethod[Method]
-  }): Promise<ResultType<void, AcpExitedError | AcpTransportError>> {
+  }): Promise<void> {
     if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
-      return Result.err(new AcpExitedError({ code: this.child.exitCode }))
+      throw new AcpExitedError({ code: this.child.exitCode })
     }
     try {
       await this.connection.agent.notify(notification.method, notification.params)
-      return Result.ok()
     } catch (cause) {
-      return Result.err(new AcpTransportError({ cause }))
+      throw new AcpTransportError({ cause })
     }
   }
 
   /** Stop the ACP connection and its child process. */
   async stop(): Promise<void> {
-    process.removeListener('SIGINT', this.onSignal)
-    process.removeListener('SIGTERM', this.onSignal)
+    this.abortListener?.[Symbol.dispose]()
+    this.abortListener = undefined
     if (this.closed) return
     this.closed = true
     this.connection.close()
@@ -216,12 +235,17 @@ async function handleClientRequest<Method extends acp.ClientRequestMethod>(
 ): Promise<acp.ClientRequestResponsesByMethod[Method]> {
   const params = z.json().safeParse(context.params)
   if (!params.success) throw acp.RequestError.invalidParams(params.error, 'Invalid JSON params')
-  const answered = await handler(context.requestId, method, params.data)
-  if (answered.isErr()) {
-    throw new acp.RequestError(answered.error.code, answered.error.message, answered.error.data)
+  try {
+    const answered = await handler(context.requestId, method, params.data)
+    // SAFETY: The SDK parsed the request by method. The handler returns that method's response.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The SDK parsed params by this method.
+    return answered as acp.ClientRequestResponsesByMethod[Method]
+  } catch (cause) {
+    if (cause instanceof AcpClientRequestError) {
+      throw new acp.RequestError(cause.code, cause.message, cause.data)
+    }
+    throw cause
   }
-  // SAFETY: The SDK parsed the request by method. The handler returns that method's response.
-  return answered.value as acp.ClientRequestResponsesByMethod[Method]
 }
 
 function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<boolean> {
@@ -233,6 +257,7 @@ function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): 
       settled = true
       child.removeListener('exit', onExit)
       clearTimeout(timer)
+      // oxlint-disable-next-line promise/no-multiple-resolved -- `settled` guards this resolver.
       resolve(value)
     }
     const timer = setTimeout(() => {

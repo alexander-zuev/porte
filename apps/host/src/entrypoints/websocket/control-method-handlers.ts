@@ -1,122 +1,39 @@
 import { createConversation } from '@host/application/commands/create-conversation.command.ts'
-import type { HostApplicationResources } from '@host/application/host-application-resources.ts'
+import type { ConversationCatalog } from '@host/application/conversation-catalog.ts'
+import type { AgentSessionFactory } from '@host/application/ports/agent-session-factory.ts'
+import type { ConversationCreationStore } from '@host/application/ports/conversation-creation-store.ts'
 import { listConversations } from '@host/application/queries/list-conversations.query.ts'
-import type { IHostconectionManager } from '@host/entrypoints/websocket/host-connection-manager'
-import {
-  sendApplicationResult,
-  sendEmptyApplicationResult,
-  sendInvalidParams,
-} from '@host/entrypoints/websocket/websocket-error-boundary.ts'
-import type { WebSocketClient } from '@host/infrastructure/websocket/party-socket-client.ts'
-import {
-  HostControlMethods,
-  HostRequestIdSchema,
-  jsonRpcRequestSchema,
-  type HostControlRequestMethod,
-  type JsonRpcDocument,
-} from '@porte/core/client'
+import type { SessionOperations } from '@host/application/session-supervisor.ts'
+import { type JsonRpcMethodHandlers } from '@host/entrypoints/websocket/json-rpc-handler.ts'
+import { HostControlMethods, type ConversationId } from '@porte/core/client'
 
 /** Resources available to control method handlers. */
 export type ControlMethodContext = {
-  readonly connections: Pick<IHostconectionManager, 'openConversationConnection'>
-  readonly resources: HostApplicationResources
+  readonly connections: {
+    connectConversation(conversationId: ConversationId): void
+  }
+  readonly catalog: ConversationCatalog
+  readonly creations: ConversationCreationStore
+  readonly factory: AgentSessionFactory
+  readonly sessions: SessionOperations
 }
 
-/** Handle one parsed control method document. */
-export type ControlMethodHandler = (
-  document: JsonRpcDocument,
-  socket: WebSocketClient,
-  context: ControlMethodContext,
-) => Promise<void>
-
-/** One exhaustive handler for each inbound control method. */
-export type ControlMethodHandlerRegistry = Readonly<
-  Record<HostControlRequestMethod, ControlMethodHandler>
+/** One exhaustive handler for each inbound control request. */
+export type ControlMethodHandlerRegistry = JsonRpcMethodHandlers<
+  typeof HostControlMethods,
+  ControlMethodContext
 >
 
-/** WebSocket handlers for every inbound control method. */
+/** Application handlers for every inbound control request. */
 export const CONTROL_METHOD_HANDLERS = {
-  'conversations.list': handleListConversations,
-  'conversation.create': handleCreateConversation,
-  'conversation.attach': handleAttachConversation,
+  'conversations.list': (params, context) =>
+    listConversations(context.factory, context.catalog, params),
+
+  'conversation.create': (params, context) =>
+    createConversation(context.sessions, context.creations, context.catalog, params),
+
+  'conversation.attach': async (params, context) => {
+    context.connections.connectConversation(params.conversationId)
+    return null
+  },
 } satisfies ControlMethodHandlerRegistry
-
-async function handleListConversations(
-  document: JsonRpcDocument,
-  socket: WebSocketClient,
-  context: ControlMethodContext,
-): Promise<void> {
-  const request = jsonRpcRequestSchema(
-    'conversations.list',
-    HostControlMethods['conversations.list'].params,
-    HostRequestIdSchema,
-  ).safeParse(document)
-  if (!request.success) {
-    sendInvalidParams(socket, requestId(document))
-    return
-  }
-
-  sendApplicationResult(
-    socket,
-    request.data.id,
-    request.data.method,
-    await listConversations(
-      context.resources.agent,
-      context.resources.catalog,
-      request.data.params,
-    ),
-  )
-}
-
-async function handleCreateConversation(
-  document: JsonRpcDocument,
-  socket: WebSocketClient,
-  context: ControlMethodContext,
-): Promise<void> {
-  const request = jsonRpcRequestSchema(
-    'conversation.create',
-    HostControlMethods['conversation.create'].params,
-    HostRequestIdSchema,
-  ).safeParse(document)
-  if (!request.success) {
-    sendInvalidParams(socket, requestId(document))
-    return
-  }
-
-  sendApplicationResult(
-    socket,
-    request.data.id,
-    request.data.method,
-    await createConversation(
-      context.resources.agent,
-      context.resources.creations,
-      context.resources.catalog,
-      request.data.params,
-    ),
-  )
-}
-
-async function handleAttachConversation(
-  document: JsonRpcDocument,
-  socket: WebSocketClient,
-  context: ControlMethodContext,
-): Promise<void> {
-  const request = jsonRpcRequestSchema(
-    'conversation.attach',
-    HostControlMethods['conversation.attach'].params,
-    HostRequestIdSchema,
-  ).safeParse(document)
-  if (!request.success) {
-    sendInvalidParams(socket, requestId(document))
-    return
-  }
-
-  const connection = context.connections.openConversationConnection(
-    request.data.params.conversationId,
-  )
-  sendEmptyApplicationResult(socket, request.data.id, request.data.method, await connection.ready)
-}
-
-function requestId(document: JsonRpcDocument) {
-  return 'id' in document && document.id !== undefined ? document.id : null
-}

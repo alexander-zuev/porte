@@ -1,12 +1,11 @@
-import type { CodingAgent, CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
 import type { ConversationId, HostConversationMethodMap } from '@porte/core/client'
-import type { Result } from 'better-result'
 
 /** Answer one pending coding-agent permission request. */
 export function answerPermission(
-  agent: Pick<CodingAgent, 'answerPermission'>,
+  sessions: Pick<SessionSupervisor, 'answerPermission'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['permission.answer']['params'],
-): Promise<Result<void, CodingAgentError>> {
-  return agent.answerPermission({ conversationId, ...command })
+): Promise<void> {
+  return sessions.answerPermission({ conversationId, ...command })
 }

@@ -1,5 +1,10 @@
 /* oxlint-disable eslint(no-underscore-dangle) -- ACP requires the exact `_meta` boundary name. */
-import type { CanonicalContent, ConversationEvent, ToolView } from '@porte/core/client'
+import type {
+  CanonicalContent,
+  ConversationEvent,
+  ConversationState,
+  ToolView,
+} from '@porte/core/client'
 import type { ProviderMetadata, UIMessage, UIMessageChunk } from 'ai'
 
 type ProjectedContentChunk = Extract<
@@ -19,10 +24,18 @@ export type ConversationEventProjectionState = {
 }
 
 /** Creates isolated state for one assistant stream. */
-export function createConversationEventProjectionState(): ConversationEventProjectionState {
+export function createConversationEventProjectionState(
+  current?: ConversationState,
+): ConversationEventProjectionState {
   return {
-    toolInputSignatures: new Map(),
-    ownMessages: new Set(),
+    toolInputSignatures: new Map(
+      current?.tools.map((tool) => [tool.toolCallId, toolInputSignature(tool)]),
+    ),
+    ownMessages: new Set(
+      current?.items.flatMap((item) =>
+        item.type === 'message' && item.role === 'user' ? [item.messageId] : [],
+      ),
+    ),
     openText: new Set(),
     openReasoning: new Set(),
   }
@@ -151,13 +164,7 @@ function openPart(
 
 function projectTool(tool: ToolView, state: ConversationEventProjectionState): UIMessageChunk[] {
   const chunks: UIMessageChunk[] = []
-  const input = {
-    value: tool.rawInput ?? null,
-    title: tool.title,
-    kind: tool.kind,
-    locations: tool.locations,
-    _meta: tool._meta ?? null,
-  }
+  const input = toolInput(tool)
   const signature = JSON.stringify(input)
   if (state.toolInputSignatures.get(tool.toolCallId) !== signature) {
     state.toolInputSignatures.set(tool.toolCallId, signature)
@@ -189,6 +196,20 @@ function projectTool(tool: ToolView, state: ConversationEventProjectionState): U
     })
   }
   return chunks
+}
+
+function toolInput(tool: ToolView) {
+  return {
+    value: tool.rawInput ?? null,
+    title: tool.title,
+    kind: tool.kind,
+    locations: tool.locations,
+    _meta: tool._meta ?? null,
+  }
+}
+
+function toolInputSignature(tool: ToolView): string {
+  return JSON.stringify(toolInput(tool))
 }
 
 function contentMetadata(content: CanonicalContent): ProviderMetadata | undefined {

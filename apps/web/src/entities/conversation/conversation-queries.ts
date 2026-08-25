@@ -1,26 +1,6 @@
-import {
-  CONVERSATION_HISTORY_PAGE_SIZE,
-  CONVERSATION_PAGE_SIZE,
-  conversationRelayStateFromSnapshot,
-  type ConversationId,
-  type ConversationIdentity,
-  type ConversationPage,
-  type ReadyConversationRelayState,
-  type ReadConversation,
-  type TranscriptCursor,
-} from '@porte/core/client'
-import { getConversation, getConversations } from '@server/entrypoints/functions/conversation.fn.ts'
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
-import type { UIMessage } from 'ai'
-
-import { porteEventsToMessages } from './porte-events-to-messages.ts'
-
-export type InitialConversation = {
-  readonly conversation: ConversationIdentity
-  readonly messages: UIMessage[]
-  readonly next: TranscriptCursor | null
-  readonly state: ReadyConversationRelayState
-}
+import { LIST_CONVERSATIONS_LIMIT_DEFAULT, type ListConversationsResult } from '@porte/core/client'
+import { getConversations } from '@server/entrypoints/functions/conversation.fn.ts'
+import { infiniteQueryOptions } from '@tanstack/react-query'
 
 /**
  * Query factory for the conversations on the account's Mac.
@@ -36,30 +16,14 @@ export const conversationQueries = {
   list: () =>
     infiniteQueryOptions({
       queryKey: ['conversation', 'list'] as const,
-      queryFn: ({ pageParam }: { pageParam: string | null }) =>
-        getConversations({ data: { cursor: pageParam, limit: CONVERSATION_PAGE_SIZE } }),
-      initialPageParam: null,
-      getNextPageParam: (page: ConversationPage) => page.next,
-    }),
-  detail: (conversationId: ConversationId) =>
-    queryOptions({
-      queryKey: ['conversation', 'detail', conversationId] as const,
-      queryFn: () =>
-        readConversationPage({
-          conversationId,
-          cursor: null,
-          limit: CONVERSATION_HISTORY_PAGE_SIZE,
+      queryFn: ({ pageParam }) =>
+        getConversations({
+          data:
+            pageParam === undefined
+              ? { limit: LIST_CONVERSATIONS_LIMIT_DEFAULT }
+              : { cursor: pageParam, limit: LIST_CONVERSATIONS_LIMIT_DEFAULT },
         }),
+      initialPageParam: undefined,
+      getNextPageParam: (result: ListConversationsResult) => result.next,
     }),
-}
-
-/** Reads one typed transcript page. A refusal rejects with its tag, as every server function does. */
-export async function readConversationPage(params: ReadConversation): Promise<InitialConversation> {
-  const transcript = await getConversation({ data: params })
-  return {
-    conversation: transcript.conversation,
-    messages: await porteEventsToMessages(transcript.events),
-    next: transcript.next,
-    state: conversationRelayStateFromSnapshot(transcript.state),
-  }
 }

@@ -5,10 +5,12 @@ import {
   ConversationCreationClaim,
   ConversationCreationRecord,
   ConversationCreationStore,
-  ConversationCreationStoreError,
 } from '@host/application/ports/conversation-creation-store.ts'
-import { ConversationCreationIdSchema, ConversationSchema } from '@porte/core/client'
-import { Result, type Result as ResultType } from 'better-result'
+import {
+  ConversationCreationIdSchema,
+  ConversationSchema,
+  InternalServerError,
+} from '@porte/core/client'
 import { z } from 'zod'
 
 const FILE_MODE = 0o600
@@ -54,11 +56,10 @@ export class FileConversationCreationStore implements ConversationCreationStore 
   async claim(
     creationId: ConversationCreationRecord['creationId'],
     cwd: string,
-  ): Promise<ResultType<ConversationCreationClaim, ConversationCreationStoreError>> {
+  ): Promise<ConversationCreationClaim> {
     const loaded = await this.load()
-    if (loaded.isErr()) return loaded
     const write = this.writes.then(async () => {
-      const next = new Map(this.records ?? loaded.value)
+      const next = new Map(this.records ?? loaded)
       const current = next.get(creationId)
       if (current?.status === 'completed') {
         return { status: 'completed', record: current } satisfies ConversationCreationClaim
@@ -76,46 +77,39 @@ export class FileConversationCreationStore implements ConversationCreationStore 
       () => undefined,
     )
     try {
-      return Result.ok(await write)
-    } catch (cause) {
-      return Result.err(new ConversationCreationStoreError({ cause }))
+      return await write
+    } catch {
+      throw new InternalServerError()
     }
   }
 
-  async complete(
-    record: ConversationCreationRecord,
-  ): Promise<ResultType<void, ConversationCreationStoreError>> {
+  async complete(record: ConversationCreationRecord): Promise<void> {
     const loaded = await this.load()
-    if (loaded.isErr()) return loaded
     const write = this.writes.then(async () => {
-      const next = new Map(this.records ?? loaded.value)
+      const next = new Map(this.records ?? loaded)
       next.set(record.creationId, { status: 'completed', ...record })
       await persist(this.filePath, [...next.values()])
       this.records = next
-      return undefined
     })
     this.writes = write.catch(() => undefined)
     try {
       await write
-      return Result.ok()
-    } catch (cause) {
-      return Result.err(new ConversationCreationStoreError({ cause }))
+    } catch {
+      throw new InternalServerError()
     }
   }
 
-  private async load(): Promise<
-    ResultType<Map<string, StoredCreation>, ConversationCreationStoreError>
-  > {
-    if (this.records !== undefined) return Result.ok(this.records)
+  private async load(): Promise<Map<string, StoredCreation>> {
+    if (this.records !== undefined) return this.records
     try {
       const contents = await readFile(this.filePath, 'utf8')
       const parsed = StoreSchema.parse(JSON.parse(contents))
       this.records = new Map(parsed.records.map((record) => [record.creationId, record]))
-      return Result.ok(this.records)
+      return this.records
     } catch (cause) {
-      if (!isMissing(cause)) return Result.err(new ConversationCreationStoreError({ cause }))
+      if (!isMissing(cause)) throw new InternalServerError()
       this.records = new Map()
-      return Result.ok(this.records)
+      return this.records
     }
   }
 }

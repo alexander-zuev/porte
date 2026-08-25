@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { MessageIdSchema, TurnIdSchema } from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
-import { CodingAgentErrorSchema } from './coding-agent-error.ts'
+import { ConversationFailurePayloadSchema } from './conversation-failure-payload.ts'
 
 const turnOutcomeSchema = z.discriminatedUnion('type', [
   z.object({
@@ -10,7 +10,7 @@ const turnOutcomeSchema = z.discriminatedUnion('type', [
     reason: z.enum(['completed', 'limit_reached', 'refused', 'other']),
   }),
   z.object({ type: z.literal('cancelled') }),
-  z.object({ type: z.literal('failed'), error: CodingAgentErrorSchema }),
+  z.object({ type: z.literal('failed'), error: ConversationFailurePayloadSchema }),
 ])
 
 const conversationEventDataSchema = z.discriminatedUnion('type', [

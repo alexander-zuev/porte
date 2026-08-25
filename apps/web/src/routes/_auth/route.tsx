@@ -1,5 +1,6 @@
 import { ensureSession } from '@server/entrypoints/functions/auth.fn.ts'
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useChildMatches } from '@tanstack/react-router'
+import { RelayProvider } from '@web/entities/host/relay-context.tsx'
 import { signInSearchFromLocation } from '@web/lib/auth/internal-return-to.ts'
 import { useAppShellVariant } from '@web/lib/router/use-shell-variant.ts'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
@@ -34,10 +35,16 @@ export const Route = createFileRoute('/_auth')({
  */
 function AuthLayout() {
   const variant = useAppShellVariant('scroll')
+  const usesRelay = useChildMatches({
+    select: (matches) => matches.some((match) => match.routeId.startsWith('/_auth/_relay')),
+  })
 
-  return (
+  const shell = (
     <AppShell header={<AppHeader />} variant={variant}>
       <Outlet />
     </AppShell>
   )
+
+  if (!usesRelay) return shell
+  return <RelayProvider>{shell}</RelayProvider>
 }

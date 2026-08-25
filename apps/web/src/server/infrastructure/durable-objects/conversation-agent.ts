@@ -1,34 +1,55 @@
 import { AIChatAgent, type OnChatMessageOptions } from '@cloudflare/ai-chat'
 import {
+  ConfigurationNotFoundError,
+  ConversationBusyError,
   ConversationIdSchema,
-  EventSequenceSchema,
+  ConversationNotFoundError,
+  ElicitationNotFoundError,
+  HOST_CONVERSATION_SUBPROTOCOL,
+  HostConversationMethods,
+  HostIdSchema,
+  HostOfflineError,
   INITIAL_CONVERSATION_RELAY_STATE,
+  InternalServerError,
   MessageIdSchema,
+  PermissionNotFoundError,
+  RequestTimeoutError,
   TurnIdSchema,
-  conversationRelayStateFromSnapshot,
+  conversationRelayStateFromState,
+  HostRequestIdSchema,
+  JsonRpcReadError,
+  JsonRpcTextSchema,
   createLogger,
   createTurnId,
-  isDomainError,
+  readJsonRpcIncoming,
+  readJsonRpcTextFrame,
   reduceConversationRelayState,
-  RELAY_HEARTBEAT_REQUEST,
-  RELAY_HEARTBEAT_RESPONSE,
-  turnCancelOperationId,
-  turnStartOperationId,
+  sendJsonRpcFrame,
   type CanonicalContent,
   type ConversationEvent,
   type ConversationId,
   type ConversationRelayState,
-  type ConversationStateSnapshot,
-  type EventSequence,
+  type HostConversationMethodMap,
+  type HostId,
+  type JsonRpcInboundNotification,
+  type JsonRpcParams,
   type MessageId,
   type TurnId,
 } from '@porte/core'
 import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import {
+  createConversationEventProjectionState,
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
-import type { AgentContext } from 'agents'
+import { conversationStateToMessages } from '@web/lib/conversation/conversation-state-messages.ts'
+import {
+  type AgentContext,
+  type Connection,
+  type ConnectionContext,
+  type WSMessage,
+  callable,
+} from 'agents'
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -36,346 +57,340 @@ import {
   type UIMessage,
   type UIMessageChunk,
 } from 'ai'
+import { z } from 'zod'
 
-// oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
-import { HostRelayAgent } from './host-relay-agent.ts'
 import {
   createConversationAgentResources,
   type ConversationAgentResources,
 } from './conversation-agent-resources.ts'
+// oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
+import { HostRelayAgent } from './host-relay-agent.ts'
+import {
+  HostApplicationResponseError,
+  HostConnectionUnavailableError,
+  HostJsonRpcRequests,
+  HostRequestTimeoutError,
+} from './relay/host-json-rpc-requests.ts'
+import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
 
 const logger = createLogger('conversation-agent')
+const HOST_CONNECTION_TAG = 'host-conversation'
 
-const EVENT_PREFIX = 'conversation-event:'
-const EVENT_HEAD_KEY = 'conversation-event-head'
-const ACTIVE_TURN_KEY = 'active-turn'
-const EVENT_RETENTION_MS = 60 * 60 * 1_000
-const EVENT_CLEANUP_CALLBACK = 'cleanupConversationEvents'
-
-type ActiveTurn = {
-  readonly turnId: TurnId
-  readonly userMessage: {
-    readonly id: ReturnType<typeof MessageIdSchema.parse>
-    readonly content: CanonicalContent[]
-  }
-  readonly projection: ProjectionSnapshot
+type HostConnectionState = {
+  readonly role: 'host-conversation'
+  readonly hostId: HostId
+  readonly connectedAt: number
 }
-
-type ProjectionSnapshot = {
-  readonly toolInputSignatures: readonly (readonly [string, string])[]
-  readonly ownMessages: readonly string[]
-  readonly openText: readonly string[]
-  readonly openReasoning: readonly string[]
-}
-
-type ConversationEventRecord =
-  | {
-      readonly status: 'pending'
-      readonly eventSequence: EventSequence
-      readonly event: ConversationEvent
-      readonly acceptedAt: number
-    }
-  | {
-      readonly status: 'accepted'
-      readonly eventSequence: EventSequence
-      readonly event: ConversationEvent
-      readonly acceptedAt: number
-    }
-
-type ConversationSnapshotRecord = {
-  readonly status: 'accepted'
-  readonly eventSequence: EventSequence
-  readonly snapshot: ConversationStateSnapshot
-  readonly acceptedAt: number
-}
-
-type ConversationStreamRecord = ConversationEventRecord | ConversationSnapshotRecord
 
 type ActiveStream = {
-  readonly turn: ActiveTurn
+  readonly turnId: TurnId
   readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
   readonly projection: ConversationEventProjectionState
 }
 
-/** One child chat Agent for one conversation on a Mac host. */
+/** Child chat Agent for one conversation data connection. */
 export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelayState> {
+  static options = { hibernate: false }
+
   initialState: ConversationRelayState = INITIAL_CONVERSATION_RELAY_STATE
   chatRecovery = true
 
   private readonly conversationId: ConversationId
   private readonly resources: ConversationAgentResources
+  private readonly requests: HostJsonRpcRequests
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
+  private hasAssistantMessage = false
 
-  /** Creates the isolated chat state and pure event projector. */
   constructor(ctx: AgentContext, env: RuntimeEnv) {
     super(ctx, env)
-    ctx.setWebSocketAutoResponse(
-      new WebSocketRequestResponsePair(RELAY_HEARTBEAT_REQUEST, RELAY_HEARTBEAT_RESPONSE),
-    )
     this.conversationId = ConversationIdSchema.parse(this.name)
     this.resources = createConversationAgentResources(() => this.parentAgent(HostRelayAgent))
+    this.requests = new HostJsonRpcRequests((frame) => this.sendHostFrame(frame))
   }
 
-  /** Starts a Mac turn or reconnects SDK recovery to the current Mac turn. */
+  override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
+    return isHostConnection(context.request) ? [HOST_CONNECTION_TAG] : []
+  }
+
+  override shouldConnectionBeReadonly(
+    _connection: Connection,
+    context: ConnectionContext,
+  ): boolean {
+    return !isHostConnection(context.request)
+  }
+
+  override shouldSendProtocolMessages(
+    _connection: Connection,
+    context: ConnectionContext,
+  ): boolean {
+    return !isHostConnection(context.request)
+  }
+
+  /** Keep Agent and AIChat protocol messages off the Host JSON-RPC connection. */
+  override broadcast(
+    message: string | ArrayBuffer | ArrayBufferView,
+    without: string[] = [],
+  ): void {
+    const excluded = new Set(without)
+    for (const connection of this.getConnections(HOST_CONNECTION_TAG)) {
+      excluded.add(connection.id)
+    }
+    super.broadcast(message, [...excluded])
+  }
+
+  /** Accept one authenticated Host conversation socket. */
+  override onConnect(connection: Connection, context: ConnectionContext): void {
+    if (!isHostConnection(context.request)) return
+    const hostId = HostIdSchema.safeParse(context.request.headers.get(RELAY_HOST_ID_HEADER))
+    if (!hostId.success || !hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)) {
+      connection.close(1008, 'invalid host conversation connection')
+      return
+    }
+    connection.setState({
+      role: 'host-conversation',
+      hostId: hostId.data,
+      connectedAt: Date.now(),
+    } satisfies HostConnectionState)
+    for (const previous of this.getConnections(HOST_CONNECTION_TAG)) {
+      if (previous.id !== connection.id) previous.close(1008, 'host conversation replaced')
+    }
+  }
+
+  /** Handle Host conversation responses and notifications. */
+  override async onMessage(connection: Connection, frame: WSMessage): Promise<void> {
+    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
+    const parsedFrame = readJsonRpcTextFrame(JsonRpcTextSchema.safeParse(frame))
+    if (!parsedFrame.ok) {
+      logger.warn('websocket_frame_rejected', {
+        details: { code: parsedFrame.close.code, reason: parsedFrame.close.reason },
+      })
+      connection.close(parsedFrame.close.code, parsedFrame.close.reason)
+      return
+    }
+    try {
+      const incoming = readJsonRpcIncoming(
+        parsedFrame.frame,
+        HostConversationMethods,
+        HostRequestIdSchema,
+      )
+      if (incoming.kind === 'response') {
+        if (this.requests.accept(incoming.data)) return
+        connection.close(1007, 'unexpected conversation document')
+        return
+      }
+      if (incoming.kind === 'notification') {
+        await this.applyNotification(incoming.data)
+        return
+      }
+      connection.close(1007, 'unexpected conversation document')
+    } catch (cause) {
+      if (cause instanceof JsonRpcReadError) {
+        connection.close(1007, 'invalid JSON-RPC document')
+        return
+      }
+      throw cause
+    }
+  }
+
+  override onClose(connection: Connection): void {
+    if (!connection.tags.includes(HOST_CONNECTION_TAG) || this.hostConnection() !== undefined)
+      return
+    this.requests.close()
+  }
+
+  /** Start a Host turn and stream its ordered events to AIChatAgent. */
   override async onChatMessage(
     _onFinish: GenerateTextOnFinishCallback,
     options?: OnChatMessageOptions,
   ): Promise<Response> {
-    const storedTurn = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
+    const currentTurn = this.state.status === 'ready' ? this.state.turn : { state: 'idle' as const }
     const userMessage = latestUserMessage(this.messages)
-    if (userMessage === undefined && !(options?.continuation && storedTurn !== undefined)) {
-      return errorStreamResponse('Enter a prompt or attach a file.')
-    }
-    if (options?.continuation && storedTurn === undefined) {
+    if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
+    if (options?.continuation && currentTurn.state !== 'running') {
       return errorStreamResponse('The turn is no longer available for recovery.')
     }
-    if (!options?.continuation && storedTurn !== undefined) {
+    if (!options?.continuation && currentTurn.state === 'running') {
       return errorStreamResponse('A turn is already running.')
     }
 
-    const turn =
-      storedTurn ??
-      createActiveTurn(
-        options?.requestId === undefined ? createTurnId() : TurnIdSchema.parse(options.requestId),
-        userMessage!,
-      )
+    const turnId =
+      currentTurn.state === 'running'
+        ? currentTurn.turnId
+        : options?.requestId === undefined
+          ? createTurnId()
+          : TurnIdSchema.parse(options.requestId)
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
-    const writer = stream.writable.getWriter()
     const active = {
-      turn,
-      writer,
-      projection: restoreProjection(turn.projection),
+      turnId,
+      writer: stream.writable.getWriter(),
+      projection: createConversationEventProjectionState(
+        this.state.status === 'ready' ? this.state : undefined,
+      ),
     } satisfies ActiveStream
     this.activeStream = active
-
-    if (storedTurn === undefined || storedTurn.turnId !== turn.turnId) {
-      await this.ctx.storage.put(ACTIVE_TURN_KEY, turn)
-    }
     const abort = (): void => {
-      this.detachActiveStream(active)
-      this.cancelTurnInBackground(turn)
+      if (this.activeStream === active) this.activeStream = undefined
+      void active.writer.close().catch(() => undefined)
+      this.cancelTurnInBackground(turnId)
     }
     if (options?.abortSignal?.aborted) abort()
     else options?.abortSignal?.addEventListener('abort', abort, { once: true })
-    void this.resumeTurn(active)
-
+    void this.startTurn(active, userMessage)
     return createUIMessageStreamResponse({ stream: stream.readable })
   }
 
-  /** Accepts one validated Mac event before the parent sends its acknowledgment. */
-  async acceptHostEvent(
-    eventSequence: EventSequence,
-    event: ConversationEvent,
-  ): Promise<EventSequence> {
-    return await this.serializeStreamWork(() => this.acceptHostEventSerial(eventSequence, event))
-  }
-
-  /** Stores and projects one event while no other stream record can interleave. */
-  private async acceptHostEventSerial(
-    eventSequence: EventSequence,
-    event: ConversationEvent,
-  ): Promise<EventSequence> {
-    const eventHead = await this.ctx.storage.get<EventSequence>(EVENT_HEAD_KEY)
-    if (eventHead !== undefined && eventSequence <= eventHead) return eventHead
-    const key = eventKey(eventSequence)
-    const stored = await this.ctx.storage.get<ConversationStreamRecord>(key)
-    if (stored?.status === 'accepted') return await this.advanceEventHead()
-
-    const acceptedAt = stored?.acceptedAt ?? Date.now()
-    const acceptedEvent = stored !== undefined && 'event' in stored ? stored.event : event
-    if (stored === undefined) {
-      await this.ctx.storage.put(key, {
-        status: 'pending',
-        eventSequence,
-        event: acceptedEvent,
-        acceptedAt,
-      })
-    }
-
-    this.applyConversationEvent(acceptedEvent)
-    const active = this.activeStream
-    if (active !== undefined && eventBelongsToTurn(acceptedEvent, active.turn.turnId)) {
-      await this.drainPendingEvents(active)
-    } else {
-      const storedTurn = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
-      if (storedTurn === undefined || !eventBelongsToTurn(acceptedEvent, storedTurn.turnId)) {
-        await this.ctx.storage.put(key, {
-          status: 'accepted',
-          eventSequence,
-          event: acceptedEvent,
-          acceptedAt,
-        })
-      }
-    }
-
-    await this.ensureEventCleanupSchedule(acceptedAt + EVENT_RETENTION_MS)
-    return await this.advanceEventHead()
-  }
-
-  /** Accepts one state snapshot before the parent sends its acknowledgment. */
-  async acceptHostSnapshot(
-    eventSequence: EventSequence,
-    snapshot: ConversationStateSnapshot,
-  ): Promise<EventSequence> {
-    return await this.serializeStreamWork(() =>
-      this.acceptHostSnapshotSerial(eventSequence, snapshot),
+  @callable()
+  async closeConversation(): Promise<null> {
+    return await this.requestHost(
+      'conversation.close',
+      {},
+      HostConversationMethods['conversation.close'].result,
     )
   }
 
-  /** Stores one state checkpoint while no event can interleave. */
-  private async acceptHostSnapshotSerial(
-    eventSequence: EventSequence,
-    snapshot: ConversationStateSnapshot,
-  ): Promise<EventSequence> {
-    const eventHead = await this.ctx.storage.get<EventSequence>(EVENT_HEAD_KEY)
-    if (eventHead !== undefined && eventSequence <= eventHead) return eventHead
-    const key = eventKey(eventSequence)
-    const stored = await this.ctx.storage.get<ConversationStreamRecord>(key)
-    if (stored === undefined) {
-      const acceptedAt = Date.now()
-      await this.ctx.storage.put(key, {
-        status: 'accepted',
-        eventSequence,
-        snapshot,
-        acceptedAt,
-      } satisfies ConversationSnapshotRecord)
-      this.setState(conversationRelayStateFromSnapshot(snapshot))
-      await this.ensureEventCleanupSchedule(acceptedAt + EVENT_RETENTION_MS)
-    }
-    return await this.advanceEventHead()
+  @callable()
+  async cancelTurn(params: HostConversationMethodMap['turn.cancel']['params']): Promise<null> {
+    return await this.requestHost(
+      'turn.cancel',
+      params,
+      HostConversationMethods['turn.cancel'].result,
+    )
   }
 
-  /** Parent RPC: seeds conversation state before the browser connects. */
-  async initializeConversation(snapshot: ConversationStateSnapshot): Promise<void> {
-    this.setState(conversationRelayStateFromSnapshot(snapshot))
+  @callable()
+  async setConfiguration(
+    params: HostConversationMethodMap['conversation.configuration.set']['params'],
+  ): Promise<null> {
+    return await this.requestHost(
+      'conversation.configuration.set',
+      params,
+      HostConversationMethods['conversation.configuration.set'].result,
+    )
   }
 
-  /** Parent recovery flow: returns the durable host stream position. */
-  async acceptedEventHead(): Promise<EventSequence | undefined> {
-    return await this.ctx.storage.get<EventSequence>(EVENT_HEAD_KEY)
+  @callable()
+  async answerPermission(
+    params: HostConversationMethodMap['permission.answer']['params'],
+  ): Promise<null> {
+    return await this.requestHost(
+      'permission.answer',
+      params,
+      HostConversationMethods['permission.answer'].result,
+    )
   }
 
-  /** Parent recovery flow: removes a turn that the current host process lost. */
-  async reconcileHostTurn(turnId: TurnId | null): Promise<void> {
-    await this.serializeStreamWork(async () => {
-      const stored = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
-      if (stored === undefined || stored.turnId === turnId) return
-
-      const active = this.activeStream
-      if (active?.turn.turnId === stored.turnId) {
-        this.activeStream = undefined
-        await closeWriterWithError(active.writer, 'The Mac host stopped before the turn finished.')
-      }
-      await this.ctx.storage.delete(ACTIVE_TURN_KEY)
-      if (this.state.status === 'ready') {
-        this.setState({
-          ...this.state,
-          turn: { state: 'idle' },
-          pending: { permissions: [], elicitations: [] },
-        })
-      }
-    })
+  @callable()
+  async answerElicitation(
+    params: HostConversationMethodMap['elicitation.answer']['params'],
+  ): Promise<null> {
+    return await this.requestHost(
+      'elicitation.answer',
+      params,
+      HostConversationMethods['elicitation.answer'].result,
+    )
   }
 
-  /** Restores pending events and repeats the same idempotent start command. */
-  private async resumeTurn(active: ActiveStream): Promise<void> {
-    try {
-      if (this.activeStream !== active) return
-      await this.serializeStreamWork(() => this.drainPendingEvents(active))
-      if (this.activeStream !== active) return
-
-      const parent = await this.resources.hostRelay()
-      await parent.startTurn({
-        operationId: turnStartOperationId(this.conversationId, active.turn.turnId),
-        params: {
-          conversationId: this.conversationId,
-          turnId: active.turn.turnId,
-          userMessage: active.turn.userMessage,
-        },
+  private async applyNotification(
+    notification: JsonRpcInboundNotification<typeof HostConversationMethods>,
+  ): Promise<void> {
+    if (notification.method === 'conversation.state') {
+      const state = notification.params.state
+      this.setState(conversationRelayStateFromState(state))
+      await this.persistMessages(await conversationStateToMessages(state), [], {
+        _deleteStaleRows: true,
       })
-    } catch (error) {
-      if (
-        isDomainError(error) &&
-        (error._tag === 'HostOfflineError' || error._tag === 'RequestTimeoutError')
-      ) {
+      this.publishCurrentActivity()
+      return
+    }
+    await this.acceptEvent(notification.params.event)
+  }
+
+  private async acceptEvent(event: ConversationEvent): Promise<void> {
+    this.setState(reduceConversationRelayState(this.state, event))
+    this.publishActivity(event)
+    const active = this.activeStream
+    if (active === undefined || !eventBelongsToTurn(event, active.turnId)) return
+    await this.serializeStream(async () => {
+      if (this.activeStream !== active) return
+      try {
+        await writeChunks(
+          active.writer,
+          this.resources.eventProjector.project(event, active.projection),
+        )
+      } catch (error) {
+        logger.warn('conversation_stream_detached', {
+          error: toErrorPayload(error),
+          details: { conversationId: this.conversationId, turnId: active.turnId },
+        })
+        this.activeStream = undefined
         return
       }
-      logger.error('turn_resume_failed', {
+      if (!isTerminalEvent(event)) return
+      this.activeStream = undefined
+      await active.writer.close().catch(() => undefined)
+    })
+  }
+
+  private async startTurn(
+    active: ActiveStream,
+    userMessage: { readonly id: MessageId; readonly content: CanonicalContent[] },
+  ): Promise<void> {
+    try {
+      await this.requestHost(
+        'turn.start',
+        { turnId: active.turnId, userMessage },
+        HostConversationMethods['turn.start'].result,
+      )
+    } catch (error) {
+      logger.error('turn_start_failed', {
         error,
-        details: { conversationId: this.conversationId, turnId: active.turn.turnId },
+        details: { conversationId: this.conversationId, turnId: active.turnId },
       })
-      await this.closeRecoverableStreamWithError(active, 'The conversation stream failed.')
+      if (this.activeStream !== active) return
+      this.activeStream = undefined
+      await closeWriterWithError(active.writer, hostErrorMessage(error))
     }
   }
 
-  /** Closes only the stream that still owns the active turn. */
-  private async closeActiveStreamWithError(active: ActiveStream, message: string): Promise<void> {
-    if (this.activeStream !== active) return
-    this.activeStream = undefined
-    await closeWriterWithError(active.writer, message)
-    await this.ctx.storage.delete(ACTIVE_TURN_KEY)
-  }
-
-  /** Closes a failed response but keeps the operation for the next chat recovery request. */
-  private async closeRecoverableStreamWithError(
-    active: ActiveStream,
-    message: string,
-  ): Promise<void> {
-    if (this.activeStream !== active) return
-    this.activeStream = undefined
-    await closeWriterWithError(active.writer, message)
-  }
-
-  /** Detaches a browser stream without deleting the durable Mac turn. */
-  private detachActiveStream(active: ActiveStream): void {
-    if (this.activeStream !== active) return
-    this.activeStream = undefined
-    void active.writer.close().catch(() => undefined)
-  }
-
-  private cancelTurnInBackground(turn: ActiveTurn): void {
-    void this.cancelTurn(turn).catch((error) => {
+  private cancelTurnInBackground(turnId: TurnId): void {
+    void this.cancelTurn({ turnId }).catch((error) => {
       logger.error('turn_cancel_failed', {
         error,
-        details: { conversationId: this.conversationId, turnId: turn.turnId },
+        details: { conversationId: this.conversationId, turnId },
       })
     })
   }
 
-  /** Stores cancellation in the parent ledger before it removes the child turn. */
-  private async cancelTurn(turn: ActiveTurn): Promise<void> {
-    const parent = await this.resources.hostRelay()
-    await parent.cancelTurn({
-      operationId: turnCancelOperationId(this.conversationId, turn.turnId),
-      params: { conversationId: this.conversationId, turnId: turn.turnId },
-    })
+  private async requestHost<Result>(
+    method: string,
+    params: JsonRpcParams,
+    resultSchema: z.ZodType<Result>,
+  ): Promise<Result> {
+    try {
+      return await this.requests.request(method, params, resultSchema)
+    } catch (error) {
+      return throwHostError(error)
+    }
+  }
 
-    await this.serializeStreamWork(async () => {
-      const stored = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
-      if (stored?.turnId !== turn.turnId) return
-
-      await this.ctx.storage.delete(ACTIVE_TURN_KEY)
-      await this.acceptPendingTurnEvents(turn.turnId)
+  private async sendHostFrame(frame: string): Promise<void> {
+    const host = this.hostConnection()
+    if (host === undefined) throw new HostOfflineError()
+    await sendJsonRpcFrame(() => {
+      if (host.readyState !== WebSocket.OPEN) return false
+      host.send(frame)
     })
   }
 
-  /** Accepts pending events after their active turn is canceled. */
-  private async acceptPendingTurnEvents(turnId: TurnId): Promise<void> {
-    const records = await this.ctx.storage.list<ConversationStreamRecord>({
-      prefix: EVENT_PREFIX,
-    })
-    await Promise.all(
-      [...records.entries()].flatMap(([key, record]) =>
-        'event' in record && record.status === 'pending' && eventBelongsToTurn(record.event, turnId)
-          ? [this.ctx.storage.put(key, { ...record, status: 'accepted' })]
-          : [],
-      ),
-    )
+  private hostConnection(): Connection<HostConnectionState> | undefined {
+    for (const connection of this.getConnections<HostConnectionState>(HOST_CONNECTION_TAG)) {
+      if (connection.readyState === WebSocket.OPEN) return connection
+    }
+    return undefined
   }
 
-  /** Serializes stream storage and projection across interleaved Agent RPC calls. */
-  private serializeStreamWork<Result>(work: () => Promise<Result>): Promise<Result> {
+  private serializeStream<Result>(work: () => Promise<Result>): Promise<Result> {
     const result = this.streamWork.then(work, work)
     this.streamWork = result.then(
       () => undefined,
@@ -384,174 +399,50 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     return result
   }
 
-  private applyConversationEvent(event: ConversationEvent): void {
-    const state = reduceConversationRelayState(this.state, event)
-    if (state !== this.state) this.setState(state)
-  }
-
-  /** Advances the durable acknowledgment only through a contiguous sequence. */
-  private async advanceEventHead(): Promise<EventSequence> {
-    const storedHead = await this.ctx.storage.get<EventSequence>(EVENT_HEAD_KEY)
-    const records = await this.ctx.storage.list<ConversationStreamRecord>({ prefix: EVENT_PREFIX })
-    const sequences = new Set([...records.values()].map((record) => record.eventSequence))
-    let head = storedHead ?? Math.min(...sequences) - 1
-    while (sequences.has(EventSequenceSchema.parse(head + 1))) head += 1
-    const eventSequence = EventSequenceSchema.parse(head)
-    if (eventSequence !== storedHead) await this.ctx.storage.put(EVENT_HEAD_KEY, eventSequence)
-    return eventSequence
-  }
-
-  /** Projects each durable event that belongs to the active Mac turn. */
-  private async drainPendingEvents(active: ActiveStream): Promise<void> {
-    const records = await this.ctx.storage.list<ConversationStreamRecord>({ prefix: EVENT_PREFIX })
-    for (const [key, record] of records) {
-      if (this.activeStream !== active) return
-      if (
-        !('event' in record) ||
-        record.status !== 'pending' ||
-        !eventBelongsToTurn(record.event, active.turn.turnId)
-      ) {
-        continue
-      }
-      // oxlint-disable-next-line no-await-in-loop -- Projection and storage must preserve host order.
-      if (await this.acceptPendingEvent(key, record, active)) return
+  private publishCurrentActivity(): void {
+    if (this.state.status !== 'ready' || this.state.turn.state !== 'running') {
+      this.publishClearActivity()
+      return
     }
+    this.publishActivityRecord(this.state.turn.turnId)
   }
 
-  /** Projects and accepts one event before the next host event can advance. */
-  private async acceptPendingEvent(
-    key: string,
-    record: Extract<ConversationEventRecord, { status: 'pending' }>,
-    active: ActiveStream,
-  ): Promise<boolean> {
-    try {
-      await writeChunks(
-        active.writer,
-        this.resources.eventProjector.project(record.event, active.projection),
+  private publishActivity(event: ConversationEvent): void {
+    if (event.type === 'turn.started') {
+      this.hasAssistantMessage = false
+      this.publishActivityRecord(event.turnId)
+      return
+    }
+    if (event.type === 'message.started' && event.role === 'assistant') {
+      this.hasAssistantMessage = true
+      this.publishActivityRecord(event.turnId)
+      return
+    }
+    if (isTerminalEvent(event)) this.publishClearActivity()
+  }
+
+  private publishActivityRecord(turnId: TurnId): void {
+    void this.resources
+      .hostRelay()
+      .then((parent) =>
+        parent.setConversationActivity({
+          conversationId: this.conversationId,
+          turnId,
+          hasAssistantMessage: this.hasAssistantMessage,
+        }),
       )
-    } catch (error) {
-      logger.warn('conversation_stream_detached', {
-        error: toErrorPayload(error),
-        details: { conversationId: this.conversationId, turnId: active.turn.turnId },
+      .catch((error) => {
+        logger.error('conversation_activity_failed', { error })
       })
-      this.detachActiveStream(active)
-      return true
-    }
-    await this.ctx.storage.put(ACTIVE_TURN_KEY, {
-      ...active.turn,
-      projection: snapshotProjection(active.projection),
-    } satisfies ActiveTurn)
-    await this.ctx.storage.put(key, {
-      status: 'accepted',
-      eventSequence: record.eventSequence,
-      event: record.event,
-      acceptedAt: record.acceptedAt,
-    })
-    if (!isTerminalEvent(record.event)) return false
-
-    this.activeStream = undefined
-    await active.writer.close().catch(() => undefined)
-    await this.ctx.storage.delete(ACTIVE_TURN_KEY)
-    return true
   }
 
-  /** Keeps active-turn events and deletes old duplicate markers. */
-  async cleanupConversationEvents(): Promise<void> {
-    const now = Date.now()
-    const activeTurn = await this.ctx.storage.get<ActiveTurn>(ACTIVE_TURN_KEY)
-    const records = await this.ctx.storage.list<ConversationStreamRecord>({ prefix: EVENT_PREFIX })
-    const expired: string[] = []
-    const accepted: Array<
-      readonly [string, Extract<ConversationEventRecord, { status: 'pending' }>]
-    > = []
-    let nextCleanupAt: number | undefined
-    for (const [key, record] of records) {
-      if ('event' in record && record.status === 'pending') {
-        if (activeTurn !== undefined && eventBelongsToTurn(record.event, activeTurn.turnId)) {
-          nextCleanupAt = earlier(nextCleanupAt, now + EVENT_RETENTION_MS)
-          continue
-        }
-        if (record.acceptedAt + EVENT_RETENTION_MS <= now) expired.push(key)
-        else {
-          accepted.push([key, record])
-          nextCleanupAt = earlier(nextCleanupAt, record.acceptedAt + EVENT_RETENTION_MS)
-        }
-      } else if (record.acceptedAt + EVENT_RETENTION_MS <= now) {
-        expired.push(key)
-      } else {
-        nextCleanupAt = earlier(nextCleanupAt, record.acceptedAt + EVENT_RETENTION_MS)
-      }
-    }
-    await Promise.all(
-      accepted.map(([key, record]) => this.ctx.storage.put(key, { ...record, status: 'accepted' })),
-    )
-    if (expired.length > 0) await this.ctx.storage.delete(expired)
-    await this.replaceEventCleanupSchedule(nextCleanupAt)
-  }
-
-  /** Keeps one cleanup schedule at the earliest accepted event expiry. */
-  private async replaceEventCleanupSchedule(nextCleanupAt: number | undefined): Promise<void> {
-    const schedules = await this.listSchedules()
-    await Promise.all(
-      schedules
-        .filter((schedule) => schedule.callback === EVENT_CLEANUP_CALLBACK)
-        .map((schedule) => this.cancelSchedule(schedule.id)),
-    )
-    if (nextCleanupAt !== undefined) {
-      await this.schedule(
-        new Date(Math.max(nextCleanupAt, Date.now() + 1_000)),
-        EVENT_CLEANUP_CALLBACK,
-        undefined,
-        { idempotent: true },
-      )
-    }
-  }
-
-  /** Keeps an existing earlier cleanup or schedules this event expiry. */
-  private async ensureEventCleanupSchedule(cleanupAt: number): Promise<void> {
-    const schedules = await this.listSchedules()
-    const cleanupSchedules = schedules.filter(
-      (schedule) => schedule.callback === EVENT_CLEANUP_CALLBACK,
-    )
-    if (cleanupSchedules.some((schedule) => schedule.time * 1_000 <= cleanupAt)) return
-
-    await Promise.all(cleanupSchedules.map((schedule) => this.cancelSchedule(schedule.id)))
-    await this.schedule(new Date(cleanupAt), EVENT_CLEANUP_CALLBACK, undefined, {
-      idempotent: true,
-    })
-  }
-}
-
-function createActiveTurn(
-  turnId: TurnId,
-  userMessage: { readonly id: MessageId; readonly content: CanonicalContent[] },
-): ActiveTurn {
-  return {
-    turnId,
-    userMessage,
-    projection: emptyProjection(),
-  }
-}
-
-function emptyProjection(): ProjectionSnapshot {
-  return { toolInputSignatures: [], ownMessages: [], openText: [], openReasoning: [] }
-}
-
-function restoreProjection(snapshot: ProjectionSnapshot): ConversationEventProjectionState {
-  return {
-    toolInputSignatures: new Map(snapshot.toolInputSignatures),
-    ownMessages: new Set(snapshot.ownMessages),
-    openText: new Set(snapshot.openText),
-    openReasoning: new Set(snapshot.openReasoning),
-  }
-}
-
-function snapshotProjection(state: ConversationEventProjectionState): ProjectionSnapshot {
-  return {
-    toolInputSignatures: [...state.toolInputSignatures],
-    ownMessages: [...state.ownMessages],
-    openText: [...state.openText],
-    openReasoning: [...state.openReasoning],
+  private publishClearActivity(): void {
+    void this.resources
+      .hostRelay()
+      .then((parent) => parent.clearConversationActivity(this.conversationId))
+      .catch((error) => {
+        logger.error('conversation_activity_failed', { error })
+      })
   }
 }
 
@@ -560,7 +451,6 @@ function latestUserMessage(
 ): { readonly id: MessageId; readonly content: CanonicalContent[] } | undefined {
   const message = messages.findLast((entry) => entry.role === 'user')
   if (message === undefined) return undefined
-
   const messageId = MessageIdSchema.parse(message.id)
   const content = message.parts.flatMap((part, index) => {
     if (part.type === 'text') return [{ type: 'text', text: part.text } satisfies CanonicalContent]
@@ -609,13 +499,6 @@ function errorStreamResponse(message: string): Response {
   return createUIMessageStreamResponse({ stream })
 }
 
-async function writeChunk(
-  writer: WritableStreamDefaultWriter<UIMessageChunk>,
-  chunk: UIMessageChunk,
-): Promise<void> {
-  await writer.write(chunk)
-}
-
 async function writeChunks(
   writer: WritableStreamDefaultWriter<UIMessageChunk>,
   chunks: readonly UIMessageChunk[],
@@ -631,29 +514,61 @@ async function closeWriterWithError(
   message: string,
 ): Promise<void> {
   try {
-    await writeChunk(writer, { type: 'error', errorText: message })
+    await writer.write({ type: 'error', errorText: message })
     await writer.close()
   } catch {
     await writer.abort().catch(() => undefined)
   }
 }
 
-function eventKey(eventSequence: EventSequence): string {
-  return `${EVENT_PREFIX}${eventSequence.toString().padStart(16, '0')}`
-}
-
-function eventTurnId(event: ConversationEvent): TurnId | undefined {
-  return 'turnId' in event ? event.turnId : undefined
-}
-
 function eventBelongsToTurn(event: ConversationEvent, turnId: TurnId): boolean {
-  return event.type === 'conversation.failed' || eventTurnId(event) === turnId
+  return event.type === 'conversation.failed' || ('turnId' in event && event.turnId === turnId)
 }
 
 function isTerminalEvent(event: ConversationEvent): boolean {
   return event.type === 'turn.finished' || event.type === 'conversation.failed'
 }
 
-function earlier(current: number | undefined, candidate: number): number {
-  return current === undefined ? candidate : Math.min(current, candidate)
+function hasSubprotocol(request: Request, expected: string): boolean {
+  return (
+    request.headers
+      .get('sec-websocket-protocol')
+      ?.split(',')
+      .map((value) => value.trim())
+      .includes(expected) === true
+  )
+}
+
+function isHostConnection(request: Request): boolean {
+  return hasSubprotocol(request, HOST_CONVERSATION_SUBPROTOCOL)
+}
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.
+function throwHostError(error: unknown): never {
+  if (error instanceof HostConnectionUnavailableError) throw new HostOfflineError()
+  if (error instanceof HostRequestTimeoutError) throw new RequestTimeoutError()
+  if (error instanceof HostApplicationResponseError) {
+    switch (error.payload._tag) {
+      case 'ConversationNotFoundError':
+        throw new ConversationNotFoundError()
+      case 'ConversationBusyError':
+        throw new ConversationBusyError()
+      case 'PermissionNotFoundError':
+        throw new PermissionNotFoundError()
+      case 'ElicitationNotFoundError':
+        throw new ElicitationNotFoundError()
+      case 'ConfigurationNotFoundError':
+        throw new ConfigurationNotFoundError()
+      case 'RequestTimeoutError':
+        throw new RequestTimeoutError()
+    }
+  }
+  throw new InternalServerError()
+}
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.
+function hostErrorMessage(error: unknown): string {
+  if (error instanceof HostOfflineError) return 'The Mac host is offline.'
+  if (error instanceof ConversationBusyError) return 'A turn is already running.'
+  return 'The conversation could not start.'
 }

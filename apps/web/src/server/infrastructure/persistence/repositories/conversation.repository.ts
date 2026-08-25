@@ -1,16 +1,17 @@
 import type {
+  Conversation,
   ConversationId,
-  ConversationPage,
-  ConversationPageQuery,
-  ConversationSummary,
   IsoDateTime,
+  ListConversationsParams,
+  ListConversationsResult,
 } from '@porte/core'
+import { ConversationCursorSchema } from '@porte/core'
 import type { RelayDb } from '@server/infrastructure/persistence/relay/connection.ts'
 import {
   conversation,
   type DbConversation,
 } from '@server/infrastructure/persistence/relay/schema/conversation.schema.ts'
-import { and, desc, eq, getTableColumns, lt, ne, or, sql } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, lt, or, sql } from 'drizzle-orm'
 
 /** What one statement may bind on Durable Object SQLite. */
 const MAX_BOUND_PARAMETERS = 100
@@ -31,7 +32,7 @@ const ROWS_PER_INSERT = Math.floor(
  * No validation. Every row was written from a daemon frame the socket already
  * parsed, and re-checking here would turn one stale row into a failed page.
  */
-function toConversation(row: DbConversation): ConversationSummary {
+function toConversation(row: DbConversation): Conversation {
   return {
     // SAFETY: the column is written from a parsed daemon frame, so it already
     // holds an id of ours. Nothing else can put a row here.
@@ -55,7 +56,7 @@ export class DrizzleConversationRepository {
    * That extra row is the only way to know a next page exists without counting
    * a collection that has none.
    */
-  findPage(query: ConversationPageQuery): ConversationPage {
+  findList(query: ListConversationsParams): ListConversationsResult {
     const after = decodeCursor(query.cursor)
     const order = [desc(conversation.updatedAt), desc(conversation.id)]
 
@@ -78,33 +79,29 @@ export class DrizzleConversationRepository {
     const hasMore = rows.length > query.limit
     const last = page.at(-1)
 
-    return {
-      conversations: page.map(toConversation),
-      next: hasMore && last !== undefined ? encodeCursor(last) : null,
-    }
+    const conversations = page.map(toConversation)
+    return hasMore && last !== undefined
+      ? { conversations, next: encodeCursor(last) }
+      : { conversations }
   }
 
-  currentSyncRunId(): string | null {
-    const row = this.db
-      .select({ syncRunId: conversation.syncRunId })
-      .from(conversation)
-      .limit(1)
-      .get()
-    return row?.syncRunId ?? null
+  find(conversationId: ConversationId): Conversation | undefined {
+    const row = this.db.select().from(conversation).where(eq(conversation.id, conversationId)).get()
+    return row === undefined ? undefined : toConversation(row)
   }
 
-  save(toSave: ConversationSummary, operationId: string): void {
-    this.saveAll([toSave], operationId)
+  save(toSave: Conversation): void {
+    this.saveAll([toSave])
   }
 
   /** Split across statements: one insert holding every row would outrun the parameter cap. */
-  saveAll(conversations: readonly ConversationSummary[], operationId: string): void {
+  saveAll(conversations: readonly Conversation[]): void {
     for (let start = 0; start < conversations.length; start += ROWS_PER_INSERT) {
-      this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT), operationId)
+      this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT))
     }
   }
 
-  private insertRows(conversations: readonly ConversationSummary[], operationId: string): void {
+  private insertRows(conversations: readonly Conversation[]): void {
     if (conversations.length === 0) return
 
     const rows = conversations.map((one) => ({
@@ -113,7 +110,6 @@ export class DrizzleConversationRepository {
       gitRoot: one.gitRoot,
       title: one.title,
       updatedAt: new Date(one.updatedAt),
-      syncRunId: operationId,
     }))
 
     this.db
@@ -126,7 +122,6 @@ export class DrizzleConversationRepository {
           gitRoot: sql`excluded.git_root`,
           title: sql`excluded.title`,
           updatedAt: sql`excluded.updated_at`,
-          syncRunId: sql`excluded.sync_run_id`,
         },
       })
       .run()
@@ -136,38 +131,13 @@ export class DrizzleConversationRepository {
     this.db.delete(conversation).where(eq(conversation.id, conversationId)).run()
   }
 
-  deleteOtherThan(operationId: string): void {
-    this.db.delete(conversation).where(ne(conversation.syncRunId, operationId)).run()
-  }
-
-  /**
-   * Keep the newest `maxRows`, and sweep what sorts after them.
-   *
-   * Described by the boundary row rather than by listing every survivor, whose
-   * ids would be one bound parameter each and far past the cap. The comparison
-   * is the cursor's, because it walks the same order.
-   */
-  deleteBeyond(maxRows: number): void {
-    const boundary = this.db
-      .select({ updatedAt: conversation.updatedAt, id: conversation.id })
-      .from(conversation)
-      .orderBy(desc(conversation.updatedAt), desc(conversation.id))
-      .limit(1)
-      .offset(maxRows - 1)
-      .get()
-
-    // Fewer rows than the ceiling, so there is nothing beyond it.
-    if (boundary === undefined) return
-
-    this.db
-      .delete(conversation)
-      .where(
-        or(
-          lt(conversation.updatedAt, boundary.updatedAt),
-          and(eq(conversation.updatedAt, boundary.updatedAt), lt(conversation.id, boundary.id)),
-        ),
-      )
-      .run()
+  /** Replace the complete cache only after the Host list traversal succeeds. */
+  replaceAll(conversations: readonly Conversation[]): void {
+    this.db.transaction((transaction) => {
+      const repository = new DrizzleConversationRepository(transaction)
+      repository.deleteAll()
+      repository.saveAll(conversations)
+    })
   }
 
   deleteAll(): void {
@@ -176,13 +146,13 @@ export class DrizzleConversationRepository {
 }
 
 /** Opaque on purpose: a caller that reads a cursor starts depending on the sort. */
-function encodeCursor(row: DbConversation): string {
-  return btoa(`${String(row.updatedAt.getTime())}:${row.id}`)
+function encodeCursor(row: DbConversation) {
+  return ConversationCursorSchema.parse(btoa(`${String(row.updatedAt.getTime())}:${row.id}`))
 }
 
 /** A cursor we did not mint reads as the first page. Nobody typed it, so nobody can fix it. */
-function decodeCursor(cursor: string | null | undefined): { updatedAt: Date; id: string } | null {
-  if (cursor === null || cursor === undefined) return null
+function decodeCursor(cursor: string | undefined): { updatedAt: Date; id: string } | null {
+  if (cursor === undefined) return null
 
   const decoded = decodeBase64(cursor)
   if (decoded === null) return null

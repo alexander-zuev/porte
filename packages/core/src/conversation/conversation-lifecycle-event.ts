@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { IsoDateTimeSchema } from '../identity/identity.ts'
-import { CodingAgentErrorSchema } from './coding-agent-error.ts'
+import { ConversationFailurePayloadSchema } from './conversation-failure-payload.ts'
 
 /** Non-empty metadata change with explicit clear values. */
 export const ConversationMetadataPatchSchema = z
@@ -21,7 +21,7 @@ const lifecycleEventDataSchema = z.discriminatedUnion('type', [
     type: z.literal('conversation.metadata.updated'),
     update: ConversationMetadataPatchSchema,
   }),
-  z.object({ type: z.literal('conversation.failed'), error: CodingAgentErrorSchema }),
+  z.object({ type: z.literal('conversation.failed'), error: ConversationFailurePayloadSchema }),
 ])
 
 /** Canonical metadata change or terminal failure for one conversation. */

@@ -1,11 +1,10 @@
-import type { CodingAgent, CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
 import type { ConversationId } from '@porte/core/client'
-import type { Result } from 'better-result'
 
 /** Close one coding-agent conversation. */
 export function closeConversation(
-  agent: Pick<CodingAgent, 'closeConversation'>,
+  sessions: Pick<SessionSupervisor, 'closeConversation'>,
   conversationId: ConversationId,
-): Promise<Result<void, CodingAgentError>> {
-  return agent.closeConversation(conversationId)
+): Promise<void> {
+  return sessions.closeConversation(conversationId)
 }

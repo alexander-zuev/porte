@@ -1,6 +1,5 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
 import type { ReadyConversationRelayState } from '@porte/core/client'
-import { mergeConversationHistory } from '@web/entities/conversation/merge-conversation-history.ts'
 import type {
   ConversationActions,
   ConversationAgentConnection,
@@ -20,8 +19,6 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
-import type { UIMessage } from 'ai'
-import { useMemo } from 'react'
 
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
@@ -29,51 +26,28 @@ import { ConversationPlans, conversationCost } from './conversation-progress.tsx
 import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
-  /** The stored transcript. Read before this mounts, so the chat opens with it. */
-  readonly history: readonly UIMessage[]
   readonly agent: ConversationAgentConnection
   readonly permissions: readonly ConversationPermission[]
   readonly state: ReadyConversationRelayState
   readonly actions: ConversationActions
   readonly canSend: boolean
-  /** Older turns exist. Absent once the whole transcript has been read. */
-  readonly onReadOlder: (() => void) | null
-  readonly readingOlder: boolean
 }
 
-/**
- * Renders one conversation after HTTP history is ready.
- * `useAgentChat` owns prompt, stream, recovery, and cancellation state.
- */
+/** Renders one conversation from its AIChatAgent connection. */
 export function ConversationChat({
-  history,
   agent,
   permissions,
   state,
   actions,
   canSend,
-  onReadOlder,
-  readingOlder,
 }: ConversationChatProps) {
-  const chat = useAgentChat({
-    agent,
-    getInitialMessages: null,
-    syncMessagesToServer: false,
-  })
-  const messages = useMemo(
-    () => mergeConversationHistory(chat.messages, history),
-    [chat.messages, history],
-  )
+  const chat = useAgentChat({ agent })
   const childReady = agent.readyState === agent.OPEN
   const canSubmit = canSend && childReady
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <ConversationMessages
-        messages={messages}
-        readingOlder={readingOlder}
-        onReadOlder={onReadOlder}
-      />
+      <ConversationMessages messages={chat.messages} readingOlder={false} onReadOlder={null} />
 
       <ConversationPlans plans={state.plans} running={state.turn.state === 'running'} />
 
@@ -118,12 +92,12 @@ export function ConversationChat({
                   {option.name}: {configurationValue(option)}
                 </small>
               ))}
-              {state.modeId === null ? null : (
+              {state.modeId === undefined ? null : (
                 <small className="hidden text-muted-foreground md:inline">
                   Mode: {state.modeId}
                 </small>
               )}
-              {state.usage === null ? null : (
+              {state.usage === undefined ? null : (
                 <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
                   <ContextTrigger aria-label="Show context usage" />
                   <ContextContent>

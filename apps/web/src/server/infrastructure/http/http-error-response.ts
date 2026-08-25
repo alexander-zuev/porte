@@ -1,9 +1,9 @@
 import {
   AuthenticationError,
+  CodingAgentUnavailableError,
   ConversationBusyError,
   ConversationNotFoundError,
   createLogger,
-  GrokUnavailableError,
   HostAlreadyPairedError,
   HostOfflineError,
   InternalServerError,
@@ -103,7 +103,7 @@ function mapKnownHttpError(cause: unknown): Response | null {
   if (cause instanceof PermissionNotFoundError) {
     return createHttpErrorResponse(StatusCodes.NOT_FOUND, cause.message)
   }
-  if (cause instanceof GrokUnavailableError) {
+  if (cause instanceof CodingAgentUnavailableError) {
     return createHttpErrorResponse(StatusCodes.SERVICE_UNAVAILABLE, cause.message)
   }
   if (cause instanceof RequestTimeoutError) {

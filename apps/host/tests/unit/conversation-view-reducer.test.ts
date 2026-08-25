@@ -1,4 +1,7 @@
-import { applyConversationEvents } from '@host/domain/conversation/conversation-view-reducer.ts'
+import {
+  applyConversationEvents,
+  ConversationViewError,
+} from '@host/domain/conversation/conversation-view-reducer.ts'
 import { ConversationEventSchema, ConversationViewSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
@@ -30,7 +33,7 @@ describe('applyConversationEvents', () => {
     ]
 
     const result = applyConversationEvents(view, events)
-    expect(result.isOk() && result.value.items[0]).toMatchObject({
+    expect(result.items[0]).toMatchObject({
       type: 'message',
       content: [{ type: 'text', text: 'Done' }],
     })
@@ -45,6 +48,6 @@ describe('applyConversationEvents', () => {
       content: { type: 'text', text: 'Done' },
     })
 
-    expect(applyConversationEvents(view, [event]).isErr()).toBe(true)
+    expect(() => applyConversationEvents(view, [event])).toThrow(ConversationViewError)
   })
 })

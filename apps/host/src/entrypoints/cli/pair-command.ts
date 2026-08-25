@@ -1,11 +1,11 @@
 import { pairHost } from '@host/application/commands/pair-host.ts'
-import type { HostConfig } from '@host/entrypoints/cli/host-config.ts'
-import { ENTER, onKey } from '@host/entrypoints/cli/key-press.ts'
 import { PAIR_EMOJI, WAITING_EMOJI, createOutput } from '@host/entrypoints/cli/output.ts'
 import { createPairingResources } from '@host/infrastructure/bootstrap/pairing-resources.ts'
+import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import { copyToClipboard } from '@host/infrastructure/node/clipboard.ts'
 import { describeThisMachine } from '@host/infrastructure/node/machine.ts'
 import { openUrl } from '@host/infrastructure/node/open-url.ts'
+import { ENTER, onKey } from '@host/infrastructure/terminal/key-press.ts'
 import { formatPairingCode } from '@porte/core/client'
 
 /** Pair this machine with one Porte account. */
@@ -67,19 +67,18 @@ export async function runPairCommand(input: {
   })
 
   stopWatching?.()
-  if (paired.isErr()) throw paired.error
-  if (paired.value.status === 'denied') {
+  if (paired.status === 'denied') {
     output.warned('Pairing was refused. Nothing was connected.')
     output.note(`Run ${code('porte pair')} again to retry`)
     return 1
   }
-  if (paired.value.status === 'expired') {
+  if (paired.status === 'expired') {
     output.warned('The code expired before anyone answered it.')
     output.note(`Run ${code('porte pair')} for a new one`)
     return 1
   }
 
-  const { account } = paired.value
+  const { account } = paired
   const machine = strong(describeThisMachine().name)
   output.done(
     account === null

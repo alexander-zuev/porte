@@ -6,6 +6,8 @@ export const CONVERSATION_NOT_FOUND_ERROR = 'ConversationNotFoundError'
 export const CONVERSATION_BUSY_ERROR = 'ConversationBusyError'
 export const TURN_NOT_FOUND_ERROR = 'TurnNotFoundError'
 export const PERMISSION_NOT_FOUND_ERROR = 'PermissionNotFoundError'
+export const ELICITATION_NOT_FOUND_ERROR = 'ElicitationNotFoundError'
+export const CONFIGURATION_NOT_FOUND_ERROR = 'ConfigurationNotFoundError'
 
 /** No open conversation answers to that identifier. */
 export class ConversationNotFoundError extends TaggedError(CONVERSATION_NOT_FOUND_ERROR)<{
@@ -44,5 +46,25 @@ export class PermissionNotFoundError extends TaggedError(PERMISSION_NOT_FOUND_ER
 }> {
   constructor() {
     super({ message: 'Permission request is not pending.', classification: 'terminal' })
+  }
+}
+
+/** The elicitation was answered already, or withdrawn. */
+export class ElicitationNotFoundError extends TaggedError(ELICITATION_NOT_FOUND_ERROR)<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor() {
+    super({ message: 'Elicitation is not pending.', classification: 'terminal' })
+  }
+}
+
+/** The configuration option is absent from the active conversation. */
+export class ConfigurationNotFoundError extends TaggedError(CONFIGURATION_NOT_FOUND_ERROR)<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor() {
+    super({ message: 'Configuration option is not available.', classification: 'terminal' })
   }
 }

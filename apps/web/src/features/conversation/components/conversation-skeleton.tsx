@@ -17,13 +17,15 @@ import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
  * reads as a chart, and fixing them by hand keeps the same shape on every
  * render instead of flickering to a new one.
  */
-const MESSAGES = [
-  { role: 'user', lines: ['w-2/3'] },
-  { role: 'assistant', lines: ['w-full', 'w-11/12', 'w-3/4'] },
-  { role: 'user', lines: ['w-1/2'] },
-  { role: 'assistant', lines: ['w-5/6', 'w-full', 'w-2/3', 'w-4/5'] },
-  { role: 'user', lines: ['w-3/5'] },
-  { role: 'assistant', lines: ['w-full', 'w-3/4'] },
+const TURNS = [
+  { prompt: 'w-2/3', response: ['w-full', 'w-11/12', 'w-3/4'] },
+  { prompt: 'w-1/2', response: ['w-5/6', 'w-full', 'w-2/3', 'w-4/5'] },
+  { prompt: 'w-3/5', response: ['w-full', 'w-3/4'] },
+  { prompt: 'w-2/5', response: ['w-11/12', 'w-4/5', 'w-2/3'] },
+  { prompt: 'w-3/4', response: ['w-full', 'w-5/6', 'w-1/2'] },
+  { prompt: 'w-1/3', response: ['w-4/5', 'w-full', 'w-3/5', 'w-3/4'] },
+  { prompt: 'w-4/5', response: ['w-11/12', 'w-2/3'] },
+  { prompt: 'w-1/2', response: ['w-full', 'w-3/4', 'w-5/6'] },
 ] as const
 
 /**
@@ -34,9 +36,8 @@ const MESSAGES = [
  * and the prompt sits where it will stay — disabled, because nothing can be
  * sent into a conversation that has not been read yet.
  *
- * Rows fill from the bottom, which is where the newest turn lands. The top
- * fades so the first one reads as the transcript continuing rather than as the
- * conversation starting there.
+ * Rows start below the header like the project list. Extra turns continue past
+ * the frame, and the bottom fade shows that more content is still loading.
  */
 export function ConversationSkeleton() {
   return (
@@ -44,20 +45,20 @@ export function ConversationSkeleton() {
       <output
         aria-busy
         aria-label="Loading conversation"
-        className="flex flex-1 flex-col justify-end gap-6 overflow-hidden px-1 py-4 [mask-image:linear-gradient(to_bottom,transparent,black_35%)] md:px-4"
+        className="flex flex-1 flex-col gap-6 overflow-hidden px-1 py-4 [mask-image:linear-gradient(to_bottom,black_65%,transparent)] md:px-4"
       >
-        {MESSAGES.map(({ role, lines }) =>
-          role === 'user' ? (
-            // The bubble is the bar: a filled block already reads as a short prompt.
-            <Skeleton key={lines.join(' ')} className={`ml-auto h-11 rounded-lg ${lines[0]}`} />
-          ) : (
-            <div key={lines.join(' ')} className="flex max-w-[95%] flex-col gap-2">
-              {lines.map((width) => (
-                <Skeleton key={width} className={`h-3.5 ${width}`} />
-              ))}
-            </div>
-          ),
-        )}
+        {TURNS.flatMap(({ prompt, response }, turnIndex) => [
+          // The bubble is the bar: a filled block already reads as a short prompt.
+          <Skeleton
+            key={`prompt-${String(turnIndex)}`}
+            className={`ml-auto h-11 rounded-lg ${prompt}`}
+          />,
+          <div key={`response-${String(turnIndex)}`} className="flex max-w-[95%] flex-col gap-2">
+            {response.map((width, lineIndex) => (
+              <Skeleton key={`${width}-${String(lineIndex)}`} className={`h-3.5 ${width}`} />
+            ))}
+          </div>,
+        ])}
       </output>
 
       <PromptInput

@@ -1,20 +1,14 @@
-import { PairingError } from '@host/application/pairing-error.ts'
-import type {
-  CredentialStore,
-  CredentialStoreError,
-} from '@host/application/ports/credential-store.ts'
+import type { CredentialStore } from '@host/application/ports/credential-store.ts'
 import type {
   DeviceAuthorizer,
   DeviceCodeGrant,
 } from '@host/application/ports/device-authorizer.ts'
 import type { HostDescriptor } from '@porte/core/client'
-import { Result, type Result as ResultType } from 'better-result'
 
 /**
  * How pairing ended.
  *
- * All three are ordinary endings, so none of them is an error. A failed Result
- * is kept for a server this Mac could not reach or could not understand.
+ * All three are ordinary endings, so none of them is an error.
  */
 export type PairingOutcome =
   /** `account` names whoever approved. Null when the server would not say. */
@@ -50,13 +44,8 @@ export type PairHostInput = {
  * person's phone, so this machine never handles a password and the credential
  * it ends up with belongs to whoever approved.
  */
-export async function pairHost(
-  input: PairHostInput,
-): Promise<ResultType<PairingOutcome, PairingError | CredentialStoreError>> {
-  const requested = await input.authorizer.requestCode(input.host)
-  if (requested.isErr()) return Result.err(requested.error)
-
-  const grant = requested.value
+export async function pairHost(input: PairHostInput): Promise<PairingOutcome> {
+  const grant = await input.authorizer.requestCode(input.host)
   input.onPrompt({
     userCode: grant.userCode,
     verificationUri: grant.verificationUri,
@@ -64,19 +53,17 @@ export async function pairHost(
   })
 
   const answered = await waitForApproval(input, grant)
-  if (answered.isErr()) return Result.err(answered.error)
-  if (answered.value.status !== 'paired') return Result.ok(answered.value)
+  if (answered.status !== 'paired') return answered
 
-  const written = await input.credentials.write({
+  await input.credentials.write({
     baseUrl: input.baseUrl,
-    token: answered.value.token,
+    token: answered.token,
   })
-  if (written.isErr()) return Result.err(written.error)
 
   // Asked after the credential is safe, so a server that will not name the
   // account cannot undo a pairing that already worked.
-  const account = await input.authorizer.accountOf(answered.value.token)
-  return Result.ok({ status: 'paired', account })
+  const account = await input.authorizer.accountOf(answered.token)
+  return { status: 'paired', account }
 }
 
 /**
@@ -85,10 +72,7 @@ export async function pairHost(
  * The deadline is enforced here as well as by the server, so a server that
  * stops answering cannot leave the daemon polling forever.
  */
-async function waitForApproval(
-  input: PairHostInput,
-  grant: DeviceCodeGrant,
-): Promise<ResultType<Answer, PairingError>> {
+async function waitForApproval(input: PairHostInput, grant: DeviceCodeGrant): Promise<Answer> {
   const deadline = input.now() + grant.expiresInSeconds * 1000
   let intervalSeconds = grant.intervalSeconds
 
@@ -97,18 +81,15 @@ async function waitForApproval(
     await input.sleep(intervalSeconds * 1000)
 
     // oxlint-disable-next-line no-await-in-loop -- One poll at a time is the grant's contract.
-    const polled = await input.authorizer.poll(grant.deviceCode)
-    if (polled.isErr()) return Result.err(polled.error)
-
-    const answer = polled.value
-    if (answer.status === 'granted') return Result.ok({ status: 'paired', token: answer.token })
-    if (answer.status === 'denied') return Result.ok({ status: 'denied' })
-    if (answer.status === 'expired') return Result.ok({ status: 'expired' })
+    const answer = await input.authorizer.poll(grant.deviceCode)
+    if (answer.status === 'granted') return { status: 'paired', token: answer.token }
+    if (answer.status === 'denied') return { status: 'denied' }
+    if (answer.status === 'expired') return { status: 'expired' }
     if (answer.status === 'slow-down') intervalSeconds += answer.intervalSeconds
   }
 
   // The local deadline passed, which means the same thing the server would say.
-  return Result.ok({ status: 'expired' })
+  return { status: 'expired' }
 }
 
 /** The outcome as waiting sees it, with the token still attached to approval. */

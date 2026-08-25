@@ -1,8 +1,22 @@
 import { execFileSync } from 'node:child_process'
 import { hostname } from 'node:os'
 
-import { ConfigError } from '@host/application/config-error.ts'
-import { HostPlatformSchema, type HostDescriptor } from '@porte/core/client'
+import {
+  HostPlatformSchema,
+  type FailureClassification,
+  type HostDescriptor,
+} from '@porte/core/client'
+import { TaggedError } from 'better-result'
+
+/** The Host does not support the current operating system. */
+export class UnsupportedPlatformError extends TaggedError('UnsupportedPlatformError')<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(platform: string) {
+    super({ message: `Porte does not run on ${platform} yet.`, classification: 'terminal' })
+  }
+}
 
 /**
  * What this Mac calls itself.
@@ -14,7 +28,7 @@ import { HostPlatformSchema, type HostDescriptor } from '@porte/core/client'
 export function describeThisMachine(): HostDescriptor {
   const platform = HostPlatformSchema.safeParse(process.platform)
   if (!platform.success) {
-    throw new ConfigError({ message: `Porte does not run on ${process.platform} yet.` })
+    throw new UnsupportedPlatformError(process.platform)
   }
 
   return { name: machineName(), platform: platform.data }

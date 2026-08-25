@@ -1,59 +1,28 @@
-import type { CodingAgent, CodingAgentError } from '@host/application/ports/coding-agent.ts'
-import type {
-  ConversationCreationStore,
-  ConversationCreationStoreError,
-} from '@host/application/ports/conversation-creation-store.ts'
-import { ConversationCatalog } from '@host/domain/conversation/conversation-catalog.ts'
-import type { Conversation, FailureClassification, HostControlMethodMap } from '@porte/core/client'
-import { Result, TaggedError, type Result as ResultType } from 'better-result'
-
-/** A creation identifier cannot describe this new creation operation. */
-export class ConversationCreationConflictError extends TaggedError(
-  'ConversationCreationConflictError',
-)<{
-  message: string
-  classification: FailureClassification
-}> {
-  constructor(args: { message: string }) {
-    super({ ...args, classification: 'terminal' })
-  }
-}
+import { ConversationCatalog } from '@host/application/conversation-catalog.ts'
+import type { ConversationCreationStore } from '@host/application/ports/conversation-creation-store.ts'
+import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
+import {
+  OperationConflictError,
+  type Conversation,
+  type HostControlMethodMap,
+} from '@porte/core/client'
 
 /** Create one conversation with durable repeat safety. */
 export async function createConversation(
-  agent: Pick<CodingAgent, 'createConversation'>,
+  sessions: Pick<SessionSupervisor, 'createConversation'>,
   creations: ConversationCreationStore,
   catalog: ConversationCatalog,
   command: HostControlMethodMap['conversation.create']['params'],
-): Promise<
-  ResultType<
-    Conversation,
-    CodingAgentError | ConversationCreationStoreError | ConversationCreationConflictError
-  >
-> {
+): Promise<Conversation> {
   const claim = await creations.claim(command.creationId, command.cwd)
-  if (claim.isErr()) return claim
-  if (claim.value.status === 'completed') {
-    return claim.value.record.cwd === command.cwd
-      ? Result.ok(claim.value.record.conversation)
-      : conflict('Creation identifier is already in use.')
+  if (claim.status === 'completed') {
+    if (claim.record.cwd === command.cwd) return claim.record.conversation
+    throw new OperationConflictError()
   }
-  if (claim.value.status === 'pending') {
-    return conflict(
-      claim.value.cwd === command.cwd
-        ? 'Conversation creation is already in progress.'
-        : 'Creation identifier is already in use.',
-    )
-  }
+  if (claim.status === 'pending') throw new OperationConflictError()
 
-  const created = await agent.createConversation({ cwd: command.cwd })
-  if (created.isErr()) return created
-  const saved = await creations.complete({ ...command, conversation: created.value })
-  if (saved.isErr()) return saved
-  catalog.add(created.value)
+  const created = await sessions.createConversation(command.cwd)
+  await creations.complete({ ...command, conversation: created })
+  catalog.add(created)
   return created
-}
-
-function conflict(message: string): ResultType<never, ConversationCreationConflictError> {
-  return Result.err(new ConversationCreationConflictError({ message }))
 }

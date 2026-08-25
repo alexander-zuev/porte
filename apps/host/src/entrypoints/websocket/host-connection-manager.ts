@@ -1,175 +1,115 @@
-import type { HostApplicationResources } from '@host/application/host-application-resources.ts'
-import {
-  type ControlConnection,
-  WebSocketControlConnection,
-} from '@host/entrypoints/websocket/control-connection.ts'
-import { JsonRpcControlDispatcher } from '@host/entrypoints/websocket/control-dispatcher.ts'
-import {
-  type ControlMethodHandlerRegistry,
-  type ControlMethodContext,
-} from '@host/entrypoints/websocket/control-method-handlers.ts'
-import {
-  type ConversationConnection,
-  WebSocketConversationConnection,
-} from '@host/entrypoints/websocket/conversation-connection.ts'
-import { JsonRpcConversationDispatcher } from '@host/entrypoints/websocket/conversation-dispatcher.ts'
+import type { ConversationCatalog } from '@host/application/conversation-catalog.ts'
+import type { AgentSessionFactory } from '@host/application/ports/agent-session-factory.ts'
+import type { ConversationCreationStore } from '@host/application/ports/conversation-creation-store.ts'
+import type { HostConnections } from '@host/application/ports/host-connections.ts'
+import type { SessionOperations } from '@host/application/session-supervisor.ts'
+import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
+import type { ControlMethodHandlerRegistry } from '@host/entrypoints/websocket/control-method-handlers.ts'
+import { ConversationConnection } from '@host/entrypoints/websocket/conversation-connection.ts'
 import type { ConversationMethodHandlerRegistry } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
-import { HostConnectionStateError } from '@host/entrypoints/websocket/websocket-errors.ts'
-import type { WebSocketClientFactory } from '@host/infrastructure/websocket/party-socket-client.ts'
+import type { RelaySocketFactory } from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
-  WebSocketControlNotifications,
-  WebSocketConversationNotifications,
-} from '@host/infrastructure/websocket/websocket-notifications.ts'
-import {
-  createLogger,
   HOST_CONTROL_SUBPROTOCOL,
   HOST_CONVERSATION_SUBPROTOCOL,
   type ConversationId,
 } from '@porte/core/client'
-
-const logger = createLogger('host-connections')
 
 /** Fixed dependencies for one Host connection manager. */
 export type HostConnectionManagerInput = {
   readonly baseUrl: string
   readonly controlHandlers: ControlMethodHandlerRegistry
   readonly conversationHandlers: ConversationMethodHandlerRegistry
-  readonly resources: HostApplicationResources
+  readonly catalog: ConversationCatalog
+  readonly creations: ConversationCreationStore
+  readonly factory: AgentSessionFactory
+  readonly sessions: SessionOperations
   readonly token: string
 }
 
-/** Connections owned by one running Host process. */
-export interface IHostconectionManager {
-  /** Open or return the control connection. */
-  openControlConnection(): ControlConnection
-
-  /** Close the control connection and all conversation connections. */
-  closeControlConnection(): void
-
-  /** Open or return one conversation connection. */
-  openConversationConnection(conversationId: ConversationId): ConversationConnection
-
-  /** Close and remove one conversation connection. */
-  closeConversationConnection(conversationId: ConversationId): void
-}
-
-type OpenControlConnection = {
-  readonly connection: ControlConnection
-  readonly notifications: WebSocketControlNotifications
-}
-
-/** Own one control connection and at most one connection for each conversation. */
-export class HostConnectionManager implements IHostconectionManager {
+/** Owns the control connection and the active conversation connection registry. */
+export class HostConnectionManager implements HostConnections {
+  private readonly control: ControlConnection
   private readonly conversations = new Map<ConversationId, ConversationConnection>()
-  private control: OpenControlConnection | undefined
 
   constructor(
     private readonly input: HostConnectionManagerInput,
-    private readonly createClient: WebSocketClientFactory,
-  ) {}
-
-  /** Open or return the control connection. */
-  openControlConnection(): ControlConnection {
-    if (this.control !== undefined) return this.control.connection
-
-    const socket = this.createClient({
-      url: this.controlConnectionUrl(),
+    private readonly createTransport: RelaySocketFactory,
+  ) {
+    const transport = createTransport({
+      url: this.controlUrl(),
       subprotocol: HOST_CONTROL_SUBPROTOCOL,
-      authorization: `Bearer ${this.input.token}`,
+      authorization: `Bearer ${input.token}`,
     })
-    const notifications = new WebSocketControlNotifications(socket)
-    const context: ControlMethodContext = {
+    this.control = new ControlConnection(transport, input.controlHandlers, {
       connections: this,
-      resources: this.input.resources,
-    }
-    const connection = new WebSocketControlConnection({
-      socket,
-      dispatcher: new JsonRpcControlDispatcher(this.input.controlHandlers, context),
+      catalog: input.catalog,
+      creations: input.creations,
+      factory: input.factory,
+      sessions: input.sessions,
     })
-
-    this.control = { connection, notifications }
-    connection.open()
-    return connection
   }
 
-  /** Close the control connection and every conversation connection. */
-  closeControlConnection(): void {
-    for (const connection of this.conversations.values()) connection.close()
-    this.conversations.clear()
-    this.control?.connection.close()
-    this.control = undefined
+  get controlStopped(): Promise<void> {
+    return this.control.stopped
   }
 
-  /** Open or return one conversation connection. */
-  openConversationConnection(conversationId: ConversationId): ConversationConnection {
-    const current = this.conversations.get(conversationId)
-    if (current !== undefined) return current
-    if (this.control === undefined) {
-      throw new HostConnectionStateError({
-        message: 'Cannot open a conversation without an active control connection.',
-      })
-    }
+  connectControl(): void {
+    this.control.start()
+  }
 
-    const socket = this.createClient({
-      url: this.conversationConnectionUrl(conversationId),
+  connectConversation(conversationId: ConversationId): void {
+    if (this.conversations.has(conversationId)) return
+
+    const transport = this.createTransport({
+      url: this.conversationUrl(conversationId),
       subprotocol: HOST_CONVERSATION_SUBPROTOCOL,
       authorization: `Bearer ${this.input.token}`,
     })
-    const conversationNotifications = new WebSocketConversationNotifications(socket)
-    const connection = new WebSocketConversationConnection({
-      socket,
+    const connection = new ConversationConnection(
       conversationId,
-      context: this.input.resources,
-      controlNotifications: this.control.notifications,
-      conversationNotifications,
-      dispatcher: new JsonRpcConversationDispatcher(this.input.conversationHandlers, {
-        conversationId,
-        controlNotifications: this.control.notifications,
-        conversationNotifications,
-        resources: this.input.resources,
-      }),
-    })
-
+      transport,
+      this.input.conversationHandlers,
+      this.input.sessions,
+      this.input.catalog,
+      this.control.notifications,
+      (stopped) => {
+        this.removeConversation(stopped)
+      },
+    )
     this.conversations.set(conversationId, connection)
-    connection.open()
-    void this.observeConversation(conversationId, connection)
-    return connection
+    connection.start()
   }
 
-  /** Close and remove one conversation connection. */
-  closeConversationConnection(conversationId: ConversationId): void {
+  closeConversation(conversationId: ConversationId): Promise<void> {
     const connection = this.conversations.get(conversationId)
-    if (connection === undefined) return
-    this.conversations.delete(conversationId)
-    connection.close()
+    if (connection !== undefined) {
+      connection.stop()
+      this.removeConversation(connection)
+    }
+    return Promise.resolve()
   }
 
-  private async observeConversation(
-    conversationId: ConversationId,
-    connection: ConversationConnection,
-  ): Promise<void> {
-    try {
-      await connection.closed
-    } catch (cause) {
-      logger.error('host_conversation_connection_failed', {
-        error: cause,
-        details: { conversationId },
-      })
-    } finally {
-      if (this.conversations.get(conversationId) === connection) {
-        this.conversations.delete(conversationId)
-      }
+  closeAll(): Promise<void> {
+    for (const connection of this.conversations.values()) connection.stop()
+    this.conversations.clear()
+    this.control.stop()
+    return Promise.resolve()
+  }
+
+  private removeConversation(connection: ConversationConnection): void {
+    if (this.conversations.get(connection.conversationId) === connection) {
+      this.conversations.delete(connection.conversationId)
     }
   }
 
-  private controlConnectionUrl(): string {
+  private controlUrl(): string {
     const url = new URL('/api/host/ws', this.input.baseUrl)
     url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:'
     return url.href
   }
 
-  private conversationConnectionUrl(conversationId: ConversationId): string {
-    const url = new URL(this.controlConnectionUrl())
+  private conversationUrl(conversationId: ConversationId): string {
+    const url = new URL(this.controlUrl())
     url.pathname = `${url.pathname.replace(/\/$/, '')}/sub/conversation-agent/${encodeURIComponent(conversationId)}`
     return url.href
   }

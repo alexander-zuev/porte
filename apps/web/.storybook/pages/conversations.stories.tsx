@@ -1,4 +1,4 @@
-import type { ConversationSummary, PairedHost } from '@porte/core/client'
+import type { Conversation, PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type {
   ConversationAttentionStatus,
@@ -15,7 +15,7 @@ import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 import { conversations } from '../fixtures/conversations.ts'
 
-const NONE: readonly ConversationSummary[] = []
+const NONE: readonly Conversation[] = []
 
 const HOST = {
   name: "Alexander's MacBook Pro",
@@ -46,7 +46,7 @@ function page(
 
 /** The list arrived. Paging is off unless a story says otherwise. */
 function listed(
-  conversations: readonly ConversationSummary[],
+  conversations: readonly Conversation[],
   firstTurnStatus: ConversationTurnStatus = 'idle',
   firstAttentionStatus: ConversationAttentionStatus = 'none',
 ): ConversationList {

@@ -6,7 +6,6 @@ import {
   type CredentialStore,
   type StoredCredential,
 } from '@host/application/ports/credential-store.ts'
-import { Result, type Result as ResultType } from 'better-result'
 import { z } from 'zod'
 
 const StoredCredentialSchema = z.object({
@@ -46,25 +45,23 @@ export class FileCredentialStore implements CredentialStore {
     return parseCredential(contents)
   }
 
-  async write(credential: StoredCredential): Promise<ResultType<void, CredentialStoreError>> {
+  async write(credential: StoredCredential): Promise<void> {
     try {
       await mkdir(dirname(this.filePath), { recursive: true, mode: DIRECTORY_MODE })
       await writeFile(this.filePath, JSON.stringify(credential, null, 2), {
         encoding: 'utf8',
         mode: FILE_MODE,
       })
-      return Result.ok(undefined)
     } catch (cause) {
-      return Result.err(new CredentialStoreError({ cause }))
+      throw new CredentialStoreError({ cause })
     }
   }
 
-  async clear(): Promise<ResultType<void, CredentialStoreError>> {
+  async clear(): Promise<void> {
     try {
       await rm(this.filePath, { force: true })
-      return Result.ok(undefined)
     } catch (cause) {
-      return Result.err(new CredentialStoreError({ cause }))
+      throw new CredentialStoreError({ cause })
     }
   }
 }

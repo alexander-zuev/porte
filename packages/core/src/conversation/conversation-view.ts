@@ -78,18 +78,6 @@ export const ConversationStateSchema = z.strictObject({
 /** Complete mutable state at one live conversation position. */
 export type ConversationState = z.infer<typeof ConversationStateSchema>
 
-// TEMPORARY: Keep the old relay snapshot until the Host JSON-RPC refactor resumes.
-export const ConversationStateSnapshotSchema = z.object({
-  turn: ConversationTurnStateSchema,
-  plans: z.array(ConversationPlanSchema),
-  usage: ConversationUsageSchema.nullable(),
-  configuration: z.array(ConversationConfigurationOptionSchema).nullable(),
-  commands: z.array(ConversationCommandSchema).nullable(),
-  modeId: z.string().min(1).nullable(),
-  pending: PendingInteractionsSchema,
-})
-export type ConversationStateSnapshot = z.infer<typeof ConversationStateSnapshotSchema>
-
 /** Select mutable state from one complete provider view. */
 export function makeConversationState(
   view: ConversationView,
@@ -98,21 +86,5 @@ export function makeConversationState(
   return ConversationStateSchema.parse({
     turn,
     ...view,
-  })
-}
-
-/** TEMPORARY: Select the old relay snapshot until the Host JSON-RPC refactor resumes. */
-export function conversationStateSnapshot(
-  view: ConversationView,
-  turn: z.infer<typeof ConversationTurnStateSchema>,
-): ConversationStateSnapshot {
-  return ConversationStateSnapshotSchema.parse({
-    turn,
-    plans: view.plans,
-    usage: view.usage ?? null,
-    configuration: view.configuration ?? null,
-    commands: view.commands ?? null,
-    modeId: view.modeId ?? null,
-    pending: view.pending,
   })
 }

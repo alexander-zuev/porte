@@ -2,26 +2,104 @@
 
 ## Authority
 
-This document defines the target communication contract for the Porte relay.
+This document defines the communication contract for the Porte relay.
 
 It owns the Host WebSocket protocol, Host methods, relay calls, errors, ordering, and reconnect behavior.
 
-The target replaces the current pre-release protocol. It does not provide backward compatibility.
+This contract replaces the old pre-release protocol. It does not provide backward compatibility.
 
 ## Summary
 
-The relay and Host use JSON-RPC 2.0 over one authenticated WebSocket.
+The relay and Host use JSON-RPC 2.0 over authenticated WebSockets.
 
 Each WebSocket text message contains one JSON-RPC document. Porte does not use batch documents or binary messages.
 
 JSON-RPC owns the envelope. Porte owns method names and all values inside `params`, `result`, and `error.data`.
 
-The Host method registry has four groups:
+The two Host method registries have four groups:
 
 1. Queries read conversations or stored events.
 2. Commands change one conversation.
 3. Conversation list notifications update the relay list.
 4. Active conversation notifications replace or increment current state.
+
+## Connection Model
+
+One `porte up` process owns one control connection and zero or more conversation connections.
+
+```text
+Host daemon
+├─ control WebSocket → HostRelayAgent(hostId)
+└─ conversation WebSockets
+   ├─ conversation-a → ConversationAgent(conversation-a)
+   └─ conversation-b → ConversationAgent(conversation-b)
+
+Browser
+├─ control WebSocket → HostRelayAgent(hostId)
+└─ active chat WebSocket → ConversationAgent(conversationId)
+```
+
+A WebSocket stays attached to one Durable Object after its upgrade. Direct access to multiple conversation objects requires multiple WebSockets.
+
+One shared Host WebSocket would require `HostRelayAgent` to inspect and forward every conversation message. That would keep it in the data path.
+
+### Connection lifecycle
+
+`porte up` opens the control connection and keeps it open until shutdown, unpairing, revocation, or a terminal protocol failure.
+
+The Host opens a conversation connection lazily when the control plane requests `conversation.attach`.
+
+The Host reuses an open conversation connection. It does not close and reopen the connection for each turn.
+
+A conversation connection closes for one of these reasons:
+
+- The conversation is removed.
+- The Host daemon stops.
+- The pairing is revoked.
+- A terminal protocol error makes the connection unsafe.
+
+`conversation.close` stops the active coding-agent process. It does not close the conversation WebSocket by itself.
+
+Both relay Agents disable hibernation while a socket is open. Pending request timers and stream writers remain in memory.
+
+### Connection profiles
+
+The final wire has two Porte JSON-RPC profiles.
+
+| Profile           | Endpoint object     | Purpose                                                                       |
+| ----------------- | ------------------- | ----------------------------------------------------------------------------- |
+| Host control      | `HostRelayAgent`    | Host lifecycle, conversation registry, authorization, and connection control. |
+| Host conversation | `ConversationAgent` | Conversation reads, commands, events, state replacement, and recovery.        |
+
+The control profile uses `porte.host-control.v1`.
+
+The conversation profile uses `porte.host-conversation.v1`.
+
+Browser connections continue to use the Agents SDK protocol. Relay object calls continue to use Agent RPC. ACP connections continue to use ACP.
+
+### Method ownership
+
+The control registry owns these methods:
+
+- `conversations.list`
+- `conversation.create`
+- `conversation.attach`
+- `conversation.updated`
+- `conversation.removed`
+
+The initial protocol has no `conversation.detach` method. It keeps each data connection until its defined close condition occurs.
+
+The conversation registry owns these existing methods:
+
+- `conversation.close`
+- `turn.start` and `turn.cancel`
+- `conversation.configuration.set`
+- `permission.answer` and `elicitation.answer`
+- `conversation.state` and `conversation.event`
+
+Conversation messages do not repeat `conversationId` after the connection selects one `ConversationAgent`. The connection identity is authoritative.
+
+The two profiles use separate method registries.
 
 ## Domain Language
 
@@ -47,7 +125,7 @@ Porte does not expose a `SessionEvent` type. A session is not a Porte product co
 
 ### Removed types
 
-Remove these types from the target contract:
+The relay contract does not use these removed types:
 
 - `ConversationIdentity`
 - `ConversationSummary`
@@ -55,21 +133,18 @@ Remove these types from the target contract:
 - `ConversationPageQuery`
 - `ConversationTranscript`
 - `ConversationStateSnapshot`
+- `ConversationListRevision`
 
 Use these operation and domain types:
 
 - `Conversation`
 - `ListConversationsParams`
 - `ListConversationsResult`
-- `ReadConversationParams`
-- `ReadConversationResult`
 - `ConversationState`
 
 `Conversation` is the complete list representation. The protocol does not maintain separate identity and summary representations.
 
 `ListConversationsResult` can contain a limited result set and a cursor. Its type does not model a page.
-
-`ReadConversationResult` contains stored canonical events. It is not a transcript and does not contain current state.
 
 ## Protocol Ownership
 
@@ -102,7 +177,7 @@ The `result | error` response structure is also standard JSON-RPC. Porte only de
 
 WebSocket supplies a persistent, ordered message transport. JSON-RPC supplies the application message format.
 
-Every relay-to-Host and Host-to-relay application message uses JSON-RPC. WebSocket ping, pong, and close messages do not use JSON-RPC.
+Every relay-to-Host and Host-to-relay application message uses JSON-RPC. Close messages remain WebSocket protocol messages.
 
 One WebSocket message contains one complete JSON-RPC document. A JSON-RPC document never spans multiple WebSocket messages.
 
@@ -150,9 +225,7 @@ The union prevents a notification definition from containing a `result` schema.
 
 ### Envelope validation
 
-The generic envelope schemas accept unknown members. JSON-RPC does not require receivers to reject unknown members.
-
-This rule permits version overlap. A new sender can add metadata without breaking an older receiver.
+The generic envelope schemas reject unknown members. A subprotocol version change must introduce an incompatible envelope change.
 
 The schemas still enforce these rules:
 
@@ -164,7 +237,9 @@ The schemas still enforce these rules:
 
 Each Porte-owned `params`, `result`, and `error.data` schema uses `z.strictObject`. Unknown domain fields fail at the receiving boundary.
 
-The receiver must parse and validate all received data. The sender can also validate before encoding.
+Each receiver parses and validates untrusted data once. Typed internal calls do not validate the same value again.
+
+The sender uses the method registry types. It does not parse its own typed value before encoding.
 
 ### Decode result
 
@@ -249,40 +324,34 @@ The closed error payload in `error.data` carries the Porte error tag. Porte does
 
 Unknown failures become `-32603`. The relay logs the failure once and sends no private details.
 
-## Host Method Registry
+## Host Method Registries
 
-`HostMethods` is the registry of every allowed Host method name, kind, params schema, and result schema.
+Each connection profile has one method registry. A registry defines every allowed method, kind, params schema, and result schema.
 
 ```ts
-export const HostMethods = {
-  // Queries.
+export const HostControlMethods = {
   'conversations.list': {},
-  'conversation.read': {},
-
-  // Commands.
   'conversation.create': {},
+  'conversation.attach': {},
+  'conversation.updated': {},
+  'conversation.removed': {},
+} as const satisfies Record<string, JsonRpcMethodDefinition>
+
+export const HostConversationMethods = {
   'conversation.close': {},
   'turn.start': {},
   'turn.cancel': {},
   'conversation.configuration.set': {},
   'permission.answer': {},
   'elicitation.answer': {},
-
-  // Conversation list notifications.
-  'conversation.updated': {},
-  'conversation.removed': {},
-
-  // Active conversation notifications.
   'conversation.state': {},
   'conversation.event': {},
 } as const satisfies Record<string, JsonRpcMethodDefinition>
-
-export type HostMethod = keyof typeof HostMethods
 ```
 
-The short entries show the required names and order. Each real entry contains `kind`, `params`, and applicable `result` schemas.
+The short entries show the required names. Each real entry contains `kind`, `params`, and applicable `result` schemas.
 
-The registry is the only source for method names. Code derives method unions and envelope schemas from it.
+Each registry is the only source for its method names. Code derives method unions and envelope schemas from it.
 
 | Group                             | Direction     | JSON-RPC kind | Purpose                                         |
 | --------------------------------- | ------------- | ------------- | ----------------------------------------------- |
@@ -292,6 +361,20 @@ The registry is the only source for method names. Code derives method unions and
 | Active conversation notifications | Host to relay | Notification  | Replace or increment active conversation state. |
 
 Queries and commands need responses, so they are requests. Notifications do not need responses, so they have no `id`.
+
+### Responses are not acknowledgments
+
+A query response carries the requested value or an error.
+
+A command response reports immediate acceptance or rejection. It does not report later domain events.
+
+A notification has no response. Porte does not add an acknowledgment method or result frame for notifications.
+
+Stable domain identifiers correlate later events. For example, a permission result uses `permissionId`, not the JSON-RPC request identifier.
+
+Each connection keeps pending request identifiers, methods, timeouts, and resolvers in memory. Closing the connection rejects all pending requests.
+
+The pending request map is correlation state. It is not a durable ledger and never causes automatic command replay.
 
 ## Queries
 
@@ -308,38 +391,14 @@ type ListConversationsParams = {
 type ListConversationsResult = {
   conversations: readonly Conversation[]
   next?: ConversationCursor
-  revision: ConversationListRevision
 }
 ```
 
-The cursor is an opaque read position. The result type does not expose a page abstraction.
+The cursor is an opaque position in one in-memory Host snapshot. The result type does not expose a page abstraction.
 
-All results in one traversal use one revision. A stale cursor returns a typed application error.
+The snapshot exists only for the current control connection. A stale cursor returns a typed application error.
 
-The relay restarts the request after a stale cursor. It replaces its list only after the complete traversal succeeds.
-
-### `conversation.read`
-
-This request reads stored canonical events for one conversation.
-
-```ts
-type ReadConversationParams = {
-  conversationId: ConversationId
-  cursor?: ConversationEventCursor
-  limit: number
-}
-
-type ReadConversationResult = {
-  events: readonly ConversationEvent[]
-  next?: ConversationEventCursor
-}
-```
-
-The result does not repeat `Conversation`. The conversation list owns that representation.
-
-The result does not contain `ConversationState`. Active state has a separate replacement notification.
-
-Reading a conversation never starts an agent process. `turn.start` loads the process when necessary.
+The relay restarts the request after a stale cursor. It replaces its cache only after the complete traversal succeeds.
 
 ## Commands
 
@@ -353,17 +412,35 @@ Its params contain `creationId` and `cwd`. `creationId` is the UUID version 7 id
 
 The Host returns the first result for a repeated key with the same params. It rejects the same key with different params.
 
+The Host stores a claim before it calls the provider. The claim prevents concurrent or post-crash duplicate creation.
+
+The Host completes the claim with the created `Conversation`. An incomplete claim returns a conflict and requires a new `creationId`.
+
+The relay updates its cache from the result. The Host does not send an immediate duplicate `conversation.updated` notification.
+
+### `conversation.attach`
+
+This control request asks the Host to open or reuse one data connection.
+
+Its params contain `conversationId`. It returns `null` after the data WebSocket opens and sends initial state.
+
+The Host does not store the request. A repeated request reuses the open connection.
+
 ### `conversation.close`
 
 This request stops the active agent process for one conversation. It does not delete the conversation.
 
 The operation succeeds when no active process remains. A repeated close also succeeds.
 
+If a turn is active, the Host sends its cancelled `turn.finished` event before the close result.
+
 ### `turn.start`
 
 This request starts one turn with one client-owned `turnId` and one user message.
 
-The Host loads the conversation process when necessary. A repeated `turnId` never sends a second prompt.
+The Host loads the conversation process when necessary. An active matching `turnId` does not send a second prompt.
+
+The Host does not resend initial state before this command. This preserves the submitted user message.
 
 The response confirms acceptance. Ordered notifications report all later turn changes.
 
@@ -395,15 +472,15 @@ The Host validates the response against the pending elicitation. A later event r
 
 ### `conversation.updated`
 
-This notification carries the complete `Conversation` and its list revision.
+This notification carries the complete `Conversation`.
 
 It creates or replaces one relay list entry. It replaces the old `conversation.summary` name and shape.
 
+The Host sends it only for changes after creation. The creation result already updates the same relay cache.
+
 ### `conversation.removed`
 
-This notification carries one `conversationId` and its list revision. It removes one relay list entry.
-
-List revisions must increase without a gap. The relay calls `conversations.list` when it detects a gap.
+This notification carries one `conversationId`. It removes one relay list entry and its child object.
 
 ## Active Conversation Notifications
 
@@ -411,17 +488,15 @@ List revisions must increase without a gap. The relay calls `conversations.list`
 
 This notification carries the complete current `ConversationState` for one active conversation.
 
-It also carries `throughEventSequence`. The relay replaces local state and then accepts later event sequences.
+The relay replaces its local state with this value.
 
-The Host sends current state after it loads a process and after each relay reconnect. This notification repairs missed events.
+The Host sends current state first on each data connection. It also sends state after it loads a provider process.
 
 ### `conversation.event`
 
-This notification carries one ordered `ConversationEvent` and its `eventSequence`.
+This notification carries one ordered `ConversationEvent`.
 
-The relay applies an event only when its sequence follows the accepted sequence. It ignores an exact duplicate.
-
-The relay reconnects after a sequence gap. The Host then sends a new `conversation.state` before later events.
+The relay applies events in WebSocket order. A handler failure closes the connection and causes state replacement after reconnect.
 
 ### Why state and event remain separate
 
@@ -429,7 +504,7 @@ The relay reconnects after a sequence gap. The Host then sends a new `conversati
 
 These operations have different merge rules. One combined optional shape would make invalid states possible.
 
-The old `summary` and `snapshot` names described reduced or copied representations. The target uses owned domain values.
+The old `summary` and `snapshot` names described reduced representations. The contract uses owned domain values.
 
 ## Conversation Events
 
@@ -443,9 +518,7 @@ The old `summary` and `snapshot` names described reduced or copied representatio
 
 The union preserves one order across all changes. Separate streams could reorder a permission against its tool call or turn.
 
-Each event has a stable event identifier. The transport sequence remains separate from the domain event identifier.
-
-The event identifier removes duplicate domain events. The transport sequence detects missing WebSocket notifications.
+Domain identifiers remain in the applicable events. Porte does not add a transport event identifier or sequence.
 
 ## Delivery and Ordering
 
@@ -454,34 +527,74 @@ WebSocket preserves message order while one connection remains open. It does not
 The Host sends active conversation notifications in this order:
 
 1. Send `conversation.state` for an active conversation.
-2. Send only events after `throughEventSequence`.
-3. Increase `eventSequence` by one for each event.
+2. Send later `conversation.event` notifications in domain order.
 
-The relay applies list notifications in revision order. It applies active events in sequence order.
+The relay applies control and data notifications in WebSocket order.
+
+The Host serializes requests on each connection. A later cancel cannot pass an earlier start request.
 
 JSON-RPC notifications have no response. Porte does not add an acknowledgment envelope that changes their standard meaning.
 
-State replacement and sequence checks provide recovery. They do not claim exactly-once WebSocket delivery.
+State replacement provides recovery. Porte does not claim exactly-once WebSocket delivery.
 
 ## Reconnect and Repeat Safety
 
-After a Host reconnect, the relay requests `conversations.list` until `next` is absent.
+After a control reconnect, the relay requests `conversations.list` until `next` is absent.
 
-The Host then sends `conversation.state` for each active conversation. It sends later events only after each state notification.
+The relay discards its partial list read if the control connection closes.
 
-The relay discards its partial list read if the connection closes or the list revision changes.
-
-The relay closes and reconnects after an active event sequence gap. The next state notification repairs that conversation.
+The Host sends `conversation.state` first after each data reconnect. This state repairs notifications missed while disconnected.
 
 JSON-RPC request identifiers do not survive as mutation keys. Each command owns its repeat behavior:
 
 - Creation uses a creation idempotency key in `params`.
-- Turn start uses `turnId`.
+- A live Host process uses the active `turnId` to prevent a second prompt.
 - Close and cancel define idempotent final states.
 - Configuration sets an explicit value.
 - Interaction answers identify one pending interaction.
 
 The Host never retries an unknown external mutation automatically. A timeout can have an indeterminate result.
+
+The relay does not queue a command while the Host is offline. It returns `HostOfflineError` and lets the user retry.
+
+After reconnect, the relay reads the list or receives current conversation state.
+
+It does not replay generic command records.
+
+## Storage Ownership
+
+Porte stores product state. It does not store WebSocket delivery state.
+
+| Owner               | Durable state                               | In-memory state                                        |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------ |
+| Host provider       | Conversation history                        | None                                                   |
+| Host daemon         | Creation claims and results                 | Active processes, turns, permissions, and elicitations |
+| `HostRelayAgent`    | Conversation metadata cache and Agent state | Current control connection work                        |
+| `ConversationAgent` | Agent state and AIChat messages             | Current data connection and stream work                |
+
+The Host creation claim contains `creationId`, `cwd`, and a status. A completed claim also contains the created `Conversation`.
+
+The complete conversation list traversal replaces the relay cache atomically. A partial traversal never changes the visible cache.
+
+The relay cache has no automatic expiry or arbitrary row limit. Full list results and removal notifications control its contents.
+
+The control cache and child registry authorize a conversation child. Porte does not store a separate access flag.
+
+### Removed transport storage
+
+The redesign removes these records and schedules:
+
+- Host command, response, event, and event-head records.
+- Parent operation records, waiters, offline queues, and cleanup schedules.
+- Child event, snapshot, event-head, active-turn, and projection records.
+- Event acknowledgment and replay state.
+- Conversation list revision and expiry state.
+
+The child applies live events directly to Agent state, AIChat messages, and the active browser stream.
+
+A browser reconnect reads Agent state and AIChat messages from `ConversationAgent`.
+
+The Host turn continues without a browser stream.
 
 ## Relay Boundaries
 
@@ -498,7 +611,7 @@ No JSON-RPC envelope type appears in an Agent RPC or browser method signature.
 | Boundary                   | Failure channel            | Owner                                |
 | -------------------------- | -------------------------- | ------------------------------------ |
 | Host WebSocket decode      | JSON-RPC protocol error    | Host relay entrypoint                |
-| Host command               | JSON-RPC application error | Application handler and relay mapper |
+| Host query or command      | JSON-RPC application error | Application handler and relay mapper |
 | Agent RPC domain failure   | Closed tagged union        | Called relay object                  |
 | Agent RPC platform failure | Throw                      | Cloudflare runtime                   |
 | Browser call               | Agents SDK error contract  | Browser boundary                     |
@@ -517,11 +630,11 @@ The Host WebSocket receiver performs these steps:
 1. Require a text WebSocket message.
 2. Decode JSON with `decodeJsonRpc`.
 3. Validate the generic JSON-RPC envelope.
-4. Select the method definition from `HostMethods`.
+4. Select the method definition from the connection profile registry.
 5. Validate the strict Porte payload schema.
 6. Dispatch the typed value.
 
-The response receiver selects the result schema from the stored request method. A response does not contain a method name.
+The response receiver selects the result schema from the in-memory pending request. A response does not contain a method name.
 
 The relay limits message size before JSON parsing. It rejects binary messages and batch documents.
 

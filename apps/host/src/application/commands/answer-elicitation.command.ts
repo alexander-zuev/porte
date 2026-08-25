@@ -1,12 +1,11 @@
-import type { CodingAgent, CodingAgentError } from '@host/application/ports/coding-agent.ts'
+import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
 import type { ConversationId, HostConversationMethodMap } from '@porte/core/client'
-import type { Result } from 'better-result'
 
 /** Answer one pending coding-agent elicitation. */
 export function answerElicitation(
-  agent: Pick<CodingAgent, 'answerElicitation'>,
+  sessions: Pick<SessionSupervisor, 'answerElicitation'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['elicitation.answer']['params'],
-): Promise<Result<void, CodingAgentError>> {
-  return agent.answerElicitation({ conversationId, ...command })
+): Promise<void> {
+  return sessions.answerElicitation({ conversationId, ...command })
 }

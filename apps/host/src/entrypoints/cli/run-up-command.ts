@@ -1,5 +1,5 @@
-import type { HostConfig } from '@host/entrypoints/cli/host-config.ts'
-import { runHostLifespan } from '@host/host-lifespan.ts'
+import { createHostRuntime } from '@host/infrastructure/bootstrap/host-runtime.ts'
+import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 
 export type RunUpCommandInput = {
   readonly config: HostConfig
@@ -15,10 +15,8 @@ export async function runUpCommand(input: RunUpCommandInput): Promise<void> {
   process.once('SIGTERM', stop)
 
   try {
-    await runHostLifespan({
-      config: input.config,
-      signal: shutdown.signal,
-    })
+    const runtime = await createHostRuntime(input.config, shutdown.signal)
+    await runtime.run()
   } finally {
     shutdown.abort()
     process.removeListener('SIGINT', stop)

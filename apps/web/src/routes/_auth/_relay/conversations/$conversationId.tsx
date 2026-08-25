@@ -1,7 +1,6 @@
 import { ConversationIdSchema } from '@porte/core/client'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useVisibleConversation } from '@web/entities/conversation/conversation-attention-context.tsx'
-import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { useConversation } from '@web/entities/conversation/use-conversation.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
@@ -25,9 +24,6 @@ export const Route = createFileRoute('/_auth/_relay/conversations/$conversationI
 
     return { host: owned.host }
   },
-  loader: async ({ context, params }) => {
-    await context.queryClient.prefetchQuery(conversationQueries.detail(params.conversationId))
-  },
   head: () =>
     createSeoHead({
       title: 'Conversation | Porte',
@@ -40,11 +36,10 @@ export const Route = createFileRoute('/_auth/_relay/conversations/$conversationI
 })
 
 function ConversationRoute() {
-  const { host } = Route.useRouteContext()
   const { conversationId } = Route.useParams()
   const connection = useHostConnection()
   const conversation = useConversation(conversationId)
   useVisibleConversation(conversationId)
 
-  return <ConversationPage connection={connection} conversation={conversation} host={host} />
+  return <ConversationPage connection={connection} conversation={conversation} />
 }

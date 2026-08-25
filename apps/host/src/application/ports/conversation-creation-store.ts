@@ -1,24 +1,4 @@
-import type {
-  Conversation,
-  ConversationCreationId,
-  FailureClassification,
-} from '@porte/core/client'
-import { TaggedError, type Result } from 'better-result'
-
-/** The Host could not read or write its conversation creation records. */
-export class ConversationCreationStoreError extends TaggedError('ConversationCreationStoreError')<{
-  cause: unknown
-  message: string
-  classification: FailureClassification
-}> {
-  constructor(args: { cause: unknown }) {
-    super({
-      ...args,
-      message: 'could not access conversation creation records',
-      classification: 'unknown',
-    })
-  }
-}
+import type { Conversation, ConversationCreationId } from '@porte/core/client'
 
 /** One durable result for a logical conversation creation. */
 export type ConversationCreationRecord = {
@@ -35,11 +15,6 @@ export type ConversationCreationClaim =
 
 /** Durable repeat safety for conversation creation only. */
 export interface ConversationCreationStore {
-  claim(
-    creationId: ConversationCreationId,
-    cwd: string,
-  ): Promise<Result<ConversationCreationClaim, ConversationCreationStoreError>>
-  complete(
-    record: ConversationCreationRecord,
-  ): Promise<Result<void, ConversationCreationStoreError>>
+  claim(creationId: ConversationCreationId, cwd: string): Promise<ConversationCreationClaim>
+  complete(record: ConversationCreationRecord): Promise<void>
 }

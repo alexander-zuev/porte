@@ -1,5 +1,5 @@
 import type { FailureClassification } from '@porte/core/client'
-import { TaggedError, type Result } from 'better-result'
+import { TaggedError } from 'better-result'
 
 /** The credential file could not be read, written, or removed. */
 export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
@@ -35,8 +35,8 @@ export interface CredentialStore {
   read(): Promise<StoredCredential | null>
 
   /** Replace whatever is stored. Readable only by this user. */
-  write(credential: StoredCredential): Promise<Result<void, CredentialStoreError>>
+  write(credential: StoredCredential): Promise<void>
 
   /** Forget the credential. Succeeds when there was nothing to forget. */
-  clear(): Promise<Result<void, CredentialStoreError>>
+  clear(): Promise<void>
 }

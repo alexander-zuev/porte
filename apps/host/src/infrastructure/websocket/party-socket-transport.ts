@@ -1,0 +1,253 @@
+import {
+  JsonRpcSendError,
+  JsonRpcTextSchema,
+  createLogger,
+  readJsonRpcTextFrame,
+  sendJsonRpcFrame,
+  type JsonRpcResponse,
+} from '@porte/core/client'
+import { WebSocket as PartySocket } from 'partysocket'
+import { WebSocket as NodeWebSocket } from 'ws'
+import { z } from 'zod'
+
+import {
+  WebSocketHandlerError,
+  WebSocketHandshakeRefused,
+  WebSocketProtocolClose,
+} from './websocket-errors.ts'
+
+const logger = createLogger('party-socket-transport')
+
+/** Input that creates one authenticated PartySocket. */
+export type PartySocketTransportInput = {
+  readonly url: string
+  readonly subprotocol: string
+  readonly authorization: `Bearer ${string}`
+}
+
+/** Consumers of one relay socket. */
+export type RelaySocketListeners = {
+  /** Handle one inbound text frame. Return a response to write, or nothing. */
+  readonly onFrame: (frame: string) => Promise<JsonRpcResponse<unknown, unknown> | undefined>
+  /** Handle the first open and every reconnect. */
+  readonly onUp?: () => Promise<void>
+}
+
+/**
+ * One WebSocket to the relay.
+ *
+ * The socket is inert until `start`. `stopped` settles once, when this socket
+ * will not come back. PartySocket owns connect and reconnect.
+ */
+export interface RelaySocket {
+  /** Settles once, when this socket will not come back. */
+  readonly stopped: Promise<void>
+
+  /** Attach listeners and start connecting. Does not wait for open. */
+  start(listeners: RelaySocketListeners): void
+
+  /** Send one text frame. Retries only when the socket did not accept it. */
+  send(frame: string): Promise<void>
+
+  /** Stop reconnects and close locally. */
+  stop(): void
+}
+
+/** Create one relay socket. */
+export type RelaySocketFactory = (input: PartySocketTransportInput) => RelaySocket
+
+type Handshake =
+  | { readonly retry: true }
+  | { readonly retry: false; readonly error: WebSocketHandshakeRefused }
+
+type NodeWebSocketConstructor = new (
+  address: string | URL,
+  protocols?: string | string[],
+) => NodeWebSocket
+
+type RelayPartySocket = EventTarget & {
+  readonly retryCount: number
+  reconnect(): void
+  send(data: string): boolean | void
+  close(code?: number, reason?: string): void
+}
+
+const InboundMessageSchema = z.object({ data: z.unknown() })
+const InboundCloseSchema = z.object({
+  code: z.number(),
+  reason: z.string(),
+})
+
+/** Own one authenticated PartySocket and all WebSocket lifecycle work. */
+export class PartySocketTransport implements RelaySocket {
+  private readonly stoppedState = Promise.withResolvers<void>()
+  private readonly socket: RelayPartySocket
+  private listeners: RelaySocketListeners | undefined
+  private closed = false
+  private handshake: Handshake | undefined
+
+  /** Settles once, when this socket will not come back. */
+  readonly stopped = this.stoppedState.promise
+
+  constructor(
+    private readonly input: PartySocketTransportInput,
+    socket?: RelayPartySocket,
+  ) {
+    this.socket = socket ?? this.createSocket()
+  }
+
+  /** Attach listeners and start connecting. Does not wait for open. */
+  start(listeners: RelaySocketListeners): void {
+    this.listeners = listeners
+    this.socket.addEventListener('open', this.onOpen)
+    this.socket.addEventListener('message', this.onMessage)
+    this.socket.addEventListener('close', this.onClose)
+    this.socket.reconnect()
+  }
+
+  /** Send one text frame. Retries only when the socket did not accept it. */
+  async send(frame: string): Promise<void> {
+    await sendJsonRpcFrame(() => this.socket.send(frame))
+  }
+
+  /** Stop reconnects and close locally. */
+  stop(): void {
+    this.closed = true
+    this.socket.close(1000, 'Host connection closed')
+    this.stoppedState.resolve()
+  }
+
+  private createSocket(): PartySocket {
+    const AuthenticatedWebSocket = authenticatedWebSocketConstructor(
+      this.input.authorization,
+      this.recordHandshake,
+    )
+    return new PartySocket(this.input.url, this.input.subprotocol, {
+      WebSocket: AuthenticatedWebSocket,
+      maxEnqueuedMessages: 0,
+      startClosed: true,
+      shouldReconnectOnClose: this.shouldReconnect,
+    })
+  }
+
+  private readonly onOpen = (): void => {
+    if (this.closed) return
+    logger.info('websocket_connected', {
+      details: { url: this.input.url, retryCount: this.socket.retryCount },
+    })
+    const onUp = this.listeners?.onUp
+    if (onUp === undefined) return
+    void onUp().catch((cause: unknown) => {
+      this.fail(new WebSocketHandlerError({ cause }))
+    })
+  }
+
+  private readonly onMessage = (event: Event): void => {
+    if (this.closed) return
+    const message = InboundMessageSchema.safeParse(event)
+    const frame = readJsonRpcTextFrame(
+      JsonRpcTextSchema.safeParse(message.success ? message.data.data : undefined),
+    )
+    if (!frame.ok) {
+      logger.warn('websocket_frame_rejected', {
+        details: { code: frame.close.code, reason: frame.close.reason },
+      })
+      this.socket.close(frame.close.code, frame.close.reason)
+      return
+    }
+    void this.deliverFrame(frame.frame)
+  }
+
+  private readonly onClose = (event: Event): void => {
+    if (this.closed) return
+    const handshake = this.handshake
+    this.handshake = undefined
+    if (handshake !== undefined && !handshake.retry) {
+      this.fail(handshake.error)
+      return
+    }
+    const closed = InboundCloseSchema.safeParse(event)
+    const code = closed.success ? closed.data.code : 1006
+    const reason = closed.success ? closed.data.reason : ''
+    if (isTerminalCloseCode(code)) {
+      this.fail(
+        new WebSocketProtocolClose({
+          message: `WebSocket connection closed: ${reason}`,
+        }),
+      )
+      return
+    }
+    logger.info('websocket_reconnecting', {
+      details: { retryCount: this.socket.retryCount },
+    })
+  }
+
+  private async deliverFrame(frame: string): Promise<void> {
+    if (this.closed || this.listeners === undefined) return
+    try {
+      const document = await this.listeners.onFrame(frame)
+      if (document !== undefined) await this.send(JSON.stringify(document))
+    } catch (cause) {
+      this.fail(cause instanceof JsonRpcSendError ? cause : new WebSocketHandlerError({ cause }))
+    }
+  }
+
+  private readonly recordHandshake = (status: number): void => {
+    this.handshake = shouldRetryHandshake(status)
+      ? { retry: true }
+      : { retry: false, error: new WebSocketHandshakeRefused({ status }) }
+  }
+
+  private readonly shouldReconnect = (event: CloseEvent): boolean => {
+    if (this.closed) return false
+    const handshake = this.handshake
+    if (handshake !== undefined) return handshake.retry
+    return !isTerminalCloseCode(event.code)
+  }
+
+  private fail(
+    cause:
+      | WebSocketHandlerError
+      | WebSocketHandshakeRefused
+      | WebSocketProtocolClose
+      | JsonRpcSendError,
+  ): void {
+    this.closed = true
+    this.socket.close(1011, 'WebSocket transport stopped')
+    this.stoppedState.reject(cause)
+  }
+}
+
+/** Create one configured PartySocket. */
+export const createPartySocketTransport: RelaySocketFactory = (input) =>
+  new PartySocketTransport(input)
+
+function authenticatedWebSocketConstructor(
+  authorization: `Bearer ${string}`,
+  recordHandshake: (status: number) => void,
+): NodeWebSocketConstructor {
+  return class AuthenticatedWebSocket extends NodeWebSocket {
+    constructor(address: string | URL, protocols?: string | string[]) {
+      super(address, protocols ?? [], { headers: { Authorization: authorization } })
+      this.once('unexpected-response', (_request, response) => {
+        recordHandshake(response.statusCode ?? 0)
+        response.resume()
+        this.close()
+      })
+    }
+  }
+}
+
+function isTerminalCloseCode(code: number): boolean {
+  return code === 1002 || code === 1003 || code === 1007 || code === 1008 || code === 1009
+}
+
+function shouldRetryHandshake(status: number): boolean {
+  return (
+    status === 0 ||
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    (status >= 500 && status <= 599)
+  )
+}

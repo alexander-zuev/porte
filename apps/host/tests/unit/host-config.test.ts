@@ -1,5 +1,4 @@
-import { ConfigError } from '@host/application/config-error.ts'
-import { loadConfig } from '@host/entrypoints/cli/host-config.ts'
+import { ConfigError, loadConfig } from '@host/infrastructure/config/host-config.ts'
 import { describe, expect, it } from 'vitest'
 
 describe('loadConfig', () => {

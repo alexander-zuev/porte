@@ -2,13 +2,15 @@ import { TaggedError } from 'better-result'
 import { z } from 'zod'
 
 import { AUTHENTICATION_ERROR, NOT_AUTHORIZED_ERROR, STALE_SESSION_ERROR } from './auth.errors.ts'
+import { CODING_AGENT_UNAVAILABLE_ERROR } from './coding-agent.errors.ts'
 import {
+  CONFIGURATION_NOT_FOUND_ERROR,
   CONVERSATION_BUSY_ERROR,
   CONVERSATION_NOT_FOUND_ERROR,
+  ELICITATION_NOT_FOUND_ERROR,
   PERMISSION_NOT_FOUND_ERROR,
   TURN_NOT_FOUND_ERROR,
 } from './conversation.errors.ts'
-import { GROK_UNAVAILABLE_ERROR } from './grok.errors.ts'
 import {
   HOST_ALREADY_PAIRED_ERROR,
   HOST_OFFLINE_ERROR,
@@ -54,7 +56,9 @@ const DOMAIN_ERROR_TAGS = {
   [OPERATION_EXPIRED_ERROR]: true,
   [TURN_NOT_FOUND_ERROR]: true,
   [PERMISSION_NOT_FOUND_ERROR]: true,
-  [GROK_UNAVAILABLE_ERROR]: true,
+  [ELICITATION_NOT_FOUND_ERROR]: true,
+  [CONFIGURATION_NOT_FOUND_ERROR]: true,
+  [CODING_AGENT_UNAVAILABLE_ERROR]: true,
   [REQUEST_TIMEOUT_ERROR]: true,
   [SERVICE_UNAVAILABLE_ERROR]: true,
   [INTERNAL_SERVER_ERROR]: true,
@@ -70,7 +74,10 @@ export type DomainErrorTag = keyof typeof DOMAIN_ERROR_TAGS
  */
 export type DomainError =
   | (Error & { readonly _tag: Exclude<DomainErrorTag, typeof VALIDATION_ERROR> })
-  | (Error & { readonly _tag: typeof VALIDATION_ERROR; readonly issues: readonly ValidationIssue[] })
+  | (Error & {
+      readonly _tag: typeof VALIDATION_ERROR
+      readonly issues: readonly ValidationIssue[]
+    })
 
 /**
  * The same tags, in the shape zod discriminates on.
