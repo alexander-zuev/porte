@@ -1,7 +1,16 @@
 import { v7 as uuidv7 } from 'uuid'
 import { z } from 'zod'
 
-import { PorteErrorPayloadSchema } from '../errors/porte-error-payload.ts'
+import {
+  ConfigurationNotFoundError,
+  ConversationBusyError,
+  ConversationNotFoundError,
+  ElicitationNotFoundError,
+  PermissionNotFoundError,
+} from '../errors/conversation.errors.ts'
+import { InternalServerError } from '../errors/internal.errors.ts'
+import { PorteErrorPayloadSchema, type PorteErrorPayload } from '../errors/porte-error-payload.ts'
+import { RequestTimeoutError } from '../errors/request.errors.ts'
 
 /** The WebSocket subprotocol for the Host control connection. */
 export const HOST_CONTROL_SUBPROTOCOL = 'porte.host-control.v1'
@@ -30,3 +39,27 @@ export const HostApplicationErrorSchema = z.strictObject({
   message: z.literal(HOST_APPLICATION_ERROR_MESSAGE),
   data: PorteErrorPayloadSchema,
 })
+
+/**
+ * Rebuild the Host error class from a JSON-RPC `error.data` payload.
+ *
+ * Unknown tags become `InternalServerError`. The socket must not switch on tags.
+ */
+export function errorFromHostPayload(payload: PorteErrorPayload): Error {
+  switch (payload._tag) {
+    case 'ConversationNotFoundError':
+      return new ConversationNotFoundError()
+    case 'ConversationBusyError':
+      return new ConversationBusyError()
+    case 'PermissionNotFoundError':
+      return new PermissionNotFoundError()
+    case 'ElicitationNotFoundError':
+      return new ElicitationNotFoundError()
+    case 'ConfigurationNotFoundError':
+      return new ConfigurationNotFoundError()
+    case 'RequestTimeoutError':
+      return new RequestTimeoutError()
+    default:
+      return new InternalServerError()
+  }
+}

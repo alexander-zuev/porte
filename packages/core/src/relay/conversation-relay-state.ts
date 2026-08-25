@@ -1,33 +1,34 @@
-import { z } from 'zod'
-
+import type {
+  ConversationCommand,
+  ConversationConfigurationOption,
+} from '../conversation/conversation-controls-event.ts'
 import type { ConversationEvent } from '../conversation/conversation-event.ts'
-import {
-  ConversationStateSchema,
-  type ConversationState,
-} from '../conversation/conversation-view.ts'
+import type {
+  ConversationPlan,
+  ConversationUsage,
+} from '../conversation/conversation-progress-event.ts'
+import type { ConversationState, PendingInteractions } from '../conversation/conversation-view.ts'
 
-const ReadyConversationRelayStateSchema = ConversationStateSchema.extend({
-  status: z.literal('ready'),
-})
-
-/** Durable child state sent to browser connections. */
-export const ConversationRelayStateSchema = z.discriminatedUnion('status', [
-  z.strictObject({ status: z.literal('uninitialized') }),
-  ReadyConversationRelayStateSchema,
-])
-
-/** Durable child state sent to browser connections. */
-export type ConversationRelayState = z.infer<typeof ConversationRelayStateSchema>
-export type ReadyConversationRelayState = z.infer<typeof ReadyConversationRelayStateSchema>
-
-export const INITIAL_CONVERSATION_RELAY_STATE: ConversationRelayState = {
-  status: 'uninitialized',
+/**
+ * What the browser cannot get from the Agents SDK.
+ *
+ * The transcript, its ordering, and whether a turn runs all belong to
+ * AIChatAgent: `messages` carries the first two and `isServerStreaming` the
+ * third. Only Grok's own reporting lives here.
+ *
+ * No schema: both ends ship in one deploy, and the events this is built from
+ * are already parsed at the JSON-RPC boundary.
+ */
+export type ConversationRelayState = {
+  plans: readonly ConversationPlan[]
+  pending: PendingInteractions
+  usage?: ConversationUsage
+  configuration?: readonly ConversationConfigurationOption[]
+  commands?: readonly ConversationCommand[]
+  modeId?: string
 }
 
-const EMPTY_STATE: ConversationState = {
-  turn: { state: 'idle' },
-  items: [],
-  tools: [],
+export const INITIAL_CONVERSATION_RELAY_STATE: ConversationRelayState = {
   plans: [],
   pending: { permissions: [], elicitations: [] },
 }
@@ -37,49 +38,13 @@ export function reduceConversationRelayState(
   current: ConversationRelayState,
   event: ConversationEvent,
 ): ConversationRelayState {
-  const source = current.status === 'ready' ? current : { status: 'ready' as const, ...EMPTY_STATE }
-  const state = structuredClone(source)
+  const state = structuredClone(current)
 
   switch (event.type) {
-    case 'turn.started':
-      state.turn = { state: 'running', turnId: event.turnId }
-      break
     case 'turn.finished':
     case 'conversation.failed':
-      state.turn = { state: 'idle' }
       state.pending = { permissions: [], elicitations: [] }
       break
-    case 'message.started':
-      if (!hasItem(state, event.messageId)) {
-        state.items.push({
-          type: 'message',
-          messageId: event.messageId,
-          role: event.role,
-          content: [],
-        })
-      }
-      break
-    case 'reasoning.started':
-      if (!hasItem(state, event.messageId)) {
-        state.items.push({ type: 'reasoning', messageId: event.messageId, content: [] })
-      }
-      break
-    case 'message.delta':
-      appendContent(state, event.messageId, 'message', event.content)
-      break
-    case 'reasoning.delta':
-      appendContent(state, event.messageId, 'reasoning', event.content)
-      break
-    case 'tool.updated': {
-      const index = state.tools.findIndex((tool) => tool.toolCallId === event.tool.toolCallId)
-      if (index === -1) {
-        state.tools.push(event.tool)
-        state.items.push({ type: 'tool', toolCallId: event.tool.toolCallId })
-      } else {
-        state.tools[index] = event.tool
-      }
-      break
-    }
     case 'permission.requested':
       state.pending.permissions = [
         ...state.pending.permissions.filter(
@@ -125,34 +90,29 @@ export function reduceConversationRelayState(
     case 'conversation.mode.updated':
       state.modeId = event.modeId
       break
+    case 'turn.started':
+    case 'message.started':
+    case 'message.delta':
     case 'message.completed':
+    case 'reasoning.started':
+    case 'reasoning.delta':
     case 'reasoning.completed':
+    case 'tool.updated':
     case 'conversation.metadata.updated':
       break
   }
 
-  return ConversationRelayStateSchema.parse(state)
+  return state
 }
 
-/** Convert one complete Host state into durable child state. */
-export function conversationRelayStateFromState(
-  state: ConversationState,
-): ReadyConversationRelayState {
-  return ReadyConversationRelayStateSchema.parse({ status: 'ready', ...state })
-}
-
-function hasItem(state: ConversationState, messageId: string): boolean {
-  return state.items.some((item) => item.type !== 'tool' && item.messageId === messageId)
-}
-
-function appendContent(
-  state: ConversationState,
-  messageId: string,
-  type: 'message' | 'reasoning',
-  content: Extract<ConversationEvent, { type: 'message.delta' }>['content'],
-): void {
-  const item = state.items.find(
-    (current) => current.type !== 'tool' && current.messageId === messageId,
-  )
-  if (item?.type === type) item.content.push(content)
+/** Select the Grok-only fields from one complete Host state. */
+export function conversationRelayStateFromState(state: ConversationState): ConversationRelayState {
+  return {
+    plans: state.plans,
+    pending: state.pending,
+    usage: state.usage,
+    configuration: state.configuration,
+    commands: state.commands,
+    modeId: state.modeId,
+  }
 }

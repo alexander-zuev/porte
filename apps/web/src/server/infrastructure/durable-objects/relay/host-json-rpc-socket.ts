@@ -1,28 +1,20 @@
 import {
-  ConfigurationNotFoundError,
-  ConversationBusyError,
-  ConversationNotFoundError,
-  ElicitationNotFoundError,
-  HOST_CONTROL_SUBPROTOCOL,
-  HOST_CONVERSATION_SUBPROTOCOL,
   HostApplicationErrorSchema,
-  HostIdSchema,
   HostOfflineError,
   HostRequestIdSchema,
   InternalServerError,
   JSON_RPC_METHOD_KINDS,
   JsonRpcReadError,
   JsonRpcTextSchema,
-  PermissionNotFoundError,
   RequestTimeoutError,
   createHostRequestId,
   createLogger,
+  errorFromHostPayload,
   jsonRpcRequest,
   jsonRpcResponseSchema,
   readJsonRpcIncoming,
   readJsonRpcTextFrame,
   sendJsonRpcFrame,
-  type HostId,
   type HostRequestId,
   type JsonRpcDocument,
   type JsonRpcMethodDefinition,
@@ -30,29 +22,23 @@ import {
   type JsonRpcRegistryMethodMap,
   type JsonRpcRegistryNotificationMethod,
   type JsonRpcRegistryRequestMethod,
-  type PorteErrorPayload,
+  type JsonRpcTextFrameClose,
 } from '@porte/core'
 import type { Connection, WSMessage } from 'agents'
 import type { z } from 'zod'
 
-import { hasSubprotocol } from './host-subprotocol.ts'
-import { RELAY_HOST_ID_HEADER } from './relay-headers.ts'
-
 const logger = createLogger('host-json-rpc-socket')
 const REQUEST_TIMEOUT_MS = 60_000
 
-const CLOSE_REASON = {
-  control: {
-    invalid: 'invalid host control connection',
-    replaced: 'host control replaced',
-    unexpected: 'unexpected control document',
-  },
-  conversation: {
-    invalid: 'invalid host conversation connection',
-    replaced: 'host conversation replaced',
-    unexpected: 'unexpected conversation document',
-  },
-} as const
+/** Close the Agent should send after one inbound Host frame. */
+export type HostJsonRpcClose =
+  | JsonRpcTextFrameClose
+  | { readonly code: 1007; readonly reason: string }
+
+const UNEXPECTED_DOCUMENT: HostJsonRpcClose = {
+  code: 1007,
+  reason: 'unexpected JSON-RPC document',
+}
 
 type PendingCall = {
   readonly finish: (document: JsonRpcDocument) => void
@@ -60,16 +46,13 @@ type PendingCall = {
   readonly timer: ReturnType<typeof setTimeout>
 }
 
-type HostRequestContract<
+type RequestContract<
   Registry extends JsonRpcMethodRegistry,
   Method extends JsonRpcRegistryRequestMethod<Registry>,
-> = Registry[Method] extends {
-  readonly kind: typeof JSON_RPC_METHOD_KINDS.request
-  readonly params: infer Params extends z.ZodType
-  readonly result: infer Result extends z.ZodType
-}
-  ? { readonly params: z.infer<Params>; readonly result: z.infer<Result> }
-  : never
+> = Extract<
+  JsonRpcRegistryMethodMap<Registry>[Method],
+  { readonly kind: typeof JSON_RPC_METHOD_KINDS.request }
+>
 
 type NotificationParams<
   Registry extends JsonRpcMethodRegistry,
@@ -86,210 +69,147 @@ export type HostJsonRpcNotificationHandlers<Registry extends JsonRpcMethodRegist
   ) => Promise<void>
 }>
 
-/** Construction input for one Host JSON-RPC socket on a relay Agent. */
+/** Construction input for one Host JSON-RPC client. */
 export type HostJsonRpcSocketInput<Registry extends JsonRpcMethodRegistry> = {
-  /** Connection tag this socket owns. */
-  readonly tag: string
-  /** Which Host subprotocol this Agent accepts. */
-  readonly role: 'control' | 'conversation'
   /** Method table for inbound Host frames. */
   readonly methods: Registry
-  /** Open connections that carry `tag`. */
-  readonly connections: () => Iterable<Connection>
   /** Exhaustive handlers for inbound Host notifications. */
   readonly notificationHandlers: HostJsonRpcNotificationHandlers<Registry>
 }
 
-/** One Host JSON-RPC socket on a relay Agent. */
+/** JSON-RPC client for one Mac Host WebSocket the Agent already admitted. */
 export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   private readonly pending = new Map<HostRequestId, PendingCall>()
+  private peer: Connection | undefined
 
   /**
-   * Create one Host JSON-RPC socket for this Agent.
+   * Create one Host JSON-RPC client.
    *
-   * @param input - Tag, role, method table, connections, and notification handlers.
+   * @param input - Method table and notification handlers.
    */
   constructor(private readonly input: HostJsonRpcSocketInput<Registry>) {}
 
   /**
-   * True when the upgrade is a Host JSON-RPC socket for this Agent.
+   * Bind the admitted Host socket.
+   * Fail waiters from a previous peer, if any.
    *
-   * @param request - The inbound upgrade request.
-   * @param protocols - Subprotocols that count as Host on this Agent.
-   * @returns True when the request offered one of `protocols`.
+   * @param connection - The Host connection this client may send on.
    */
-  isHostUpgrade(request: Request, protocols: readonly string[]): boolean {
-    return protocols.some((protocol) => hasSubprotocol(request, protocol))
+  attach(connection: Connection): void {
+    if (this.peer !== undefined && this.peer.id !== connection.id) this.clearWaiters()
+    this.peer = connection
+  }
+
+  /** Drop the peer and reject every pending Host request. */
+  clear(): void {
+    this.peer = undefined
+    this.clearWaiters()
   }
 
   /**
-   * Accept one Host socket, or close it.
-   * Replaces any previous Host socket on this Agent.
-   *
-   * @param connection - The connecting socket.
-   * @param request - The upgrade that created it.
-   * @param expectedHostId - When set, the header must match this Host.
-   * @returns True when this socket is now the Host connection.
-   */
-  accept(connection: Connection, request: Request, expectedHostId?: HostId): boolean {
-    const subprotocol =
-      this.input.role === 'control' ? HOST_CONTROL_SUBPROTOCOL : HOST_CONVERSATION_SUBPROTOCOL
-    if (!hasSubprotocol(request, subprotocol)) return false
-    const hostId = HostIdSchema.safeParse(request.headers.get(RELAY_HOST_ID_HEADER))
-    if (!hostId.success || (expectedHostId !== undefined && hostId.data !== expectedHostId)) {
-      connection.close(1008, CLOSE_REASON[this.input.role].invalid)
-      return false
-    }
-    for (const previous of this.input.connections()) {
-      if (previous.id !== connection.id)
-        previous.close(1008, CLOSE_REASON[this.input.role].replaced)
-    }
-    return true
-  }
-
-  /**
-   * Inbound Host WebSocket: ignore browser sockets, parse text, then JSON-RPC as the client.
+   * Inbound Host WebSocket: parse text, then JSON-RPC as the client.
+   * The Agent closes when this returns a close.
    *
    * @param connection - The socket that sent the frame.
    * @param frame - The inbound WebSocket payload.
+   * @returns A close for the Agent to send, or nothing.
    */
-  async handleMessage(connection: Connection, frame: WSMessage): Promise<void> {
-    if (!connection.tags.includes(this.input.tag)) return
+  async handleMessage(
+    connection: Connection,
+    frame: WSMessage,
+  ): Promise<HostJsonRpcClose | undefined> {
+    if (this.peer === undefined || connection.id !== this.peer.id) return undefined
     const parsed = readJsonRpcTextFrame(JsonRpcTextSchema.safeParse(frame))
     if (!parsed.ok) {
       logger.warn('websocket_frame_rejected', { details: parsed.close })
-      connection.close(parsed.close.code, parsed.close.reason)
-      return
+      return parsed.close
     }
-    await this.dispatchFrame(connection, parsed.frame)
-  }
-
-  // JSON-RPC as the client: response completes a wait, notification is handled.
-  private async dispatchFrame(connection: Connection, frame: string): Promise<void> {
-    try {
-      const incoming = readJsonRpcIncoming(frame, this.input.methods, HostRequestIdSchema)
-      if (incoming.kind === 'response') {
-        if (this.complete(incoming.data)) return
-        connection.close(1007, CLOSE_REASON[this.input.role].unexpected)
-        return
-      }
-      if (incoming.kind === 'notification') {
-        const handler = this.input.notificationHandlers[incoming.data.method]
-        if (handler === undefined) {
-          connection.close(1007, CLOSE_REASON[this.input.role].unexpected)
-          return
-        }
-        await handler(incoming.data.params)
-        return
-      }
-      connection.close(1007, CLOSE_REASON[this.input.role].unexpected)
-    } catch (cause) {
-      if (cause instanceof JsonRpcReadError) {
-        connection.close(1007, 'invalid JSON-RPC document')
-        return
-      }
-      throw cause
-    }
-  }
-
-  /**
-   * Drop pending requests when the last Host socket is gone.
-   *
-   * @param connection - The socket that just closed.
-   */
-  handleClose(connection: Connection): void {
-    if (!connection.tags.includes(this.input.tag) || this.openConnection() !== undefined) return
-    this.close()
+    return await this.dispatchFrame(parsed.frame)
   }
 
   /**
    * Call a Host method and wait for the correlated response.
    *
-   * @param method - A request method on this socket's table.
-   * @param params - The method params. Omitted when the method has none.
+   * @param method - A request method on this client's table.
+   * @param params - The method params.
    * @returns The parsed Host result.
    */
   async request<Method extends JsonRpcRegistryRequestMethod<Registry>>(
     method: Method,
-    ...params: [{}] extends [HostRequestContract<Registry, Method>['params']]
-      ? [params?: HostRequestContract<Registry, Method>['params']]
-      : [params: HostRequestContract<Registry, Method>['params']]
-  ): Promise<HostRequestContract<Registry, Method>['result']> {
-    const payload = params[0] ?? {}
-    const result = requestResultSchema(this.input.methods[method])
+    params: RequestContract<Registry, Method>['params'],
+  ): Promise<RequestContract<Registry, Method>['result']> {
     const id = createHostRequestId()
-    const settled = Promise.withResolvers<HostRequestContract<Registry, Method>['result']>()
+    const settled = Promise.withResolvers<RequestContract<Registry, Method>['result']>()
     this.pending.set(id, {
-      reject: (error: Error) => {
-        settled.reject(error)
-      },
-      finish: (document: JsonRpcDocument) => {
-        const parsed = jsonRpcResponseSchema(
-          result,
-          HostApplicationErrorSchema,
-          HostRequestIdSchema,
-        ).safeParse(document)
-        if (!parsed.success) {
-          settled.reject(new InternalServerError())
-          return
-        }
-        if (parsed.data.error !== undefined) {
-          settled.reject(errorFromPayload(parsed.data.error.data))
-          return
-        }
-        settled.resolve(parsed.data.result)
-      },
+      finish: finishHostResponse(
+        requestResultSchema(this.input.methods[method]),
+        settled.resolve,
+        settled.reject,
+      ),
+      reject: settled.reject,
       timer: setTimeout(() => {
         this.fail(id, new RequestTimeoutError())
       }, REQUEST_TIMEOUT_MS),
     })
     try {
-      await this.send(JSON.stringify(jsonRpcRequest(id, method, payload)))
-    } catch (cause) {
-      this.fail(id, cause instanceof HostOfflineError ? cause : new HostOfflineError())
+      await this.send(JSON.stringify(jsonRpcRequest(id, method, params)))
+    } catch {
+      this.fail(id, new HostOfflineError())
     }
     return settled.promise
   }
 
-  /**
-   * The open Host socket, if any.
-   *
-   * @returns The first open tagged connection, or undefined.
-   */
-  openConnection(): Connection | undefined {
-    for (const connection of this.input.connections()) {
-      if (connection.readyState === WebSocket.OPEN) return connection
+  // JSON-RPC as the client: response completes a wait, notification is handled.
+  private async dispatchFrame(frame: string): Promise<HostJsonRpcClose | undefined> {
+    try {
+      const incoming = readJsonRpcIncoming(frame, this.input.methods, HostRequestIdSchema)
+      if (incoming.kind === 'response') {
+        if (this.complete(incoming.data)) return undefined
+        return UNEXPECTED_DOCUMENT
+      }
+      if (incoming.kind === 'notification') {
+        const handler = this.input.notificationHandlers[incoming.data.method]
+        if (handler === undefined) return UNEXPECTED_DOCUMENT
+        await handler(incoming.data.params)
+        return undefined
+      }
+      return UNEXPECTED_DOCUMENT
+    } catch (cause) {
+      if (cause instanceof JsonRpcReadError) {
+        return { code: 1007, reason: 'invalid JSON-RPC document' }
+      }
+      throw cause
     }
-    return undefined
-  }
-
-  /** Reject every pending Host request. */
-  close(): void {
-    for (const id of this.pending.keys()) this.fail(id, new HostOfflineError())
   }
 
   private complete(document: JsonRpcDocument): boolean {
     const id = HostRequestIdSchema.safeParse('id' in document ? document.id : undefined)
     if (!id.success || 'method' in document) return false
-    const pending = this.pending.get(id.data)
+    const pending = this.take(id.data)
     if (pending === undefined) return false
-    clearTimeout(pending.timer)
-    this.pending.delete(id.data)
     pending.finish(document)
     return true
   }
 
   private fail(id: HostRequestId, error: Error): void {
+    this.take(id)?.reject(error)
+  }
+
+  private take(id: HostRequestId): PendingCall | undefined {
     const pending = this.pending.get(id)
-    if (pending === undefined) return
+    if (pending === undefined) return undefined
     clearTimeout(pending.timer)
     this.pending.delete(id)
-    pending.reject(error)
+    return pending
+  }
+
+  private clearWaiters(): void {
+    for (const id of this.pending.keys()) this.fail(id, new HostOfflineError())
   }
 
   private async send(frame: string): Promise<void> {
-    const host = this.openConnection()
-    if (host === undefined) throw new HostOfflineError()
+    const host = this.peer
+    if (host === undefined || host.readyState !== WebSocket.OPEN) throw new HostOfflineError()
     await sendJsonRpcFrame(() => {
       if (host.readyState !== WebSocket.OPEN) return false
       host.send(frame)
@@ -298,28 +218,32 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   }
 }
 
+function finishHostResponse<Result>(
+  result: z.ZodType<Result>,
+  resolve: (value: Result) => void,
+  reject: (error: Error) => void,
+): (document: JsonRpcDocument) => void {
+  return (document) => {
+    const parsed = jsonRpcResponseSchema(
+      result,
+      HostApplicationErrorSchema,
+      HostRequestIdSchema,
+    ).safeParse(document)
+    if (!parsed.success) {
+      reject(new InternalServerError())
+      return
+    }
+    if (parsed.data.error !== undefined) {
+      reject(errorFromHostPayload(parsed.data.error.data))
+      return
+    }
+    resolve(parsed.data.result)
+  }
+}
+
 function requestResultSchema(definition: JsonRpcMethodDefinition | undefined): z.ZodType {
   if (definition === undefined || definition.kind !== JSON_RPC_METHOD_KINDS.request) {
     throw new InternalServerError()
   }
   return definition.result
-}
-
-function errorFromPayload(payload: PorteErrorPayload): Error {
-  switch (payload._tag) {
-    case 'ConversationNotFoundError':
-      return new ConversationNotFoundError()
-    case 'ConversationBusyError':
-      return new ConversationBusyError()
-    case 'PermissionNotFoundError':
-      return new PermissionNotFoundError()
-    case 'ElicitationNotFoundError':
-      return new ElicitationNotFoundError()
-    case 'ConfigurationNotFoundError':
-      return new ConfigurationNotFoundError()
-    case 'RequestTimeoutError':
-      return new RequestTimeoutError()
-    default:
-      return new InternalServerError()
-  }
 }

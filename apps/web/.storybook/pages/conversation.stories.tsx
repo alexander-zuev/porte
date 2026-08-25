@@ -47,17 +47,12 @@ const agent = {
   addEventListener: () => undefined,
   removeEventListener: () => undefined,
   getHttpUrl: () => 'http://localhost/api/host/ws',
-} satisfies Extract<ConversationState, { status: 'ready' }>['agent']
+} satisfies ConversationState['agent']
 
-const ready: Extract<ConversationState, { status: 'ready' }> = {
-  status: 'ready',
+const ready: ConversationState = {
   agent,
   permissions: [],
   state: {
-    status: 'ready',
-    turn: { state: 'idle' },
-    items: [],
-    tools: [],
     plans: [
       {
         type: 'items',
@@ -112,8 +107,13 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The conversation state has not arrived from the child Agent. */
-export const Opening: Story = { args: page({ status: 'pending' }) }
+/** The child Agent has reported nothing yet, so only the composer is here. */
+export const Opening: Story = {
+  args: page({
+    ...ready,
+    state: { plans: [], pending: { permissions: [], elicitations: [] } },
+  }),
+}
 
 export const Ready: Story = { args: page(ready) }
 

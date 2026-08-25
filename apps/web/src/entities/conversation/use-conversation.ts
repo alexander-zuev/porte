@@ -1,10 +1,6 @@
 import type { UseAgentChatOptions } from '@cloudflare/ai-chat/react'
-import type {
-  ConversationId,
-  ConversationRelayState,
-  ReadyConversationRelayState,
-  PendingPermission,
-} from '@porte/core/client'
+import type { ConversationId, ConversationRelayState, PendingPermission } from '@porte/core/client'
+import { INITIAL_CONVERSATION_RELAY_STATE } from '@porte/core/client'
 import type { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
 import { useAgent } from 'agents/react'
 import { useMemo, useState } from 'react'
@@ -23,15 +19,12 @@ export type ConversationAgentConnection = UseAgentChatOptions<ConversationRelayS
   Pick<ConversationAgentClient, 'OPEN' | 'readyState'>
 
 /** The complete state that one conversation page can render. */
-export type ConversationState =
-  | { readonly status: 'pending' }
-  | {
-      readonly status: 'ready'
-      readonly agent: ConversationAgentConnection
-      readonly permissions: readonly ConversationPermission[]
-      readonly state: ReadyConversationRelayState
-      readonly actions: ConversationActions
-    }
+export type ConversationState = {
+  readonly agent: ConversationAgentConnection
+  readonly permissions: readonly ConversationPermission[]
+  readonly state: ConversationRelayState
+  readonly actions: ConversationActions
+}
 
 /** User actions that change the active conversation. */
 export type ConversationActions = {
@@ -46,15 +39,14 @@ export function useConversation(conversationId: ConversationId): ConversationSta
     sub: [{ agent: 'ConversationAgent', name: conversationId }],
   })
   const [answering, setAnswering] = useState<ReadonlySet<string>>(new Set())
-  const state = agent.state?.status === 'ready' ? agent.state : undefined
+  // Until the first sync the Agent has reported nothing, which is what the initial state means.
+  const state = agent.state ?? INITIAL_CONVERSATION_RELAY_STATE
   const permissions = useMemo<ConversationPermission[]>(
     () =>
-      state?.status === 'ready'
-        ? state.pending.permissions.map((permission) => ({
-            permission,
-            answering: answering.has(permission.permissionId),
-          }))
-        : [],
+      state.pending.permissions.map((permission) => ({
+        permission,
+        answering: answering.has(permission.permissionId),
+      })),
     [answering, state],
   )
   const actions = useMemo<ConversationActions>(
@@ -75,14 +67,7 @@ export function useConversation(conversationId: ConversationId): ConversationSta
     [agent.stub],
   )
 
-  if (state === undefined) return { status: 'pending' }
-  return {
-    status: 'ready',
-    agent,
-    permissions,
-    state,
-    actions,
-  }
+  return { agent, permissions, state, actions }
 }
 
 function without(values: ReadonlySet<string>, removed: string): ReadonlySet<string> {

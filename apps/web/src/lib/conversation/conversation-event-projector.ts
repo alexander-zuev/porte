@@ -1,10 +1,5 @@
 /* oxlint-disable eslint(no-underscore-dangle) -- ACP requires the exact `_meta` boundary name. */
-import type {
-  CanonicalContent,
-  ConversationEvent,
-  ConversationState,
-  ToolView,
-} from '@porte/core/client'
+import type { CanonicalContent, ConversationEvent, ToolView } from '@porte/core/client'
 import type { ProviderMetadata, UIMessage, UIMessageChunk } from 'ai'
 
 type ProjectedContentChunk = Extract<
@@ -23,18 +18,20 @@ export type ConversationEventProjectionState = {
   readonly openReasoning: Set<string>
 }
 
-/** Creates isolated state for one assistant stream. */
+/**
+ * Creates isolated state for one assistant stream.
+ *
+ * Seeded from the messages AIChatAgent already stored, so a user message the
+ * Mac echoes back is not projected a second time. Tool signatures start empty:
+ * the Mac only updates tools belonging to the turn being projected.
+ */
 export function createConversationEventProjectionState(
-  current?: ConversationState,
+  stored: readonly UIMessage[] = [],
 ): ConversationEventProjectionState {
   return {
-    toolInputSignatures: new Map(
-      current?.tools.map((tool) => [tool.toolCallId, toolInputSignature(tool)]),
-    ),
+    toolInputSignatures: new Map(),
     ownMessages: new Set(
-      current?.items.flatMap((item) =>
-        item.type === 'message' && item.role === 'user' ? [item.messageId] : [],
-      ),
+      stored.flatMap((message) => (message.role === 'user' ? [message.id] : [])),
     ),
     openText: new Set(),
     openReasoning: new Set(),

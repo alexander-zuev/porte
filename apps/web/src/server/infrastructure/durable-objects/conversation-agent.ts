@@ -50,13 +50,12 @@ import {
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
 import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
+import { admitHostSocket, hasSubprotocol, openHostConnection } from './relay/host-subprotocol.ts'
 import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
 import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('conversation-agent')
 const HOST_CONNECTION_TAG = 'host-conversation'
-/** Subprotocols that count as the Mac Host on this Agent. */
-const HOST_PROTOCOLS = [HOST_CONVERSATION_SUBPROTOCOL] as const
 
 type HostConnectionState = {
   readonly role: 'host-conversation'
@@ -77,20 +76,19 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   private readonly conversationId: ConversationId
   private readonly resources: ConversationAgentResources
-  private readonly host: HostJsonRpcSocket<typeof HostConversationMethods>
+  private readonly hostSocket: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
   private hasAssistantMessage = false
+  /** The Host turn this Agent still owns, for recovery and activity. Never sent to a browser. */
+  private runningTurnId: TurnId | undefined
 
   constructor(ctx: AgentContext, env: RuntimeEnv) {
     super(ctx, env)
     this.conversationId = ConversationIdSchema.parse(this.name)
     this.resources = createConversationAgentResources(() => this.parentAgent(HostRelayAgent))
-    this.host = new HostJsonRpcSocket({
-      tag: HOST_CONNECTION_TAG,
-      role: 'conversation',
+    this.hostSocket = new HostJsonRpcSocket({
       methods: HostConversationMethods,
-      connections: () => this.getConnections(HOST_CONNECTION_TAG),
       notificationHandlers: {
         'conversation.state': (params) => this.handleConversationState(params),
         'conversation.event': (params) => this.handleConversationEvent(params),
@@ -98,22 +96,29 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     })
   }
 
+  override onStart(): void {
+    const host = this.hostConnection()
+    if (host !== undefined) this.hostSocket.attach(host)
+  }
+
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
-    return this.host.isHostUpgrade(context.request, HOST_PROTOCOLS) ? [HOST_CONNECTION_TAG] : []
+    return hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)
+      ? [HOST_CONNECTION_TAG]
+      : []
   }
 
   override shouldConnectionBeReadonly(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
+    return !hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)
   }
 
   override shouldSendProtocolMessages(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
+    return !hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)
   }
 
   /** Keep Agent and AIChat protocol messages off the Host JSON-RPC connection. */
@@ -130,10 +135,21 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   /** Accept one authenticated Host conversation socket, or answer a viewer's arrival. */
   override onConnect(connection: Connection, context: ConnectionContext): void {
-    if (!this.host.accept(connection, context.request)) {
+    if (!hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)) {
       this.requestHostAttachInBackground()
       return
     }
+    if (
+      !admitHostSocket({
+        connection,
+        request: context.request,
+        subprotocol: HOST_CONVERSATION_SUBPROTOCOL,
+        previous: this.getConnections(HOST_CONNECTION_TAG),
+      })
+    ) {
+      return
+    }
+    this.hostSocket.attach(connection)
     const hostId = HostIdSchema.parse(context.request.headers.get(RELAY_HOST_ID_HEADER))
     connection.setState({
       role: 'host-conversation',
@@ -143,12 +159,16 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   /** Handle Host conversation responses and notifications. */
-  override onMessage(connection: Connection, frame: WSMessage): Promise<void> {
-    return this.host.handleMessage(connection, frame)
+  override async onMessage(connection: Connection, frame: WSMessage): Promise<void> {
+    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
+    const close = await this.hostSocket.handleMessage(connection, frame)
+    if (close !== undefined) connection.close(close.code, close.reason)
   }
 
   override onClose(connection: Connection): void {
-    this.host.handleClose(connection)
+    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
+    if (this.hostConnection() !== undefined) return
+    this.hostSocket.clear()
   }
 
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The Agents SDK declares WebSocket errors as unknown.
@@ -169,26 +189,24 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     _onEnd: GenerateTextOnEndCallback,
     options?: OnChatMessageOptions,
   ): Promise<Response> {
-    const currentTurn = this.state.status === 'ready' ? this.state.turn : { state: 'idle' as const }
     const userMessage = latestUserMessage(this.messages)
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
 
     let turnId: TurnId
     if (options?.continuation) {
-      if (currentTurn.state !== 'running') {
+      if (this.runningTurnId === undefined) {
         return errorStreamResponse('The turn is no longer available for recovery.')
       }
-      turnId = currentTurn.turnId
+      turnId = this.runningTurnId
     } else {
       turnId = createTurnId()
+      this.runningTurnId = turnId
     }
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
     const active = {
       turnId,
       writer: stream.writable.getWriter(),
-      projection: createConversationEventProjectionState(
-        this.state.status === 'ready' ? this.state : undefined,
-      ),
+      projection: createConversationEventProjectionState(this.messages),
     } satisfies ActiveStream
     this.activeStream = active
     const abort = (): void => {
@@ -204,39 +222,40 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   @callable()
   async closeConversation(): Promise<null> {
-    return await this.host.request('conversation.close')
+    return await this.hostSocket.request('conversation.close', {})
   }
 
   @callable()
   async cancelTurn(params: HostConversationMethodMap['turn.cancel']['params']): Promise<null> {
-    return await this.host.request('turn.cancel', params)
+    return await this.hostSocket.request('turn.cancel', params)
   }
 
   @callable()
   async setConfiguration(
     params: HostConversationMethodMap['conversation.configuration.set']['params'],
   ): Promise<null> {
-    return await this.host.request('conversation.configuration.set', params)
+    return await this.hostSocket.request('conversation.configuration.set', params)
   }
 
   @callable()
   async answerPermission(
     params: HostConversationMethodMap['permission.answer']['params'],
   ): Promise<null> {
-    return await this.host.request('permission.answer', params)
+    return await this.hostSocket.request('permission.answer', params)
   }
 
   @callable()
   async answerElicitation(
     params: HostConversationMethodMap['elicitation.answer']['params'],
   ): Promise<null> {
-    return await this.host.request('elicitation.answer', params)
+    return await this.hostSocket.request('elicitation.answer', params)
   }
 
   private async handleConversationState(
     params: HostConversationMethodMap['conversation.state']['params'],
   ): Promise<void> {
     const state = params.state
+    this.runningTurnId = state.turn.state === 'running' ? state.turn.turnId : undefined
     this.setState(conversationRelayStateFromState(state))
     await this.persistMessages(await conversationStateToMessages(state), [], {
       _deleteStaleRows: true,
@@ -281,7 +300,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     userMessage: { readonly id: MessageId; readonly content: CanonicalContent[] },
   ): Promise<void> {
     try {
-      await this.host.request('turn.start', { turnId: active.turnId, userMessage })
+      await this.hostSocket.request('turn.start', { turnId: active.turnId, userMessage })
     } catch (error) {
       logger.error('turn_start_failed', {
         error,
@@ -312,16 +331,17 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   private publishCurrentActivity(): void {
-    if (this.state.status !== 'ready' || this.state.turn.state !== 'running') {
+    if (this.runningTurnId === undefined) {
       this.publishClearActivity()
       return
     }
-    this.publishActivityRecord(this.state.turn.turnId)
+    this.publishActivityRecord(this.runningTurnId)
   }
 
   private publishActivity(event: ConversationEvent): void {
     if (event.type === 'turn.started') {
       this.hasAssistantMessage = false
+      this.runningTurnId = event.turnId
       this.publishActivityRecord(event.turnId)
       return
     }
@@ -330,7 +350,10 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       this.publishActivityRecord(event.turnId)
       return
     }
-    if (isTerminalEvent(event)) this.publishClearActivity()
+    if (isTerminalEvent(event)) {
+      this.runningTurnId = undefined
+      this.publishClearActivity()
+    }
   }
 
   /**
@@ -340,7 +363,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
    * viewer that cannot reach one still reads what this Agent already stored.
    */
   private requestHostAttachInBackground(): void {
-    if (this.host.openConnection() !== undefined) return
+    if (this.hostConnection() !== undefined) return
     void this.requestHostAttach().catch((error) => {
       // An away Mac is what the status dot already reports, so it is not a fault here.
       if (error instanceof HostOfflineError) return
@@ -355,6 +378,10 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   private async requestHostAttach(): Promise<void> {
     const parent = await this.resources.hostRelay()
     await parent.attachConversation(this.conversationId)
+  }
+
+  private hostConnection(): Connection | undefined {
+    return openHostConnection(this.getConnections(HOST_CONNECTION_TAG))
   }
 
   private publishActivityRecord(turnId: TurnId): void {

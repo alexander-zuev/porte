@@ -37,14 +37,12 @@ import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { ConversationAgent } from './conversation-agent.ts'
 import { createHostRelayResources, type HostRelayResources } from './host-relay-resources.ts'
 import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
-import { hasSubprotocol } from './relay/host-subprotocol.ts'
+import { admitHostSocket, hasSubprotocol, openHostConnection } from './relay/host-subprotocol.ts'
 import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
-/** Subprotocols that count as the Mac Host on this Agent. */
-const HOST_PROTOCOLS = [HOST_CONTROL_SUBPROTOCOL, HOST_CONVERSATION_SUBPROTOCOL] as const
 const CONVERSATIONS_CHANGED_NOTIFICATION = JSON.stringify(
   jsonRpcNotification('conversations.changed', {}),
 )
@@ -55,7 +53,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   private readonly resources: HostRelayResources
   private readonly hostId: HostId
-  private readonly host: HostJsonRpcSocket<typeof HostControlMethods>
+  private readonly hostSocket: HostJsonRpcSocket<typeof HostControlMethods>
   private syncing: Promise<void> | undefined
 
   /** Initialize schema and application dependencies before requests run. */
@@ -65,11 +63,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     void ctx.blockConcurrencyWhile(() => migrate(relayDb, migrations))
     this.resources = createHostRelayResources(relayDb, () => createDatabase(env.DB))
     this.hostId = HostIdSchema.parse(this.name)
-    this.host = new HostJsonRpcSocket({
-      tag: HOST_CONNECTION_TAG,
-      role: 'control',
+    this.hostSocket = new HostJsonRpcSocket({
       methods: HostControlMethods,
-      connections: () => this.getConnections(HOST_CONNECTION_TAG),
       notificationHandlers: {
         'conversation.updated': (params) => this.handleConversationUpdated(params),
         'conversation.removed': (params) => this.handleConversationRemoved(params),
@@ -79,8 +74,9 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Restore status from hibernating sockets without replaying application requests. */
   override onStart(): void {
-    const online = this.host.openConnection() !== undefined
-    this.setHostStatus(online ? 'online' : 'offline')
+    const host = this.hostConnection()
+    if (host !== undefined) this.hostSocket.attach(host)
+    this.setHostStatus(host !== undefined ? 'online' : 'offline')
   }
 
   /** Tag only the Host control socket on this parent object. */
@@ -100,19 +96,30 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
+    return !this.isHostUpgrade(context.request)
   }
 
   override shouldSendProtocolMessages(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
+    return !this.isHostUpgrade(context.request)
   }
 
   /** Accept one authenticated Host control socket. */
   override async onConnect(connection: Connection, context: ConnectionContext): Promise<void> {
-    if (!this.host.accept(connection, context.request, this.hostId)) return
+    if (
+      !admitHostSocket({
+        connection,
+        request: context.request,
+        subprotocol: HOST_CONTROL_SUBPROTOCOL,
+        previous: this.getConnections(HOST_CONNECTION_TAG),
+        expectedHostId: this.hostId,
+      })
+    ) {
+      return
+    }
+    this.hostSocket.attach(connection)
     logger.info('host_websocket_connected', {
       hostId: this.hostId,
       connectionId: connection.id,
@@ -124,8 +131,10 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   /** Handle Host control responses and notifications. */
-  override onMessage(connection: Connection, frame: WSMessage): Promise<void> {
-    return this.host.handleMessage(connection, frame)
+  override async onMessage(connection: Connection, frame: WSMessage): Promise<void> {
+    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
+    const close = await this.hostSocket.handleMessage(connection, frame)
+    if (close !== undefined) connection.close(close.code, close.reason)
   }
 
   /** Log each Host close, then publish offline after the final control socket closes. */
@@ -146,8 +155,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     if (wasClean) logger.info('host_websocket_closed', details)
     else logger.warn('host_websocket_closed', details)
 
-    this.host.handleClose(connection)
-    if (this.host.openConnection() !== undefined) return
+    if (this.hostConnection() !== undefined) return
+    this.hostSocket.clear()
     this.setHostStatus('offline')
     this.recordHostSeen(this.hostId)
   }
@@ -171,7 +180,6 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
    * A gate and nothing else. Waking the Mac for a conversation belongs to the
    * child, which is the only side that can see whether the Mac is already there.
    */
-  // eslint-disable-next-line @typescript-eslint/require-await -- The SDK hook returns a Promise.
   override async onBeforeSubAgent(
     _request: Request,
     child: { className: string; name: string },
@@ -200,7 +208,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   async createConversation(
     params: HostControlMethodMap['conversation.create']['params'],
   ): Promise<ConversationSummary> {
-    const conversation = await this.host.request('conversation.create', params)
+    const conversation = await this.hostSocket.request('conversation.create', params)
     this.resources.conversationRepository.save(conversation)
     this.publishConversationChange()
     return conversation
@@ -211,7 +219,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     if (this.resources.conversationRepository.find(conversationId) === undefined) {
       throw new ConversationNotFoundError()
     }
-    await this.host.request('conversation.attach', { conversationId })
+    await this.hostSocket.request('conversation.attach', { conversationId })
   }
 
   /** Receive the small activity projection from one child Agent. */
@@ -237,7 +245,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Close connections and delete all parent and child state after unpairing. */
   async disconnectAll(): Promise<void> {
-    this.host.close()
+    this.hostSocket.clear()
     for (const connection of this.getConnections()) connection.close(1000, 'pairing ended')
     await Promise.all(
       this.listSubAgents(ConversationAgent).map((child) =>
@@ -266,7 +274,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   private syncConversationsInBackground(): void {
-    if (this.syncing !== undefined || this.host.openConnection() === undefined) return
+    if (this.syncing !== undefined || this.hostConnection() === undefined) return
     this.syncing = this.syncConversations().finally(() => {
       this.syncing = undefined
     })
@@ -281,7 +289,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     let cursor: HostControlMethodMap['conversations.list']['params']['cursor']
     do {
       // oxlint-disable-next-line no-await-in-loop -- Each cursor comes from the prior result.
-      const result = await this.host.request(
+      const result = await this.hostSocket.request(
         'conversations.list',
         cursor === undefined ? {} : { cursor },
       )
@@ -297,7 +305,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   private publishConversationChange(): void {
-    const host = this.host.openConnection()
+    const host = this.hostConnection()
     this.broadcast(CONVERSATIONS_CHANGED_NOTIFICATION, host === undefined ? [] : [host.id])
   }
 
@@ -309,5 +317,16 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     void this.rememberSeen(hostId).catch((error) => {
       logger.error('host_seen_failed', { error, details: { hostId } })
     })
+  }
+
+  private hostConnection(): Connection | undefined {
+    return openHostConnection(this.getConnections(HOST_CONNECTION_TAG))
+  }
+
+  private isHostUpgrade(request: Request): boolean {
+    return (
+      hasSubprotocol(request, HOST_CONTROL_SUBPROTOCOL) ||
+      hasSubprotocol(request, HOST_CONVERSATION_SUBPROTOCOL)
+    )
   }
 }

@@ -1,5 +1,5 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
-import type { ReadyConversationRelayState } from '@porte/core/client'
+import type { ConversationRelayState } from '@porte/core/client'
 import type {
   ConversationActions,
   ConversationAgentConnection,
@@ -28,7 +28,7 @@ import { ConversationTurnFailed } from './conversation-states.tsx'
 export type ConversationChatProps = {
   readonly agent: ConversationAgentConnection
   readonly permissions: readonly ConversationPermission[]
-  readonly state: ReadyConversationRelayState
+  readonly state: ConversationRelayState
   readonly actions: ConversationActions
   readonly canSend: boolean
 }
@@ -49,7 +49,7 @@ export function ConversationChat({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <ConversationMessages messages={chat.messages} readingOlder={false} onReadOlder={null} />
 
-      <ConversationPlans plans={state.plans} running={state.turn.state === 'running'} />
+      <ConversationPlans plans={state.plans} running={chat.isServerStreaming} />
 
       {chat.error === undefined ? null : <ConversationTurnFailed error={chat.error} />}
 
@@ -126,7 +126,7 @@ export function ConversationChat({
 }
 
 function configurationValue(
-  option: NonNullable<ReadyConversationRelayState['configuration']>[number],
+  option: NonNullable<ConversationRelayState['configuration']>[number],
 ): string {
   if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
   const values = option.options.flatMap((value) =>
