@@ -18,6 +18,9 @@ import {
 
 const logger = createLogger('party-socket-transport')
 
+// Cloudflare closes an idle relay socket after about two minutes, so ping well inside that.
+const PING_INTERVAL_MS = 30_000
+
 /** Input that creates one authenticated PartySocket. */
 export type PartySocketTransportInput = {
   readonly url: string
@@ -151,20 +154,19 @@ export class PartySocketTransport implements RelaySocket {
     })
   }
 
+  // Ignore → parse text → close if bad. Next step is JSON-RPC as the server.
   private readonly onMessage = (event: Event): void => {
     if (this.closed) return
     const message = InboundMessageSchema.safeParse(event)
-    const frame = readJsonRpcTextFrame(
+    const parsed = readJsonRpcTextFrame(
       JsonRpcTextSchema.safeParse(message.success ? message.data.data : undefined),
     )
-    if (!frame.ok) {
-      logger.warn('websocket_frame_rejected', {
-        details: { code: frame.close.code, reason: frame.close.reason },
-      })
-      this.socket.close(frame.close.code, frame.close.reason)
+    if (!parsed.ok) {
+      logger.warn('websocket_frame_rejected', { details: parsed.close })
+      this.socket.close(parsed.close.code, parsed.close.reason)
       return
     }
-    void this.deliverFrame(frame.frame)
+    void this.deliverFrame(parsed.frame)
   }
 
   private readonly onError = (event: Event): void => {
@@ -205,6 +207,7 @@ export class PartySocketTransport implements RelaySocket {
     })
   }
 
+  // JSON-RPC as the server: handler may return a response document to write.
   private async deliverFrame(frame: string): Promise<void> {
     if (this.closed || this.listeners === undefined) return
     try {
@@ -250,12 +253,25 @@ function authenticatedWebSocketConstructor(
   recordHandshake: (status: number) => void,
 ): NodeWebSocketConstructor {
   return class AuthenticatedWebSocket extends NodeWebSocket {
+    private heartbeat: NodeJS.Timeout | undefined
+
     constructor(address: string | URL, protocols?: string | string[]) {
       super(address, protocols ?? [], { headers: { Authorization: authorization } })
       this.once('unexpected-response', (_request, response) => {
         recordHandshake(response.statusCode ?? 0)
         response.resume()
         this.close()
+      })
+      this.on('open', () => {
+        this.heartbeat = setInterval(() => {
+          if (this.readyState === NodeWebSocket.OPEN) this.ping()
+        }, PING_INTERVAL_MS)
+        // A pending ping is not work the process should stay alive for.
+        this.heartbeat.unref()
+      })
+      this.once('close', () => {
+        if (this.heartbeat !== undefined) clearInterval(this.heartbeat)
+        this.heartbeat = undefined
       })
     }
   }

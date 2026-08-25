@@ -8,7 +8,7 @@ import {
   JSON_RPC_METHOD_KINDS,
   JsonRpcReadError,
   JsonRpcTextSchema,
-  answerJsonRpcRequest,
+  handleJsonRpcRequest,
   decodeJsonRpc,
   jsonRpcError,
   jsonRpcNotification,
@@ -202,7 +202,7 @@ describe('readJsonRpcIncoming', () => {
 
 describe('answerJsonRpcRequest', () => {
   it('returns a result document', async () => {
-    const response = await answerJsonRpcRequest(
+    const response = await handleJsonRpcRequest(
       { id: 1, params: { a: 2 } },
       async () => 4,
       () => {
@@ -213,7 +213,7 @@ describe('answerJsonRpcRequest', () => {
   })
 
   it('maps a handler throw through mapError', async () => {
-    const response = await answerJsonRpcRequest(
+    const response = await handleJsonRpcRequest(
       { id: 1, params: {} },
       async () => {
         throw new Error('busy')

@@ -4,12 +4,13 @@ import {
   HOST_APPLICATION_ERROR_MESSAGE,
   JSON_RPC_ERROR_CODES,
   JsonRpcReadError,
-  answerJsonRpcRequest,
+  handleJsonRpcRequest,
   jsonRpcError,
   readJsonRpcIncoming,
   type JsonRpcId,
   type JsonRpcMethodRegistry,
   type JsonRpcRegistryMethodMap,
+  type JsonRpcRegistryNotificationMethod,
   type JsonRpcRegistryRequestMethod,
   type JsonRpcResponse,
 } from '@porte/core/client'
@@ -20,12 +21,28 @@ type RequestMethod<
   Method extends JsonRpcRegistryRequestMethod<Registry>,
 > = Extract<JsonRpcRegistryMethodMap<Registry>[Method], { readonly kind: 'request' }>
 
+type NotificationMethod<
+  Registry extends JsonRpcMethodRegistry,
+  Method extends JsonRpcRegistryNotificationMethod<Registry>,
+> = Extract<JsonRpcRegistryMethodMap<Registry>[Method], { readonly kind: 'notification' }>
+
 /** One typed handler for every inbound request in a JSON-RPC method table. */
 export type JsonRpcMethodHandlers<Registry extends JsonRpcMethodRegistry, Context> = Readonly<{
   [Method in JsonRpcRegistryRequestMethod<Registry>]: (
     params: RequestMethod<Registry, Method>['params'],
     context: Context,
   ) => Promise<RequestMethod<Registry, Method>['result']>
+}>
+
+/** One typed handler for every inbound notification this server accepts. */
+export type JsonRpcNotificationHandlers<
+  Registry extends JsonRpcMethodRegistry,
+  Context,
+> = Readonly<{
+  [Method in JsonRpcRegistryNotificationMethod<Registry>]?: (
+    params: NotificationMethod<Registry, Method>['params'],
+    context: Context,
+  ) => Promise<void>
 }>
 
 /** Input for one JSON-RPC frame handler. */
@@ -37,6 +54,7 @@ export type JsonRpcHandlerInput<
   readonly methods: Registry
   readonly requestId: z.ZodType<Id>
   readonly handlers: JsonRpcMethodHandlers<Registry, Context>
+  readonly notificationHandlers: JsonRpcNotificationHandlers<Registry, Context>
   readonly context: Context
 }
 
@@ -57,7 +75,18 @@ async function handleFrame<Registry extends JsonRpcMethodRegistry, Context, Id e
 ): Promise<JsonRpcResponse<unknown, unknown> | undefined> {
   try {
     const incoming = readJsonRpcIncoming(frame, input.methods, input.requestId)
-    if (incoming.kind === 'notification') return undefined
+    if (incoming.kind === 'notification') {
+      const handler = input.notificationHandlers[incoming.data.method]
+      if (handler === undefined) {
+        throw new JsonRpcReadError({
+          id: null,
+          code: JSON_RPC_ERROR_CODES.methodNotFound,
+          message: 'Method not found',
+        })
+      }
+      await handler(incoming.data.params, input.context)
+      return undefined
+    }
     if (incoming.kind === 'response') {
       throw new JsonRpcReadError({
         id: null,
@@ -65,7 +94,7 @@ async function handleFrame<Registry extends JsonRpcMethodRegistry, Context, Id e
         message: 'Invalid Request',
       })
     }
-    return await answerJsonRpcRequest(
+    return await handleJsonRpcRequest(
       incoming.data,
       (params) => input.handlers[incoming.data.method](params, input.context),
       (cause) => ({

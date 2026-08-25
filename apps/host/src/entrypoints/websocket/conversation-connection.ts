@@ -31,6 +31,7 @@ export class ConversationConnection {
       methods: HostConversationMethods,
       requestId: HostRequestIdSchema,
       handlers,
+      notificationHandlers: {},
       context: { conversationId, sessions },
     })
     this.onUp = () =>

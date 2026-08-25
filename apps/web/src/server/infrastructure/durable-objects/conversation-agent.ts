@@ -1,37 +1,23 @@
 import { AIChatAgent, type OnChatMessageOptions } from '@cloudflare/ai-chat'
 import {
-  ConfigurationNotFoundError,
   ConversationBusyError,
   ConversationIdSchema,
-  ConversationNotFoundError,
-  ElicitationNotFoundError,
   HOST_CONVERSATION_SUBPROTOCOL,
   HostConversationMethods,
   HostIdSchema,
   HostOfflineError,
   INITIAL_CONVERSATION_RELAY_STATE,
-  InternalServerError,
   MessageIdSchema,
-  PermissionNotFoundError,
-  RequestTimeoutError,
   conversationRelayStateFromState,
-  HostRequestIdSchema,
-  JsonRpcReadError,
-  JsonRpcTextSchema,
   createLogger,
   createTurnId,
-  readJsonRpcIncoming,
-  readJsonRpcTextFrame,
   reduceConversationRelayState,
-  sendJsonRpcFrame,
   type CanonicalContent,
   type ConversationEvent,
   type ConversationId,
   type ConversationRelayState,
   type HostConversationMethodMap,
   type HostId,
-  type JsonRpcInboundNotification,
-  type JsonRpcParams,
   type MessageId,
   type TurnId,
 } from '@porte/core'
@@ -56,7 +42,6 @@ import {
   type UIMessage,
   type UIMessageChunk,
 } from 'ai'
-import { z } from 'zod'
 
 import {
   createConversationAgentResources,
@@ -64,16 +49,14 @@ import {
 } from './conversation-agent-resources.ts'
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
-import {
-  HostApplicationResponseError,
-  HostConnectionUnavailableError,
-  HostJsonRpcRequests,
-  HostRequestTimeoutError,
-} from './relay/host-json-rpc-requests.ts'
+import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
 import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
+import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('conversation-agent')
 const HOST_CONNECTION_TAG = 'host-conversation'
+/** Subprotocols that count as the Mac Host on this Agent. */
+const HOST_PROTOCOLS = [HOST_CONVERSATION_SUBPROTOCOL] as const
 
 type HostConnectionState = {
   readonly role: 'host-conversation'
@@ -89,14 +72,12 @@ type ActiveStream = {
 
 /** Child chat Agent for one conversation data connection. */
 export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelayState> {
-  static options = { hibernate: false }
-
   initialState: ConversationRelayState = INITIAL_CONVERSATION_RELAY_STATE
   chatRecovery = true
 
   private readonly conversationId: ConversationId
   private readonly resources: ConversationAgentResources
-  private readonly requests: HostJsonRpcRequests
+  private readonly host: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
   private hasAssistantMessage = false
@@ -105,25 +86,34 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     super(ctx, env)
     this.conversationId = ConversationIdSchema.parse(this.name)
     this.resources = createConversationAgentResources(() => this.parentAgent(HostRelayAgent))
-    this.requests = new HostJsonRpcRequests((frame) => this.sendHostFrame(frame))
+    this.host = new HostJsonRpcSocket({
+      tag: HOST_CONNECTION_TAG,
+      role: 'conversation',
+      methods: HostConversationMethods,
+      connections: () => this.getConnections(HOST_CONNECTION_TAG),
+      notificationHandlers: {
+        'conversation.state': (params) => this.handleConversationState(params),
+        'conversation.event': (params) => this.handleConversationEvent(params),
+      },
+    })
   }
 
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
-    return isHostConnection(context.request) ? [HOST_CONNECTION_TAG] : []
+    return this.host.isHostUpgrade(context.request, HOST_PROTOCOLS) ? [HOST_CONNECTION_TAG] : []
   }
 
   override shouldConnectionBeReadonly(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !isHostConnection(context.request)
+    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
   }
 
   override shouldSendProtocolMessages(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !isHostConnection(context.request)
+    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
   }
 
   /** Keep Agent and AIChat protocol messages off the Host JSON-RPC connection. */
@@ -138,64 +128,40 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     super.broadcast(message, [...excluded])
   }
 
-  /** Accept one authenticated Host conversation socket. */
+  /** Accept one authenticated Host conversation socket, or answer a viewer's arrival. */
   override onConnect(connection: Connection, context: ConnectionContext): void {
-    if (!isHostConnection(context.request)) return
-    const hostId = HostIdSchema.safeParse(context.request.headers.get(RELAY_HOST_ID_HEADER))
-    if (!hostId.success || !hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)) {
-      connection.close(1008, 'invalid host conversation connection')
+    if (!this.host.accept(connection, context.request)) {
+      this.requestHostAttachInBackground()
       return
     }
+    const hostId = HostIdSchema.parse(context.request.headers.get(RELAY_HOST_ID_HEADER))
     connection.setState({
       role: 'host-conversation',
-      hostId: hostId.data,
+      hostId,
       connectedAt: Date.now(),
     } satisfies HostConnectionState)
-    for (const previous of this.getConnections(HOST_CONNECTION_TAG)) {
-      if (previous.id !== connection.id) previous.close(1008, 'host conversation replaced')
-    }
   }
 
   /** Handle Host conversation responses and notifications. */
-  override async onMessage(connection: Connection, frame: WSMessage): Promise<void> {
-    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
-    const parsedFrame = readJsonRpcTextFrame(JsonRpcTextSchema.safeParse(frame))
-    if (!parsedFrame.ok) {
-      logger.warn('websocket_frame_rejected', {
-        details: { code: parsedFrame.close.code, reason: parsedFrame.close.reason },
-      })
-      connection.close(parsedFrame.close.code, parsedFrame.close.reason)
-      return
-    }
-    try {
-      const incoming = readJsonRpcIncoming(
-        parsedFrame.frame,
-        HostConversationMethods,
-        HostRequestIdSchema,
-      )
-      if (incoming.kind === 'response') {
-        if (this.requests.accept(incoming.data)) return
-        connection.close(1007, 'unexpected conversation document')
-        return
-      }
-      if (incoming.kind === 'notification') {
-        await this.applyNotification(incoming.data)
-        return
-      }
-      connection.close(1007, 'unexpected conversation document')
-    } catch (cause) {
-      if (cause instanceof JsonRpcReadError) {
-        connection.close(1007, 'invalid JSON-RPC document')
-        return
-      }
-      throw cause
-    }
+  override onMessage(connection: Connection, frame: WSMessage): Promise<void> {
+    return this.host.handleMessage(connection, frame)
   }
 
   override onClose(connection: Connection): void {
-    if (!connection.tags.includes(HOST_CONNECTION_TAG) || this.hostConnection() !== undefined)
-      return
-    this.requests.close()
+    this.host.handleClose(connection)
+  }
+
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The Agents SDK declares WebSocket errors as unknown.
+  override onError(connection: Connection, error: unknown): never
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The Agents SDK declares Agent errors as unknown.
+  override onError(error: unknown): never
+  /** Log the original SDK error, then preserve the SDK rethrow contract. */
+  override onError(...args: [connection: Connection, error: unknown] | [error: unknown]): never {
+    rethrowAgentError(logger, args, {
+      agentEvent: 'conversation_agent_error',
+      hostTag: HOST_CONNECTION_TAG,
+      details: { conversationId: this.conversationId },
+    })
   }
 
   /** Start a Host turn and stream its ordered events to AIChatAgent. */
@@ -238,68 +204,50 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   @callable()
   async closeConversation(): Promise<null> {
-    return await this.requestHost(
-      'conversation.close',
-      {},
-      HostConversationMethods['conversation.close'].result,
-    )
+    return await this.host.request('conversation.close')
   }
 
   @callable()
   async cancelTurn(params: HostConversationMethodMap['turn.cancel']['params']): Promise<null> {
-    return await this.requestHost(
-      'turn.cancel',
-      params,
-      HostConversationMethods['turn.cancel'].result,
-    )
+    return await this.host.request('turn.cancel', params)
   }
 
   @callable()
   async setConfiguration(
     params: HostConversationMethodMap['conversation.configuration.set']['params'],
   ): Promise<null> {
-    return await this.requestHost(
-      'conversation.configuration.set',
-      params,
-      HostConversationMethods['conversation.configuration.set'].result,
-    )
+    return await this.host.request('conversation.configuration.set', params)
   }
 
   @callable()
   async answerPermission(
     params: HostConversationMethodMap['permission.answer']['params'],
   ): Promise<null> {
-    return await this.requestHost(
-      'permission.answer',
-      params,
-      HostConversationMethods['permission.answer'].result,
-    )
+    return await this.host.request('permission.answer', params)
   }
 
   @callable()
   async answerElicitation(
     params: HostConversationMethodMap['elicitation.answer']['params'],
   ): Promise<null> {
-    return await this.requestHost(
-      'elicitation.answer',
-      params,
-      HostConversationMethods['elicitation.answer'].result,
-    )
+    return await this.host.request('elicitation.answer', params)
   }
 
-  private async applyNotification(
-    notification: JsonRpcInboundNotification<typeof HostConversationMethods>,
+  private async handleConversationState(
+    params: HostConversationMethodMap['conversation.state']['params'],
   ): Promise<void> {
-    if (notification.method === 'conversation.state') {
-      const state = notification.params.state
-      this.setState(conversationRelayStateFromState(state))
-      await this.persistMessages(await conversationStateToMessages(state), [], {
-        _deleteStaleRows: true,
-      })
-      this.publishCurrentActivity()
-      return
-    }
-    await this.acceptEvent(notification.params.event)
+    const state = params.state
+    this.setState(conversationRelayStateFromState(state))
+    await this.persistMessages(await conversationStateToMessages(state), [], {
+      _deleteStaleRows: true,
+    })
+    this.publishCurrentActivity()
+  }
+
+  private async handleConversationEvent(
+    params: HostConversationMethodMap['conversation.event']['params'],
+  ): Promise<void> {
+    await this.acceptEvent(params.event)
   }
 
   private async acceptEvent(event: ConversationEvent): Promise<void> {
@@ -333,11 +281,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     userMessage: { readonly id: MessageId; readonly content: CanonicalContent[] },
   ): Promise<void> {
     try {
-      await this.requestHost(
-        'turn.start',
-        { turnId: active.turnId, userMessage },
-        HostConversationMethods['turn.start'].result,
-      )
+      await this.host.request('turn.start', { turnId: active.turnId, userMessage })
     } catch (error) {
       logger.error('turn_start_failed', {
         error,
@@ -356,34 +300,6 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
         details: { conversationId: this.conversationId, turnId },
       })
     })
-  }
-
-  private async requestHost<Result>(
-    method: string,
-    params: JsonRpcParams,
-    resultSchema: z.ZodType<Result>,
-  ): Promise<Result> {
-    try {
-      return await this.requests.request(method, params, resultSchema)
-    } catch (error) {
-      return throwHostError(error)
-    }
-  }
-
-  private async sendHostFrame(frame: string): Promise<void> {
-    const host = this.hostConnection()
-    if (host === undefined) throw new HostOfflineError()
-    await sendJsonRpcFrame(() => {
-      if (host.readyState !== WebSocket.OPEN) return false
-      host.send(frame)
-    })
-  }
-
-  private hostConnection(): Connection<HostConnectionState> | undefined {
-    for (const connection of this.getConnections<HostConnectionState>(HOST_CONNECTION_TAG)) {
-      if (connection.readyState === WebSocket.OPEN) return connection
-    }
-    return undefined
   }
 
   private serializeStream<Result>(work: () => Promise<Result>): Promise<Result> {
@@ -415,6 +331,30 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       return
     }
     if (isTerminalEvent(event)) this.publishClearActivity()
+  }
+
+  /**
+   * A viewer is here, so ask for the Mac unless this Agent already has it.
+   *
+   * Off the connect path on purpose: the ask spawns a session on the Mac, and a
+   * viewer that cannot reach one still reads what this Agent already stored.
+   */
+  private requestHostAttachInBackground(): void {
+    if (this.host.openConnection() !== undefined) return
+    void this.requestHostAttach().catch((error) => {
+      // An away Mac is what the status dot already reports, so it is not a fault here.
+      if (error instanceof HostOfflineError) return
+      logger.warn('conversation_attach_failed', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId },
+      })
+    })
+  }
+
+  /** The parent owns the control socket, so the ask for a Mac goes through it. */
+  private async requestHostAttach(): Promise<void> {
+    const parent = await this.resources.hostRelay()
+    await parent.attachConversation(this.conversationId)
   }
 
   private publishActivityRecord(turnId: TurnId): void {
@@ -523,43 +463,6 @@ function eventBelongsToTurn(event: ConversationEvent, turnId: TurnId): boolean {
 
 function isTerminalEvent(event: ConversationEvent): boolean {
   return event.type === 'turn.finished' || event.type === 'conversation.failed'
-}
-
-function hasSubprotocol(request: Request, expected: string): boolean {
-  return (
-    request.headers
-      .get('sec-websocket-protocol')
-      ?.split(',')
-      .map((value) => value.trim())
-      .includes(expected) === true
-  )
-}
-
-function isHostConnection(request: Request): boolean {
-  return hasSubprotocol(request, HOST_CONVERSATION_SUBPROTOCOL)
-}
-
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.
-function throwHostError(error: unknown): never {
-  if (error instanceof HostConnectionUnavailableError) throw new HostOfflineError()
-  if (error instanceof HostRequestTimeoutError) throw new RequestTimeoutError()
-  if (error instanceof HostApplicationResponseError) {
-    switch (error.payload._tag) {
-      case 'ConversationNotFoundError':
-        throw new ConversationNotFoundError()
-      case 'ConversationBusyError':
-        throw new ConversationBusyError()
-      case 'PermissionNotFoundError':
-        throw new PermissionNotFoundError()
-      case 'ElicitationNotFoundError':
-        throw new ElicitationNotFoundError()
-      case 'ConfigurationNotFoundError':
-        throw new ConfigurationNotFoundError()
-      case 'RequestTimeoutError':
-        throw new RequestTimeoutError()
-    }
-  }
-  throw new InternalServerError()
 }
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.

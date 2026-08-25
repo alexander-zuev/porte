@@ -22,4 +22,13 @@ export class ConversationAgentClient
     )
     return completeRelayUpgrade(input, response, HOST_CONVERSATION_SUBPROTOCOL, 'conversation')
   }
+
+  async readMessages(input: ConnectConversationAgent): Promise<Response> {
+    const request = createRelayUpgradeRequest(input)
+    // The leaf rides in `fromPath` because the forwarder replaces the pathname whole.
+    const fromPath = `/sub/conversation-agent/${input.conversationId}/get-messages`
+    return this.repeatable(input.hostId, (parent) =>
+      routeSubAgentRequest(request, parent, { fromPath }),
+    )
+  }
 }

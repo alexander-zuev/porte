@@ -1,6 +1,11 @@
-import { jsonRpcNotificationSchema, type HostRelayState, type HostStatus } from '@porte/core/client'
+import {
+  JsonRpcNotificationSchema,
+  createLogger,
+  type HostRelayState,
+  type HostStatus,
+} from '@porte/core/client'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { ConversationAttentionProvider } from '@web/entities/conversation/conversation-attention-context.tsx'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
@@ -9,11 +14,14 @@ import { useAgent } from 'agents/react'
 import { createContext, useContext, type ReactNode } from 'react'
 import { z } from 'zod'
 
+const logger = createLogger('relay-context')
 const RELAY_PATH = 'api/host/ws'
-const ConversationsChangedSchema = jsonRpcNotificationSchema(
-  'conversations.changed',
-  z.strictObject({}),
-)
+
+const BROWSER_NOTIFICATION_HANDLERS = {
+  'conversations.changed': (queryClient: QueryClient) => {
+    void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
+  },
+} as const
 
 type HostAgentConnection = ReturnType<typeof useAgent<HostRelayAgent, HostRelayState>>
 
@@ -33,14 +41,7 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
     onMessage: (message) => {
       const frame = z.string().safeParse(message.data)
       if (!frame.success) return
-      try {
-        const document: unknown = JSON.parse(frame.data)
-        if (ConversationsChangedSchema.safeParse(document).success) {
-          void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
-        }
-      } catch {
-        return
-      }
+      handleBrowserNotification(frame.data, queryClient)
     },
   })
   return (
@@ -62,4 +63,21 @@ export function useRelay(): HostAgentConnection {
 /** Returns the browser connection state for the parent Agent. */
 export function useRelayReadyState(): number {
   return useRelay().readyState
+}
+
+function handleBrowserNotification(frame: string, queryClient: QueryClient): void {
+  let document: unknown
+  try {
+    document = JSON.parse(frame)
+  } catch {
+    return
+  }
+  const notification = JsonRpcNotificationSchema.safeParse(document)
+  if (!notification.success) return
+  const method = notification.data.method
+  if (method === 'conversations.changed') {
+    BROWSER_NOTIFICATION_HANDLERS[method](queryClient)
+    return
+  }
+  logger.warn('unhandled_browser_notification', { details: { method } })
 }

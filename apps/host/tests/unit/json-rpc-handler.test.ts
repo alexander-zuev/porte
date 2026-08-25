@@ -73,9 +73,30 @@ describe('createJsonRpcHandler', () => {
     })
   })
 
-  it('returns nothing for a notification', async () => {
+  it('returns method not found for an unhandled notification', async () => {
     const onFrame = handler(async () => 'pong')
+    await expect(onFrame(JSON.stringify(jsonRpcNotification('tick', {})))).resolves.toEqual({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: JSON_RPC_ERROR_CODES.methodNotFound, message: 'Method not found' },
+    })
+  })
+
+  it('returns nothing after a notification handler runs', async () => {
+    let ticks = 0
+    const onFrame = createJsonRpcHandler({
+      methods,
+      requestId: HostRequestIdSchema,
+      handlers: { ping: async (): Promise<'pong'> => 'pong' },
+      notificationHandlers: {
+        tick: async () => {
+          ticks += 1
+        },
+      },
+      context: undefined,
+    })
     await expect(onFrame(JSON.stringify(jsonRpcNotification('tick', {})))).resolves.toBeUndefined()
+    expect(ticks).toBe(1)
   })
 })
 
@@ -84,6 +105,7 @@ function handler(ping: () => Promise<'pong'>) {
     methods,
     requestId: HostRequestIdSchema,
     handlers: { ping },
+    notificationHandlers: {},
     context: undefined,
   })
 }

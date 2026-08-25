@@ -6,20 +6,12 @@ import {
   HostControlMethods,
   HostIdSchema,
   HostOfflineError,
-  InternalServerError,
-  RequestTimeoutError,
-  HostRequestIdSchema,
-  JsonRpcReadError,
-  JsonRpcTextSchema,
   createLogger,
-  readJsonRpcIncoming,
-  readJsonRpcTextFrame,
-  sendJsonRpcFrame,
+  jsonRpcNotification,
   type ConversationSummary,
   type ConversationId,
   type HostControlMethodMap,
   type HostId,
-  type JsonRpcInboundNotification,
   type HostRelayState,
   type HostStatus,
   type ListConversationsParams,
@@ -44,32 +36,26 @@ import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime child class.
 import { ConversationAgent } from './conversation-agent.ts'
 import { createHostRelayResources, type HostRelayResources } from './host-relay-resources.ts'
-import {
-  HostApplicationResponseError,
-  HostConnectionUnavailableError,
-  HostJsonRpcRequests,
-  HostRequestTimeoutError,
-} from './relay/host-json-rpc-requests.ts'
-import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
+import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
+import { hasSubprotocol } from './relay/host-subprotocol.ts'
+import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
-const CONVERSATIONS_CHANGED_NOTIFICATION = JSON.stringify({
-  jsonrpc: '2.0',
-  method: 'conversations.changed',
-  params: {},
-})
+/** Subprotocols that count as the Mac Host on this Agent. */
+const HOST_PROTOCOLS = [HOST_CONTROL_SUBPROTOCOL, HOST_CONVERSATION_SUBPROTOCOL] as const
+const CONVERSATIONS_CHANGED_NOTIFICATION = JSON.stringify(
+  jsonRpcNotification('conversations.changed', {}),
+)
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
-  static options = { hibernate: false }
-
   initialState: HostRelayState = { hostStatus: 'offline', activeConversations: [] }
 
   private readonly resources: HostRelayResources
   private readonly hostId: HostId
-  private readonly requests: HostJsonRpcRequests
+  private readonly host: HostJsonRpcSocket<typeof HostControlMethods>
   private syncing: Promise<void> | undefined
 
   /** Initialize schema and application dependencies before requests run. */
@@ -79,12 +65,21 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     void ctx.blockConcurrencyWhile(() => migrate(relayDb, migrations))
     this.resources = createHostRelayResources(relayDb, () => createDatabase(env.DB))
     this.hostId = HostIdSchema.parse(this.name)
-    this.requests = new HostJsonRpcRequests((frame) => this.sendHostFrame(frame))
+    this.host = new HostJsonRpcSocket({
+      tag: HOST_CONNECTION_TAG,
+      role: 'control',
+      methods: HostControlMethods,
+      connections: () => this.getConnections(HOST_CONNECTION_TAG),
+      notificationHandlers: {
+        'conversation.updated': (params) => this.handleConversationUpdated(params),
+        'conversation.removed': (params) => this.handleConversationRemoved(params),
+      },
+    })
   }
 
   /** Restore status from hibernating sockets without replaying application requests. */
   override onStart(): void {
-    const online = this.hostConnection() !== undefined
+    const online = this.host.openConnection() !== undefined
     this.setHostStatus(online ? 'online' : 'offline')
   }
 
@@ -105,76 +100,32 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !isHostConnection(context.request)
+    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
   }
 
   override shouldSendProtocolMessages(
     _connection: Connection,
     context: ConnectionContext,
   ): boolean {
-    return !isHostConnection(context.request)
+    return !this.host.isHostUpgrade(context.request, HOST_PROTOCOLS)
   }
 
   /** Accept one authenticated Host control socket. */
   override async onConnect(connection: Connection, context: ConnectionContext): Promise<void> {
-    if (!hasSubprotocol(context.request, HOST_CONTROL_SUBPROTOCOL)) return
-    const hostId = HostIdSchema.safeParse(context.request.headers.get(RELAY_HOST_ID_HEADER))
-    if (
-      !hostId.success ||
-      hostId.data !== this.hostId ||
-      !hasSubprotocol(context.request, HOST_CONTROL_SUBPROTOCOL)
-    ) {
-      connection.close(1008, 'invalid host control connection')
-      return
-    }
-
-    for (const previous of this.getConnections(HOST_CONNECTION_TAG)) {
-      if (previous.id !== connection.id) previous.close(1008, 'host control replaced')
-    }
+    if (!this.host.accept(connection, context.request, this.hostId)) return
     logger.info('host_websocket_connected', {
       hostId: this.hostId,
       connectionId: connection.id,
       subprotocol: HOST_CONTROL_SUBPROTOCOL,
     })
     this.setHostStatus('online')
-    this.recordHostSeen(hostId.data)
+    this.recordHostSeen(this.hostId)
     this.syncConversationsInBackground()
   }
 
   /** Handle Host control responses and notifications. */
-  override async onMessage(connection: Connection, frame: WSMessage): Promise<void> {
-    const parsedFrame = readJsonRpcTextFrame(JsonRpcTextSchema.safeParse(frame))
-    if (!parsedFrame.ok) {
-      logger.warn('websocket_frame_rejected', {
-        details: { code: parsedFrame.close.code, reason: parsedFrame.close.reason },
-      })
-      connection.close(parsedFrame.close.code, parsedFrame.close.reason)
-      return
-    }
-    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
-    try {
-      const incoming = readJsonRpcIncoming(
-        parsedFrame.frame,
-        HostControlMethods,
-        HostRequestIdSchema,
-      )
-      if (incoming.kind === 'response') {
-        if (this.requests.accept(incoming.data)) return
-        connection.close(1007, 'unexpected control document')
-        return
-      }
-      if (incoming.kind === 'notification') {
-        await this.applyNotification(incoming.data)
-        return
-      }
-      connection.close(1007, 'unexpected control document')
-    } catch (cause) {
-      if (cause instanceof JsonRpcReadError) {
-        connection.close(1007, 'invalid JSON-RPC document')
-        return
-      }
-      throw cause
-    }
+  override onMessage(connection: Connection, frame: WSMessage): Promise<void> {
+    return this.host.handleMessage(connection, frame)
   }
 
   /** Log each Host close, then publish offline after the final control socket closes. */
@@ -195,8 +146,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     if (wasClean) logger.info('host_websocket_closed', details)
     else logger.warn('host_websocket_closed', details)
 
-    if (this.hostConnection() !== undefined) return
-    this.requests.close()
+    this.host.handleClose(connection)
+    if (this.host.openConnection() !== undefined) return
     this.setHostStatus('offline')
     this.recordHostSeen(this.hostId)
   }
@@ -207,26 +158,22 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   override onError(error: unknown): never
   /** Log the original SDK error, then preserve the SDK rethrow contract. */
   override onError(...args: [connection: Connection, error: unknown] | [error: unknown]): never {
-    if (args.length === 1) {
-      logger.error('host_relay_error', { error: args[0] })
-      throw args[0]
-    }
-    const [connection, error] = args
-    logger.error(
-      connection.tags.includes(HOST_CONNECTION_TAG)
-        ? 'host_websocket_error'
-        : 'relay_websocket_error',
-      {
-        error,
-        details: { hostId: this.hostId, connectionId: connection.id },
-      },
-    )
-    throw error
+    rethrowAgentError(logger, args, {
+      agentEvent: 'host_relay_error',
+      hostTag: HOST_CONNECTION_TAG,
+      details: { hostId: this.hostId },
+    })
   }
 
-  /** Allow child access from the cache and attach browser access to the Host. */
+  /**
+   * Refuse every child this relay does not know.
+   *
+   * A gate and nothing else. Waking the Mac for a conversation belongs to the
+   * child, which is the only side that can see whether the Mac is already there.
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await -- The SDK hook returns a Promise.
   override async onBeforeSubAgent(
-    request: Request,
+    _request: Request,
     child: { className: string; name: string },
   ): Promise<Response | void> {
     const conversationId = ConversationIdSchema.safeParse(child.name)
@@ -236,12 +183,6 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       this.resources.conversationRepository.find(conversationId.data) === undefined
     ) {
       return new Response('Not found', { status: 404 })
-    }
-    if (hasSubprotocol(request, HOST_CONVERSATION_SUBPROTOCOL)) return
-    try {
-      await this.attachConversation(conversationId.data)
-    } catch {
-      return new Response('Host is offline', { status: 503 })
     }
   }
 
@@ -259,19 +200,10 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   async createConversation(
     params: HostControlMethodMap['conversation.create']['params'],
   ): Promise<ConversationSummary> {
-    this.requireHost()
-    try {
-      const conversation = await this.requests.request(
-        'conversation.create',
-        params,
-        HostControlMethods['conversation.create'].result,
-      )
-      this.resources.conversationRepository.save(conversation)
-      this.publishConversationChange()
-      return conversation
-    } catch (error) {
-      return throwHostError(error)
-    }
+    const conversation = await this.host.request('conversation.create', params)
+    this.resources.conversationRepository.save(conversation)
+    this.publishConversationChange()
+    return conversation
   }
 
   /** Ask the Host to open or reuse one conversation connection. */
@@ -279,16 +211,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     if (this.resources.conversationRepository.find(conversationId) === undefined) {
       throw new ConversationNotFoundError()
     }
-    this.requireHost()
-    try {
-      await this.requests.request(
-        'conversation.attach',
-        { conversationId },
-        HostControlMethods['conversation.attach'].result,
-      )
-    } catch (error) {
-      throwHostError(error)
-    }
+    await this.host.request('conversation.attach', { conversationId })
   }
 
   /** Receive the small activity projection from one child Agent. */
@@ -314,7 +237,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Close connections and delete all parent and child state after unpairing. */
   async disconnectAll(): Promise<void> {
-    this.requests.close()
+    this.host.close()
     for (const connection of this.getConnections()) connection.close(1000, 'pairing ended')
     await Promise.all(
       this.listSubAgents(ConversationAgent).map((child) =>
@@ -324,33 +247,31 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     await this.destroy()
   }
 
-  private async applyNotification(
-    notification: JsonRpcInboundNotification<typeof HostControlMethods>,
+  private async handleConversationUpdated(
+    params: HostControlMethodMap['conversation.updated']['params'],
   ): Promise<void> {
-    if (notification.method === 'conversation.updated') {
-      this.resources.conversationRepository.updateMetadata(
-        notification.params.conversationId,
-        notification.params.update,
-      )
-      this.publishConversationChange()
-      return
-    }
-    const { conversationId } = notification.params
-    this.resources.conversationRepository.delete(conversationId)
-    this.clearConversationActivity(conversationId)
-    if (this.hasSubAgent(ConversationAgent, conversationId)) {
-      await this.deleteSubAgent(ConversationAgent, conversationId)
+    this.resources.conversationRepository.updateMetadata(params.conversationId, params.update)
+    this.publishConversationChange()
+  }
+
+  private async handleConversationRemoved(
+    params: HostControlMethodMap['conversation.removed']['params'],
+  ): Promise<void> {
+    this.resources.conversationRepository.delete(params.conversationId)
+    this.clearConversationActivity(params.conversationId)
+    if (this.hasSubAgent(ConversationAgent, params.conversationId)) {
+      await this.deleteSubAgent(ConversationAgent, params.conversationId)
     }
     this.publishConversationChange()
   }
 
   private syncConversationsInBackground(): void {
-    if (this.syncing !== undefined || this.hostConnection() === undefined) return
+    if (this.syncing !== undefined || this.host.openConnection() === undefined) return
     this.syncing = this.syncConversations().finally(() => {
       this.syncing = undefined
     })
     void this.syncing.catch((error) => {
-      if (error instanceof HostConnectionUnavailableError) return
+      if (error instanceof HostOfflineError) return
       logger.error('conversation_list_sync_failed', { error })
     })
   }
@@ -360,10 +281,9 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     let cursor: HostControlMethodMap['conversations.list']['params']['cursor']
     do {
       // oxlint-disable-next-line no-await-in-loop -- Each cursor comes from the prior result.
-      const result = await this.requests.request(
+      const result = await this.host.request(
         'conversations.list',
         cursor === undefined ? {} : { cursor },
-        HostControlMethods['conversations.list'].result,
       )
       conversations.push(...result.conversations)
       cursor = result.next
@@ -372,33 +292,12 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     this.publishConversationChange()
   }
 
-  private requireHost(): Connection {
-    const host = this.hostConnection()
-    if (host === undefined) throw new HostOfflineError()
-    return host
-  }
-
-  private async sendHostFrame(frame: string): Promise<void> {
-    const host = this.requireHost()
-    await sendJsonRpcFrame(() => {
-      if (host.readyState !== WebSocket.OPEN) return false
-      host.send(frame)
-    })
-  }
-
-  private hostConnection(): Connection | undefined {
-    for (const connection of this.getConnections(HOST_CONNECTION_TAG)) {
-      if (connection.readyState === WebSocket.OPEN) return connection
-    }
-    return undefined
-  }
-
   private setHostStatus(hostStatus: HostRelayState['hostStatus']): void {
     if (this.state.hostStatus !== hostStatus) this.setState({ ...this.state, hostStatus })
   }
 
   private publishConversationChange(): void {
-    const host = this.hostConnection()
+    const host = this.host.openConnection()
     this.broadcast(CONVERSATIONS_CHANGED_NOTIFICATION, host === undefined ? [] : [host.id])
   }
 
@@ -411,33 +310,4 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       logger.error('host_seen_failed', { error, details: { hostId } })
     })
   }
-}
-
-function hasSubprotocol(request: Request, expected: string): boolean {
-  return (
-    request.headers
-      .get('sec-websocket-protocol')
-      ?.split(',')
-      .map((value) => value.trim())
-      .includes(expected) === true
-  )
-}
-
-function isHostConnection(request: Request): boolean {
-  return (
-    hasSubprotocol(request, HOST_CONTROL_SUBPROTOCOL) ||
-    hasSubprotocol(request, HOST_CONVERSATION_SUBPROTOCOL)
-  )
-}
-
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.
-function throwHostError(error: unknown): never {
-  if (error instanceof HostConnectionUnavailableError) throw new HostOfflineError()
-  if (error instanceof HostRequestTimeoutError) throw new RequestTimeoutError()
-  if (error instanceof HostApplicationResponseError) {
-    if (error.payload._tag === 'ConversationNotFoundError') {
-      throw new ConversationNotFoundError()
-    }
-  }
-  throw new InternalServerError()
 }

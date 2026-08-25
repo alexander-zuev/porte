@@ -12,15 +12,13 @@ export const hostQueries = {
   /**
    * Whether the Mac is reachable now.
    *
-   * Read so a first paint is right rather than starting at "connecting". The
-   * socket keeps it current afterwards by writing this key, so nothing here
-   * polls and no refetch is needed to learn the Mac came back.
+   * First paint reads the server. The socket writes this key when the Mac
+   * changes. Query refetches on mount, focus, and network reconnect.
    */
   status: () =>
     queryOptions({
       queryKey: hostQueryKeys.status,
       queryFn: () => getHostStatus(),
-      staleTime: Number.POSITIVE_INFINITY,
     }),
 }
 

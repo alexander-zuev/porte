@@ -174,10 +174,10 @@ export type JsonRpcResponse<Result, ErrorData> =
       readonly error: JsonRpcErrorObject<ErrorData>
     }
 
-/** Largest JSON-RPC text frame either peer accepts. Our cap; Cloudflare receives up to 32 MiB. */
-export const JSON_RPC_MAX_FRAME_BYTES = 8 * 1024 * 1024
+/** Largest JSON-RPC text frame either peer accepts. Cloudflare's received WebSocket limit. */
+export const JSON_RPC_MAX_FRAME_BYTES = 32 * 1024 * 1024
 
-/** Text WebSocket payload before the JSON-RPC size bound. */
+/** Inbound WebSocket payload that is text. Size is enforced in `readJsonRpcTextFrame`. */
 export const JsonRpcTextSchema = z.string()
 
 /** Close to send when an inbound WebSocket message is not a bounded JSON-RPC text frame. */
@@ -332,7 +332,7 @@ export function readJsonRpcIncoming<Registry extends JsonRpcMethodRegistry, Id e
 }
 
 /** Run one request handler and return the JSON-RPC response document. */
-export async function answerJsonRpcRequest<Params, Result>(
+export async function handleJsonRpcRequest<Params, Result>(
   inbound: { readonly id: JsonRpcId; readonly params: Params },
   handler: (params: Params) => Promise<Result>,
   mapError: (cause: unknown) => JsonRpcApplicationError,

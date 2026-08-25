@@ -25,6 +25,7 @@ export class ControlConnection {
       methods: HostControlMethods,
       requestId: HostRequestIdSchema,
       handlers,
+      notificationHandlers: {},
       context,
     })
   }

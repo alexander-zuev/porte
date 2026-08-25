@@ -1,6 +1,8 @@
 import { createLogger } from '@porte/core'
 import type { AgentConnection } from '@server/application/ports/agent-connection.ts'
 
+import { hasSubprotocol } from './host-subprotocol.ts'
+
 const logger = createLogger('relay-upgrade')
 
 /** Select the protocol that one authenticated daemon offered. */
@@ -12,12 +14,7 @@ export function completeRelayUpgrade(
 ): Response {
   if (input.role === 'client') return response
 
-  const offered =
-    input.request.headers
-      .get('sec-websocket-protocol')
-      ?.split(',')
-      .map((protocol) => protocol.trim())
-      .includes(expectedSubprotocol) === true
+  const offered = hasSubprotocol(input.request, expectedSubprotocol)
 
   if (response.status !== 101 || response.webSocket === null || !offered) {
     logger.warn('host_websocket_upgrade_failed', {

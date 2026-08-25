@@ -10,7 +10,8 @@ const AWAY: HostStatus = { status: 'offline' }
  *
  * Read separately from the pairing, because the two change on different
  * timescales: pairing lasts months, and this changes when a laptop closes. A
- * page reads it once so its first paint is right, then the socket replaces it.
+ * page reads it for first paint. The socket writes the same key when the Mac
+ * changes. Query refetches on mount, focus, and reconnect.
  */
 export async function getHostStatus(
   hosts: HostRepository,

@@ -8,7 +8,6 @@ export const Route = createFileRoute('/_auth/_relay/account')({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(hostQueries.forAccount()),
-      // Read once so the first paint is right. The socket keeps it so after.
       context.queryClient.ensureQueryData(hostQueries.status()),
     ]),
   component: AccountRoute,

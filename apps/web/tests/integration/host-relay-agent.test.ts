@@ -79,6 +79,12 @@ describe('HostRelayAgent control connection', () => {
     expect((await host.inbox.closed()).code).toBe(1008)
   })
 
+  it('rejects an unknown control notification', async () => {
+    const host = await connect(createHostId())
+    host.socket.send(JSON.stringify(jsonRpcNotification('nope', {})))
+    expect((await host.inbox.closed()).code).toBe(1007)
+  })
+
   it('rejects a non-JSON-RPC control frame', async () => {
     const host = await connect(createHostId())
     host.socket.send('{"type":"command"}')
