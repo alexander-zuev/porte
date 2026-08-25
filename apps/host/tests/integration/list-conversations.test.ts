@@ -51,11 +51,10 @@ async function findListed(
   conversationId: ConversationId,
 ): Promise<ConversationSummary | undefined> {
   let cursor: ConversationCursor | undefined
-  for (let page = 0; page < LIST_PAGES; page += 1) {
+  for (let pageIndex = 0; pageIndex < LIST_PAGES; pageIndex += 1) {
     // oxlint-disable-next-line no-await-in-loop -- ACP gives each cursor in the prior page.
-    const listed = ListConversationsResultSchema.parse(
-      await listConversations(agent, cursor === undefined ? {} : { cursor }),
-    )
+    const page = await listConversations(agent, cursor === undefined ? {} : { cursor })
+    const listed = ListConversationsResultSchema.parse(page)
     const found = listed.conversations.find((row) => row.id === conversationId)
     if (found !== undefined) return found
     if (listed.next === undefined) return undefined

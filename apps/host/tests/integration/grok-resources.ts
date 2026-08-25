@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -15,7 +15,8 @@ export async function createGitWorkspace(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), 'porte-list-'))
   const repo = spawnSync('git', ['init', '--quiet', cwd], { encoding: 'utf8' })
   if (repo.status !== 0) throw new Error(repo.stderr || 'git init failed')
-  return cwd
+  // Grok records the real path; macOS /var is a symlink to /private/var.
+  return realpath(cwd)
 }
 
 /** Run work against one Grok coding agent and abort its host signal afterwards. */
