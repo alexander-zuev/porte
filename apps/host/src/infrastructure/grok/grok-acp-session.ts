@@ -13,14 +13,13 @@ import type {
   StartTurn,
 } from '@host/application/ports/agent-session.ts'
 import { applyConversationEvents } from '@host/domain/conversation/conversation-view-reducer.ts'
-import type { AcpClient, StartAcpClient } from '@host/infrastructure/acp/client.ts'
 import { AcpClientRequestError } from '@host/infrastructure/acp/error.ts'
 import {
   answerIncomingRequest,
   parseElicitationRequest,
   parsePermissionRequest,
 } from '@host/infrastructure/acp/incoming-request.ts'
-import type { JsonValue } from '@host/infrastructure/acp/message.ts'
+import type { AcpSessionNotification, JsonValue } from '@host/infrastructure/acp/message.ts'
 import {
   CodingAgentUnavailableError,
   ConversationBusyError,
@@ -43,9 +42,9 @@ import {
   type TurnId,
 } from '@porte/core/client'
 
+import type { GrokAcpClient } from './grok-acp-client.ts'
 import { GrokEventMapper, mapGrokConfiguration } from './grok-event-mapper.ts'
 
-type AcpProcess = Pick<AcpClient, 'request' | 'notify' | 'stop'>
 type PendingPermission = {
   readonly turnId: TurnId
   readonly optionIds: ReadonlySet<string>
@@ -74,7 +73,7 @@ export class GrokAcpSession implements AgentSession {
   private activeTurnId: TurnId | undefined
   private closed = false
   private currentView: ConversationView
-  private listener: (emission: ConversationEmission) => void
+  private listener: (emission: ConversationEmission) => void = () => undefined
   private readonly closeListeners = new Set<() => void>()
   private readonly permissions = new Map<PermissionId, PendingPermission>()
   private readonly elicitations = new Map<ElicitationId, PendingElicitation>()
@@ -82,14 +81,12 @@ export class GrokAcpSession implements AgentSession {
 
   constructor(
     readonly conversationId: ConversationId,
-    private readonly client: AcpProcess,
+    private readonly client: GrokAcpClient,
     private readonly cwd: string,
-    onEvent: (emission: ConversationEmission) => void,
     view: ConversationView,
     private readonly capabilities: AgentCapabilities,
   ) {
     this.currentView = ConversationViewSchema.parse(view)
-    this.listener = onEvent
   }
 
   get view(): ConversationView {
@@ -144,14 +141,7 @@ export class GrokAcpSession implements AgentSession {
     if (this.activeTurnId !== turnId || mapper === undefined) {
       throw new ConversationNotFoundError()
     }
-    await this.client
-      .notify({
-        method: 'session/cancel',
-        params: { sessionId: this.conversationId },
-      })
-      .catch((cause: unknown) => {
-        throw new CodingAgentUnavailableError({ cause })
-      })
+    await this.client.cancelSession({ sessionId: this.conversationId })
     for (const [permissionId, pending] of this.permissions) {
       if (pending.turnId !== turnId) continue
       let mapped: readonly ConversationEvent[]
@@ -193,15 +183,7 @@ export class GrokAcpSession implements AgentSession {
             configId: command.optionId,
             value: command.value.value,
           }
-    const updated = await this.client
-      .request({
-        method: 'session/set_config_option',
-        params,
-        timeoutMs: 30_000,
-      })
-      .catch((cause: unknown) => {
-        throw new CodingAgentUnavailableError({ cause })
-      })
+    const updated = await this.client.setSessionConfigOption(params)
     this.send([
       {
         type: 'conversation.configuration.updated',
@@ -261,10 +243,7 @@ export class GrokAcpSession implements AgentSession {
     let closeCause: unknown
     if (this.activeTurnId !== undefined) {
       try {
-        await this.client.notify({
-          method: 'session/cancel',
-          params: { sessionId: this.conversationId },
-        })
+        await this.client.cancelSession({ sessionId: this.conversationId })
       } catch (cause) {
         closeCause = cause
       }
@@ -296,17 +275,13 @@ export class GrokAcpSession implements AgentSession {
       this.capabilities.sessionCapabilities.close !== null
     ) {
       try {
-        await this.client.request({
-          method: 'session/close',
-          params: { sessionId: this.conversationId },
-          timeoutMs: 30_000,
-        })
+        await this.client.closeSession({ sessionId: this.conversationId })
       } catch (cause) {
         closeCause ??= cause
       }
     }
     try {
-      await this.client.stop()
+      await this.client.close()
     } finally {
       for (const listener of this.closeListeners) listener()
       this.closeListeners.clear()
@@ -314,7 +289,7 @@ export class GrokAcpSession implements AgentSession {
     if (closeCause !== undefined) throw new CodingAgentUnavailableError({ cause: closeCause })
   }
 
-  receiveUpdate(notification: Parameters<StartAcpClient['onUpdate']>[0]): void {
+  receiveUpdate(notification: AcpSessionNotification): void {
     try {
       const mapped = this.mapper?.map(notification)
       if (mapped === undefined) return
@@ -411,13 +386,9 @@ export class GrokAcpSession implements AgentSession {
   private async executeTurn(command: StartTurn, mapper: GrokEventMapper): Promise<void> {
     let response
     try {
-      response = await this.client.request({
-        method: 'session/prompt',
-        params: {
-          sessionId: this.conversationId,
-          prompt: command.userMessage.content.map(toAcpContent),
-        },
-        timeoutMs: 1_800_000,
+      response = await this.client.prompt({
+        sessionId: this.conversationId,
+        prompt: command.userMessage.content.map(toAcpContent),
       })
     } catch {
       if (!this.closed) this.failTurn(codingAgentUnavailable())

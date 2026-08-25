@@ -14,7 +14,6 @@ import {
   MessageIdSchema,
   PermissionNotFoundError,
   RequestTimeoutError,
-  TurnIdSchema,
   conversationRelayStateFromState,
   HostRequestIdSchema,
   JsonRpcReadError,
@@ -53,7 +52,7 @@ import {
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
-  type GenerateTextOnFinishCallback,
+  type GenerateTextOnEndCallback,
   type UIMessage,
   type UIMessageChunk,
 } from 'ai'
@@ -201,25 +200,22 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   /** Start a Host turn and stream its ordered events to AIChatAgent. */
   override async onChatMessage(
-    _onFinish: GenerateTextOnFinishCallback,
+    _onEnd: GenerateTextOnEndCallback,
     options?: OnChatMessageOptions,
   ): Promise<Response> {
     const currentTurn = this.state.status === 'ready' ? this.state.turn : { state: 'idle' as const }
     const userMessage = latestUserMessage(this.messages)
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
-    if (options?.continuation && currentTurn.state !== 'running') {
-      return errorStreamResponse('The turn is no longer available for recovery.')
-    }
-    if (!options?.continuation && currentTurn.state === 'running') {
-      return errorStreamResponse('A turn is already running.')
-    }
 
-    const turnId =
-      currentTurn.state === 'running'
-        ? currentTurn.turnId
-        : options?.requestId === undefined
-          ? createTurnId()
-          : TurnIdSchema.parse(options.requestId)
+    let turnId: TurnId
+    if (options?.continuation) {
+      if (currentTurn.state !== 'running') {
+        return errorStreamResponse('The turn is no longer available for recovery.')
+      }
+      turnId = currentTurn.turnId
+    } else {
+      turnId = createTurnId()
+    }
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
     const active = {
       turnId,

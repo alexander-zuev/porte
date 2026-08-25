@@ -1,6 +1,6 @@
 import type { ListConversationsParams, ListConversationsResult, UserId } from '@porte/core'
-import type { HostRelay } from '@server/application/ports/host-relay.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
+import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client'
 
 /** An account with no Mac has no conversations, which is not a failure to read them. */
 const NONE: ListConversationsResult = { conversations: [] }
@@ -15,7 +15,7 @@ const NONE: ListConversationsResult = { conversations: [] }
  */
 export async function getConversations(
   hosts: HostRepository,
-  relay: HostRelay,
+  relay: IHostRelayClient,
   userId: UserId,
   query: ListConversationsParams,
 ): Promise<ListConversationsResult> {

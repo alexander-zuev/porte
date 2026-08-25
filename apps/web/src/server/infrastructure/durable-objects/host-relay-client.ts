@@ -4,12 +4,13 @@ import type {
   ListConversationsParams,
   ListConversationsResult,
 } from '@porte/core'
-import { DurableObjectClient } from '@porte/core'
-import type { ConnectHost, HostRelay } from '@server/application/ports/host-relay.ts'
-import { routeSubAgentRequest } from 'agents'
+import { DurableObjectClient, HOST_CONTROL_SUBPROTOCOL } from '@porte/core'
+import type { AgentConnection } from '@server/application/ports/agent-connection.ts'
+import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client.ts'
 
 import type { HostRelayAgent } from './host-relay-agent.ts'
-import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
+import { createRelayUpgradeRequest } from './relay/relay-upgrade-request.ts'
+import { completeRelayUpgrade } from './relay/relay-upgrade-response.ts'
 
 /**
  * How the Worker reaches one Mac's relay.
@@ -18,15 +19,14 @@ import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
  * signature. What a method adds is the name a caller means, and whether running
  * it twice is the same as running it once.
  */
-export class HostRelayClient extends DurableObjectClient<HostRelayAgent> implements HostRelay {
-  connect(input: ConnectHost): Promise<Response> {
-    const request = upgradeRequest(input)
-    return this.once(input.hostId, (relay) => {
-      if (input.target.type === 'host') return relay.fetch(request)
-      return routeSubAgentRequest(request, relay, {
-        fromPath: new URL(request.url).pathname,
-      })
-    })
+export class HostRelayClient
+  extends DurableObjectClient<HostRelayAgent>
+  implements IHostRelayClient
+{
+  async connect(input: AgentConnection): Promise<Response> {
+    const request = createRelayUpgradeRequest(input)
+    const response = await this.once(input.hostId, (relay) => relay.fetch(request))
+    return completeRelayUpgrade(input, response, HOST_CONTROL_SUBPROTOCOL, 'control')
   }
 
   async readConversations(
@@ -48,21 +48,4 @@ export class HostRelayClient extends DurableObjectClient<HostRelayAgent> impleme
   disconnect(hostId: HostId): Promise<void> {
     return this.repeatable(hostId, (relay) => relay.disconnectAll())
   }
-}
-
-/**
- * The upgrade, addressed to the relay that serves this Mac.
- *
- * The bearer token is spent by the time this runs: the relay has no use for it
- * and no way to check it, so it does not travel further.
- */
-function upgradeRequest(input: ConnectHost): Request {
-  const headers = new Headers(input.request.headers)
-  headers.delete('authorization')
-  headers.set(RELAY_HOST_ID_HEADER, input.hostId)
-  return new Request(input.request.url, {
-    body: input.request.body,
-    headers,
-    method: input.request.method,
-  })
 }

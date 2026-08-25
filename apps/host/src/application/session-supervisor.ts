@@ -1,24 +1,11 @@
-import type {
-  AgentSessionFactory,
-  AgentSessionListener,
-} from '@host/application/ports/agent-session-factory.ts'
-import type {
-  AgentSession,
-  AnswerElicitation,
-  AnswerPermission,
-  SetConfiguration,
-  StartTurn,
-} from '@host/application/ports/agent-session.ts'
+import type { AgentSession } from '@host/application/ports/agent-session.ts'
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import {
   CodingAgentUnavailableError,
   ConversationNotFoundError,
-  type Conversation,
   type ConversationId,
-  type ConversationState,
-  type TurnId,
+  type ConversationSummary,
 } from '@porte/core/client'
-
-const ignoreEmission: AgentSessionListener = () => undefined
 
 /** Owns every active coding-agent session in one Host process. */
 export class SessionSupervisor {
@@ -26,18 +13,12 @@ export class SessionSupervisor {
   private readonly opening = new Map<ConversationId, Promise<AgentSession>>()
   private closed = false
 
-  constructor(private readonly factory: AgentSessionFactory) {}
+  constructor(private readonly codingAgent: CodingAgent) {}
 
-  async openConversation(
-    conversationId: ConversationId,
-    listener: AgentSessionListener,
-  ): Promise<ConversationState> {
+  async openConversation(conversationId: ConversationId): Promise<AgentSession> {
     this.requireOpen()
     const current = this.sessions.get(conversationId)
-    if (current !== undefined) {
-      current.setListener(listener)
-      return current.state
-    }
+    if (current !== undefined) return current
 
     let pending = this.opening.get(conversationId)
     if (pending === undefined) {
@@ -48,16 +29,15 @@ export class SessionSupervisor {
     try {
       const session = await pending
       this.requireOpen()
-      session.setListener(listener)
-      return session.state
+      return session
     } finally {
       if (this.opening.get(conversationId) === pending) this.opening.delete(conversationId)
     }
   }
 
-  async createConversation(cwd: string): Promise<Conversation> {
+  async createConversation(cwd: string): Promise<ConversationSummary> {
     this.requireOpen()
-    const created = await this.factory.create({ cwd, listener: ignoreEmission })
+    const created = await this.codingAgent.createConversation(cwd)
     if (this.closed) {
       await created.session.close()
       throw new CodingAgentUnavailableError({ cause: undefined })
@@ -73,24 +53,11 @@ export class SessionSupervisor {
     await session.close()
   }
 
-  async startTurn(command: StartTurn): Promise<void> {
-    await this.requireSession(command.conversationId).startTurn(command)
-  }
-
-  async cancelTurn(conversationId: ConversationId, turnId: TurnId): Promise<void> {
-    await this.requireSession(conversationId).cancelTurn(turnId)
-  }
-
-  async setConfiguration(command: SetConfiguration): Promise<void> {
-    await this.requireSession(command.conversationId).setConfiguration(command)
-  }
-
-  async answerPermission(command: AnswerPermission): Promise<void> {
-    await this.requireSession(command.conversationId).answerPermission(command)
-  }
-
-  async answerElicitation(command: AnswerElicitation): Promise<void> {
-    await this.requireSession(command.conversationId).answerElicitation(command)
+  getSession(conversationId: ConversationId): AgentSession {
+    this.requireOpen()
+    const session = this.sessions.get(conversationId)
+    if (session === undefined) throw new ConversationNotFoundError()
+    return session
   }
 
   async closeAll(): Promise<void> {
@@ -112,7 +79,7 @@ export class SessionSupervisor {
   }
 
   private async openSession(conversationId: ConversationId): Promise<AgentSession> {
-    const session = await this.factory.open({ conversationId, listener: ignoreEmission })
+    const session = await this.codingAgent.openConversation(conversationId)
     if (this.closed) {
       await session.close()
       throw new CodingAgentUnavailableError({ cause: undefined })
@@ -130,13 +97,6 @@ export class SessionSupervisor {
     })
   }
 
-  private requireSession(conversationId: ConversationId): AgentSession {
-    this.requireOpen()
-    const session = this.sessions.get(conversationId)
-    if (session === undefined) throw new ConversationNotFoundError()
-    return session
-  }
-
   private requireOpen(): void {
     if (this.closed) throw new CodingAgentUnavailableError({ cause: undefined })
   }
@@ -145,13 +105,5 @@ export class SessionSupervisor {
 /** Public operations exposed by the session supervisor. */
 export type SessionOperations = Pick<
   SessionSupervisor,
-  | 'openConversation'
-  | 'createConversation'
-  | 'closeConversation'
-  | 'startTurn'
-  | 'cancelTurn'
-  | 'setConfiguration'
-  | 'answerPermission'
-  | 'answerElicitation'
-  | 'closeAll'
+  'openConversation' | 'createConversation' | 'getSession' | 'closeConversation' | 'closeAll'
 >

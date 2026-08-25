@@ -1,6 +1,6 @@
 import type { AccountActionResult, UserId } from '@porte/core'
-import type { HostRelay } from '@server/application/ports/host-relay.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
+import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client'
 
 /**
  * Release the Mac an account controls.
@@ -15,7 +15,7 @@ import type { HostRepository } from '@server/domain/host/host.repository.ts'
  */
 export async function unpairHost(
   hosts: HostRepository,
-  relay: HostRelay,
+  relay: IHostRelayClient,
   userId: UserId,
   now: Date,
 ): Promise<AccountActionResult> {

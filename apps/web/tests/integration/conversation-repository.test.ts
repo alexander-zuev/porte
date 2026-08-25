@@ -3,7 +3,7 @@ import {
   IsoDateTimeSchema,
   createHostId,
   type ConversationId,
-  type Conversation,
+  type ConversationSummary,
 } from '@porte/core'
 import { createRelayDatabase } from '@server/infrastructure/persistence/relay/connection.ts'
 import { DrizzleConversationRepository } from '@server/infrastructure/persistence/repositories/conversation.repository.ts'
@@ -32,7 +32,7 @@ async function withStore(
   })
 }
 
-function conversation(index: number, at: string): Conversation {
+function conversation(index: number, at: string): ConversationSummary {
   return {
     id: `01a0292c-0000-7000-8000-${String(index).padStart(12, '0')}` as ConversationId,
     cwd: '/Users/az/projects/porte',

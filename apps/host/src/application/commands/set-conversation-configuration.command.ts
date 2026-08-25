@@ -3,9 +3,9 @@ import type { ConversationId, HostConversationMethodMap } from '@porte/core/clie
 
 /** Set one coding-agent configuration option. */
 export function setConversationConfiguration(
-  sessions: Pick<SessionSupervisor, 'setConfiguration'>,
+  sessions: Pick<SessionSupervisor, 'getSession'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['conversation.configuration.set']['params'],
 ): Promise<void> {
-  return sessions.setConfiguration({ conversationId, ...command })
+  return sessions.getSession(conversationId).setConfiguration({ conversationId, ...command })
 }

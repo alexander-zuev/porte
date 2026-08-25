@@ -3,9 +3,9 @@ import type { ConversationId, HostConversationMethodMap } from '@porte/core/clie
 
 /** Cancel the active turn in one conversation. */
 export function cancelTurn(
-  sessions: Pick<SessionSupervisor, 'cancelTurn'>,
+  sessions: Pick<SessionSupervisor, 'getSession'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['turn.cancel']['params'],
 ): Promise<void> {
-  return sessions.cancelTurn(conversationId, command.turnId)
+  return sessions.getSession(conversationId).cancelTurn(command.turnId)
 }

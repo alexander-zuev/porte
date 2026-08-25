@@ -77,3 +77,21 @@ export class AcpTimeoutError extends TaggedError('AcpTimeoutError')<{
     super({ ...args, message: 'ACP request timed out', classification: 'transient' })
   }
 }
+
+/** The ACP agent selected a protocol version that this client does not implement. */
+export class AcpProtocolVersionMismatchError extends TaggedError(
+  'AcpProtocolVersionMismatchError',
+)<{
+  expected: number
+  received: number
+  message: string
+  classification: FailureClassification
+}> {
+  constructor(args: { expected: number; received: number }) {
+    super({
+      ...args,
+      message: `ACP protocol version ${String(args.received)} is not supported`,
+      classification: 'terminal',
+    })
+  }
+}

@@ -1,4 +1,4 @@
-import { makeConversation, PendingPermissionSchema } from '@porte/core/client'
+import { makeConversationSummary, PendingPermissionSchema } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ConversationState } from '@web/entities/conversation/use-conversation.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
@@ -16,7 +16,7 @@ const DISCONNECTED = {
   reconnect: () => undefined,
 } satisfies HostConnection
 
-const SUMMARY = makeConversation({
+const SUMMARY = makeConversationSummary({
   id: '01a01e5d-e64c-76e2-9c93-ca69580001fd',
   cwd: '/Users/az/projects/porte',
   gitRoot: '/Users/az/projects/porte',

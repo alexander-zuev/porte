@@ -1,4 +1,4 @@
-import type { Conversation } from '@porte/core/client'
+import type { ConversationSummary } from '@porte/core/client'
 
 /** Whether one conversation owns an active turn. */
 export type ConversationTurnStatus = 'idle' | 'running'
@@ -8,7 +8,7 @@ export type ConversationAttentionStatus = 'none' | 'unseen'
 
 /** One conversation with its independent turn and attention facts. */
 export type ConversationListItem = {
-  readonly conversation: Conversation
+  readonly conversation: ConversationSummary
   readonly turnStatus: ConversationTurnStatus
   readonly attentionStatus: ConversationAttentionStatus
 }

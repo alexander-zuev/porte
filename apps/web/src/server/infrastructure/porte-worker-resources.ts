@@ -1,13 +1,15 @@
 import { NULL_ANALYTICS, PostHogAnalytics, type AnalyticsService } from '@porte/core'
-import type { HostRelay } from '@server/application/ports/host-relay.ts'
 import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
 import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
+import type { IConversationAgentClient } from '@web/server/application/ports/conversation-agent-client.ts'
+import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client.ts'
 
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
 import { createKvSecondaryStorage } from './cloudflare/kv-secondary-storage.ts'
+import { ConversationAgentClient } from './durable-objects/conversation-agent-client.ts'
 import { HostRelayClient } from './durable-objects/host-relay-client.ts'
 import { ImageFetcher } from './images/image-fetcher.ts'
 import {
@@ -45,7 +47,8 @@ export type PorteWorkerResources = {
   pairingAuthority: PairingAuthority
   /** Where each pairing code was asked for. Written when one is issued. */
   pairingOrigins: PairingOrigins
-  hostRelay: HostRelay
+  conversationAgent: IConversationAgentClient
+  hostRelay: IHostRelayClient
   /** Fetches external images without exposing their HTTP response. */
   imageFetcher: ImageFetcher
   executionCtx: BackgroundWork
@@ -90,6 +93,7 @@ export function createPorteWorkerResources(
     // Same reason it takes the getter: the auth instance is built on first use.
     pairingAuthority: new BetterAuthPairingAuthority(() => resources.auth()),
     pairingOrigins: new DrizzlePairingOrigins(() => current()),
+    conversationAgent: new ConversationAgentClient(env.HOST_RELAY_AGENT),
     executionCtx,
     hostRelay: new HostRelayClient(env.HOST_RELAY_AGENT),
     imageFetcher: new ImageFetcher(),

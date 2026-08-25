@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest'
 describe('SessionSupervisor.closeAll', () => {
   it('closes an empty supervisor once', async () => {
     const sessions = new SessionSupervisor({
-      list: async () => [],
-      open: () => Promise.reject(new TypeError('unexpected open')),
-      create: () => Promise.reject(new TypeError('unexpected create')),
+      listConversations: async () => ({ conversations: [] }),
+      openConversation: () => Promise.reject(new TypeError('unexpected open')),
+      createConversation: () => Promise.reject(new TypeError('unexpected create')),
     })
     await sessions.closeAll()
     await sessions.closeAll()

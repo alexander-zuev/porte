@@ -1,5 +1,5 @@
 import { CaretRightIcon, FolderIcon, NotePencilIcon } from '@phosphor-icons/react'
-import type { Conversation } from '@porte/core/client'
+import type { ConversationSummary } from '@porte/core/client'
 import { Link } from '@tanstack/react-router'
 import type {
   ConversationAttentionStatus,
@@ -128,7 +128,7 @@ function ConversationLink({
   turnStatus,
 }: {
   readonly attentionStatus: ConversationAttentionStatus
-  readonly conversation: Conversation
+  readonly conversation: ConversationSummary
   readonly selected: boolean
   readonly turnStatus: ConversationTurnStatus
 }) {
@@ -175,6 +175,6 @@ function ConversationRowStatus({
  * The Mac creates a conversation with an empty title and the agent writes one
  * later, so a blank row is a real state rather than missing data.
  */
-function conversationTitle(conversation: Conversation): string {
+function conversationTitle(conversation: ConversationSummary): string {
   return conversation.title.trim() === '' ? 'Untitled' : conversation.title
 }

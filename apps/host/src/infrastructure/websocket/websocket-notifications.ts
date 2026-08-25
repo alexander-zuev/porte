@@ -7,8 +7,10 @@ type SendFrame = (frame: string) => void | Promise<void>
 /** Send application notifications through the control connection. */
 export function createControlNotifications(send: SendFrame): ControlNotifications {
   return {
-    conversationUpdated: (conversation) => {
-      void send(JSON.stringify(jsonRpcNotification('conversation.updated', { conversation })))
+    conversationUpdated: (conversationId, update) => {
+      void send(
+        JSON.stringify(jsonRpcNotification('conversation.updated', { conversationId, update })),
+      )
     },
   }
 }

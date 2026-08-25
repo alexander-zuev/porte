@@ -1,5 +1,4 @@
-import { ConversationCatalog } from '@host/application/conversation-catalog.ts'
-import type { AgentSessionFactory } from '@host/application/ports/agent-session-factory.ts'
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { SessionOperations } from '@host/application/session-supervisor.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
@@ -11,7 +10,7 @@ import type {
 } from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
   ConversationIdSchema,
-  ConversationSchema,
+  ConversationSummarySchema,
   HOST_CONTROL_SUBPROTOCOL,
   JsonRpcDocumentSchema,
   createRequestId,
@@ -71,7 +70,7 @@ describe('Host WebSocket connections', () => {
   it('answers one validated control query', async () => {
     const test = connectionTest()
     await test.control.connect()
-    await test.control.receive(request('conversations.list', { limit: 50 }))
+    await test.control.receive(request('conversations.list', {}))
     expect(jsonFrames(test.control).at(-1)?.result).toEqual({ conversations: [] })
     await test.manager.closeAll()
   })
@@ -143,12 +142,7 @@ function connectionTest() {
       baseUrl: 'https://relay.example.com',
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
-      catalog: new ConversationCatalog(),
-      creations: {
-        claim: async () => ({ status: 'claimed' as const }),
-        complete: async () => undefined,
-      },
-      factory: agentFactory(),
+      codingAgent: codingAgent(),
       sessions: sessionOperations,
       token: 'secret',
     },
@@ -161,14 +155,25 @@ function connectionTest() {
 function sessions(): SessionOperations {
   return {
     openConversation: vi.fn(async () => ({
-      turn: { state: 'idle' as const },
-      items: [],
-      tools: [],
-      plans: [],
-      pending: { permissions: [], elicitations: [] },
+      conversationId: ConversationIdSchema.parse('conversation-1'),
+      state: {
+        turn: { state: 'idle' as const },
+        items: [],
+        tools: [],
+        plans: [],
+        pending: { permissions: [], elicitations: [] },
+      },
+      setListener: () => undefined,
+      onClose: () => undefined,
+      startTurn: emptyOperation,
+      cancelTurn: emptyOperation,
+      setConfiguration: emptyOperation,
+      answerPermission: emptyOperation,
+      answerElicitation: emptyOperation,
+      close: emptyOperation,
     })),
     createConversation: async () =>
-      ConversationSchema.parse({
+      ConversationSummarySchema.parse({
         id: 'unused',
         cwd: '/tmp',
         gitRoot: '/tmp',
@@ -176,20 +181,18 @@ function sessions(): SessionOperations {
         updatedAt: '2026-01-01T00:00:00Z',
       }),
     closeConversation: emptyOperation,
-    startTurn: emptyOperation,
-    cancelTurn: emptyOperation,
-    setConfiguration: emptyOperation,
-    answerPermission: emptyOperation,
-    answerElicitation: emptyOperation,
+    getSession: () => {
+      throw new TypeError('unexpected session lookup')
+    },
     closeAll: emptyOperation,
   }
 }
 
-function agentFactory(): AgentSessionFactory {
+function codingAgent(): CodingAgent {
   return {
-    list: async () => [],
-    open: () => Promise.reject(new TypeError('unexpected open')),
-    create: () => Promise.reject(new TypeError('unexpected create')),
+    listConversations: async () => ({ conversations: [] }),
+    openConversation: () => Promise.reject(new TypeError('unexpected open')),
+    createConversation: () => Promise.reject(new TypeError('unexpected create')),
   }
 }
 

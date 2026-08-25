@@ -3,9 +3,9 @@ import type { ConversationId, HostConversationMethodMap } from '@porte/core/clie
 
 /** Answer one pending coding-agent permission request. */
 export function answerPermission(
-  sessions: Pick<SessionSupervisor, 'answerPermission'>,
+  sessions: Pick<SessionSupervisor, 'getSession'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['permission.answer']['params'],
 ): Promise<void> {
-  return sessions.answerPermission({ conversationId, ...command })
+  return sessions.getSession(conversationId).answerPermission({ conversationId, ...command })
 }

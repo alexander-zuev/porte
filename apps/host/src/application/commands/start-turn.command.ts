@@ -3,9 +3,9 @@ import type { ConversationId, HostConversationMethodMap } from '@porte/core/clie
 
 /** Start one turn in an attached conversation. */
 export function startTurn(
-  sessions: Pick<SessionSupervisor, 'startTurn'>,
+  sessions: Pick<SessionSupervisor, 'getSession'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['turn.start']['params'],
 ): Promise<void> {
-  return sessions.startTurn({ conversationId, ...command })
+  return sessions.getSession(conversationId).startTurn({ conversationId, ...command })
 }

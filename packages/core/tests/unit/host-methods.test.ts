@@ -59,9 +59,10 @@ describe('Host JSON-RPC methods', () => {
       jsonrpc: '2.0',
       id: HOST_REQUEST_ID,
       method: 'conversations.list',
-      params: { limit: 50 },
+      params: {},
     }
     expect(schema.safeParse(request).success).toBe(true)
+    expect(schema.safeParse({ ...request, params: { limit: 50 } }).success).toBe(false)
     expect(schema.safeParse({ ...request, id: 'request:1' }).success).toBe(false)
     expectTypeOf<z.infer<typeof schema>['id']>().toEqualTypeOf<HostRequestId>()
   })

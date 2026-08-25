@@ -1,6 +1,7 @@
 import type {
-  Conversation,
   ConversationId,
+  ConversationMetadataPatch,
+  ConversationSummary,
   IsoDateTime,
   ListConversationsParams,
   ListConversationsResult,
@@ -32,7 +33,7 @@ const ROWS_PER_INSERT = Math.floor(
  * No validation. Every row was written from a daemon frame the socket already
  * parsed, and re-checking here would turn one stale row into a failed page.
  */
-function toConversation(row: DbConversation): Conversation {
+function toConversationSummary(row: DbConversation): ConversationSummary {
   return {
     // SAFETY: the column is written from a parsed daemon frame, so it already
     // holds an id of ours. Nothing else can put a row here.
@@ -79,29 +80,40 @@ export class DrizzleConversationRepository {
     const hasMore = rows.length > query.limit
     const last = page.at(-1)
 
-    const conversations = page.map(toConversation)
+    const conversations = page.map(toConversationSummary)
     return hasMore && last !== undefined
       ? { conversations, next: encodeCursor(last) }
       : { conversations }
   }
 
-  find(conversationId: ConversationId): Conversation | undefined {
+  find(conversationId: ConversationId): ConversationSummary | undefined {
     const row = this.db.select().from(conversation).where(eq(conversation.id, conversationId)).get()
-    return row === undefined ? undefined : toConversation(row)
+    return row === undefined ? undefined : toConversationSummary(row)
   }
 
-  save(toSave: Conversation): void {
+  save(toSave: ConversationSummary): void {
     this.saveAll([toSave])
   }
 
+  /** Apply one Host metadata patch to a stored conversation summary. */
+  updateMetadata(conversationId: ConversationId, update: ConversationMetadataPatch): void {
+    const current = this.find(conversationId)
+    if (current === undefined) return
+    this.save({
+      ...current,
+      title: update.title ?? current.title,
+      updatedAt: update.updatedAt ?? current.updatedAt,
+    })
+  }
+
   /** Split across statements: one insert holding every row would outrun the parameter cap. */
-  saveAll(conversations: readonly Conversation[]): void {
+  saveAll(conversations: readonly ConversationSummary[]): void {
     for (let start = 0; start < conversations.length; start += ROWS_PER_INSERT) {
       this.insertRows(conversations.slice(start, start + ROWS_PER_INSERT))
     }
   }
 
-  private insertRows(conversations: readonly Conversation[]): void {
+  private insertRows(conversations: readonly ConversationSummary[]): void {
     if (conversations.length === 0) return
 
     const rows = conversations.map((one) => ({
@@ -132,7 +144,7 @@ export class DrizzleConversationRepository {
   }
 
   /** Replace the complete cache only after the Host list traversal succeeds. */
-  replaceAll(conversations: readonly Conversation[]): void {
+  replaceAll(conversations: readonly ConversationSummary[]): void {
     this.db.transaction((transaction) => {
       const repository = new DrizzleConversationRepository(transaction)
       repository.deleteAll()

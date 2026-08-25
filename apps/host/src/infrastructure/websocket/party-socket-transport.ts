@@ -57,8 +57,8 @@ export interface RelaySocket {
 export type RelaySocketFactory = (input: PartySocketTransportInput) => RelaySocket
 
 type Handshake =
-  | { readonly retry: true }
-  | { readonly retry: false; readonly error: WebSocketHandshakeRefused }
+  | { readonly retry: true; readonly status: number }
+  | { readonly retry: false; readonly status: number; readonly error: WebSocketHandshakeRefused }
 
 type NodeWebSocketConstructor = new (
   address: string | URL,
@@ -76,6 +76,10 @@ const InboundMessageSchema = z.object({ data: z.unknown() })
 const InboundCloseSchema = z.object({
   code: z.number(),
   reason: z.string(),
+})
+const InboundErrorSchema = z.object({
+  error: z.unknown().optional(),
+  message: z.string().optional(),
 })
 
 /** Own one authenticated PartySocket and all WebSocket lifecycle work. */
@@ -99,8 +103,13 @@ export class PartySocketTransport implements RelaySocket {
   /** Attach listeners and start connecting. Does not wait for open. */
   start(listeners: RelaySocketListeners): void {
     this.listeners = listeners
+    logger.info('websocket_connecting', {
+      url: this.input.url,
+      subprotocol: this.input.subprotocol,
+    })
     this.socket.addEventListener('open', this.onOpen)
     this.socket.addEventListener('message', this.onMessage)
+    this.socket.addEventListener('error', this.onError)
     this.socket.addEventListener('close', this.onClose)
     this.socket.reconnect()
   }
@@ -158,6 +167,16 @@ export class PartySocketTransport implements RelaySocket {
     void this.deliverFrame(frame.frame)
   }
 
+  private readonly onError = (event: Event): void => {
+    if (this.closed) return
+    const parsed = InboundErrorSchema.safeParse(event)
+    logger.warn('websocket_error', {
+      url: this.input.url,
+      retryCount: this.socket.retryCount,
+      message: parsed.success ? readErrorMessage(parsed.data) : undefined,
+    })
+  }
+
   private readonly onClose = (event: Event): void => {
     if (this.closed) return
     const handshake = this.handshake
@@ -177,8 +196,12 @@ export class PartySocketTransport implements RelaySocket {
       )
       return
     }
-    logger.info('websocket_reconnecting', {
-      details: { retryCount: this.socket.retryCount },
+    logger.warn('websocket_reconnecting', {
+      url: this.input.url,
+      retryCount: this.socket.retryCount,
+      handshakeStatus: handshake?.status,
+      closeCode: code,
+      closeReason: reason,
     })
   }
 
@@ -194,8 +217,8 @@ export class PartySocketTransport implements RelaySocket {
 
   private readonly recordHandshake = (status: number): void => {
     this.handshake = shouldRetryHandshake(status)
-      ? { retry: true }
-      : { retry: false, error: new WebSocketHandshakeRefused({ status }) }
+      ? { retry: true, status }
+      : { retry: false, status, error: new WebSocketHandshakeRefused({ status }) }
   }
 
   private readonly shouldReconnect = (event: CloseEvent): boolean => {
@@ -250,4 +273,9 @@ function shouldRetryHandshake(status: number): boolean {
     status === 429 ||
     (status >= 500 && status <= 599)
   )
+}
+
+function readErrorMessage(event: z.infer<typeof InboundErrorSchema>): string | undefined {
+  if (event.message !== undefined) return event.message
+  return event.error instanceof Error ? event.error.message : undefined
 }

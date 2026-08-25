@@ -1,33 +1,15 @@
 import type {
-  ConversationId,
   HostId,
   HostStatus,
   ListConversationsParams,
   ListConversationsResult,
 } from '@porte/core'
 
-/**
- * Which side of the relay a connection is.
- *
- * The relay holds one daemon and many clients, and frames travel opposite ways
- * between them, so it has to know which it is talking to. Derived from the
- * credential kind at the entrypoint, never announced in a frame: a client that
- * could call itself the daemon would receive every conversation.
- */
-export type HostRole = 'daemon' | 'client'
-
-export type ConnectHost = {
-  hostId: HostId
-  role: HostRole
-  target:
-    | { readonly type: 'host' }
-    | { readonly type: 'conversation'; conversationId: ConversationId }
-  request: Request
-}
+import type { AgentConnection } from './agent-connection.ts'
 
 /** Cloudflare binding capability required for one host connection. */
-export interface HostRelay {
-  connect(input: ConnectHost): Promise<Response>
+export interface IHostRelayClient {
+  connect(input: AgentConnection): Promise<Response>
 
   /** One page of what a Mac has reported, newest first. */
   readConversations(

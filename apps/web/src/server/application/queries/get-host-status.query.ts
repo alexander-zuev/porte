@@ -1,6 +1,6 @@
 import type { HostId, HostStatus, UserId } from '@porte/core'
-import type { HostRelay } from '@server/application/ports/host-relay.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
+import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client'
 
 /** No Mac is not a Mac that is away, but a screen has the same thing to say about both. */
 const AWAY: HostStatus = { status: 'offline' }
@@ -14,7 +14,7 @@ const AWAY: HostStatus = { status: 'offline' }
  */
 export async function getHostStatus(
   hosts: HostRepository,
-  relay: HostRelay,
+  relay: IHostRelayClient,
   userId: UserId,
 ): Promise<HostStatus> {
   const pairing = await hosts.findPairing(userId)

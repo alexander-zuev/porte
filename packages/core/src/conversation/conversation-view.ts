@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { MessageIdSchema, ToolCallIdSchema } from '../identity/identity.ts'
+import { MessageIdSchema, ToolCallIdSchema, TurnIdSchema } from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
 import {
   ConversationCommandSchema,
@@ -10,7 +10,15 @@ import { PendingElicitationSchema } from './conversation-elicitation-event.ts'
 import { PendingPermissionSchema } from './conversation-permission-event.ts'
 import { ConversationPlanSchema, ConversationUsageSchema } from './conversation-progress-event.ts'
 import { ToolViewSchema } from './conversation-tool-event.ts'
-import { ConversationTurnStateSchema } from './conversation.ts'
+
+/** Whether one conversation has an active turn. */
+export const ConversationTurnStateSchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('idle') }),
+  z.strictObject({ state: z.literal('running'), turnId: TurnIdSchema }),
+])
+
+/** Whether one conversation has an active turn. */
+export type ConversationTurnState = z.infer<typeof ConversationTurnStateSchema>
 
 /** Complete rendered user or assistant message in a conversation. */
 export const MessageViewSchema = z.object({

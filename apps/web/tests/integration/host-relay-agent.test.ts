@@ -7,7 +7,7 @@ import {
   createTurnId,
   hostControlRequestSchema,
   jsonRpcNotification,
-  type Conversation,
+  type ConversationSummary,
   type HostControlRequestMethod,
   type HostId,
 } from '@porte/core'
@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { applyDatabaseTestMigrations } from './database-test-migrations.ts'
 
-const conversation: Conversation = {
+const conversation: ConversationSummary = {
   id: ConversationIdSchema.parse('01a01e5d-e64c-76e2-9c93-ca69580001fd'),
   cwd: '/workspace/porte',
   gitRoot: '/workspace/porte',
@@ -50,6 +50,28 @@ describe('HostRelayAgent control connection', () => {
     await vi.waitFor(async () =>
       expect(await host.stub.readStatus()).toEqual({ status: 'offline' }),
     )
+  })
+
+  it('applies one Host metadata patch to the conversation cache', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, {
+      conversations: [conversation],
+    })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toHaveLength(1)
+    })
+    host.socket.send(
+      JSON.stringify(
+        jsonRpcNotification('conversation.updated', {
+          conversationId: conversation.id,
+          update: { title: 'Updated title' },
+        }),
+      ),
+    )
+    await vi.waitFor(async () => {
+      const listed = await host.stub.readConversations({ limit: 50 })
+      expect(listed.conversations[0]?.title).toBe('Updated title')
+    })
   })
 
   it('rejects a Host identity that differs from the Agent name', async () => {
@@ -125,7 +147,7 @@ async function connect(hostId: HostId, headerHostId: HostId = hostId) {
 async function connectConversation(
   stub: DurableObjectStub<HostRelayAgent>,
   hostId: HostId,
-  conversationId: Conversation['id'],
+  conversationId: ConversationSummary['id'],
 ) {
   const response = await stub.fetch(`https://relay.test/sub/conversation-agent/${conversationId}`, {
     headers: {

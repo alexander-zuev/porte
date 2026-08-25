@@ -1,6 +1,4 @@
-import type { ConversationCatalog } from '@host/application/conversation-catalog.ts'
-import type { AgentSessionFactory } from '@host/application/ports/agent-session-factory.ts'
-import type { ConversationCreationStore } from '@host/application/ports/conversation-creation-store.ts'
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
 import type { SessionOperations } from '@host/application/session-supervisor.ts'
 import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
@@ -11,17 +9,18 @@ import type { RelaySocketFactory } from '@host/infrastructure/websocket/party-so
 import {
   HOST_CONTROL_SUBPROTOCOL,
   HOST_CONVERSATION_SUBPROTOCOL,
+  createLogger,
   type ConversationId,
 } from '@porte/core/client'
+
+const logger = createLogger('host-connection-manager')
 
 /** Fixed dependencies for one Host connection manager. */
 export type HostConnectionManagerInput = {
   readonly baseUrl: string
   readonly controlHandlers: ControlMethodHandlerRegistry
   readonly conversationHandlers: ConversationMethodHandlerRegistry
-  readonly catalog: ConversationCatalog
-  readonly creations: ConversationCreationStore
-  readonly factory: AgentSessionFactory
+  readonly codingAgent: CodingAgent
   readonly sessions: SessionOperations
   readonly token: string
 }
@@ -42,9 +41,7 @@ export class HostConnectionManager implements HostConnections {
     })
     this.control = new ControlConnection(transport, input.controlHandlers, {
       connections: this,
-      catalog: input.catalog,
-      creations: input.creations,
-      factory: input.factory,
+      codingAgent: input.codingAgent,
       sessions: input.sessions,
     })
   }
@@ -70,13 +67,23 @@ export class HostConnectionManager implements HostConnections {
       transport,
       this.input.conversationHandlers,
       this.input.sessions,
-      this.input.catalog,
       this.control.notifications,
-      (stopped) => {
-        this.removeConversation(stopped)
-      },
     )
     this.conversations.set(conversationId, connection)
+    void connection.stopped.then(
+      () => {
+        this.removeConversation(connection)
+        return undefined
+      },
+      (cause: unknown) => {
+        logger.error('host_conversation_connection_failed', {
+          error: cause,
+          details: { conversationId },
+        })
+        this.removeConversation(connection)
+        return undefined
+      },
+    )
     connection.start()
   }
 

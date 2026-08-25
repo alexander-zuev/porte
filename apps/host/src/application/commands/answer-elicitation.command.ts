@@ -3,9 +3,9 @@ import type { ConversationId, HostConversationMethodMap } from '@porte/core/clie
 
 /** Answer one pending coding-agent elicitation. */
 export function answerElicitation(
-  sessions: Pick<SessionSupervisor, 'answerElicitation'>,
+  sessions: Pick<SessionSupervisor, 'getSession'>,
   conversationId: ConversationId,
   command: HostConversationMethodMap['elicitation.answer']['params'],
 ): Promise<void> {
-  return sessions.answerElicitation({ conversationId, ...command })
+  return sessions.getSession(conversationId).answerElicitation({ conversationId, ...command })
 }

@@ -1,6 +1,6 @@
 import { AuthenticationError, createLogger, StaleSessionError } from '@porte/core/client'
-import type { PorteWorkerResources } from '@server/infrastructure/porte-worker-resources.ts'
 import type { Session, SessionWithUser, User } from '@server/infrastructure/auth/auth-types.ts'
+import type { PorteWorkerResources } from '@server/infrastructure/porte-worker-resources.ts'
 import { createMiddleware } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { getSessionCookie } from 'better-auth/cookies'

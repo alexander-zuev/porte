@@ -1,10 +1,11 @@
 import { z } from 'zod'
 
+import { ConversationMetadataPatchSchema } from '../conversation/conversation-lifecycle-event.ts'
 import {
-  ConversationSchema,
-  ListConversationsParamsSchema,
+  ConversationCursorSchema,
   ListConversationsResultSchema,
-} from '../conversation/conversation.ts'
+} from '../conversation/conversation-list.ts'
+import { ConversationSummarySchema } from '../conversation/conversation-summary.ts'
 import { ConversationIdSchema } from '../identity/identity.ts'
 import {
   JSON_RPC_METHOD_KINDS,
@@ -21,26 +22,19 @@ import { HostApplicationErrorSchema, HostRequestIdSchema } from './host-json-rpc
 
 const EmptyResultSchema = z.null()
 
-/** The stable identity of one logical conversation creation. */
-export const ConversationCreationIdSchema = z.uuidv7().brand<'ConversationCreationId'>()
-
-/** The stable identity of one logical conversation creation. */
-export type ConversationCreationId = z.infer<typeof ConversationCreationIdSchema>
-
 /** Every method allowed on the Host control connection. */
 export const HostControlMethods = {
   'conversations.list': {
     kind: JSON_RPC_METHOD_KINDS.request,
-    params: ListConversationsParamsSchema,
+    params: z.strictObject({ cursor: ConversationCursorSchema.optional() }),
     result: ListConversationsResultSchema,
   },
   'conversation.create': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({
-      creationId: ConversationCreationIdSchema,
       cwd: z.string().min(1),
     }),
-    result: ConversationSchema,
+    result: ConversationSummarySchema,
   },
   'conversation.attach': {
     kind: JSON_RPC_METHOD_KINDS.request,
@@ -49,7 +43,10 @@ export const HostControlMethods = {
   },
   'conversation.updated': {
     kind: JSON_RPC_METHOD_KINDS.notification,
-    params: z.strictObject({ conversation: ConversationSchema }),
+    params: z.strictObject({
+      conversationId: ConversationIdSchema,
+      update: ConversationMetadataPatchSchema,
+    }),
   },
   'conversation.removed': {
     kind: JSON_RPC_METHOD_KINDS.notification,
