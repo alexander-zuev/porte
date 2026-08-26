@@ -49,6 +49,8 @@ const CONVERSATIONS_CHANGED_NOTIFICATION = JSON.stringify(
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
+  static options = { sendIdentityOnConnect: true }
+
   initialState: HostRelayState = { hostStatus: 'offline', activeConversations: [] }
 
   private readonly resources: HostRelayResources

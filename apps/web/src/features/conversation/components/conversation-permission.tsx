@@ -53,7 +53,7 @@ export function ConversationPermissions({ waiting, onAnswer }: ConversationPermi
   )
 }
 
-/** Allowing is the action; refusing is the way out of it. */
-function variantOf(option: PermissionOption): 'default' | 'outline' {
-  return option.kind === 'allow_once' || option.kind === 'allow_always' ? 'default' : 'outline'
+/** Allowing is neutral; refusing carries the weight, because it ends the turn. */
+function variantOf(option: PermissionOption): 'outline' | 'destructive' {
+  return option.kind === 'allow_once' || option.kind === 'allow_always' ? 'outline' : 'destructive'
 }

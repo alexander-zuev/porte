@@ -1,5 +1,6 @@
 import { cn } from '@web/lib/utils.ts'
-import { Alert, AlertDescription } from '@web/ui/components/ui/alert.tsx'
+import { MessageResponse } from '@web/ui/components/ai-elements/message.tsx'
+import { Alert, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import type { ToolUIPart } from 'ai'
 import type { ComponentProps, ReactNode } from 'react'
@@ -69,10 +70,22 @@ export const Confirmation = ({ className, approval, state, ...props }: Confirmat
   )
 }
 
-export type ConfirmationTitleProps = ComponentProps<typeof AlertDescription>
+export type ConfirmationTitleProps = Omit<ComponentProps<typeof AlertTitle>, 'children'> & {
+  /** What the agent asked to do, as the agent wrote it. */
+  children: string
+}
 
-export const ConfirmationTitle = ({ className, ...props }: ConfirmationTitleProps) => (
-  <AlertDescription className={cn('inline', className)} {...props} />
+/**
+ * The question itself, in title type rather than description type.
+ *
+ * Rendered as markdown because that is how the agent writes it: the command or
+ * path arrives already fenced in backticks, so the code span is marked at the
+ * source and nothing here has to guess what kind of thing it is.
+ */
+export const ConfirmationTitle = ({ className, children, ...props }: ConfirmationTitleProps) => (
+  <AlertTitle className={cn('text-foreground', className)} {...props}>
+    <MessageResponse>{children}</MessageResponse>
+  </AlertTitle>
 )
 
 export interface ConfirmationRequestProps {
@@ -143,6 +156,7 @@ export const ConfirmationActions = ({ className, ...props }: ConfirmationActions
 
 export type ConfirmationActionProps = ComponentProps<typeof Button>
 
-export const ConfirmationAction = (props: ConfirmationActionProps) => (
-  <Button className="h-8 px-3 text-sm" type="button" {...props} />
+/** Neutral by default: a primary fill here would push one answer over the rest. */
+export const ConfirmationAction = ({ variant = 'outline', ...props }: ConfirmationActionProps) => (
+  <Button className="h-8 px-3 text-sm" type="button" variant={variant} {...props} />
 )

@@ -1,4 +1,4 @@
-import { BrainIcon, CaretDownIcon } from '@phosphor-icons/react'
+import { BrainIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useControllableState } from '@radix-ui/react-use-controllable-state'
 import { cn } from '@web/lib/utils.ts'
 import {
@@ -158,12 +158,12 @@ export const ReasoningTrigger = memo(
     getThinkingMessage = defaultGetThinkingMessage,
     ...props
   }: ReasoningTriggerProps) => {
-    const { isStreaming, isOpen, duration } = useReasoning()
+    const { isStreaming, duration } = useReasoning()
 
     return (
       <CollapsibleTrigger
         className={cn(
-          'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
+          'group flex min-h-11 w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
           className,
         )}
         {...props}
@@ -172,8 +172,10 @@ export const ReasoningTrigger = memo(
           <>
             <BrainIcon className="size-4" />
             {getThinkingMessage(isStreaming, duration)}
-            <CaretDownIcon
-              className={cn('size-4 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')}
+            {/* Same caret and timing as a project row, so one gesture is learnt once. */}
+            <CaretRightIcon
+              aria-hidden
+              className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
             />
           </>
         )}
@@ -188,11 +190,7 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
 
 export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
   <CollapsibleContent
-    className={cn(
-      'mt-4 text-sm',
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-      className,
-    )}
+    className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
     {...props}
   >
     <Streamdown>{children}</Streamdown>

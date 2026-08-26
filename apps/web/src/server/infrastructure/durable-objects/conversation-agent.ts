@@ -24,6 +24,7 @@ import {
 import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import {
+  ConversationEventProjector,
   createConversationEventProjectionState,
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
@@ -43,10 +44,6 @@ import {
   type UIMessageChunk,
 } from 'ai'
 
-import {
-  createConversationAgentResources,
-  type ConversationAgentResources,
-} from './conversation-agent-resources.ts'
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
 import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
@@ -55,6 +52,8 @@ import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
 import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('conversation-agent')
+/** Holds no state of its own: every call takes the projection it works on. */
+const eventProjector = new ConversationEventProjector()
 const HOST_CONNECTION_TAG = 'host-conversation'
 
 type HostConnectionState = {
@@ -75,22 +74,17 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   chatRecovery = true
 
   private readonly conversationId: ConversationId
-  private readonly resources: ConversationAgentResources
   private readonly hostSocket: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
   private hasAssistantMessage = false
-  /** The Host turn this Agent still owns, for recovery and activity. Never sent to a browser. */
-  private runningTurnId: TurnId | undefined
 
   constructor(ctx: AgentContext, env: RuntimeEnv) {
     super(ctx, env)
     this.conversationId = ConversationIdSchema.parse(this.name)
-    this.resources = createConversationAgentResources(() => this.parentAgent(HostRelayAgent))
     this.hostSocket = new HostJsonRpcSocket({
       methods: HostConversationMethods,
       notificationHandlers: {
-        'conversation.state': (params) => this.handleConversationState(params),
         'conversation.event': (params) => this.handleConversationEvent(params),
       },
     })
@@ -98,7 +92,9 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   override onStart(): void {
     const host = this.hostConnection()
-    if (host !== undefined) this.hostSocket.attach(host)
+    if (host === undefined) return
+    this.hostSocket.attach(host)
+    this.requestSnapshotInBackground()
   }
 
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
@@ -134,7 +130,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   /** Accept one authenticated Host conversation socket, or answer a viewer's arrival. */
-  override onConnect(connection: Connection, context: ConnectionContext): void {
+  override async onConnect(connection: Connection, context: ConnectionContext): Promise<void> {
     if (!hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)) {
       this.requestHostAttachInBackground()
       return
@@ -156,6 +152,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       hostId,
       connectedAt: Date.now(),
     } satisfies HostConnectionState)
+    this.requestSnapshotInBackground()
   }
 
   /** Handle Host conversation responses and notifications. */
@@ -194,13 +191,13 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
     let turnId: TurnId
     if (options?.continuation) {
-      if (this.runningTurnId === undefined) {
+      if (this.state.runningTurnId === undefined) {
         return errorStreamResponse('The turn is no longer available for recovery.')
       }
-      turnId = this.runningTurnId
+      turnId = this.state.runningTurnId
     } else {
       turnId = createTurnId()
-      this.runningTurnId = turnId
+      this.setState({ ...this.state, runningTurnId: turnId })
     }
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
     const active = {
@@ -251,11 +248,23 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     return await this.hostSocket.request('elicitation.answer', params)
   }
 
-  private async handleConversationState(
-    params: HostConversationMethodMap['conversation.state']['params'],
+  private requestSnapshotInBackground(): void {
+    void this.loadSnapshot().catch((error) => {
+      if (error instanceof HostOfflineError) return
+      logger.warn('conversation_get_failed', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId },
+      })
+    })
+  }
+
+  private async loadSnapshot(): Promise<void> {
+    await this.applySnapshot(await this.hostSocket.request('conversation.get', {}))
+  }
+
+  private async applySnapshot(
+    state: HostConversationMethodMap['conversation.get']['result'],
   ): Promise<void> {
-    const state = params.state
-    this.runningTurnId = state.turn.state === 'running' ? state.turn.turnId : undefined
     this.setState(conversationRelayStateFromState(state))
     await this.persistMessages(await conversationStateToMessages(state), [], {
       _deleteStaleRows: true,
@@ -277,10 +286,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     await this.serializeStream(async () => {
       if (this.activeStream !== active) return
       try {
-        await writeChunks(
-          active.writer,
-          this.resources.eventProjector.project(event, active.projection),
-        )
+        await writeChunks(active.writer, eventProjector.project(event, active.projection))
       } catch (error) {
         logger.warn('conversation_stream_detached', {
           error: toErrorPayload(error),
@@ -331,17 +337,16 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   private publishCurrentActivity(): void {
-    if (this.runningTurnId === undefined) {
+    if (this.state.runningTurnId === undefined) {
       this.publishClearActivity()
       return
     }
-    this.publishActivityRecord(this.runningTurnId)
+    this.publishActivityRecord(this.state.runningTurnId)
   }
 
   private publishActivity(event: ConversationEvent): void {
     if (event.type === 'turn.started') {
       this.hasAssistantMessage = false
-      this.runningTurnId = event.turnId
       this.publishActivityRecord(event.turnId)
       return
     }
@@ -350,10 +355,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       this.publishActivityRecord(event.turnId)
       return
     }
-    if (isTerminalEvent(event)) {
-      this.runningTurnId = undefined
-      this.publishClearActivity()
-    }
+    if (isTerminalEvent(event)) this.publishClearActivity()
   }
 
   /**
@@ -376,7 +378,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   /** The parent owns the control socket, so the ask for a Mac goes through it. */
   private async requestHostAttach(): Promise<void> {
-    const parent = await this.resources.hostRelay()
+    const parent = await this.parentAgent(HostRelayAgent)
     await parent.attachConversation(this.conversationId)
   }
 
@@ -385,8 +387,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   private publishActivityRecord(turnId: TurnId): void {
-    void this.resources
-      .hostRelay()
+    void this.parentAgent(HostRelayAgent)
       .then((parent) =>
         parent.setConversationActivity({
           conversationId: this.conversationId,
@@ -400,8 +401,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   private publishClearActivity(): void {
-    void this.resources
-      .hostRelay()
+    void this.parentAgent(HostRelayAgent)
       .then((parent) => parent.clearConversationActivity(this.conversationId))
       .catch((error) => {
         logger.error('conversation_activity_failed', { error })

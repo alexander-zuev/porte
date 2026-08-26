@@ -4,7 +4,6 @@ import {
   MonitorIcon,
   PlusIcon,
   SquareIcon,
-  XIcon,
 } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import {
@@ -881,11 +880,17 @@ export const PromptInput = ({
   )
 }
 
-export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>
+export type PromptInputBodyProps = { children?: ReactNode }
 
-export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) => (
-  <div className={cn('contents', className)} {...props} />
-)
+/**
+ * Groups the composer's parts without standing between them and InputGroup.
+ *
+ * InputGroup decides its direction and height from direct-child selectors, and
+ * `>` reads the DOM, which `display: contents` does not leave. A wrapper here —
+ * even an unstyled one — pins the group to one 36px row and crushes the
+ * textarea, so this renders no element at all.
+ */
+export const PromptInputBody = ({ children }: PromptInputBodyProps) => <>{children}</>
 
 export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 
@@ -1123,18 +1128,20 @@ export const PromptInputSubmit = ({
   onStop,
   onClick,
   children,
+  disabled,
   ...props
 }: PromptInputSubmitProps) => {
-  const isGenerating = status === 'submitted' || status === 'streaming'
+  // Only a streaming turn can be stopped. A sent one has nothing to stop yet.
+  const isGenerating = status === 'streaming'
+  // A sent prompt cannot be sent again and cannot be stopped, so nothing is pressable.
+  const isDisabled = disabled === true || status === 'submitted'
 
   let Icon = <ArrowElbowDownLeftIcon className="size-4" />
 
   if (status === 'submitted') {
     Icon = <Spinner />
   } else if (status === 'streaming') {
-    Icon = <SquareIcon className="size-4" />
-  } else if (status === 'error') {
-    Icon = <XIcon className="size-4" />
+    Icon = <SquareIcon className="size-4" weight="fill" />
   }
 
   const handleClick = useCallback(
@@ -1153,6 +1160,7 @@ export const PromptInputSubmit = ({
     <InputGroupButton
       aria-label={isGenerating ? 'Stop' : 'Submit'}
       className={cn(className)}
+      disabled={isDisabled}
       onClick={handleClick}
       size={size}
       type={isGenerating && onStop ? 'button' : 'submit'}

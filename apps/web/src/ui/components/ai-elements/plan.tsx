@@ -1,4 +1,4 @@
-import { CaretUpDownIcon } from '@phosphor-icons/react'
+import { CaretRightIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import {
   Card,
@@ -52,18 +52,27 @@ export function PlanAction(props: ComponentProps<typeof CardAction>) {
   return <CardAction {...props} />
 }
 
-/** Opens or closes one plan. */
+/**
+ * Opens or closes one plan.
+ *
+ * The same caret as a project row, a reasoning block, and a tool call: the app
+ * has one gesture for "this opens", and a glyph used nowhere else would promise
+ * a behaviour that is not different.
+ */
 export function PlanTrigger({ className, ...props }: ComponentProps<typeof CollapsibleTrigger>) {
   return (
     <CollapsibleTrigger
       aria-label="Toggle plan"
       className={cn(
-        'flex size-8 items-center justify-center rounded-md hover:bg-accent',
+        'group flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground motion-reduce:transition-none',
         className,
       )}
       {...props}
     >
-      <CaretUpDownIcon aria-hidden className="size-4" />
+      <CaretRightIcon
+        aria-hidden
+        className="size-3 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+      />
     </CollapsibleTrigger>
   )
 }
@@ -71,7 +80,7 @@ export function PlanTrigger({ className, ...props }: ComponentProps<typeof Colla
 /** Holds the expanded plan content. */
 export function PlanContent({ className, ...props }: ComponentProps<typeof CardContent>) {
   return (
-    <CollapsibleContent className="overflow-hidden">
+    <CollapsibleContent>
       <CardContent className={className} {...props} />
     </CollapsibleContent>
   )

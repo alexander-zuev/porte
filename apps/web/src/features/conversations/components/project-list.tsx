@@ -93,19 +93,7 @@ function ProjectRow({
         </Button>
       </div>
 
-      {/* Height comes from Base UI's own measurement, so the panel can travel
-          between zero and its natural size. The fade is quicker than the slide:
-          on the way out the text is gone before the box finishes closing, which
-          reads as one movement rather than content squashed by a shrinking box. */}
-      <CollapsibleContent
-        className={cn(
-          'flex h-[var(--collapsible-panel-height)] flex-col overflow-hidden pb-2',
-          '[transition:height_150ms_ease-out,opacity_100ms_ease-out]',
-          'data-starting-style:h-0 data-starting-style:opacity-0',
-          'data-ending-style:h-0 data-ending-style:opacity-0',
-          'motion-reduce:transition-none',
-        )}
-      >
+      <CollapsibleContent className="flex flex-col pb-2">
         {project.conversations.map(({ attentionStatus, conversation, turnStatus }) => (
           <ConversationLink
             key={conversation.id}

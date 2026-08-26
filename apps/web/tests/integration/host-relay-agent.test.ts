@@ -6,9 +6,11 @@ import {
   createHostId,
   createTurnId,
   hostControlRequestSchema,
+  hostConversationRequestSchema,
   jsonRpcNotification,
   type ConversationSummary,
   type HostControlRequestMethod,
+  type HostConversationRequestMethod,
   type HostId,
 } from '@porte/core'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
@@ -91,7 +93,7 @@ describe('HostRelayAgent control connection', () => {
     expect((await host.inbox.closed()).code).toBe(1007)
   })
 
-  it('routes conversation state through the child data connection', async () => {
+  it('routes conversation.get through the child data connection', async () => {
     const hostId = createHostId()
     const host = await connect(hostId)
     host.result((await host.nextRequest('conversations.list')).id, {
@@ -102,19 +104,21 @@ describe('HostRelayAgent control connection', () => {
     })
     const data = await connectConversation(host.stub, hostId, conversation.id)
     const turnId = createTurnId()
-
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(data.inbox.snapshot()).toEqual([])
+    const get = await nextConversationRequest(data.inbox, 'conversation.get')
     data.socket.send(
-      JSON.stringify(
-        jsonRpcNotification('conversation.state', {
-          state: {
-            turn: { state: 'running', turnId },
-            items: [],
-            tools: [],
-            plans: [],
-            pending: { permissions: [], elicitations: [] },
-          },
-        }),
-      ),
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: get.id,
+        result: {
+          turn: { state: 'running', turnId },
+          items: [],
+          tools: [],
+          plans: [],
+          pending: { permissions: [], elicitations: [] },
+        },
+      }),
     )
     await vi.waitFor(async () => {
       const active = await runInDurableObject(
@@ -125,7 +129,6 @@ describe('HostRelayAgent control connection', () => {
         { conversationId: conversation.id, turnId, hasAssistantMessage: false },
       ])
     })
-    expect(data.inbox.snapshot()).toEqual([])
   })
 })
 
@@ -176,15 +179,28 @@ class HostSocket {
   ) {}
 
   async nextRequest<Method extends HostControlRequestMethod>(method: Method) {
-    const schema = hostControlRequestSchema(method)
-    for (;;) {
-      const parsed = schema.safeParse(JSON.parse(await this.inbox.next()))
-      if (parsed.success) return parsed.data
-    }
+    return nextRequestFrame(this.inbox, hostControlRequestSchema(method))
   }
 
   result(id: string, result: unknown): void {
     this.socket.send(JSON.stringify({ jsonrpc: '2.0', id, result }))
+  }
+}
+
+async function nextConversationRequest<Method extends HostConversationRequestMethod>(
+  inbox: SocketInbox,
+  method: Method,
+) {
+  return nextRequestFrame(inbox, hostConversationRequestSchema(method))
+}
+
+async function nextRequestFrame<Result>(
+  inbox: SocketInbox,
+  schema: { safeParse: (value: unknown) => { success: true; data: Result } | { success: false } },
+): Promise<Result> {
+  for (;;) {
+    const parsed = schema.safeParse(JSON.parse(await inbox.next()))
+    if (parsed.success) return parsed.data
   }
 }
 

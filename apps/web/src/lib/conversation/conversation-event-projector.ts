@@ -205,10 +205,6 @@ function toolInput(tool: ToolView) {
   }
 }
 
-function toolInputSignature(tool: ToolView): string {
-  return JSON.stringify(toolInput(tool))
-}
-
 function contentMetadata(content: CanonicalContent): ProviderMetadata | undefined {
   if (content.annotations === undefined && content._meta === undefined) return undefined
   const acp: ProviderMetadata[string] = {}

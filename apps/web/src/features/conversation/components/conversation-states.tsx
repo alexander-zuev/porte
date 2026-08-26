@@ -1,4 +1,4 @@
-import { WarningCircleIcon } from '@phosphor-icons/react'
+import { ChatCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairedHost } from '@porte/core/client'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
@@ -56,6 +56,22 @@ export function ConversationFailed({
       body={failure.message}
       icon={<WarningCircleIcon aria-hidden />}
       title="Could not open this conversation"
+    />
+  )
+}
+
+/**
+ * Opened, and nothing has been said in it.
+ *
+ * The same layout as an empty project list, so an empty conversation and an
+ * empty list read as one place with nothing in it rather than two screens.
+ */
+export function NoMessagesYet() {
+  return (
+    <EmptyState
+      body="Send your first prompt. It runs on the Mac, and the answer appears here."
+      icon={<ChatCircleIcon aria-hidden />}
+      title="No messages yet"
     />
   )
 }

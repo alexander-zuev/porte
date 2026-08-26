@@ -1,4 +1,4 @@
-import { BookOpenIcon, CaretDownIcon } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon, CaretDownIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import {
   Collapsible,
@@ -40,7 +40,8 @@ export function Source({ className, children, ...props }: ComponentProps<'a'>) {
       target="_blank"
       {...props}
     >
-      <BookOpenIcon aria-hidden className="size-4 shrink-0" />
+      {/* The mark says where the link goes: out of the app, into a new tab. */}
+      <ArrowSquareOutIcon aria-hidden className="size-4 shrink-0" />
       {children}
     </a>
   )

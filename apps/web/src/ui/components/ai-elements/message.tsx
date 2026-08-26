@@ -33,9 +33,11 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      'is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
-      'group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',
-      'group-[.is-assistant]:text-foreground',
+      'is-user:dark flex min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
+      // The prompt is a bubble, so it sizes to its words. The answer is the
+      // page: it takes the column, or a tool call inside it shrinks to a chip.
+      'group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',
+      'group-[.is-assistant]:w-full group-[.is-assistant]:text-foreground',
       className,
     )}
     {...props}
@@ -61,12 +63,24 @@ export const MessageAction = ({
   tooltip,
   children,
   label,
+  className,
   variant = 'ghost',
   size = 'icon-sm',
   ...props
 }: MessageActionProps) => {
   const button = (
-    <Button size={size} type="button" variant={variant} {...props}>
+    // Quiet until wanted: these sit under every answer, so full contrast on all
+    // of them would compete with the answer itself for the eye.
+    <Button
+      className={cn(
+        'text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground motion-reduce:transition-none',
+        className,
+      )}
+      size={size}
+      type="button"
+      variant={variant}
+      {...props}
+    >
       {children}
       <span className="sr-only">{label || tooltip}</span>
     </Button>

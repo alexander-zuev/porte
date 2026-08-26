@@ -1,7 +1,6 @@
 import {
   Conversation,
   ConversationContent,
-  ConversationEmptyState,
   ConversationScrollButton,
 } from '@web/ui/components/ai-elements/conversation.tsx'
 import {
@@ -31,6 +30,7 @@ import { Button } from '@web/ui/components/ui/button.tsx'
 import { isDynamicToolUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
 
 import { ConversationContentPart } from './conversation-content-part.tsx'
+import { NoMessagesYet } from './conversation-states.tsx'
 import { ConversationToolOutput } from './conversation-tool-output.tsx'
 
 export type ConversationMessagesProps = {
@@ -54,12 +54,7 @@ export function ConversationMessages({
   return (
     <Conversation className="min-h-0 flex-1">
       <ConversationContent className="gap-6 px-1 py-4 md:px-4">
-        {messages.length === 0 ? (
-          <ConversationEmptyState
-            description="Send a prompt and it runs on your Mac."
-            title="Nothing here yet"
-          />
-        ) : null}
+        {messages.length === 0 ? <NoMessagesYet /> : null}
 
         {onReadOlder === null ? null : (
           <Button
