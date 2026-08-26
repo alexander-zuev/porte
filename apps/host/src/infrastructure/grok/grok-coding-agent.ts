@@ -3,10 +3,9 @@ import { homedir } from 'node:os'
 import {
   PROTOCOL_VERSION,
   type AgentCapabilities,
-  type AgentRequestMethod,
-  type AgentRequestParamsByMethod,
-  type AgentRequestResponsesByMethod,
   type AuthMethod,
+  type ContentBlock,
+  type CreateElicitationResponse,
   type ListSessionsResponse,
   type LoadSessionResponse,
   type NewSessionResponse,
@@ -25,39 +24,58 @@ import {
   type SetConfiguration,
   type StartTurn,
 } from '@host/application/ports/coding-agent.ts'
+import { applyConversationEvents } from '@host/domain/conversation/conversation-view-reducer.ts'
+import { AcpClientRequestError } from '@host/infrastructure/acp/error.ts'
 import { AcpProtocolVersionMismatchError } from '@host/infrastructure/acp/error.ts'
-import { answerIncomingRequest } from '@host/infrastructure/acp/incoming-request.ts'
+import {
+  answerIncomingRequest,
+  parseElicitationRequest,
+  parsePermissionRequest,
+} from '@host/infrastructure/acp/incoming-request.ts'
 import type { AcpSessionNotification, JsonValue } from '@host/infrastructure/acp/message.ts'
 import type { AcpRequestHandler } from '@host/infrastructure/acp/transport.ts'
 import { AcpTransport } from '@host/infrastructure/acp/transport.ts'
 import { findGitRoot, normaliseGitRoot } from '@host/infrastructure/grok/git-root.ts'
 import {
+  GrokEventMapper,
   GrokReplayMapper,
   isGrokEventMappingError,
+  mapGrokConfiguration,
   type GrokEventMappingError,
 } from '@host/infrastructure/grok/grok-event-mapper.ts'
 import {
   CodingAgentUnavailableError,
+  ConversationBusyError,
   ConversationCursorSchema,
   ConversationIdSchema,
   ConversationNotFoundError,
   ConversationViewSchema,
+  ElicitationIdSchema,
+  ElicitationNotFoundError,
   IsoDateTimeSchema,
+  PermissionIdSchema,
+  PermissionNotFoundError,
   WorkspaceNotAllowedError,
   makeConversationState,
   makeConversationSummary,
+  type CanonicalContent,
   type ConversationCursor,
   type ConversationEvent,
+  type ConversationFailurePayload,
   type ConversationId,
   type ConversationState,
   type ConversationSummary,
+  type ConversationTurnState,
   type ConversationView,
+  type ElicitationId,
   type ListConversationsResult,
+  type PermissionId,
   type TurnId,
 } from '@porte/core/client'
 import { z } from 'zod'
 
 const REQUEST_TIMEOUT_MS = 30_000
+const PROMPT_TIMEOUT_MS = 1_800_000
 const MAX_LIST_PAGES = 40
 const GROK_CACHED_TOKEN_AUTH_METHOD_ID = 'cached_token'
 
@@ -104,7 +122,7 @@ export class GrokCodingAgent implements CodingAgent {
   /** List Grok conversations the process can open. */
   async listConversations(cursor?: ConversationCursor): Promise<ListConversationsResult> {
     const { transport } = await this.ensureAcp()
-    const listed = await grokRequest(transport, {
+    const listed = await transport.request({
       method: 'session/list',
       params: cursor === undefined ? {} : { cursor },
       timeoutMs: REQUEST_TIMEOUT_MS,
@@ -118,7 +136,7 @@ export class GrokCodingAgent implements CodingAgent {
     if (gitRoot === undefined) throw new WorkspaceNotAllowedError()
 
     const { transport, capabilities } = await this.ensureAcp()
-    const response = await grokRequest(transport, {
+    const response = await transport.request({
       method: 'session/new',
       params: { cwd, mcpServers: [] },
       timeoutMs: REQUEST_TIMEOUT_MS,
@@ -151,7 +169,7 @@ export class GrokCodingAgent implements CodingAgent {
     )
     this.conversations.set(conversationId, conversation)
     try {
-      const response = await grokRequest(transport, {
+      const response = await transport.request({
         method: 'session/load',
         params: { sessionId: conversationId, cwd: listed.cwd, mcpServers: [] },
         timeoutMs: REQUEST_TIMEOUT_MS,
@@ -180,23 +198,26 @@ export class GrokCodingAgent implements CodingAgent {
   }
 
   /** Cancel the in-flight turn on an open conversation. */
-  cancelTurn(conversationId: ConversationId, turnId: TurnId): Promise<void> {
-    return this.requireConversation(conversationId).cancelTurn(turnId)
+  async cancelTurn(conversationId: ConversationId, turnId: TurnId): Promise<void> {
+    await this.requireConversation(conversationId).cancelTurn(turnId)
   }
 
   /** Set one configuration option on an open conversation. */
-  setConfiguration(conversationId: ConversationId, command: SetConfiguration): Promise<void> {
-    return this.requireConversation(conversationId).setConfiguration(command)
+  async setConfiguration(conversationId: ConversationId, command: SetConfiguration): Promise<void> {
+    await this.requireConversation(conversationId).setConfiguration(command)
   }
 
   /** Answer one permission request on an open conversation. */
-  answerPermission(conversationId: ConversationId, command: AnswerPermission): Promise<void> {
-    return this.requireConversation(conversationId).answerPermission(command)
+  async answerPermission(conversationId: ConversationId, command: AnswerPermission): Promise<void> {
+    await this.requireConversation(conversationId).answerPermission(command)
   }
 
   /** Answer one elicitation request on an open conversation. */
-  answerElicitation(conversationId: ConversationId, command: AnswerElicitation): Promise<void> {
-    return this.requireConversation(conversationId).answerElicitation(command)
+  async answerElicitation(
+    conversationId: ConversationId,
+    command: AnswerElicitation,
+  ): Promise<void> {
+    await this.requireConversation(conversationId).answerElicitation(command)
   }
 
   /** Drop one open conversation. Does not stop the process. */
@@ -258,7 +279,7 @@ export class GrokCodingAgent implements CodingAgent {
     })
 
     try {
-      const initialized = await grokRequest(transport, {
+      const initialized = await transport.request({
         method: 'initialize',
         params: {
           protocolVersion: PROTOCOL_VERSION,
@@ -308,17 +329,45 @@ export class GrokCodingAgent implements CodingAgent {
   }
 }
 
+type PendingPermission = {
+  readonly turnId: TurnId
+  readonly optionIds: ReadonlySet<string>
+  readonly resolve: (result: JsonValue) => void
+}
+type PendingElicitation = {
+  readonly turnId: TurnId
+  readonly resolve: (result: JsonValue) => void
+}
+type AcpResourceLink = {
+  type: 'resource_link'
+  uri: string
+  name: string
+  title?: string
+  description?: string
+  mimeType?: string
+  size?: number
+}
+type AcpEmbeddedResource =
+  | { uri: string; mimeType?: string; text: string }
+  | { uri: string; mimeType?: string; blob: string }
+
 /**
  * One open conversation on the shared Grok process.
  *
- * Holds view and, while `session/load` is in flight, the replay fold.
+ * Holds view, the in-flight turn, and parked permission/elicitation RPCs.
  * Does not spawn or stop the child.
  */
 class GrokConversation {
   private view: ConversationView
   private replay: GrokReplayMapper | undefined
   private replayError: GrokEventMappingError | undefined
+  private mapper: GrokEventMapper | undefined
+  private turnId: TurnId | undefined
+  private prompt: Promise<void> | undefined
   private listener: (event: ConversationEvent) => void = () => undefined
+  private readonly permissions = new Map<PermissionId, PendingPermission>()
+  private readonly elicitations = new Map<ElicitationId, PendingElicitation>()
+  private readonly urlCompletions = new Map<ElicitationId, TurnId>()
 
   private constructor(
     readonly conversationId: ConversationId,
@@ -368,8 +417,9 @@ class GrokConversation {
   }
 
   finishLoad(response: LoadSessionResponse): void {
-    if (this.replayError !== undefined)
+    if (this.replayError !== undefined) {
       throw new CodingAgentResponseError({ cause: this.replayError })
+    }
     const replay = this.replay
     if (replay === undefined) return
     replay.seedSession(response)
@@ -378,41 +428,159 @@ class GrokConversation {
   }
 
   snapshot(): ConversationState {
-    return makeConversationState(this.view, { state: 'idle' })
+    return makeConversationState(this.view, this.turn)
   }
 
   setListener(listener: (event: ConversationEvent) => void): void {
     this.listener = listener
   }
 
-  startTurn(_command: StartTurn): void {
-    unimplemented('startTurn')
+  startTurn(command: StartTurn): void {
+    if (this.prompt !== undefined && this.turnId === command.turnId) return
+    if (this.prompt !== undefined) throw new ConversationBusyError()
+
+    const mapper = new GrokEventMapper(this.conversationId, command.turnId)
+    const started = mapper.start(command.userMessage)
+    this.mapper = mapper
+    this.turnId = command.turnId
+    this.send(started)
+    this.prompt = this.executeTurn(command, mapper).finally(() => {
+      if (this.turnId === command.turnId) {
+        this.prompt = undefined
+        this.turnId = undefined
+        this.mapper = undefined
+      }
+    })
   }
 
-  cancelTurn(_turnId: TurnId): Promise<void> {
-    return unimplemented('cancelTurn')
+  async cancelTurn(turnId: TurnId): Promise<void> {
+    const mapper = this.mapper
+    if (this.turnId !== turnId || mapper === undefined) {
+      throw new ConversationNotFoundError()
+    }
+    await this.transport.notify({
+      method: 'session/cancel',
+      params: { sessionId: this.conversationId },
+    })
+    for (const [permissionId, pending] of this.permissions) {
+      if (pending.turnId !== turnId) continue
+      let mapped: readonly ConversationEvent[]
+      try {
+        mapped = mapper.permissionCancelled(permissionId)
+      } catch (cause) {
+        throw new CodingAgentResponseError({ cause })
+      }
+      this.send(mapped)
+      this.permissions.delete(permissionId)
+      pending.resolve({ outcome: { outcome: 'cancelled' } })
+    }
+    for (const [elicitationId, pending] of this.elicitations) {
+      if (pending.turnId !== turnId) continue
+      this.send([
+        {
+          type: 'elicitation.resolved',
+          turnId,
+          elicitationId,
+          outcome: { type: 'cancelled' },
+        },
+      ])
+      this.elicitations.delete(elicitationId)
+      pending.resolve({ action: 'cancel' })
+    }
   }
 
-  setConfiguration(_command: SetConfiguration): Promise<void> {
-    return unimplemented('setConfiguration')
+  async setConfiguration(command: SetConfiguration): Promise<void> {
+    const params =
+      command.value.type === 'boolean'
+        ? {
+            sessionId: this.conversationId,
+            configId: command.optionId,
+            type: 'boolean' as const,
+            value: command.value.value,
+          }
+        : {
+            sessionId: this.conversationId,
+            configId: command.optionId,
+            value: command.value.value,
+          }
+    const updated = await this.transport.request({
+      method: 'session/set_config_option',
+      params,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+    })
+    this.send([
+      {
+        type: 'conversation.configuration.updated',
+        options: mapGrokConfiguration(updated.configOptions),
+      },
+    ])
   }
 
-  answerPermission(_command: AnswerPermission): Promise<void> {
-    return unimplemented('answerPermission')
+  async answerPermission(command: AnswerPermission): Promise<void> {
+    const pending = this.permissions.get(command.permissionId)
+    if (
+      pending === undefined ||
+      pending.turnId !== command.turnId ||
+      !pending.optionIds.has(command.optionId)
+    ) {
+      throw new PermissionNotFoundError()
+    }
+    const mapper = this.mapper
+    if (mapper === undefined) throw new ConversationNotFoundError()
+    let mapped: readonly ConversationEvent[]
+    try {
+      mapped = mapper.permissionResolved(command.permissionId, command.optionId)
+    } catch (cause) {
+      throw new CodingAgentResponseError({ cause })
+    }
+    this.send(mapped)
+    this.permissions.delete(command.permissionId)
+    pending.resolve({ outcome: { outcome: 'selected', optionId: command.optionId } })
   }
 
-  answerElicitation(_command: AnswerElicitation): Promise<void> {
-    return unimplemented('answerElicitation')
+  async answerElicitation(command: AnswerElicitation): Promise<void> {
+    const pending = this.elicitations.get(command.elicitationId)
+    if (pending === undefined || pending.turnId !== command.turnId) {
+      throw new ElicitationNotFoundError()
+    }
+    this.send([
+      {
+        type: 'elicitation.resolved',
+        turnId: command.turnId,
+        elicitationId: command.elicitationId,
+        outcome: elicitationOutcome(command.answer),
+      },
+    ])
+    this.elicitations.delete(command.elicitationId)
+    if (command.answer.type === 'accept') {
+      this.urlCompletions.set(command.elicitationId, command.turnId)
+    }
+    pending.resolve(elicitationResponse(command.answer))
   }
 
   async close(): Promise<void> {
+    if (this.turnId !== undefined) {
+      await this.transport.notify({
+        method: 'session/cancel',
+        params: { sessionId: this.conversationId },
+      })
+    }
+    for (const pending of this.permissions.values()) {
+      pending.resolve({ outcome: { outcome: 'cancelled' } })
+    }
+    this.permissions.clear()
+    for (const pending of this.elicitations.values()) {
+      pending.resolve({ action: 'cancel' })
+    }
+    this.elicitations.clear()
+    this.urlCompletions.clear()
     if (
       this.capabilities.sessionCapabilities?.close === undefined ||
       this.capabilities.sessionCapabilities.close === null
     ) {
       return
     }
-    await grokRequest(this.transport, {
+    await this.transport.request({
       method: 'session/close',
       params: { sessionId: this.conversationId },
       timeoutMs: REQUEST_TIMEOUT_MS,
@@ -420,26 +588,176 @@ class GrokConversation {
   }
 
   receiveUpdate(notification: AcpSessionNotification): void {
-    const replay = this.replay
-    if (replay === undefined) return
-    if (this.replayError !== undefined) return
+    if (this.replay !== undefined) {
+      if (this.replayError !== undefined) return
+      try {
+        this.replay.map(notification)
+      } catch (cause) {
+        if (isGrokEventMappingError(cause)) this.replayError = cause
+        else throw cause
+      }
+      return
+    }
+    if (this.mapper === undefined) {
+      this.applyIdleUpdate(notification)
+      return
+    }
     try {
-      replay.map(notification)
-    } catch (cause) {
-      if (isGrokEventMappingError(cause)) this.replayError = cause
-      else throw cause
+      const mapped = this.mapper.map(notification)
+      this.send(mapped)
+    } catch {
+      this.failTurn(invalidUpdate())
     }
   }
 
   answerIncoming(
-    _id: Parameters<AcpRequestHandler>[0],
+    requestId: Parameters<AcpRequestHandler>[0],
     method: string,
     params: JsonValue,
   ): Promise<JsonValue> {
-    return answerIncomingRequest(this.cwd, method, params)
+    if (method === 'elicitation/create') {
+      return this.answerIncomingElicitation(requestId, params)
+    }
+    if (method !== 'session/request_permission') {
+      return answerIncomingRequest(this.cwd, method, params)
+    }
+    const parsed = parsePermissionRequest(params)
+    if (this.mapper === undefined || this.turnId === undefined) {
+      throw new AcpClientRequestError({ code: -32600, message: 'no active turn' })
+    }
+    const permissionId = PermissionIdSchema.parse(`${this.turnId}:permission:${String(requestId)}`)
+    try {
+      const mapped = this.mapper.permissionRequested({
+        permissionId,
+        toolCallId: parsed.toolCall.toolCallId,
+        title: parsed.toolCall.title ?? '',
+        options: parsed.options,
+      })
+      this.send(mapped)
+    } catch (cause) {
+      throw new AcpClientRequestError({
+        code: -32603,
+        message: cause instanceof Error ? cause.message : 'internal error',
+      })
+    }
+    const turnId = this.turnId
+    return new Promise((resolve) => {
+      this.permissions.set(permissionId, {
+        turnId,
+        optionIds: new Set(parsed.options.map((option) => option.optionId)),
+        resolve,
+      })
+    })
   }
 
-  completeElicitation(_elicitationId: string): void {}
+  completeElicitation(elicitationId: string): void {
+    const parsed = ElicitationIdSchema.safeParse(elicitationId)
+    if (!parsed.success) return
+    const turnId = this.urlCompletions.get(parsed.data)
+    if (turnId === undefined) return
+    this.urlCompletions.delete(parsed.data)
+    try {
+      this.send([{ type: 'elicitation.completed', turnId, elicitationId: parsed.data }])
+    } catch {
+      this.failTurn(invalidUpdate())
+    }
+  }
+
+  private applyIdleUpdate(notification: AcpSessionNotification): void {
+    const update = notification.update
+    if (update.sessionUpdate === 'config_option_update') {
+      this.send([
+        {
+          type: 'conversation.configuration.updated',
+          options: mapGrokConfiguration(update.configOptions),
+        },
+      ])
+    }
+  }
+
+  private get turn(): ConversationTurnState {
+    return this.turnId === undefined || this.prompt === undefined
+      ? { state: 'idle' }
+      : { state: 'running', turnId: this.turnId }
+  }
+
+  private answerIncomingElicitation(
+    requestId: Parameters<AcpRequestHandler>[0],
+    params: JsonValue,
+  ): Promise<JsonValue> {
+    const parsed = parseElicitationRequest(params)
+    if (
+      parsed.sessionId !== this.conversationId ||
+      this.mapper === undefined ||
+      this.turnId === undefined
+    ) {
+      throw new AcpClientRequestError({ code: -32600, message: 'no active turn' })
+    }
+    const elicitationId = ElicitationIdSchema.parse(
+      parsed.elicitationId ?? `${this.turnId}:elicitation:${String(requestId)}`,
+    )
+    try {
+      this.send([
+        {
+          type: 'elicitation.requested',
+          turnId: this.turnId,
+          elicitationId,
+          request: parsed.request,
+        },
+      ])
+    } catch (cause) {
+      throw new AcpClientRequestError({
+        code: -32603,
+        message: cause instanceof Error ? cause.message : 'internal error',
+      })
+    }
+    const turnId = this.turnId
+    return new Promise((resolve) => {
+      this.elicitations.set(elicitationId, { turnId, resolve })
+    })
+  }
+
+  private async executeTurn(command: StartTurn, mapper: GrokEventMapper): Promise<void> {
+    let response
+    try {
+      response = await this.transport.request({
+        method: 'session/prompt',
+        params: {
+          sessionId: this.conversationId,
+          prompt: command.userMessage.content.map(toAcpContent),
+        },
+        timeoutMs: PROMPT_TIMEOUT_MS,
+      })
+    } catch {
+      this.failTurn(codingAgentUnavailable())
+      return
+    }
+    if (this.turnId !== command.turnId) return
+    const finished = mapper.finish(response.stopReason)
+    try {
+      this.send(finished)
+    } catch {
+      this.failTurn(invalidUpdate())
+    }
+  }
+
+  private failTurn(error: ConversationFailurePayload): void {
+    try {
+      const failed = this.mapper?.fail(error)
+      if (failed !== undefined) this.send(failed)
+    } catch {
+      // Turn already failed.
+    }
+  }
+
+  private send(events: readonly ConversationEvent[]): void {
+    try {
+      this.view = applyConversationEvents(this.view, events)
+    } catch (cause) {
+      throw new CodingAgentResponseError({ cause })
+    }
+    for (const event of events) this.listener(event)
+  }
 }
 
 function toListResult(listed: ListSessionsResponse): ListConversationsResult {
@@ -486,7 +804,7 @@ async function authenticateGrok(
     (method) => !('type' in method) && method.id === GROK_CACHED_TOKEN_AUTH_METHOD_ID,
   )
   if (cachedTokenAuthMethod === undefined) return
-  await grokRequest(transport, {
+  await transport.request({
     method: 'authenticate',
     params: { methodId: cachedTokenAuthMethod.id, _meta: { headless: true } },
     timeoutMs: REQUEST_TIMEOUT_MS,
@@ -521,21 +839,59 @@ function requireGrokCapabilities(capabilities: AgentCapabilities): void {
   }
 }
 
-async function grokRequest<Method extends AgentRequestMethod>(
-  transport: AcpTransport,
-  input: {
-    readonly method: Method
-    readonly params: AgentRequestParamsByMethod[Method]
-    readonly timeoutMs: number
-  },
-): Promise<AgentRequestResponsesByMethod[Method]> {
-  try {
-    return await transport.request(input)
-  } catch (cause) {
-    throw new CodingAgentUnavailableError({ cause })
+function elicitationResponse(answer: AnswerElicitation['answer']): JsonValue {
+  if (answer.type === 'submit') {
+    return { action: 'accept', content: answer.values } satisfies CreateElicitationResponse
+  }
+  if (answer.type === 'accept') {
+    return { action: 'accept' } satisfies CreateElicitationResponse
+  }
+  return { action: answer.type } satisfies CreateElicitationResponse
+}
+
+function elicitationOutcome(
+  answer: AnswerElicitation['answer'],
+): Extract<ConversationEvent, { type: 'elicitation.resolved' }>['outcome'] {
+  if (answer.type === 'submit') return { type: 'submitted', values: answer.values }
+  if (answer.type === 'accept') return { type: 'accepted' }
+  if (answer.type === 'decline') return { type: 'declined' }
+  return { type: 'cancelled' }
+}
+
+function toAcpContent(content: CanonicalContent): ContentBlock {
+  if (content.type === 'resource-link') {
+    const link: AcpResourceLink = {
+      type: 'resource_link',
+      uri: content.uri,
+      name: content.name,
+    }
+    if (content.title !== undefined) link.title = content.title
+    if (content.description !== undefined) link.description = content.description
+    if (content.mimeType !== undefined) link.mimeType = content.mimeType
+    if (content.size !== undefined) link.size = content.size
+    return link
+  }
+  if (content.type !== 'resource') return content
+
+  const resource = content.resource
+  const embedded: AcpEmbeddedResource =
+    resource.content.type === 'text'
+      ? { uri: resource.uri, text: resource.content.text }
+      : { uri: resource.uri, blob: resource.content.data }
+  if (resource.mimeType !== undefined) embedded.mimeType = resource.mimeType
+  return { type: 'resource', resource: embedded }
+}
+
+function codingAgentUnavailable(): ConversationFailurePayload {
+  return {
+    _tag: 'CodingAgentUnavailableError',
+    message: 'Grok stopped before the turn completed.',
   }
 }
 
-function unimplemented(operation: string): never {
-  throw new TypeError(`${operation} is not implemented`)
+function invalidUpdate(): ConversationFailurePayload {
+  return {
+    _tag: 'InternalServerError',
+    message: 'Grok returned an invalid conversation update.',
+  }
 }
