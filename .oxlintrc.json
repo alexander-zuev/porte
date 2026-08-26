@@ -47,7 +47,6 @@
     "no-use-before-define": "off",
     "react/rules-of-hooks": "error",
     "react/react-in-jsx-scope": "off",
-    "react/react-compiler": "error",
     "no-underscore-dangle": ["warn", { "allow": ["_tag"] }],
     "import/no-cycle": "error",
     "typescript/prefer-optional-chain": "error",
