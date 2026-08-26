@@ -92,6 +92,7 @@ export class PartySocketTransport implements RelaySocket {
   private listeners: RelaySocketListeners | undefined
   private closed = false
   private handshake: Handshake | undefined
+  private up: Promise<void> = Promise.resolve()
 
   /** Settles once, when this socket will not come back. */
   readonly stopped = this.stoppedState.promise
@@ -148,10 +149,12 @@ export class PartySocketTransport implements RelaySocket {
       details: { url: this.input.url, retryCount: this.socket.retryCount },
     })
     const onUp = this.listeners?.onUp
-    if (onUp === undefined) return
-    void onUp().catch((cause: unknown) => {
-      this.fail(new WebSocketHandlerError({ cause }))
-    })
+    this.up =
+      onUp === undefined
+        ? Promise.resolve()
+        : onUp().catch((cause: unknown) => {
+            this.fail(new WebSocketHandlerError({ cause }))
+          })
   }
 
   // Ignore → parse text → close if bad. Next step is JSON-RPC as the server.
@@ -209,6 +212,7 @@ export class PartySocketTransport implements RelaySocket {
 
   // JSON-RPC as the server: handler may return a response document to write.
   private async deliverFrame(frame: string): Promise<void> {
+    await this.up.catch(() => undefined)
     if (this.closed || this.listeners === undefined) return
     try {
       const document = await this.listeners.onFrame(frame)

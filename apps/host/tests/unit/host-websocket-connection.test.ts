@@ -1,5 +1,4 @@
 import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
-import type { SessionOperations } from '@host/application/session-supervisor.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager'
@@ -10,7 +9,6 @@ import type {
 } from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
   ConversationIdSchema,
-  ConversationSummarySchema,
   HOST_CONTROL_SUBPROTOCOL,
   JsonRpcDocumentSchema,
   createRequestId,
@@ -87,7 +85,15 @@ describe('Host WebSocket connections', () => {
     await vi.waitFor(() => {
       expect(jsonFrames(test.control).at(-1)?.result).toBe(null)
     })
-    expect(jsonFrames(test.conversations[0]).at(-1)?.method).toBe('conversation.state')
+    expect(jsonFrames(test.conversations[0])).toEqual([])
+    await test.conversations[0]?.receive(request('conversation.get', {}))
+    expect(jsonFrames(test.conversations[0]).at(-1)?.result).toEqual({
+      turn: { state: 'idle' },
+      items: [],
+      tools: [],
+      plans: [],
+      pending: { permissions: [], elicitations: [] },
+    })
     await test.manager.closeAll()
   })
 
@@ -101,7 +107,7 @@ describe('Host WebSocket connections', () => {
     })
     await test.conversations[0]?.connect()
     await test.conversations[0]?.connect()
-    expect(test.sessions.openConversation).toHaveBeenCalledTimes(2)
+    expect(test.codingAgent.openConversation).toHaveBeenCalledTimes(2)
     await test.manager.closeAll()
   })
 
@@ -130,7 +136,7 @@ describe('Host WebSocket connections', () => {
 function connectionTest() {
   const control = new MockTransport()
   const conversations: MockTransport[] = []
-  const sessionOperations = sessions()
+  const agent = codingAgent()
   const createTransport = (input: PartySocketTransportInput): RelaySocket => {
     if (input.subprotocol === HOST_CONTROL_SUBPROTOCOL) return control
     const transport = new MockTransport()
@@ -142,57 +148,35 @@ function connectionTest() {
       baseUrl: 'https://relay.example.com',
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
-      codingAgent: codingAgent(),
-      sessions: sessionOperations,
+      codingAgent: agent,
       token: 'secret',
     },
     createTransport,
   )
   manager.connectControl()
-  return { control, conversations, manager, sessions: sessionOperations }
-}
-
-function sessions(): SessionOperations {
-  return {
-    openConversation: vi.fn(async () => ({
-      conversationId: ConversationIdSchema.parse('conversation-1'),
-      state: {
-        turn: { state: 'idle' as const },
-        items: [],
-        tools: [],
-        plans: [],
-        pending: { permissions: [], elicitations: [] },
-      },
-      setListener: () => undefined,
-      onClose: () => undefined,
-      startTurn: emptyOperation,
-      cancelTurn: emptyOperation,
-      setConfiguration: emptyOperation,
-      answerPermission: emptyOperation,
-      answerElicitation: emptyOperation,
-      close: emptyOperation,
-    })),
-    createConversation: async () =>
-      ConversationSummarySchema.parse({
-        id: 'unused',
-        cwd: '/tmp',
-        gitRoot: '/tmp',
-        title: 'Unused',
-        updatedAt: '2026-01-01T00:00:00Z',
-      }),
-    closeConversation: emptyOperation,
-    getSession: () => {
-      throw new TypeError('unexpected session lookup')
-    },
-    closeAll: emptyOperation,
-  }
+  return { control, conversations, manager, codingAgent: agent }
 }
 
 function codingAgent(): CodingAgent {
   return {
     listConversations: async () => ({ conversations: [] }),
-    openConversation: () => Promise.reject(new TypeError('unexpected open')),
     createConversation: () => Promise.reject(new TypeError('unexpected create')),
+    openConversation: vi.fn(emptyOperation),
+    snapshot: () => ({
+      turn: { state: 'idle' },
+      items: [],
+      tools: [],
+      plans: [],
+      pending: { permissions: [], elicitations: [] },
+    }),
+    onEvent: () => undefined,
+    startTurn: emptyOperation,
+    cancelTurn: emptyOperation,
+    setConfiguration: emptyOperation,
+    answerPermission: emptyOperation,
+    answerElicitation: emptyOperation,
+    closeConversation: emptyOperation,
+    closeAll: emptyOperation,
   }
 }
 

@@ -1,11 +1,11 @@
-import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
-import type { ConversationId, HostConversationMethodMap } from '@porte/core/client'
+import type { CodingAgent, SetConfiguration } from '@host/application/ports/coding-agent.ts'
+import type { ConversationId } from '@porte/core/client'
 
 /** Set one coding-agent configuration option. */
 export function setConversationConfiguration(
-  sessions: Pick<SessionSupervisor, 'getSession'>,
+  codingAgent: Pick<CodingAgent, 'setConfiguration'>,
   conversationId: ConversationId,
-  command: HostConversationMethodMap['conversation.configuration.set']['params'],
+  command: SetConfiguration,
 ): Promise<void> {
-  return sessions.getSession(conversationId).setConfiguration({ conversationId, ...command })
+  return codingAgent.setConfiguration(conversationId, command)
 }

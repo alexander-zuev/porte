@@ -23,10 +23,10 @@ describe('listConversations', () => {
         await withGrokCodingAgent(async (agent) => {
           const cwd = await createGitWorkspace()
           const created = await agent.createConversation(cwd)
-          await created.session.close()
+          await agent.closeConversation(created.id)
 
-          const listed = await findListed(agent, created.conversation.id)
-          expect(listed?.id).toBe(created.conversation.id)
+          const listed = await findListed(agent, created.id)
+          expect(listed?.id).toBe(created.id)
           expect(listed?.cwd).toBe(cwd)
           expect(listed?.gitRoot).toBe(normaliseGitRoot(cwd))
         })

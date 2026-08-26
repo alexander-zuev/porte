@@ -1,10 +1,10 @@
-import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { ConversationId } from '@porte/core/client'
 
-/** Close one coding-agent conversation. */
+/** Close one active ACP session. Does not delete the conversation. */
 export function closeConversation(
-  sessions: Pick<SessionSupervisor, 'closeConversation'>,
+  codingAgent: Pick<CodingAgent, 'closeConversation'>,
   conversationId: ConversationId,
 ): Promise<void> {
-  return sessions.closeConversation(conversationId)
+  return codingAgent.closeConversation(conversationId)
 }

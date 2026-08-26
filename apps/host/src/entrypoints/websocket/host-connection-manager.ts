@@ -1,6 +1,5 @@
 import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
-import type { SessionOperations } from '@host/application/session-supervisor.ts'
 import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
 import type { ControlMethodHandlerRegistry } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { ConversationConnection } from '@host/entrypoints/websocket/conversation-connection.ts'
@@ -21,7 +20,6 @@ export type HostConnectionManagerInput = {
   readonly controlHandlers: ControlMethodHandlerRegistry
   readonly conversationHandlers: ConversationMethodHandlerRegistry
   readonly codingAgent: CodingAgent
-  readonly sessions: SessionOperations
   readonly token: string
 }
 
@@ -42,7 +40,6 @@ export class HostConnectionManager implements HostConnections {
     this.control = new ControlConnection(transport, input.controlHandlers, {
       connections: this,
       codingAgent: input.codingAgent,
-      sessions: input.sessions,
     })
   }
 
@@ -66,7 +63,7 @@ export class HostConnectionManager implements HostConnections {
       conversationId,
       transport,
       this.input.conversationHandlers,
-      this.input.sessions,
+      this.input.codingAgent,
       this.control.notifications,
     )
     this.conversations.set(conversationId, connection)

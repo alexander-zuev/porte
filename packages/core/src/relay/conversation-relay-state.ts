@@ -8,13 +8,14 @@ import type {
   ConversationUsage,
 } from '../conversation/conversation-progress-event.ts'
 import type { ConversationState, PendingInteractions } from '../conversation/conversation-view.ts'
+import type { TurnId } from '../identity/identity.ts'
 
 /**
  * What the browser cannot get from the Agents SDK.
  *
- * The transcript, its ordering, and whether a turn runs all belong to
- * AIChatAgent: `messages` carries the first two and `isServerStreaming` the
- * third. Only Grok's own reporting lives here.
+ * The transcript and its ordering belong to AIChatAgent, and the browser reads
+ * `isServerStreaming` to know a turn runs. Only Grok's own reporting lives
+ * here.
  *
  * No schema: both ends ship in one deploy, and the events this is built from
  * are already parsed at the JSON-RPC boundary.
@@ -22,6 +23,8 @@ import type { ConversationState, PendingInteractions } from '../conversation/con
 export type ConversationRelayState = {
   plans: readonly ConversationPlan[]
   pending: PendingInteractions
+  /** Correlates the Mac's running turn. Durable, so recovery survives eviction. */
+  runningTurnId?: TurnId
   usage?: ConversationUsage
   configuration?: readonly ConversationConfigurationOption[]
   commands?: readonly ConversationCommand[]
@@ -41,8 +44,12 @@ export function reduceConversationRelayState(
   const state = structuredClone(current)
 
   switch (event.type) {
+    case 'turn.started':
+      state.runningTurnId = event.turnId
+      break
     case 'turn.finished':
     case 'conversation.failed':
+      state.runningTurnId = undefined
       state.pending = { permissions: [], elicitations: [] }
       break
     case 'permission.requested':
@@ -90,7 +97,6 @@ export function reduceConversationRelayState(
     case 'conversation.mode.updated':
       state.modeId = event.modeId
       break
-    case 'turn.started':
     case 'message.started':
     case 'message.delta':
     case 'message.completed':
@@ -110,6 +116,7 @@ export function conversationRelayStateFromState(state: ConversationState): Conve
   return {
     plans: state.plans,
     pending: state.pending,
+    runningTurnId: state.turn.state === 'running' ? state.turn.turnId : undefined,
     usage: state.usage,
     configuration: state.configuration,
     commands: state.commands,

@@ -24,9 +24,11 @@ export async function withGrokCodingAgent(
   body: (agent: GrokCodingAgent) => Promise<void>,
 ): Promise<void> {
   const shutdown = new AbortController()
+  const agent = new GrokCodingAgent(shutdown.signal)
   try {
-    await body(new GrokCodingAgent(shutdown.signal))
+    await body(agent)
   } finally {
+    await agent.closeAll()
     shutdown.abort()
   }
 }

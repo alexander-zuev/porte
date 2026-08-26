@@ -1,5 +1,5 @@
+import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
-import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
 
 /** Owns the active resources for one Host process. */
 export class HostRuntime {
@@ -9,7 +9,7 @@ export class HostRuntime {
       HostConnections,
       'connectControl' | 'controlStopped' | 'closeAll'
     >,
-    private readonly sessions: Pick<SessionSupervisor, 'closeAll'>,
+    private readonly codingAgent: Pick<CodingAgent, 'closeAll'>,
   ) {}
 
   /** Open the control connection and wait for shutdown. */
@@ -23,10 +23,10 @@ export class HostRuntime {
     }
   }
 
-  /** Close agent sessions before the control connection. */
+  /** Close ACP sessions before the control connection. */
   async shutdown(): Promise<void> {
     try {
-      await this.sessions.closeAll()
+      await this.codingAgent.closeAll()
     } finally {
       await this.connections.closeAll()
     }

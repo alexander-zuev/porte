@@ -41,6 +41,11 @@ export const HostConversationMethods = {
     params: z.strictObject({}),
     result: EmptyResultSchema,
   },
+  'conversation.get': {
+    kind: JSON_RPC_METHOD_KINDS.request,
+    params: z.strictObject({}),
+    result: ConversationStateSchema,
+  },
   'turn.start': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({
@@ -82,10 +87,6 @@ export const HostConversationMethods = {
       answer: ElicitationAnswerSchema,
     }),
     result: EmptyResultSchema,
-  },
-  'conversation.state': {
-    kind: JSON_RPC_METHOD_KINDS.notification,
-    params: z.strictObject({ state: ConversationStateSchema }),
   },
   'conversation.event': {
     kind: JSON_RPC_METHOD_KINDS.notification,

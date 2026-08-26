@@ -1,11 +1,11 @@
-import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
-import type { ConversationId, HostConversationMethodMap } from '@porte/core/client'
+import type { AnswerElicitation, CodingAgent } from '@host/application/ports/coding-agent.ts'
+import type { ConversationId } from '@porte/core/client'
 
 /** Answer one pending coding-agent elicitation. */
 export function answerElicitation(
-  sessions: Pick<SessionSupervisor, 'getSession'>,
+  codingAgent: Pick<CodingAgent, 'answerElicitation'>,
   conversationId: ConversationId,
-  command: HostConversationMethodMap['elicitation.answer']['params'],
+  command: AnswerElicitation,
 ): Promise<void> {
-  return sessions.getSession(conversationId).answerElicitation({ conversationId, ...command })
+  return codingAgent.answerElicitation(conversationId, command)
 }

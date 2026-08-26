@@ -18,75 +18,47 @@ import type { AcpSessionNotification, JsonValue } from './message.ts'
 type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
 type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
 
-/** Handles one request sent by an ACP agent. */
+/**
+ * Handles one inbound ACP request from the agent (permission, fs, terminal, elicitation).
+ */
 export type AcpRequestHandler = (
   id: acp.JsonRpcId,
   method: acp.ClientRequestMethod,
   params: JsonValue,
 ) => Promise<JsonValue>
 
-/** Input required to start one ACP client. */
-export type StartAcpClient = {
+/** How to spawn one ACP agent subprocess. */
+export type StartAcpTransport = {
+  /** Agent binary. */
   readonly command: string
+  /** Agent argv after the binary. */
   readonly args: readonly string[]
+  /** Working directory for the child. */
   readonly cwd: string
   /** Stops this child when the Host lifespan ends. The CLI owns process signals. */
   readonly signal: AbortSignal
+  /** ACP `session/update` from the agent. */
   readonly onUpdate: (notification: AcpSessionNotification) => void
+  /** ACP client request from the agent. */
   readonly onRequest: AcpRequestHandler
+  /** ACP `elicitation/complete` from the agent. */
   readonly onElicitationComplete?: (notification: acp.CompleteElicitationNotification) => void
 }
 
-/** Start one ACP process through the official typed SDK. */
-export function startAcpClient(input: StartAcpClient): Promise<AcpClient> {
-  if (input.signal.aborted) {
-    return Promise.reject(new AcpStartError({ cause: input.signal.reason }))
-  }
-
-  return new Promise((resolve, reject) => {
-    let settled = false
-    const child = spawn(input.command, [...input.args], {
-      cwd: input.cwd,
-      env: process.env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-    const abortListener = addAbortListener(input.signal, () => {
-      child.kill('SIGTERM')
-      finish(new AcpStartError({ cause: input.signal.reason }))
-    })
-    const finish = (cause: AcpStartError): void => {
-      if (settled) return
-      settled = true
-      abortListener[Symbol.dispose]()
-      reject(cause)
-    }
-    const onError = (cause: unknown): void => {
-      finish(new AcpStartError({ cause }))
-    }
-    child.once('error', onError)
-    child.once('spawn', () => {
-      child.removeListener('error', onError)
-      const client = new AcpClient(child, input)
-      abortListener[Symbol.dispose]()
-      if (settled) {
-        void client.stop()
-        return
-      }
-      settled = true
-      resolve(client)
-    })
-  })
-}
-
-/** One active typed ACP connection over a child process. */
-export class AcpClient {
-  private readonly connection: acp.ClientConnection
-  private closed = false
+/**
+ * One ACP agent subprocess over stdio.
+ *
+ * Owns spawn, JSON-RPC, inbound ACP client methods, timeouts, and process stop.
+ * Does not know which agent binary it runs, or Porte conversations.
+ */
+export class AcpTransport {
+  private readonly stdio: acp.ClientConnection
+  private stopped = false
   private abortListener: Disposable | undefined
 
-  constructor(
+  private constructor(
     private readonly child: ChildProcessWithoutNullStreams,
-    input: StartAcpClient,
+    input: StartAcpTransport,
   ) {
     const app = acp
       .client({ name: 'porte' })
@@ -104,20 +76,73 @@ export class AcpClient {
     const output = Writable.toWeb(child.stdin) as WritableStream<Uint8Array>
     // SAFETY: Node exposes byte streams here because the child stdio encoding is not set.
     const source = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>
-    this.connection = app.connect(acp.ndJsonStream(output, source))
+    this.stdio = app.connect(acp.ndJsonStream(output, source))
 
     this.abortListener = addAbortListener(input.signal, () => {
       void this.stop()
     })
   }
 
-  /** Send one typed ACP request and wait for its response. */
+  /**
+   * Spawn one ACP process and wait until the OS has started it.
+   *
+   * @param input - Binary, argv, working directory, host signal, and ACP callbacks.
+   * @returns A live transport, or `AcpStartError` when spawn fails or the host signal is already aborted.
+   */
+  static start(input: StartAcpTransport): Promise<AcpTransport> {
+    if (input.signal.aborted) {
+      return Promise.reject(new AcpStartError({ cause: input.signal.reason }))
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const child = spawn(input.command, [...input.args], {
+        cwd: input.cwd,
+        env: process.env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      const abortListener = addAbortListener(input.signal, () => {
+        child.kill('SIGTERM')
+        fail(new AcpStartError({ cause: input.signal.reason }))
+      })
+      const fail = (cause: AcpStartError): void => {
+        if (settled) return
+        settled = true
+        abortListener[Symbol.dispose]()
+        reject(cause)
+      }
+      child.once('error', (cause: unknown) => {
+        fail(new AcpStartError({ cause }))
+      })
+      child.once('spawn', () => {
+        child.removeAllListeners('error')
+        const transport = new AcpTransport(child, input)
+        abortListener[Symbol.dispose]()
+        if (settled) {
+          void transport.stop()
+          return
+        }
+        settled = true
+        resolve(transport)
+      })
+    })
+  }
+
+  /**
+   * Send one typed ACP request and wait for its response.
+   *
+   * @param request - ACP method, params, and deadline.
+   */
   request<Method extends acp.AgentRequestMethod>(request: {
     readonly method: Method
     readonly params: acp.AgentRequestParamsByMethod[Method]
     readonly timeoutMs: number
   }): Promise<acp.AgentRequestResponsesByMethod[Method]>
-  /** Send one extension ACP request and wait for its response. */
+  /**
+   * Send one extension ACP request and wait for its response.
+   *
+   * @param request - Method name, JSON params, and deadline.
+   */
   request<Response>(request: {
     readonly method: string
     readonly params: JsonValue
@@ -128,9 +153,7 @@ export class AcpClient {
     readonly params: AcpOutgoingParams
     readonly timeoutMs: number
   }): Promise<Response> {
-    if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
-      throw new AcpExitedError({ code: this.child.exitCode })
-    }
+    this.throwIfStopped()
 
     const cancellation = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -140,7 +163,7 @@ export class AcpClient {
         reject(new AcpTimeoutError({ timeoutMs: request.timeoutMs }))
       }, request.timeoutMs)
     })
-    const response = this.connection.agent
+    const response = this.stdio.agent
       .request<Response, AcpOutgoingParams>(request.method, request.params, {
         cancellationSignal: cancellation.signal,
       })
@@ -155,28 +178,32 @@ export class AcpClient {
     }
   }
 
-  /** Send one typed ACP notification without waiting for a response. */
+  /**
+   * Send one typed ACP notification without waiting for a response.
+   *
+   * @param notification - ACP notification method and params.
+   */
   async notify<Method extends acp.AgentNotificationMethod>(notification: {
     readonly method: Method
     readonly params: acp.AgentNotificationParamsByMethod[Method]
   }): Promise<void> {
-    if (this.closed || this.child.exitCode !== null || this.child.signalCode !== null) {
-      throw new AcpExitedError({ code: this.child.exitCode })
-    }
+    this.throwIfStopped()
     try {
-      await this.connection.agent.notify(notification.method, notification.params)
+      await this.stdio.agent.notify(notification.method, notification.params)
     } catch (cause) {
       throw new AcpTransportError({ cause })
     }
   }
 
-  /** Stop the ACP connection and its child process. */
+  /**
+   * Close JSON-RPC and stop the child (SIGTERM, then SIGKILL).
+   */
   async stop(): Promise<void> {
     this.abortListener?.[Symbol.dispose]()
     this.abortListener = undefined
-    if (this.closed) return
-    this.closed = true
-    this.connection.close()
+    if (this.stopped) return
+    this.stopped = true
+    this.stdio.close()
     if (this.child.exitCode !== null || this.child.signalCode !== null) return
 
     this.child.kill('SIGTERM')
@@ -184,6 +211,12 @@ export class AcpClient {
     if (exited) return
     this.child.kill('SIGKILL')
     await waitForExit(this.child, 2_000)
+  }
+
+  private throwIfStopped(): void {
+    if (this.stopped || this.child.exitCode !== null || this.child.signalCode !== null) {
+      throw new AcpExitedError({ code: this.child.exitCode })
+    }
   }
 
   private mapRequestError(cause: unknown): AcpRequestFailure {

@@ -18,9 +18,6 @@ export function createControlNotifications(send: SendFrame): ControlNotification
 /** Send application notifications through one conversation connection. */
 export function createConversationNotifications(send: SendFrame): ConversationNotifications {
   return {
-    sendState: (state) => {
-      void send(JSON.stringify(jsonRpcNotification('conversation.state', { state })))
-    },
     sendEvent: (event) => {
       void send(JSON.stringify(jsonRpcNotification('conversation.event', { event })))
     },

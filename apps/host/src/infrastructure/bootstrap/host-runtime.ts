@@ -1,6 +1,5 @@
 import { HostNotPairedError } from '@host/application/errors/pairing-errors.ts'
 import { HostRuntime } from '@host/application/host-runtime.ts'
-import { SessionSupervisor } from '@host/application/session-supervisor.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager.ts'
@@ -19,17 +18,15 @@ export async function createHostRuntime(
   if (credential === null) throw new HostNotPairedError()
 
   const codingAgent = new GrokCodingAgent(signal)
-  const sessions = new SessionSupervisor(codingAgent)
   const connections = new HostConnectionManager(
     {
       baseUrl: credential.baseUrl,
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
       codingAgent,
-      sessions,
       token: credential.token,
     },
     createPartySocketTransport,
   )
-  return new HostRuntime(signal, connections, sessions)
+  return new HostRuntime(signal, connections, codingAgent)
 }

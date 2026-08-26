@@ -1,11 +1,11 @@
-import type { SessionSupervisor } from '@host/application/session-supervisor.ts'
-import type { ConversationId, HostConversationMethodMap } from '@porte/core/client'
+import type { CodingAgent, StartTurn } from '@host/application/ports/coding-agent.ts'
+import type { ConversationId } from '@porte/core/client'
 
-/** Start one turn in an attached conversation. */
+/** Start one turn in an open conversation. */
 export function startTurn(
-  sessions: Pick<SessionSupervisor, 'getSession'>,
+  codingAgent: Pick<CodingAgent, 'startTurn'>,
   conversationId: ConversationId,
-  command: HostConversationMethodMap['turn.start']['params'],
+  command: StartTurn,
 ): Promise<void> {
-  return sessions.getSession(conversationId).startTurn({ conversationId, ...command })
+  return codingAgent.startTurn(conversationId, command)
 }
