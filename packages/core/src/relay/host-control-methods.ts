@@ -33,6 +33,7 @@ export const HostControlMethods = {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({
       cwd: z.string().min(1),
+      mcpServers: z.array(z.json()).optional(),
     }),
     result: ConversationSummarySchema,
   },

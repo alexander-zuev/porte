@@ -1,3 +1,5 @@
+import type { ListSessionsResponse } from '@agentclientprotocol/sdk'
+import type { Conversation } from '@host/domain/conversation/conversation.ts'
 import type {
   CanonicalContent,
   ConversationConfigurationValue,
@@ -5,10 +7,8 @@ import type {
   ConversationEvent,
   ConversationId,
   ConversationState,
-  ConversationSummary,
   ElicitationAnswer,
   ElicitationId,
-  ListConversationsResult,
   MessageId,
   PermissionId,
   TurnId,
@@ -47,14 +47,26 @@ export type AnswerElicitation = {
   readonly answer: ElicitationAnswer
 }
 
+/** Input to create one coding-agent session. `mcpServers` is ACP JSON. */
+export type CreateConversation = {
+  readonly cwd: string
+  readonly mcpServers?: readonly unknown[]
+}
+
+/** Facts from a newly created coding-agent session. */
+export type CreatedSession = {
+  readonly id: ConversationId
+}
+
 /**
  * One coding-agent process (Grok now; Claude/Gemini later).
  *
- * Application commands talk only to this port. They never see ACP or a child process.
+ * List returns the ACP session page. The list query maps it.
  */
 export interface CodingAgent {
-  listConversations(cursor?: ConversationCursor): Promise<ListConversationsResult>
-  createConversation(cwd: string): Promise<ConversationSummary>
+  listConversations(cursor?: ConversationCursor): Promise<ListSessionsResponse>
+  createSession(command: CreateConversation): Promise<CreatedSession>
+  hold(conversation: Conversation): void
   openConversation(conversationId: ConversationId): Promise<void>
   snapshot(conversationId: ConversationId): ConversationState
   onEvent(conversationId: ConversationId, listener: (event: ConversationEvent) => void): void

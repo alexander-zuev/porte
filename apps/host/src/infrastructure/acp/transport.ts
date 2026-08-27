@@ -18,6 +18,9 @@ import type { AcpSessionNotification, JsonValue } from './message.ts'
 type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
 type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
 
+/** Deadline for one ACP JSON-RPC request unless the caller passes `timeoutMs`. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+
 /**
  * Handles one inbound ACP request from the agent (permission, fs, terminal, elicitation).
  */
@@ -131,37 +134,38 @@ export class AcpTransport {
   /**
    * Send one typed ACP request and wait for its response.
    *
-   * @param request - ACP method, params, and deadline.
+   * @param request - ACP method and params. Pass `timeoutMs` to replace the 30s default.
    */
   request<Method extends acp.AgentRequestMethod>(request: {
     readonly method: Method
     readonly params: acp.AgentRequestParamsByMethod[Method]
-    readonly timeoutMs: number
+    readonly timeoutMs?: number
   }): Promise<acp.AgentRequestResponsesByMethod[Method]>
   /**
    * Send one extension ACP request and wait for its response.
    *
-   * @param request - Method name, JSON params, and deadline.
+   * @param request - Method name and JSON params. Pass `timeoutMs` to replace the 30s default.
    */
   request<Response>(request: {
     readonly method: string
     readonly params: JsonValue
-    readonly timeoutMs: number
+    readonly timeoutMs?: number
   }): Promise<Response>
   async request<Response>(request: {
     readonly method: string
     readonly params: AcpOutgoingParams
-    readonly timeoutMs: number
+    readonly timeoutMs?: number
   }): Promise<Response> {
     this.throwIfStopped()
 
+    const timeoutMs = request.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
     const cancellation = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         cancellation.abort()
-        reject(new AcpTimeoutError({ timeoutMs: request.timeoutMs }))
-      }, request.timeoutMs)
+        reject(new AcpTimeoutError({ timeoutMs }))
+      }, timeoutMs)
     })
     const response = this.stdio.agent
       .request<Response, AcpOutgoingParams>(request.method, request.params, {

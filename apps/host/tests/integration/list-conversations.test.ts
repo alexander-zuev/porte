@@ -1,3 +1,4 @@
+import { createConversation } from '@host/application/commands/create-conversation.command.ts'
 import { listConversations } from '@host/application/queries/list-conversations.query.ts'
 import { normaliseGitRoot } from '@host/infrastructure/grok/git-root.ts'
 import { GrokCodingAgent } from '@host/infrastructure/grok/grok-coding-agent.ts'
@@ -22,7 +23,7 @@ describe('listConversations', () => {
       async () => {
         await withGrokCodingAgent(async (agent) => {
           const cwd = await createGitWorkspace()
-          const created = await agent.createConversation(cwd)
+          const created = await createConversation(agent, { cwd })
           await agent.closeConversation(created.id)
 
           const listed = await findListed(agent, created.id)

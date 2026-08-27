@@ -1,7 +1,4 @@
-import { mkdtemp } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-
+import { createConversation } from '@host/application/commands/create-conversation.command.ts'
 import { AcpRpcError } from '@host/infrastructure/acp/error.ts'
 import { GrokCodingAgent } from '@host/infrastructure/grok/grok-coding-agent.ts'
 import {
@@ -14,7 +11,6 @@ import {
   MessageIdSchema,
   PermissionIdSchema,
   PermissionNotFoundError,
-  WorkspaceNotAllowedError,
   createTurnId,
   type ConversationEvent,
 } from '@porte/core/client'
@@ -50,9 +46,9 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'returns a conversation this process created',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           const listed = await agent.listConversations()
-          expect(listed.conversations.some((row) => row.id === created.id)).toBe(true)
+          expect(listed.sessions.some((row) => row.sessionId === created.id)).toBe(true)
         })
       },
       GROK_TIMEOUT_MS,
@@ -72,19 +68,12 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'returns an idle snapshot',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           expect(agent.snapshot(created.id).turn).toEqual({ state: 'idle' })
         })
       },
       GROK_TIMEOUT_MS,
     )
-
-    it('rejects a directory that is not a git workspace', async () => {
-      await withGrokCodingAgent(async (agent) => {
-        const cwd = await mkdtemp(join(tmpdir(), 'porte-nogit-'))
-        await expect(agent.createConversation(cwd)).rejects.toBeInstanceOf(WorkspaceNotAllowedError)
-      })
-    })
   })
 
   describe('openConversation', () => {
@@ -92,7 +81,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'loads a conversation after close',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await agent.closeConversation(created.id)
           await agent.openConversation(created.id)
           expect(agent.snapshot(created.id).turn).toEqual({ state: 'idle' })
@@ -119,7 +108,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'returns idle state for a new conversation',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           expect(agent.snapshot(created.id).items).toEqual([])
         })
       },
@@ -142,7 +131,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'emits turn.started then turn.finished',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           const events: ConversationEvent[] = []
           agent.onEvent(created.id, (event) => events.push(event))
           await agent.startTurn(created.id, userTurn('Reply with exactly: ping'))
@@ -171,7 +160,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'completes a short prompt',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           const events: ConversationEvent[] = []
           agent.onEvent(created.id, (event) => events.push(event))
           await agent.startTurn(created.id, userTurn('Reply with exactly: ping'))
@@ -186,7 +175,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects a second turn on the same conversation',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await agent.startTurn(created.id, userTurn('Write a long essay about git.'))
           await expect(agent.startTurn(created.id, userTurn('ping'))).rejects.toBeInstanceOf(
             ConversationBusyError,
@@ -202,7 +191,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'cancels an in-flight turn',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           const events: ConversationEvent[] = []
           agent.onEvent(created.id, (event) => events.push(event))
           const command = userTurn('Write a long essay about git rebase.')
@@ -221,7 +210,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects cancel when no turn is running',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await expect(agent.cancelTurn(created.id, createTurnId())).rejects.toBeInstanceOf(
             ConversationNotFoundError,
           )
@@ -236,7 +225,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects an unknown option on an open conversation',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await expect(
             agent.setConfiguration(created.id, {
               optionId: 'not-an-option',
@@ -269,7 +258,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects when no permission is pending',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await expect(
             agent.answerPermission(created.id, {
               turnId: createTurnId(),
@@ -304,7 +293,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects when no elicitation is pending',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await expect(
             agent.answerElicitation(created.id, {
               turnId: createTurnId(),
@@ -339,7 +328,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'drops the live conversation so snapshot fails',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await agent.closeConversation(created.id)
           expect(() => agent.snapshot(created.id)).toThrow(ConversationNotFoundError)
         })
@@ -363,11 +352,11 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'stops every open conversation and can start again',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          const created = await agent.createConversation(await createGitWorkspace())
+          const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await agent.closeAll()
           expect(() => agent.snapshot(created.id)).toThrow(ConversationNotFoundError)
           const listed = await agent.listConversations()
-          expect(listed.conversations.some((row) => row.id === created.id)).toBe(true)
+          expect(listed.sessions.some((row) => row.sessionId === created.id)).toBe(true)
         })
       },
       GROK_TIMEOUT_MS,

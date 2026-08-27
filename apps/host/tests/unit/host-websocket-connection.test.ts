@@ -159,8 +159,11 @@ function connectionTest() {
 
 function codingAgent(): CodingAgent {
   return {
-    listConversations: async () => ({ conversations: [] }),
-    createConversation: () => Promise.reject(new TypeError('unexpected create')),
+    listConversations: async () => ({ sessions: [] }),
+    createSession: () => Promise.reject(new TypeError('unexpected create')),
+    hold: () => {
+      throw new TypeError('unexpected hold')
+    },
     openConversation: vi.fn(emptyOperation),
     snapshot: () => ({
       turn: { state: 'idle' },
