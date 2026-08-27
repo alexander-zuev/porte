@@ -17,17 +17,6 @@ export class CodingAgentCapabilityError extends TaggedError('CodingAgentCapabili
   }
 }
 
-/** A coding agent rejected one valid Porte request. */
-export class CodingAgentRequestError extends TaggedError('CodingAgentRequestError')<{
-  cause: unknown
-  message: string
-  classification: FailureClassification
-}> {
-  constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'Coding agent rejected the request', classification: 'terminal' })
-  }
-}
-
 /** A coding agent returned data that Porte cannot use. */
 export class CodingAgentResponseError extends TaggedError('CodingAgentResponseError')<{
   cause: unknown

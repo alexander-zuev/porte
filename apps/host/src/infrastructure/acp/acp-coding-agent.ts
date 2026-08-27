@@ -33,8 +33,6 @@ import {
   ConversationIdSchema,
   ConversationNotFoundError,
   ElicitationIdSchema,
-  ElicitationNotFoundError,
-  PermissionNotFoundError,
   type CanonicalContent,
   type ConversationCursor,
   type ConversationEvent,

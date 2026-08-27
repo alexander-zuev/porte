@@ -135,15 +135,15 @@ Event flow (Cosmic Python in-memory loop): aggregate raises → `repo.save`/`ins
 
 ## 4. Status
 
-| #   | Commit                                                                                                                                    | State |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| 1   | `refactor: rename ACP transport to AcpAgentProcess`                                                                                       | ✓     |
-| 2   | `feat: add host message bus and handler registry`                                                                                         | ✓     |
-| 3   | `feat: add Conversation aggregate and repository`                                                                                         | ✓     |
-| 4   | `feat: add AcpUpdateMapper`                                                                                                               | ✓     |
-| 5   | `feat: add AcpCodingAgent and Grok launch`                                                                                                | ✓     |
-| —   | `test: add real porte ACP fixtures and replay checks`                                                                                     | ✓     |
-| 6   | `refactor: route host commands through the message bus`                                                                                   | ✓     |
-| 7   | `chore: remove dead host code` — `HostConfig.grokHome`, `grok-session.ts` folded into `grok-launch.ts`, `applyConversationEvents` wrapper | next  |
+| #   | Commit                                                  | State |
+| --- | ------------------------------------------------------- | ----- |
+| 1   | `refactor: rename ACP transport to AcpAgentProcess`     | ✓     |
+| 2   | `feat: add host message bus and handler registry`       | ✓     |
+| 3   | `feat: add Conversation aggregate and repository`       | ✓     |
+| 4   | `feat: add AcpUpdateMapper`                             | ✓     |
+| 5   | `feat: add AcpCodingAgent and Grok launch`              | ✓     |
+| —   | `test: add real porte ACP fixtures and replay checks`   | ✓     |
+| 6   | `refactor: route host commands through the message bus` | ✓     |
+| 7   | `chore: remove dead host code`                          | ✓     |
 
 Out of scope, tracked separately: idle eviction of open conversations, `creationId` idempotency on `conversation.create`, effort via `session/set_mode`, `session/resume` (no use until the host persists views).

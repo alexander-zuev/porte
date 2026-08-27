@@ -17,7 +17,6 @@ export class ConfigError extends TaggedError('ConfigError')<{
 
 /** Validated configuration for one Host process. */
 export type HostConfig = {
-  readonly grokHome: string
   readonly baseUrl: string
   readonly dataDirectory: string
 }
@@ -25,7 +24,6 @@ export type HostConfig = {
 const DEFAULT_BASE_URL = 'https://useporte.dev'
 
 const ConfigSchema = z.object({
-  grokHome: z.string().min(1, { error: 'GROK_HOME must not be empty' }),
   baseUrl: z.url({
     protocol: /^https?$/,
     error: 'PORTE_URL must be an http or https origin, such as https://useporte.dev',
@@ -36,7 +34,6 @@ const ConfigSchema = z.object({
 /** Read and validate the Host process configuration. */
 export function loadConfig(env: NodeJS.ProcessEnv): HostConfig {
   const parsed = ConfigSchema.safeParse({
-    grokHome: env.GROK_HOME ?? join(homedir(), '.grok'),
     baseUrl: env.PORTE_URL ?? DEFAULT_BASE_URL,
     dataDirectory: env.PORTE_DATA_DIRECTORY ?? join(homedir(), '.porte'),
   })

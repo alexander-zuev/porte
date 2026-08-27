@@ -7,8 +7,12 @@ import {
   type AuthMethod,
   type LoadSessionResponse,
   type PromptResponse,
+  type SessionInfo,
 } from '@agentclientprotocol/sdk'
-import { CodingAgentCapabilityError } from '@host/application/errors/coding-agent-errors.ts'
+import {
+  CodingAgentCapabilityError,
+  CodingAgentResponseError,
+} from '@host/application/errors/coding-agent-errors.ts'
 import type { SessionFacts } from '@host/application/ports/coding-agent.ts'
 import {
   AcpAgentProcess,
@@ -16,9 +20,44 @@ import {
 } from '@host/infrastructure/acp/acp-agent-process.ts'
 import type { AcpSessionModels } from '@host/infrastructure/acp/acp-content.ts'
 import { AcpProtocolVersionMismatchError } from '@host/infrastructure/acp/error.ts'
-import { toSessionFacts } from '@host/infrastructure/grok/grok-session.ts'
-import { CodingAgentUnavailableError, type ConversationUsage } from '@porte/core/client'
+import { normaliseGitRoot } from '@host/infrastructure/grok/git-root.ts'
+import {
+  CodingAgentUnavailableError,
+  ConversationIdSchema,
+  IsoDateTimeSchema,
+  type ConversationUsage,
+} from '@porte/core/client'
 import { z } from 'zod'
+
+/** Grok lists sessions with the repository under `_meta['x.ai/session'].facets.gitRoot`. */
+const grokSessionSchema = z.object({
+  sessionId: ConversationIdSchema,
+  cwd: z.string().min(1),
+  title: z.string().optional(),
+  updatedAt: IsoDateTimeSchema,
+  _meta: z
+    .object({
+      'x.ai/session': z
+        .object({ facets: z.object({ gitRoot: z.string().min(1).optional() }) })
+        .optional(),
+    })
+    .optional(),
+})
+
+/** Parse one Grok `session/list` row into session facts; rows with no git root are skipped. */
+export function toSessionFacts(session: SessionInfo): SessionFacts | undefined {
+  const parsed = grokSessionSchema.safeParse(session)
+  if (!parsed.success) throw new CodingAgentResponseError({ cause: parsed.error })
+  const gitRoot = parsed.data._meta?.['x.ai/session']?.facets.gitRoot
+  if (gitRoot === undefined) return undefined
+  return {
+    id: parsed.data.sessionId,
+    cwd: parsed.data.cwd,
+    gitRoot: normaliseGitRoot(gitRoot),
+    title: parsed.data.title ?? '',
+    updatedAt: parsed.data.updatedAt,
+  }
+}
 
 const GROK_CACHED_TOKEN_AUTH_METHOD_ID = 'cached_token'
 
@@ -42,7 +81,7 @@ export type ReadyAgent = {
   readonly process: AcpAgentProcess
   readonly capabilities: AgentCapabilities
   /** `session/list` row → facts, or undefined when the row is not a git conversation. */
-  readonly sessionFacts: (row: Parameters<typeof toSessionFacts>[0]) => SessionFacts | undefined
+  readonly sessionFacts: (row: SessionInfo) => SessionFacts | undefined
   /** Title of a loaded session, or empty when the agent reports none. */
   readonly sessionTitle: (response: LoadSessionResponse) => string
   /** Context window of the current model, when the agent reports one. */

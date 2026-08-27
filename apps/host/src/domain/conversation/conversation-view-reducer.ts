@@ -1,5 +1,4 @@
 import {
-  ConversationViewSchema,
   type ConversationEvent,
   type ConversationItem,
   type ConversationView,
@@ -20,21 +19,6 @@ export class ConversationViewError extends TaggedError('ConversationViewError')<
 /** The view of a conversation before any event. */
 export function emptyConversationView(): ConversationView {
   return { items: [], tools: [], plans: [], pending: { permissions: [], elicitations: [] } }
-}
-
-/** Apply canonical events and return a validated conversation view. */
-export function applyConversationEvents(
-  current: ConversationView,
-  events: readonly ConversationEvent[],
-): ConversationView {
-  const view = ConversationViewSchema.parse(current)
-  for (const event of events) applyConversationEvent(view, event)
-
-  const parsed = ConversationViewSchema.safeParse(view)
-  if (!parsed.success) {
-    throw new ConversationViewError({ message: 'The conversation view is invalid' })
-  }
-  return parsed.data
 }
 
 /**

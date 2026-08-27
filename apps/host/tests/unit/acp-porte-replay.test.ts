@@ -5,7 +5,7 @@ import { Conversation } from '@host/domain/conversation/conversation.ts'
 import { parseSessionModels } from '@host/infrastructure/acp/acp-content.ts'
 import { AcpUpdateMapper } from '@host/infrastructure/acp/acp-update-mapper.ts'
 import type { AcpSessionNotification } from '@host/infrastructure/acp/message.ts'
-import { toSessionFacts } from '@host/infrastructure/grok/grok-session.ts'
+import { toSessionFacts } from '@host/infrastructure/grok/grok-launch.ts'
 import { ConversationIdSchema, IsoDateTimeSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
