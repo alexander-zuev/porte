@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
-import type { PendingElicitation } from '@porte/core/client'
+import { ToolCallIdSchema, type PendingElicitation } from '@porte/core/client'
 import { z } from 'zod'
 
 import { AcpClientRequestError } from './error.ts'
@@ -16,7 +16,7 @@ const permissionOptionSchema = z.object({
 const permissionParamsSchema = z.object({
   sessionId: z.string().min(1),
   toolCall: z.object({
-    toolCallId: z.string().min(1),
+    toolCallId: ToolCallIdSchema,
     title: z.string().nullable().optional(),
   }),
   options: z.array(permissionOptionSchema),

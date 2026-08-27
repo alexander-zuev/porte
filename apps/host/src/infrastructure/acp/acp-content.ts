@@ -1,4 +1,9 @@
 /* oxlint-disable no-underscore-dangle -- ACP requires the exact `_meta` boundary name. */
+import type {
+  ContentBlock,
+  LoadSessionResponse,
+  NewSessionResponse,
+} from '@agentclientprotocol/sdk'
 import type { AcpSessionUpdate } from '@host/infrastructure/acp/message.ts'
 import type {
   CanonicalContent,
@@ -9,6 +14,83 @@ import type {
   ToolLocation,
 } from '@porte/core/client'
 import { z } from 'zod'
+
+/**
+ * ACP `models` on a session response (spec 1, `session/new|load|resume`). The SDK
+ * types predate it, so it is parsed off the raw response here.
+ */
+const sessionModelsSchema = z.object({
+  currentModelId: z.string().min(1),
+  availableModels: z.array(
+    z.object({
+      modelId: z.string().min(1),
+      name: z.string().min(1),
+      description: z.string().nullish(),
+      _meta: z.record(z.string(), z.unknown()).nullish(),
+    }),
+  ),
+})
+
+export type AcpSessionModels = z.infer<typeof sessionModelsSchema>
+
+/** `models` from a session response, or undefined when the agent sent none. */
+export function parseSessionModels(
+  response: NewSessionResponse | LoadSessionResponse,
+): AcpSessionModels | undefined {
+  const parsed = z.object({ models: sessionModelsSchema.optional() }).safeParse(response)
+  return parsed.success ? parsed.data.models : undefined
+}
+
+/** The configuration option id the host uses for the model (`conversation.configuration.set`). */
+export const MODEL_OPTION_ID = 'model'
+
+/** Present the agent's model list as the one `select` option the relay contract knows. */
+export function modelsToConfiguration(
+  models: AcpSessionModels,
+  currentModelId: string = models.currentModelId,
+): ConversationConfigurationOption {
+  return {
+    type: 'select',
+    id: MODEL_OPTION_ID,
+    name: 'Model',
+    category: 'model',
+    currentValue: currentModelId,
+    options: models.availableModels.map((model) => {
+      const option: Extract<
+        ConversationConfigurationOption,
+        { type: 'select' }
+      >['options'][number] = { type: 'option', value: model.modelId, name: model.name }
+      if (model.description !== undefined && model.description !== null) {
+        option.description = model.description
+      }
+      return option
+    }),
+  }
+}
+
+/** Canonical prompt content → ACP content block. Inverse of `mapCanonicalContent` for prompts. */
+export function toAcpContent(content: CanonicalContent): ContentBlock {
+  if (content.type === 'resource-link') {
+    const link: Extract<ContentBlock, { type: 'resource_link' }> = {
+      type: 'resource_link',
+      uri: content.uri,
+      name: content.name,
+    }
+    if (content.title !== undefined) link.title = content.title
+    if (content.description !== undefined) link.description = content.description
+    if (content.mimeType !== undefined) link.mimeType = content.mimeType
+    if (content.size !== undefined) link.size = content.size
+    return link
+  }
+  if (content.type !== 'resource') return content
+  const resource = content.resource
+  const embedded: Extract<ContentBlock, { type: 'resource' }>['resource'] =
+    resource.content.type === 'text'
+      ? { uri: resource.uri, text: resource.content.text }
+      : { uri: resource.uri, blob: resource.content.data }
+  if (resource.mimeType !== undefined) embedded.mimeType = resource.mimeType
+  return { type: 'resource', resource: embedded }
+}
 
 /**
  * Value conversions from ACP update payloads to the `@porte/core` contract.

@@ -92,6 +92,11 @@ export class AcpUpdateMapper {
 
   constructor(private readonly conversationId: ConversationId) {}
 
+  /** The relay turn in flight, if any. Replay turns are not live. */
+  get liveTurnId(): TurnId | undefined {
+    return this.turn?.live === true ? this.turn.turnId : undefined
+  }
+
   /** A relay turn starts; its user message is raised by the aggregate, not mapped. */
   beginTurn(turnId: TurnId): void {
     if (this.turn?.live === true) {
