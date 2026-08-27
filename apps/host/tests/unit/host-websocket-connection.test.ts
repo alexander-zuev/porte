@@ -1,7 +1,6 @@
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
-import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager'
+import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager.ts'
 import type {
   PartySocketTransportInput,
   RelaySocket,
@@ -9,7 +8,6 @@ import type {
 } from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
   ConversationIdSchema,
-  IsoDateTimeSchema,
   HOST_CONTROL_SUBPROTOCOL,
   JsonRpcDocumentSchema,
   createRequestId,
@@ -19,7 +17,10 @@ import {
 } from '@porte/core/client'
 import { describe, expect, it, vi } from 'vitest'
 
-const emptyOperation = async () => undefined
+import { createTestDeps } from '../support/test-deps.ts'
+
+const conversationId = ConversationIdSchema.parse('conversation-1')
+const attach = { conversationId, cwd: process.cwd() }
 
 class MockTransport implements RelaySocket {
   private readonly stoppedState = Promise.withResolvers<void>()
@@ -57,87 +58,86 @@ class MockTransport implements RelaySocket {
 describe('Host WebSocket connections', () => {
   it('does not process messages after closure', async () => {
     const test = connectionTest()
-    await test.manager.closeAll()
-    await test.control.receive(
-      request('conversation.attach', {
-        conversationId: ConversationIdSchema.parse('conversation-1'),
-      }),
-    )
+    test.manager.closeAll()
+    await test.control.receive(request('conversation.attach', attach))
     expect(test.conversations).toHaveLength(0)
   })
 
-  it('answers one validated control query', async () => {
+  it('answers one validated control query through the bus', async () => {
     const test = connectionTest()
     await test.control.connect()
     await test.control.receive(request('conversations.list', {}))
     expect(jsonFrames(test.control).at(-1)?.result).toEqual({ conversations: [] })
-    await test.manager.closeAll()
+    test.manager.closeAll()
   })
 
-  it('opens one conversation transport after attach', async () => {
+  it('attach opens a socket, its first open loads the session, get answers the snapshot', async () => {
     const test = connectionTest()
-    const conversationId = ConversationIdSchema.parse('conversation-1')
     await test.control.connect()
-    void test.control.receive(request('conversation.attach', { conversationId }))
-    await vi.waitFor(() => {
-      expect(test.conversations).toHaveLength(1)
-    })
+    await test.control.receive(request('conversation.attach', attach))
+    expect(test.conversations).toHaveLength(1)
     await test.conversations[0]?.connect()
-    await vi.waitFor(() => {
-      expect(jsonFrames(test.control).at(-1)?.result).toBe(null)
-    })
-    expect(jsonFrames(test.conversations[0])).toEqual([])
+    expect(test.deps.codingAgent.sessions.get(conversationId)).toBe(attach.cwd)
     await test.conversations[0]?.receive(request('conversation.get', {}))
-    expect(jsonFrames(test.conversations[0]).at(-1)?.result).toEqual({
+    expect(jsonFrames(test.conversations[0]).at(-1)?.result).toMatchObject({
       turn: { state: 'idle' },
       items: [],
-      tools: [],
-      plans: [],
-      pending: { permissions: [], elicitations: [] },
     })
-    await test.manager.closeAll()
+    test.manager.closeAll()
   })
 
-  it('reattaches the same session after reconnect', async () => {
+  it('a reconnect does not load the session again', async () => {
     const test = connectionTest()
-    const conversationId = ConversationIdSchema.parse('conversation-1')
     await test.control.connect()
-    void test.control.receive(request('conversation.attach', { conversationId }))
-    await vi.waitFor(() => {
-      expect(test.conversations).toHaveLength(1)
-    })
+    await test.control.receive(request('conversation.attach', attach))
+    const load = vi.spyOn(test.deps.codingAgent, 'loadSession')
     await test.conversations[0]?.connect()
     await test.conversations[0]?.connect()
-    expect(test.codingAgent.loadSession).toHaveBeenCalledTimes(2)
-    await test.manager.closeAll()
+    expect(load).toHaveBeenCalledTimes(1)
+    test.manager.closeAll()
   })
 
-  it('removes a stopped conversation connection', async () => {
+  it('sends conversation events on the conversation socket once it is up', async () => {
     const test = connectionTest()
-    const conversationId = ConversationIdSchema.parse('conversation-1')
     await test.control.connect()
-    const attached = test.control.receive(request('conversation.attach', { conversationId }))
-    await vi.waitFor(() => {
-      expect(test.conversations).toHaveLength(1)
-    })
+    await test.control.receive(request('conversation.attach', attach))
     await test.conversations[0]?.connect()
-    await attached
+    await test.conversations[0]?.receive(
+      request('turn.start', {
+        turnId: 'turn-1',
+        userMessage: { id: 'turn-1:user', content: [{ type: 'text', text: 'hi' }] },
+      }),
+    )
+    const methods = jsonFrames(test.conversations[0]).map((frame) =>
+      'method' in frame ? frame.method : 'response',
+    )
+    expect(methods).toEqual([
+      'conversation.event',
+      'conversation.event',
+      'conversation.event',
+      'conversation.event',
+      'response',
+    ])
+    test.manager.closeAll()
+  })
+
+  it('removes a stopped conversation connection so attach opens a new one', async () => {
+    const test = connectionTest()
+    await test.control.connect()
+    await test.control.receive(request('conversation.attach', attach))
+    await test.conversations[0]?.connect()
     test.conversations[0]?.stop()
     await Promise.resolve()
-    const reattached = test.control.receive(request('conversation.attach', { conversationId }))
-    await vi.waitFor(() => {
-      expect(test.conversations).toHaveLength(2)
-    })
-    await test.conversations[1]?.connect()
-    await reattached
-    await test.manager.closeAll()
+    await test.control.receive(request('conversation.attach', attach))
+    expect(test.conversations).toHaveLength(2)
+    test.manager.closeAll()
   })
 })
 
 function connectionTest() {
   const control = new MockTransport()
   const conversations: MockTransport[] = []
-  const agent = codingAgent()
+  const deps = createTestDeps(() => manager)
   const createTransport = (input: PartySocketTransportInput): RelaySocket => {
     if (input.subprotocol === HOST_CONTROL_SUBPROTOCOL) return control
     const transport = new MockTransport()
@@ -147,48 +147,15 @@ function connectionTest() {
   const manager = new HostConnectionManager(
     {
       baseUrl: 'https://relay.example.com',
+      token: 'secret',
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
-      codingAgent: agent,
-      token: 'secret',
+      bus: deps.bus,
     },
     createTransport,
   )
   manager.connectControl()
-  return { control, conversations, manager, codingAgent: agent }
-}
-
-function codingAgent(): CodingAgent {
-  return {
-    listConversations: async () => ({ sessions: [] }),
-    createSession: () => Promise.reject(new TypeError('unexpected create')),
-    hold: () => undefined,
-    drop: () => undefined,
-    has: () => false,
-    findSession: async (id) => ({
-      id,
-      cwd: '/tmp',
-      gitRoot: '/tmp',
-      title: '',
-      updatedAt: IsoDateTimeSchema.parse('2026-01-01T00:00:00.000Z'),
-    }),
-    loadSession: vi.fn(emptyOperation),
-    snapshot: () => ({
-      turn: { state: 'idle' },
-      items: [],
-      tools: [],
-      plans: [],
-      pending: { permissions: [], elicitations: [] },
-    }),
-    onEvent: () => undefined,
-    startTurn: emptyOperation,
-    cancelTurn: emptyOperation,
-    setConfiguration: emptyOperation,
-    answerPermission: emptyOperation,
-    answerElicitation: emptyOperation,
-    closeConversation: emptyOperation,
-    closeAll: emptyOperation,
-  }
+  return { control, conversations, manager, deps }
 }
 
 function request(method: string, params: JsonRpcParams): string {

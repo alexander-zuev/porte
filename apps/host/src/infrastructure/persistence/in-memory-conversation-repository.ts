@@ -30,8 +30,9 @@ export class InMemoryConversationRepository implements ConversationRepository {
     this.publish(conversation)
   }
 
-  delete(id: ConversationId): void {
-    this.rows.delete(id)
+  delete(conversation: Conversation): void {
+    this.rows.delete(conversation.id)
+    this.publish(conversation)
   }
 
   all(): readonly Conversation[] {

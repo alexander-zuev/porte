@@ -217,6 +217,13 @@ export class Conversation extends Entity<ConversationData> {
     this.raise({ type: 'turn.finished', turnId, outcome })
   }
 
+  /** Leave this process: pending interactions resolve as cancelled, the socket can go. */
+  close(): void {
+    const turn = this.data.state.turn
+    if (turn.state === 'running') this.cancelPending(turn.turnId)
+    this.addEvent(createEvent('ConversationClosed', { conversationId: this.data.id }))
+  }
+
   applyMetadata(update: ConversationMetadataPatch): void {
     this.data = {
       ...this.data,

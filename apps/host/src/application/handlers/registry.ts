@@ -1,4 +1,22 @@
-import { notImplemented } from './not-implemented.ts'
+import { answerElicitation } from './answer-elicitation.ts'
+import { answerPermission } from './answer-permission.ts'
+import { applyAgentUpdate } from './apply-agent-update.ts'
+import { cancelTurn } from './cancel-turn.ts'
+import { closeAllConversations } from './close-all-conversations.ts'
+import { closeConversation } from './close-conversation.ts'
+import { completeElicitation } from './complete-elicitation.ts'
+import { createConversation } from './create-conversation.ts'
+import { dropConversationSocket } from './drop-conversation-socket.ts'
+import { finishTurn } from './finish-turn.ts'
+import { getConversation } from './get-conversation.ts'
+import { listConversations } from './list-conversations.ts'
+import { openConversation } from './open-conversation.ts'
+import { publishConversationEvent } from './publish-conversation-event.ts'
+import { releaseParkedRequest } from './release-parked-request.ts'
+import { requestElicitation } from './request-elicitation.ts'
+import { requestPermission } from './request-permission.ts'
+import { setModel } from './set-model.ts'
+import { startTurn } from './start-turn.ts'
 import type { CommandRegistry, EventRegistry, MessageRegistry, QueryRegistry } from './types.ts'
 
 // Command handlers registry - one handler per command
@@ -6,42 +24,41 @@ import type { CommandRegistry, EventRegistry, MessageRegistry, QueryRegistry } f
 // handler's command type matches its slot, so the bus can index it with no boundary cast.
 export const COMMAND_HANDLERS = {
   // Conversation lifecycle
-  CreateConversation: notImplemented('CreateConversation'),
-  OpenConversation: notImplemented('OpenConversation'),
-  CloseConversation: notImplemented('CloseConversation'),
-  CloseAllConversations: notImplemented('CloseAllConversations'),
+  CreateConversation: createConversation,
+  OpenConversation: openConversation,
+  CloseConversation: closeConversation,
+  CloseAllConversations: closeAllConversations,
 
   // Turn
-  StartTurn: notImplemented('StartTurn'),
-  FinishTurn: notImplemented('FinishTurn'),
-  CancelTurn: notImplemented('CancelTurn'),
-  ApplyAgentUpdate: notImplemented('ApplyAgentUpdate'),
+  StartTurn: startTurn,
+  FinishTurn: finishTurn,
+  CancelTurn: cancelTurn,
+  ApplyAgentUpdate: applyAgentUpdate,
 
   // Permission
-  RequestPermission: notImplemented('RequestPermission'),
-  AnswerPermission: notImplemented('AnswerPermission'),
+  RequestPermission: requestPermission,
+  AnswerPermission: answerPermission,
 
   // Elicitation
-  RequestElicitation: notImplemented('RequestElicitation'),
-  AnswerElicitation: notImplemented('AnswerElicitation'),
-  CompleteElicitation: notImplemented('CompleteElicitation'),
+  RequestElicitation: requestElicitation,
+  AnswerElicitation: answerElicitation,
+  CompleteElicitation: completeElicitation,
 
   // Configuration
-  SetModel: notImplemented('SetModel'),
+  SetModel: setModel,
 } satisfies CommandRegistry
 
-// Event handlers registry - zero or more handlers per event
+// Event handlers registry - zero or more handlers per event. All effects: the
+// aggregate is already saved when these run.
 export const EVENT_HANDLERS = {
-  // state: fold into the view store; effect: relay frames. State first, it is synchronous.
-  ConversationEventRaised: [],
-  // effect: drop the conversation socket
-  ConversationClosed: [],
+  ConversationEventRaised: [publishConversationEvent, releaseParkedRequest],
+  ConversationClosed: [dropConversationSocket],
 } satisfies EventRegistry
 
 // Query handlers registry - one handler per query
 export const QUERY_HANDLERS = {
-  ListConversations: notImplemented('ListConversations'),
-  GetConversation: notImplemented('GetConversation'),
+  ListConversations: listConversations,
+  GetConversation: getConversation,
 } satisfies QueryRegistry
 
 export const DEFAULT_REGISTRY: MessageRegistry = {

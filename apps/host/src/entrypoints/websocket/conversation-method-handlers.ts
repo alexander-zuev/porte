@@ -1,18 +1,17 @@
-import { answerElicitation } from '@host/application/commands/answer-elicitation.command.ts'
-import { answerPermission } from '@host/application/commands/answer-permission.command.ts'
-import { cancelTurn } from '@host/application/commands/cancel-turn.command.ts'
-import { closeConversation } from '@host/application/commands/close-conversation.command.ts'
-import { setConversationConfiguration } from '@host/application/commands/set-conversation-configuration.command.ts'
-import { startTurn } from '@host/application/commands/start-turn.command.ts'
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
-import { getConversation } from '@host/application/queries/get-conversation.query.ts'
+import type { IMessageBus } from '@host/application/message-bus.ts'
+import { MODEL_OPTION_ID } from '@host/application/ports/coding-agent.ts'
+import { createCommand, createQuery } from '@host/domain/messages/types.ts'
 import { type JsonRpcMethodHandlers } from '@host/entrypoints/websocket/json-rpc-handler.ts'
-import { HostConversationMethods, type ConversationId } from '@porte/core/client'
+import {
+  ConfigurationNotFoundError,
+  HostConversationMethods,
+  type ConversationId,
+} from '@porte/core/client'
 
 /** Resources available to conversation method handlers. */
 export type ConversationMethodContext = {
   readonly conversationId: ConversationId
-  readonly codingAgent: CodingAgent
+  readonly bus: IMessageBus
 }
 
 /** One exhaustive handler for each inbound conversation request. */
@@ -21,39 +20,42 @@ export type ConversationMethodHandlerRegistry = JsonRpcMethodHandlers<
   ConversationMethodContext
 >
 
-/** Application handlers for every inbound conversation request. */
+/** Parse → one bus message → answer. No logic lives here. */
 export const CONVERSATION_METHOD_HANDLERS = {
-  'conversation.close': async (_params, context) => {
-    await closeConversation(context.codingAgent, context.conversationId)
+  'conversation.close': async (_params, { bus, conversationId }) => {
+    await bus.handle(createCommand('CloseConversation', { conversationId }))
     return null
   },
 
-  'conversation.get': async (_params, context) => {
-    return getConversation(context.codingAgent, context.conversationId)
-  },
+  'conversation.get': (_params, { bus, conversationId }) =>
+    bus.handle(createQuery('GetConversation', { conversationId })),
 
-  'turn.start': async (params, context) => {
-    await startTurn(context.codingAgent, context.conversationId, params)
+  'turn.start': async (params, { bus, conversationId }) => {
+    await bus.handle(createCommand('StartTurn', { conversationId, ...params }))
     return null
   },
 
-  'turn.cancel': async (params, context) => {
-    await cancelTurn(context.codingAgent, context.conversationId, params.turnId)
+  'turn.cancel': async (params, { bus, conversationId }) => {
+    await bus.handle(createCommand('CancelTurn', { conversationId, turnId: params.turnId }))
     return null
   },
 
-  'conversation.configuration.set': async (params, context) => {
-    await setConversationConfiguration(context.codingAgent, context.conversationId, params)
+  // The agent exposes no other option (§1: no `configOptions`); the model is the one select.
+  'conversation.configuration.set': async (params, { bus, conversationId }) => {
+    if (params.optionId !== MODEL_OPTION_ID || params.value.type !== 'select') {
+      throw new ConfigurationNotFoundError()
+    }
+    await bus.handle(createCommand('SetModel', { conversationId, modelId: params.value.value }))
     return null
   },
 
-  'permission.answer': async (params, context) => {
-    await answerPermission(context.codingAgent, context.conversationId, params)
+  'permission.answer': async (params, { bus, conversationId }) => {
+    await bus.handle(createCommand('AnswerPermission', { conversationId, ...params }))
     return null
   },
 
-  'elicitation.answer': async (params, context) => {
-    await answerElicitation(context.codingAgent, context.conversationId, params)
+  'elicitation.answer': async (params, { bus, conversationId }) => {
+    await bus.handle(createCommand('AnswerElicitation', { conversationId, ...params }))
     return null
   },
 } satisfies ConversationMethodHandlerRegistry

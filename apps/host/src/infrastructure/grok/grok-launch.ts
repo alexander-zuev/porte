@@ -9,7 +9,7 @@ import {
   type PromptResponse,
 } from '@agentclientprotocol/sdk'
 import { CodingAgentCapabilityError } from '@host/application/errors/coding-agent-errors.ts'
-import type { SessionFacts } from '@host/application/ports/coding-agent-port.ts'
+import type { SessionFacts } from '@host/application/ports/coding-agent.ts'
 import {
   AcpAgentProcess,
   type StartAcpAgentProcess,

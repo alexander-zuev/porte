@@ -1,34 +1,31 @@
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
-import type { HostConnections } from '@host/application/ports/host-connections.ts'
+import { createCommand } from '@host/domain/messages/types.ts'
+import type { AppDeps } from '@host/infrastructure/app-deps.ts'
 
 /** Owns the active resources for one Host process. */
 export class HostRuntime {
   constructor(
     private readonly signal: AbortSignal,
-    private readonly connections: Pick<
-      HostConnections,
-      'connectControl' | 'controlStopped' | 'closeAll'
-    >,
-    private readonly codingAgent: Pick<CodingAgent, 'closeAll'>,
+    private readonly deps: Pick<AppDeps, 'connections' | 'bus' | 'background'>,
   ) {}
 
   /** Open the control connection and wait for shutdown. */
   async run(): Promise<void> {
     if (this.signal.aborted) return
     try {
-      this.connections.connectControl()
-      await waitForStop(this.signal, this.connections.controlStopped)
+      this.deps.connections.connectControl()
+      await waitForStop(this.signal, this.deps.connections.controlStopped)
     } finally {
       await this.shutdown()
     }
   }
 
-  /** Close ACP sessions before the control connection. */
+  /** Close conversations and the agent, let in-flight turns settle, then drop the sockets. */
   async shutdown(): Promise<void> {
     try {
-      await this.codingAgent.closeAll()
+      await this.deps.bus.handle(createCommand('CloseAllConversations', {}))
+      await this.deps.background.drain()
     } finally {
-      await this.connections.closeAll()
+      this.deps.connections.closeAll()
     }
   }
 }

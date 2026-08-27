@@ -9,7 +9,7 @@ import type {
   PermissionOutcome,
   PromptResult,
   SessionPage,
-} from '@host/application/ports/coding-agent-port.ts'
+} from '@host/application/ports/coding-agent.ts'
 import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import { elicitationId, permissionId } from '@host/domain/conversation/message-identity.ts'
 import type { AcpRequestHandler } from '@host/infrastructure/acp/acp-agent-process.ts'
@@ -201,7 +201,7 @@ export class AcpCodingAgent implements CodingAgent {
 
   resolvePermission(id: PermissionId, outcome: PermissionOutcome): void {
     const parked = this.parkedPermissions.get(id)
-    if (parked === undefined) throw new PermissionNotFoundError()
+    if (parked === undefined) return
     this.parkedPermissions.delete(id)
     parked.resolve(
       outcome.type === 'selected'
@@ -212,7 +212,7 @@ export class AcpCodingAgent implements CodingAgent {
 
   resolveElicitation(id: ElicitationId, answer: ElicitationAnswer): void {
     const parked = this.parkedElicitations.get(id)
-    if (parked === undefined) throw new ElicitationNotFoundError()
+    if (parked === undefined) return
     this.parkedElicitations.delete(id)
     // A URL elicitation the user accepted finishes later with `elicitation/complete`.
     if (answer.type !== 'accept') this.elicitationOwners.delete(id)

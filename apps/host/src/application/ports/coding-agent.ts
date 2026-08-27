@@ -1,65 +1,27 @@
-import type { ListSessionsResponse } from '@agentclientprotocol/sdk'
-import type { Conversation } from '@host/domain/conversation/conversation.ts'
+import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import type {
   CanonicalContent,
-  ConversationConfigurationValue,
   ConversationCursor,
   ConversationEvent,
   ConversationId,
-  ConversationState,
-  IsoDateTime,
+  ConversationUsage,
   ElicitationAnswer,
   ElicitationId,
-  MessageId,
+  HostControlMethodMap,
+  IsoDateTime,
+  PendingElicitation,
+  PendingPermission,
   PermissionId,
   TurnId,
 } from '@porte/core/client'
 
-/** Optional provider capabilities that every Porte coding agent must support. */
-export const REQUIRED_CODING_AGENT_CAPABILITIES = [
-  'conversation.list',
-  'conversation.open',
-] as const
-
-export type RequiredCodingAgentCapability = (typeof REQUIRED_CODING_AGENT_CAPABILITIES)[number]
-
-export type StartTurn = {
-  readonly turnId: TurnId
-  readonly userMessage: {
-    readonly id: MessageId
-    readonly content: readonly CanonicalContent[]
-  }
-}
-
-export type SetConfiguration = {
-  readonly optionId: string
-  readonly value: ConversationConfigurationValue
-}
-
-export type AnswerPermission = {
-  readonly turnId: TurnId
-  readonly permissionId: PermissionId
-  readonly optionId: string
-}
-
-export type AnswerElicitation = {
-  readonly turnId: TurnId
-  readonly elicitationId: ElicitationId
-  readonly answer: ElicitationAnswer
-}
-
-/** Input to create one coding-agent session. `mcpServers` is ACP JSON. */
-export type CreateConversation = {
-  readonly cwd: string
-  readonly mcpServers?: readonly unknown[]
-}
-
-/** Facts from a newly created coding-agent session. */
-export type CreatedSession = {
-  readonly id: ConversationId
-}
-
-/** List facts for one coding-agent session this process can open. */
+/**
+ * Port for the coding agent process (Grok now).
+ *
+ * Every method maps to one agent request. Mutations return the canonical events
+ * they cause; what the agent pushes on its own reaches the application through
+ * `AgentListener`. Conversation state lives in the `Conversation` aggregate, not here.
+ */
 export type SessionFacts = {
   readonly id: ConversationId
   readonly cwd: string
@@ -68,26 +30,70 @@ export type SessionFacts = {
   readonly updatedAt: IsoDateTime
 }
 
-/**
- * One coding-agent process (Grok now; Claude/Gemini later).
- *
- * List returns the ACP session page. The list query maps it.
- */
+export type SessionPage = {
+  readonly sessions: readonly SessionFacts[]
+  readonly next?: ConversationCursor
+}
+
+export type CreateSession = HostControlMethodMap['conversation.create']['params']
+
+/** A session the agent created plus the events that describe its initial controls. */
+export type CreatedSession = {
+  readonly id: ConversationId
+  readonly events: readonly ConversationEvent[]
+}
+
+/** A loaded session: its title as the agent lists it, and its history as events. */
+export type LoadedSession = {
+  readonly title: string
+  readonly events: readonly ConversationEvent[]
+}
+
+export type PromptResult = {
+  readonly outcome: TurnOutcome
+  readonly usage?: ConversationUsage
+}
+
+export type PermissionRequest = Omit<PendingPermission, 'turnId'>
+export type ElicitationRequest = Omit<PendingElicitation, 'turnId'>
+export type PermissionOutcome = Extract<
+  ConversationEvent,
+  { type: 'permission.resolved' }
+>['outcome']
+
+/** The one configuration option the host exposes; `conversation.configuration.set` targets it. */
+export const MODEL_OPTION_ID = 'model'
+
+/** What the agent pushes while a session is open. The application wires it to the bus. */
+export interface AgentListener {
+  onEvents(conversationId: ConversationId, events: readonly ConversationEvent[]): void
+  /** The agent waits on `resolvePermission` for this id. */
+  onPermissionRequest(conversationId: ConversationId, request: PermissionRequest): void
+  /** The agent waits on `resolveElicitation` for this id. */
+  onElicitationRequest(conversationId: ConversationId, request: ElicitationRequest): void
+  onElicitationComplete(conversationId: ConversationId, elicitationId: ElicitationId): void
+}
+
 export interface CodingAgent {
-  listConversations(cursor?: ConversationCursor): Promise<ListSessionsResponse>
-  createSession(command: CreateConversation): Promise<CreatedSession>
-  hold(conversation: Conversation): void
-  drop(conversationId: ConversationId): void
-  has(conversationId: ConversationId): boolean
-  findSession(conversationId: ConversationId): Promise<SessionFacts>
-  loadSession(conversation: Conversation): Promise<void>
-  snapshot(conversationId: ConversationId): ConversationState
-  onEvent(conversationId: ConversationId, listener: (event: ConversationEvent) => void): void
-  startTurn(conversationId: ConversationId, command: StartTurn): Promise<void>
-  cancelTurn(conversationId: ConversationId, turnId: TurnId): Promise<void>
-  setConfiguration(conversationId: ConversationId, command: SetConfiguration): Promise<void>
-  answerPermission(conversationId: ConversationId, command: AnswerPermission): Promise<void>
-  answerElicitation(conversationId: ConversationId, command: AnswerElicitation): Promise<void>
-  closeConversation(conversationId: ConversationId): Promise<void>
-  closeAll(): Promise<void>
+  listSessions(cursor?: ConversationCursor): Promise<SessionPage>
+  createSession(input: CreateSession): Promise<CreatedSession>
+  /** Replay the session history; the caller folds `events` with `Conversation.replay`. */
+  loadSession(id: ConversationId, cwd: string): Promise<LoadedSession>
+  /** Resolves when the turn ends. Rejects only when the agent could not run it. */
+  prompt(
+    id: ConversationId,
+    turnId: TurnId,
+    content: readonly CanonicalContent[],
+  ): Promise<PromptResult>
+  /** Cooperative: the in-flight `prompt` resolves with a `cancelled` outcome. */
+  cancel(id: ConversationId): Promise<void>
+  setModel(id: ConversationId, modelId: string): Promise<readonly ConversationEvent[]>
+  /** No-op for a session this process does not hold. */
+  closeSession(id: ConversationId): Promise<void>
+  /** No-op when nothing is parked under that id; the aggregate is the validator. */
+  resolvePermission(permissionId: PermissionId, outcome: PermissionOutcome): void
+  /** No-op when nothing is parked under that id. */
+  resolveElicitation(elicitationId: ElicitationId, answer: ElicitationAnswer): void
+  /** Cancels every parked request and stops the process. */
+  stop(): Promise<void>
 }

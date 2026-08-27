@@ -39,7 +39,8 @@ export const HostControlMethods = {
   },
   'conversation.attach': {
     kind: JSON_RPC_METHOD_KINDS.request,
-    params: z.strictObject({ conversationId: ConversationIdSchema }),
+    // `cwd` lets the Host load the session directly; the agent rejects a wrong one.
+    params: z.strictObject({ conversationId: ConversationIdSchema, cwd: z.string().min(1) }),
     result: EmptyResultSchema,
   },
   'conversation.updated': {

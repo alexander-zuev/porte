@@ -1,14 +1,10 @@
 import { HostNotPairedError } from '@host/application/errors/pairing-errors.ts'
 import { HostRuntime } from '@host/application/host-runtime.ts'
-import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
-import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
-import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager.ts'
+import { createAppDeps } from '@host/infrastructure/app-deps.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
-import { GrokCodingAgent } from '@host/infrastructure/grok/grok-coding-agent.ts'
 import { FileCredentialStore } from '@host/infrastructure/persistence/credential-store.ts'
-import { createPartySocketTransport } from '@host/infrastructure/websocket/party-socket-transport.ts'
 
-/** Create one inactive Host runtime from concrete adapters. */
+/** Create one inactive Host runtime: read the pairing, build the app, start the agent. */
 export async function createHostRuntime(
   config: HostConfig,
   signal: AbortSignal,
@@ -17,16 +13,6 @@ export async function createHostRuntime(
   const credential = await credentials.read()
   if (credential === null) throw new HostNotPairedError()
 
-  const codingAgent = new GrokCodingAgent(signal)
-  const connections = new HostConnectionManager(
-    {
-      baseUrl: credential.baseUrl,
-      controlHandlers: CONTROL_METHOD_HANDLERS,
-      conversationHandlers: CONVERSATION_METHOD_HANDLERS,
-      codingAgent,
-      token: credential.token,
-    },
-    createPartySocketTransport,
-  )
-  return new HostRuntime(signal, connections, codingAgent)
+  const deps = await createAppDeps({ credential, signal })
+  return new HostRuntime(signal, deps)
 }

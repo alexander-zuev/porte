@@ -1,4 +1,4 @@
-import type { AgentListener } from '@host/application/ports/coding-agent-port.ts'
+import type { AgentListener } from '@host/application/ports/coding-agent.ts'
 import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
 import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import {

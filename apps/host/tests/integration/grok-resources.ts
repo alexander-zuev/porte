@@ -3,8 +3,6 @@ import { mkdtemp, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { GrokCodingAgent } from '@host/infrastructure/grok/grok-coding-agent.ts'
-
 /** True when the grok binary is on PATH. */
 export function grokOnPath(): boolean {
   return spawnSync('grok', ['--version'], { encoding: 'utf8' }).status === 0
@@ -17,18 +15,4 @@ export async function createGitWorkspace(): Promise<string> {
   if (repo.status !== 0) throw new Error(repo.stderr || 'git init failed')
   // Grok records the real path; macOS /var is a symlink to /private/var.
   return realpath(cwd)
-}
-
-/** Run work against one Grok coding agent and abort its host signal afterwards. */
-export async function withGrokCodingAgent(
-  body: (agent: GrokCodingAgent) => Promise<void>,
-): Promise<void> {
-  const shutdown = new AbortController()
-  const agent = new GrokCodingAgent(shutdown.signal)
-  try {
-    await body(agent)
-  } finally {
-    await agent.closeAll()
-    shutdown.abort()
-  }
 }

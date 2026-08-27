@@ -1,4 +1,6 @@
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
+import type { IMessageBus } from '@host/application/message-bus.ts'
+import type { ControlNotifications } from '@host/application/ports/control-notifications.ts'
+import type { ConversationNotifications } from '@host/application/ports/conversation-notifications.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
 import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
 import type { ControlMethodHandlerRegistry } from '@host/entrypoints/websocket/control-method-handlers.ts'
@@ -17,15 +19,15 @@ const logger = createLogger('host-connection-manager')
 /** Fixed dependencies for one Host connection manager. */
 export type HostConnectionManagerInput = {
   readonly baseUrl: string
+  readonly token: string
   readonly controlHandlers: ControlMethodHandlerRegistry
   readonly conversationHandlers: ConversationMethodHandlerRegistry
-  readonly codingAgent: CodingAgent
-  readonly token: string
+  readonly bus: IMessageBus
 }
 
 /** Owns the control connection and the active conversation connection registry. */
 export class HostConnectionManager implements HostConnections {
-  private readonly control: ControlConnection
+  private readonly controlConnection: ControlConnection
   private readonly conversations = new Map<ConversationId, ConversationConnection>()
 
   constructor(
@@ -37,21 +39,25 @@ export class HostConnectionManager implements HostConnections {
       subprotocol: HOST_CONTROL_SUBPROTOCOL,
       authorization: `Bearer ${input.token}`,
     })
-    this.control = new ControlConnection(transport, input.controlHandlers, {
+    this.controlConnection = new ControlConnection(transport, input.controlHandlers, {
+      bus: input.bus,
       connections: this,
-      codingAgent: input.codingAgent,
     })
   }
 
   get controlStopped(): Promise<void> {
-    return this.control.stopped
+    return this.controlConnection.stopped
+  }
+
+  get control(): ControlNotifications {
+    return this.controlConnection.notifications
   }
 
   connectControl(): void {
-    this.control.start()
+    this.controlConnection.start()
   }
 
-  connectConversation(conversationId: ConversationId): void {
+  connectConversation(conversationId: ConversationId, cwd: string): void {
     if (this.conversations.has(conversationId)) return
 
     const transport = this.createTransport({
@@ -61,10 +67,10 @@ export class HostConnectionManager implements HostConnections {
     })
     const connection = new ConversationConnection(
       conversationId,
+      cwd,
       transport,
       this.input.conversationHandlers,
-      this.input.codingAgent,
-      this.control.notifications,
+      this.input.bus,
     )
     this.conversations.set(conversationId, connection)
     void connection.stopped.then(
@@ -84,20 +90,21 @@ export class HostConnectionManager implements HostConnections {
     connection.start()
   }
 
-  closeConversation(conversationId: ConversationId): Promise<void> {
-    const connection = this.conversations.get(conversationId)
-    if (connection !== undefined) {
-      connection.stop()
-      this.removeConversation(connection)
-    }
-    return Promise.resolve()
+  conversation(conversationId: ConversationId): ConversationNotifications | null {
+    return this.conversations.get(conversationId)?.notifications ?? null
   }
 
-  closeAll(): Promise<void> {
+  closeConversation(conversationId: ConversationId): void {
+    const connection = this.conversations.get(conversationId)
+    if (connection === undefined) return
+    connection.stop()
+    this.removeConversation(connection)
+  }
+
+  closeAll(): void {
     for (const connection of this.conversations.values()) connection.stop()
     this.conversations.clear()
-    this.control.stop()
-    return Promise.resolve()
+    this.controlConnection.stop()
   }
 
   private removeConversation(connection: ConversationConnection): void {

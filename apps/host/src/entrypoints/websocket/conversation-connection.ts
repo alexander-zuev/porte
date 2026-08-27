@@ -1,6 +1,6 @@
-import { attachConversation } from '@host/application/commands/attach-conversation.command.ts'
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
-import type { ControlNotifications } from '@host/application/ports/control-notifications.ts'
+import type { IMessageBus } from '@host/application/message-bus.ts'
+import type { ConversationNotifications } from '@host/application/ports/conversation-notifications.ts'
+import { createCommand } from '@host/domain/messages/types.ts'
 import type { ConversationMethodHandlerRegistry } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { createJsonRpcHandler } from '@host/entrypoints/websocket/json-rpc-handler.ts'
 import type { RelaySocket } from '@host/infrastructure/websocket/party-socket-transport.ts'
@@ -13,6 +13,7 @@ import {
 
 /** Owns one conversation JSON-RPC endpoint and its socket. */
 export class ConversationConnection {
+  readonly notifications: ConversationNotifications
   /** Settles once, when this conversation socket will not come back. */
   readonly stopped: Promise<void>
   private readonly onFrame: ReturnType<typeof createJsonRpcHandler>
@@ -20,22 +21,22 @@ export class ConversationConnection {
 
   constructor(
     readonly conversationId: ConversationId,
+    cwd: string,
     private readonly transport: RelaySocket,
     handlers: ConversationMethodHandlerRegistry,
-    codingAgent: CodingAgent,
-    controlNotifications: ControlNotifications,
+    bus: IMessageBus,
   ) {
-    const notifications = createConversationNotifications((frame) => transport.send(frame))
+    this.notifications = createConversationNotifications((frame) => transport.send(frame))
     this.stopped = transport.stopped
     this.onFrame = createJsonRpcHandler({
       methods: HostConversationMethods,
       requestId: HostRequestIdSchema,
       handlers,
       notificationHandlers: {},
-      context: { conversationId, codingAgent },
+      context: { conversationId, bus },
     })
-    this.onUp = () =>
-      attachConversation(codingAgent, controlNotifications, notifications, conversationId)
+    // Every (re)connect opens the conversation; an open one is a no-op.
+    this.onUp = () => bus.handle(createCommand('OpenConversation', { conversationId, cwd }))
   }
 
   start(): void {

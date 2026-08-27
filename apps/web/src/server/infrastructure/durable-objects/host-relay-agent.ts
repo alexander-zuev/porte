@@ -218,10 +218,9 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Ask the Host to open or reuse one conversation connection. */
   async attachConversation(conversationId: ConversationId): Promise<void> {
-    if (this.resources.conversationRepository.find(conversationId) === undefined) {
-      throw new ConversationNotFoundError()
-    }
-    await this.hostSocket.request('conversation.attach', { conversationId })
+    const conversation = this.resources.conversationRepository.find(conversationId)
+    if (conversation === undefined) throw new ConversationNotFoundError()
+    await this.hostSocket.request('conversation.attach', { conversationId, cwd: conversation.cwd })
   }
 
   /** Receive the small activity projection from one child Agent. */

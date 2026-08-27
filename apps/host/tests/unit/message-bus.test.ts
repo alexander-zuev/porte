@@ -8,9 +8,10 @@ import type { MessageRegistry } from '@host/application/handlers/types.ts'
 import { MessageBus } from '@host/application/message-bus.ts'
 import type { MessageBase } from '@host/domain/messages/base.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
-import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { Logger } from '@porte/core/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { createTestDeps } from '../support/test-deps.ts'
 
 type Add = MessageBase<'command', 'Add', { a: number; b: number }>
 type Fail = MessageBase<'command', 'Fail', object>
@@ -37,7 +38,7 @@ function pinged(from: string): Pinged {
 function makeBus(
   subscribers: { pinged?: Subscriber<Pinged>[]; echoed?: Subscriber<Echoed>[] } = {},
 ) {
-  const deps: AppDeps = { outbox: new EventOutbox() }
+  const deps = createTestDeps()
   const registry: TestRegistry = {
     commands: {
       ...COMMAND_HANDLERS,

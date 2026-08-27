@@ -1,28 +1,25 @@
-import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
-import {
-  ConversationStateSchema,
-  type CanonicalContent,
-  type ConversationId,
-  type ConversationItem,
-  type ConversationState,
-  type ToolView,
+import type { QueryHandler } from '@host/application/handlers/types.ts'
+import type { QueryMap } from '@host/domain/messages/types.ts'
+import type {
+  CanonicalContent,
+  ConversationItem,
+  ConversationState,
+  ToolView,
 } from '@porte/core/client'
 
-/** Read the open conversation snapshot for the Worker first paint. */
-export function getConversation(
-  codingAgent: Pick<CodingAgent, 'snapshot'>,
-  conversationId: ConversationId,
-): ConversationState {
-  return omitUnpersistableContent(codingAgent.snapshot(conversationId))
-}
+/** The open conversation snapshot for the Worker first paint. */
+export const getConversation: QueryHandler<QueryMap['GetConversation'], ConversationState> = async (
+  query,
+  deps,
+) => omitUnpersistableContent(deps.conversations.get(query.conversationId).snapshot())
 
 /** Drop tool bodies and media bytes the Worker SQLite row cannot store. */
 export function omitUnpersistableContent(state: ConversationState): ConversationState {
-  return ConversationStateSchema.parse({
+  return {
     ...state,
     items: state.items.map(omitUnpersistableItem),
     tools: state.tools.map(omitUnpersistableTool),
-  })
+  }
 }
 
 function omitUnpersistableItem(item: ConversationItem): ConversationItem {

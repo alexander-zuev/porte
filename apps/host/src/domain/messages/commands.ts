@@ -35,12 +35,7 @@ export type CommandDataMap = {
   ApplyAgentUpdate: InConversation & { events: readonly ConversationEvent[] }
 
   // Permission
-  RequestPermission: InConversation & {
-    acpRequestId: string | number
-    toolCallId: string
-    title: string
-    options: PendingPermission['options']
-  }
+  RequestPermission: InConversation & Omit<PendingPermission, 'turnId'>
   AnswerPermission: InConversation & {
     turnId: TurnId
     permissionId: PermissionId
@@ -48,10 +43,7 @@ export type CommandDataMap = {
   }
 
   // Elicitation
-  RequestElicitation: InConversation & {
-    elicitationId: ElicitationId
-    request: PendingElicitation['request']
-  }
+  RequestElicitation: InConversation & Omit<PendingElicitation, 'turnId'>
   AnswerElicitation: InConversation & {
     turnId: TurnId
     elicitationId: ElicitationId

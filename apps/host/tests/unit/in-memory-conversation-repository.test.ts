@@ -32,11 +32,12 @@ describe('InMemoryConversationRepository', () => {
 
   it('rejects a second insert and a get or save of an unknown conversation', () => {
     const repo = new InMemoryConversationRepository(new EventOutbox())
-    repo.insert(conversation())
+    const open = conversation()
+    repo.insert(open)
     expect(() => {
       repo.insert(conversation())
     }).toThrow(ConversationAlreadyOpenError)
-    repo.delete(id)
+    repo.delete(open)
     expect(repo.find(id)).toBeNull()
     expect(() => repo.get(id)).toThrow(ConversationNotFoundError)
     expect(() => {

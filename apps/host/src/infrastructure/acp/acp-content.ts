@@ -4,6 +4,7 @@ import type {
   LoadSessionResponse,
   NewSessionResponse,
 } from '@agentclientprotocol/sdk'
+import { MODEL_OPTION_ID } from '@host/application/ports/coding-agent.ts'
 import type { AcpSessionUpdate } from '@host/infrastructure/acp/message.ts'
 import type {
   CanonicalContent,
@@ -40,9 +41,6 @@ export function parseSessionModels(
   const parsed = z.object({ models: sessionModelsSchema.optional() }).safeParse(response)
   return parsed.success ? parsed.data.models : undefined
 }
-
-/** The configuration option id the host uses for the model (`conversation.configuration.set`). */
-export const MODEL_OPTION_ID = 'model'
 
 /** Present the agent's model list as the one `select` option the relay contract knows. */
 export function modelsToConfiguration(

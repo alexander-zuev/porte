@@ -13,6 +13,7 @@ export interface ConversationRepository {
   insert(conversation: Conversation): void
   /** @throws ConversationNotFoundError */
   save(conversation: Conversation): void
-  delete(id: ConversationId): void
+  /** Publishes what the aggregate raised on the way out, then forgets it. */
+  delete(conversation: Conversation): void
   all(): readonly Conversation[]
 }
