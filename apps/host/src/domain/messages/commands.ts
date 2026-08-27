@@ -1,3 +1,4 @@
+import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import type {
   CanonicalContent,
   ConversationEvent,
@@ -12,9 +13,6 @@ import type {
   PermissionId,
   TurnId,
 } from '@porte/core/client'
-
-/** Outcome of one finished turn, as the relay contract defines it. The ACP adapter maps stop reasons to it. */
-export type TurnOutcome = Extract<ConversationEvent, { type: 'turn.finished' }>['outcome']
 
 type InConversation = { conversationId: ConversationId }
 

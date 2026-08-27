@@ -83,7 +83,6 @@ Source: `/Users/az/projects/typist/apps/typist/src/server`. Messages, handlers, 
 | Concern          | typist rule                                                                                                                                                                                                                                                                | Host adoption                                                  |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Entities         | `class X extends Entity<Data>`; `private constructor(data)`; `static create(...)` emits events via `addEvent`; `static restore(data)` emits nothing; `toPlainObject(): Data`; transitions guard and throw typed errors; repeated transition is a no-op that returns `this` | same                                                           |
-| Repositories     | interface accepts and returns entities only; `findX` → `T \| null`; `getX` → `T` or throws `EntityNotFoundError`; `insert` / `save` / `delete`; no `update(id, fields)`; no list-for-screen methods (those are queries)                                                    | same, in-memory; `save` pushes `collectEvents()` to the outbox |
 | Queries          | read path skips entities; projection is the DTO                                                                                                                                                                                                                            | same, reads project from the repository snapshot               |
 | Domain services  | pure, no I/O, no `deps`; class with static methods or a module of functions                                                                                                                                                                                                | same                                                           |
 | Ports            | interfaces beside the adapter or in `application/ports/`; `AppDeps` is the only thing handlers see                                                                                                                                                                         | keep `application/ports/`                                      |
@@ -109,85 +108,15 @@ Source: `/Users/az/projects/typist/apps/typist/src/server`. Messages, handlers, 
 
 Grok is the system of record for transcripts. The host owns exactly two facts: **which conversations are open on this process** and **the live turn**. Everything else is a projection that can be rebuilt with `session/load` (12 updates per 2 turns, §1).
 
-### Aggregate `Conversation` — `domain/conversation/conversation.ts`
+Landed in commit 3 (`domain/entity.ts`, `domain/conversation/*`, `domain/repositories/conversation-repository.ts`, `infrastructure/persistence/in-memory-conversation-repository.ts`). Decisions that shaped it:
 
-```ts
-type ConversationData = {
-  readonly id: ConversationId
-  readonly cwd: string
-  readonly gitRoot: string          // normalised, no trailing separator
-  readonly title: string
-  readonly updatedAt: IsoDateTime
-  readonly modelId: string          // from session/new|load|resume `models.currentModelId`
-  readonly turn: Turn               // see below
-}
-
-class Conversation extends Entity<ConversationData> {
-  static create(input: { id, cwd, gitRoot, modelId, now }): Conversation   // after session/new
-  static restore(data: ConversationData): Conversation                     // after session/load|resume, no events
-  beginTurn(turnId: TurnId, userMessage): void        // throws ConversationBusyError; emits turn.started + user message events
-  requestPermission(request): PermissionId            // throws TurnNotRunningError; emits permission.requested
-  answerPermission(permissionId, optionId): void      // throws PermissionNotFoundError; emits permission.resolved
-  requestElicitation(...) / answerElicitation(...)    // same shape
-  cancelTurn(turnId): PendingInteraction[]            // resolves every pending as cancelled; returns them for the adapter
-  finishTurn(turnId, outcome: TurnOutcome): void      // idle; emits *.completed + turn.finished; repeat is a no-op
-  applyMetadata(patch): void                          // title/updatedAt; emits conversation.metadata.updated
-  changeModel(modelId): void
-  toPlainObject(): ConversationData
-}
-```
-
-Turn is a discriminated union, never optional fields:
-
-```ts
-type Turn =
-  { state: 'idle' } | { state: 'running'; turnId: TurnId; pending: readonly PendingInteraction[] }
-type PendingInteraction =
-  | { kind: 'permission'; permissionId: PermissionId; optionIds: readonly string[] }
-  | { kind: 'elicitation'; elicitationId: ElicitationId }
-```
-
-Domain events emitted by the aggregate are the canonical `ConversationEvent` values from `@porte/core` (the published contract), wrapped once: `ConversationEventRaised { conversationId, event }`. The aggregate never touches ACP types.
-
-Removed: `hold()`, `held` map, `OpenConversation` class, `GrokReplayMapper`.
-
-### Read model `ConversationView` — `domain/conversation/conversation-view-reducer.ts` (keep)
-
-`applyConversationEvents(view, events)` stays as the one fold. The stored view keeps tool `content: []` and no `rawOutput` (what `conversation.get` returns today); the wire event keeps the full body. One stored representation, no second strip step.
-
-### Domain service `MessageIdentity` — `domain/conversation/message-identity.ts`
-
-Grok sends no `messageId` (§1). Ids are deterministic so a Worker replace-all after reload matches:
-
-| Item                          | Id                                                                                              |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Live turn                     | `turnId` from the relay                                                                         |
-| Replayed turn                 | `${conversationId}:turn:${promptIndex}` (`_meta.promptIndex` on `user_message_chunk`)           |
-| User message                  | `${turnId}:user`                                                                                |
-| Assistant / reasoning message | `${turnId}:assistant:${n}` / `${turnId}:reasoning:${n}`, `n` increments on each stream boundary |
-| Permission                    | `${turnId}:permission:${acpRequestId}`                                                          |
-
-### Repositories — `domain/repositories/`
-
-```ts
-interface ConversationRepository {
-  // open conversations on this process
-  find(id: ConversationId): Conversation | null
-  get(id: ConversationId): Conversation // throws ConversationNotFoundError
-  insert(c: Conversation): void // throws ConversationAlreadyOpenError
-  save(c: Conversation): void
-  delete(id: ConversationId): void
-  all(): readonly Conversation[]
-}
-interface ConversationViewStore {
-  // projection, one per open conversation
-  get(id): ConversationView // throws ConversationNotFoundError
-  put(id, view): void
-  delete(id): void
-}
-```
-
-Both in-memory (`infrastructure/persistence/in-memory-*.ts`). Synchronous: one process, no I/O. Memory is bounded by open conversations; close deletes both rows.
+- **One aggregate, one store.** `Conversation` owns `state: ConversationState` (turn + transcript, the exact `conversation.get` shape). Pending permissions and elicitations live only in `state.pending`; there is no second turn-side copy and no separate view store. `GetConversation` = `repo.get(id).snapshot()`.
+- **Raise = fold + record.** Every transition raises the canonical `ConversationEvent`, folds it into `state` via the pure `applyConversationEvent(view, event)`, and records `ConversationEventRaised { conversationId, event }`. The aggregate never touches ACP types.
+- **`replay(events)`** folds Grok's `session/load` history without raising (idle only). `restore` raises nothing.
+- **`cancelTurn` / `finishTurn` return nothing.** The ACP adapter releases parked RPCs from a `ConversationEventRaised` subscriber on `permission.resolved` / `elicitation.resolved` (commit 5/6).
+- **No `modelId` on the aggregate.** The current model is one fact and lives in `state.configuration`; `SetModel` emits `conversation.configuration.updated` from the agent's model list (commit 6).
+- **Ids are branded strings from `@porte/core`.** `ConversationId` is Grok's session id; the host mints none. `message-identity.ts` derives the rest: replayed turn `${conversationId}:turn:${promptIndex}`, user `${turnId}:user`, assistant/reasoning `${turnId}:assistant|reasoning:${n}`, permission/elicitation `${turnId}:permission|elicitation:${acpRequestId}`.
+- `applyConversationEvents` (Zod re-parse per call) survives only for `grok-coding-agent.ts` and goes in commit 6.
 
 ## 4. Application layer (CQRS)
 
@@ -197,29 +126,29 @@ Event flow (Cosmic Python in-memory loop): aggregate raises → `repo.save` push
 
 ### Handler responsibilities (commit 6)
 
-| Command                                    | Origin                                              | Handler does                                                                                                                             |
-| ------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `CreateConversation`                       | relay `conversation.create`                         | `findGitRoot` → `codingAgent.createSession` → `Conversation.create` → `repo.insert` + `views.put(empty)`                                 |
-| `OpenConversation`                         | conversation socket up                              | no-op if open → `codingAgent.loadSession(id, cwd)`; replay folds into a fresh view → `Conversation.restore` → `repo.insert`, `views.put` |
-| `StartTurn`                                | relay `turn.start`                                  | `beginTurn` → `save` → `background.run(prompt)`; on settle dispatch `FinishTurn { outcome }`                                             |
-| `FinishTurn`                               | internal                                            | `finishTurn` + `conversation.usage.updated` (usage only in prompt response `_meta`, §1)                                                  |
-| `CancelTurn`                               | relay `turn.cancel`                                 | `cancelTurn` → `codingAgent.resolvePending(cancelled)` each → `codingAgent.cancel(id)`                                                   |
-| `ApplyAgentUpdate`                         | ACP `session/update` via mapper                     | `raise` on aggregate (running turn) or metadata/commands only (idle)                                                                     |
-| `RequestPermission` / `RequestElicitation` | ACP requests                                        | `requestX` → save; the adapter parks the RPC keyed by `permissionId` / `elicitationId`                                                   |
-| `AnswerPermission` / `AnswerElicitation`   | relay answers                                       | `answerX` → `codingAgent.resolveX(id, answer)`                                                                                           |
-| `SetModel`                                 | relay `conversation.configuration.set` (model only) | `codingAgent.setModel` → `changeModel` → `conversation.configuration.updated`                                                            |
-| `CloseConversation`                        | relay close, socket stopped, shutdown               | running turn → `CancelTurn`; `codingAgent.closeSession`; `repo.delete`; `views.delete`                                                   |
-| `CloseAllConversations`                    | shutdown                                            | `CloseConversation` for `repo.all()`, then `codingAgent.stop()`                                                                          |
+| Command                                    | Origin                                              | Handler does                                                                                                   |
+| ------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `CreateConversation`                       | relay `conversation.create`                         | `findGitRoot` → `codingAgent.createSession` → `Conversation.create` → `repo.insert`                            |
+| `OpenConversation`                         | conversation socket up                              | no-op if open → `codingAgent.loadSession(id, cwd)` → `Conversation.restore` → `replay(events)` → `repo.insert` |
+| `StartTurn`                                | relay `turn.start`                                  | `beginTurn` → `save` → `background.run(prompt)`; on settle dispatch `FinishTurn { outcome }`                   |
+| `FinishTurn`                               | internal                                            | `finishTurn` + `conversation.usage.updated` (usage only in prompt response `_meta`, §1)                        |
+| `CancelTurn`                               | relay `turn.cancel`                                 | `cancelTurn` → `save` (subscriber releases parked RPCs) → `codingAgent.cancel(id)`                             |
+| `ApplyAgentUpdate`                         | ACP `session/update` via mapper                     | `raise` on aggregate (running turn) or metadata/commands only (idle)                                           |
+| `RequestPermission` / `RequestElicitation` | ACP requests                                        | `requestX` → save; the adapter parks the RPC keyed by `permissionId` / `elicitationId`                         |
+| `AnswerPermission` / `AnswerElicitation`   | relay answers                                       | `answerX` → `codingAgent.resolveX(id, answer)`                                                                 |
+| `SetModel`                                 | relay `conversation.configuration.set` (model only) | `codingAgent.setModel` → `applyAgentEvents([conversation.configuration.updated])`                              |
+| `CloseConversation`                        | relay close, socket stopped, shutdown               | running turn → `CancelTurn`; `codingAgent.closeSession`; `repo.delete`                                         |
+| `CloseAllConversations`                    | shutdown                                            | `CloseConversation` for `repo.all()`, then `codingAgent.stop()`                                                |
 
-| Event                     | Subscribers (state first, then effects)                                                                                                |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConversationEventRaised` | fold into `ConversationViewStore`; `conversation.event` frame; `conversation.updated` control frame on `conversation.metadata.updated` |
-| `ConversationClosed`      | drop the conversation socket                                                                                                           |
+| Event                     | Subscribers (state first, then effects)                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConversationEventRaised` | release parked RPC on `permission.resolved` / `elicitation.resolved`; `conversation.event` frame; `conversation.updated` control frame on `conversation.metadata.updated` |
+| `ConversationClosed`      | drop the conversation socket                                                                                                                                              |
 
 | Query               | Handler                                                                            |
 | ------------------- | ---------------------------------------------------------------------------------- |
 | `ListConversations` | `codingAgent.listSessions(cursor)` → summaries (drop rows without `gitRoot` facet) |
-| `GetConversation`   | `views.get(id)` + `repo.get(id).turn` → `ConversationState`                        |
+| `GetConversation`   | `repo.get(id).snapshot()` → `ConversationState`                                    |
 
 Interrupt/steer has no host command: the relay sends `turn.cancel`, waits for `turn.finished { cancelled }`, then `turn.start`. Effort (`session/set_mode`) is out of scope; `set_config_option` is not implemented by Grok (§1).
 
@@ -263,7 +192,7 @@ Other ports keep their names: `ControlNotifications`, `ConversationNotifications
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ensureAcp`, `startGrok`, `authenticateGrok`, `requireGrokCapabilities`, `grokCapabilityMap`                                                                                       | `infrastructure/grok/grok-launch.ts` — `startGrok(signal): Promise<AcpAgentProcess>` runs once at `porte up`, eager, in the composition root. No lazy start, no `ensureAcp`. |
 | `listConversations`, `createSession`, `loadSession`, `promptSession`, `cancelTurn`, `setConfiguration`, `closeConversation`, `toAcpContent`, `toMcpServers`, `elicitationResponse` | `infrastructure/acp/acp-coding-agent.ts` — one method, one RPC, no conversation state                                                                                        |
-| `held`, `snapshots`, `loadSinks`, `loadErrors`, `conversations` maps; `hold`, `drop`, `has`, `requireSession`, `snapshot`                                                          | `Conversation` aggregate in `ConversationRepository`; view in `ConversationViewStore`                                                                                        |
+| `held`, `snapshots`, `loadSinks`, `loadErrors`, `conversations` maps; `hold`, `drop`, `has`, `requireSession`, `snapshot`                                                          | `Conversation` aggregate (turn + transcript) in `ConversationRepository`                                                                                                     |
 | `findSession` (40-page scan)                                                                                                                                                       | deleted; `cwd` arrives with `conversation.attach`                                                                                                                            |
 | `OpenConversation.beginTurn/finishTurn/failTurn/cancelPendingForTurn/answerPermission/answerElicitation/discardPending`, `elicitationOutcome`                                      | `Conversation` aggregate methods                                                                                                                                             |
 | `OpenConversation.permissions/elicitations` resolve functions                                                                                                                      | `AcpCodingAgent.parked: Map<PermissionId \| ElicitationId, resolve>`                                                                                                         |
@@ -288,7 +217,7 @@ One commit per row. Every commit is green (`pnpm lint`, `pnpm typecheck`, `pnpm 
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 ✓ | `refactor: rename ACP transport to AcpAgentProcess and simplify start`                                                                                                                                                                                                                                                                                                                                                        | `infrastructure/acp/acp-agent-process.ts`                                                                                                                                        | `6c513f3`                                                                                                                                                                                                                                                                                                                    |
 | 2 ✓ | `feat: add host message bus and handler registry`                                                                                                                                                                                                                                                                                                                                                                             | `domain/messages/*`, `application/message-bus.ts`, `application/handlers/*`, `infrastructure/persistence/event-outbox.ts`, `infrastructure/app-deps.ts`                          | `286447f`; 9 unit tests                                                                                                                                                                                                                                                                                                      |
-| 3   | `feat: add Conversation aggregate and repositories` — `Conversation`, `Turn`, `PendingInteraction`, `MessageIdentity`, `ConversationRepository`, `ConversationViewStore`, in-memory implementations                                                                                                                                                                                                                           | `domain/conversation/*`, `domain/repositories/*`, `infrastructure/persistence/*`                                                                                                 | unit: `beginTurn` twice → `ConversationBusyError`; `finishTurn` twice → one `turn.finished`; `cancelTurn` returns every pending and emits `*.resolved cancelled`; `restore` emits nothing; `save` pushes raised events to the outbox                                                                                         |
+| 3 ✓ | `feat: add Conversation aggregate and repository`                                                                                                                                                                                                                                                                                                                                                                             | `domain/entity.ts`, `domain/conversation/*`, `domain/repositories/*`, `infrastructure/persistence/in-memory-conversation-repository.ts`                                          | 13 unit tests                                                                                                                                                                                                                                                                                                                |
 | 4   | `feat: add AcpUpdateMapper` — one mapper for live and replay, deterministic ids, `available_commands_update` dedupe                                                                                                                                                                                                                                                                                                           | `infrastructure/acp/acp-update-mapper.ts`, `tests/fixtures/acp/*.json` (written from the spike)                                                                                  | unit: `session-load-replay.json` → 2 turns with ids `…:turn:0/1`, one `tool.updated` per call; `session-prompt-live.json` → `tool.updated` ×3 for one call, commands emitted once                                                                                                                                            |
 | 5   | `feat: add AcpCodingAgent and Grok launch` — port implementation, parked RPC map, `startGrok` (initialize, `cached_token`, capabilities, list-row facets)                                                                                                                                                                                                                                                                     | `application/ports/coding-agent.ts` (new shape, old one still exists under the old name until 6), `infrastructure/acp/acp-coding-agent.ts`, `infrastructure/grok/grok-launch.ts` | integration (real grok, `skipIf`): create → prompt → `end_turn`; load → mapper → view with 2 turns; prompt before load → RPC error; `setModel` → next prompt `_meta.modelId` changes; close → prompt → RPC error                                                                                                             |
 | 6   | `refactor: route host commands through the message bus` — the switch. Handlers (commands, events, queries), `acp-inbound`, websocket entrypoints call `bus.handle`, `app-deps.ts` composition root, `BackgroundTasks`, `conversation.attach` carries `cwd` (core + `apps/web` caller). **Deletes** `grok-coding-agent.ts`, `grok-event-mapper.ts`, `grok-session.ts`, `commands/*.command.ts`, `queries/*.query.ts`, old port | `application/handlers/**`, `entrypoints/**`, `infrastructure/bootstrap/*`, `packages/core/src/relay/host-control-methods.ts`, `apps/web` attach call                             | unit with fake `CodingAgent`: open → start → permission → answer → finish asserts frames and view; `StartTurn` while running → `ConversationBusyError` and `prompt` not called; `host-websocket-connection.test.ts` and `host-runtime.test.ts` rewritten and green; e2e by hand: phone attach → transcript without list scan |

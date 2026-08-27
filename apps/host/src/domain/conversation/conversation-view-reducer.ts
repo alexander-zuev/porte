@@ -17,13 +17,18 @@ export class ConversationViewError extends TaggedError('ConversationViewError')<
   }
 }
 
+/** The view of a conversation before any event. */
+export function emptyConversationView(): ConversationView {
+  return { items: [], tools: [], plans: [], pending: { permissions: [], elicitations: [] } }
+}
+
 /** Apply canonical events and return a validated conversation view. */
 export function applyConversationEvents(
   current: ConversationView,
   events: readonly ConversationEvent[],
 ): ConversationView {
   const view = ConversationViewSchema.parse(current)
-  for (const event of events) applyEvent(view, event)
+  for (const event of events) applyConversationEvent(view, event)
 
   const parsed = ConversationViewSchema.safeParse(view)
   if (!parsed.success) {
@@ -32,7 +37,11 @@ export function applyConversationEvents(
   return parsed.data
 }
 
-function applyEvent(view: ConversationView, event: ConversationEvent): void {
+/**
+ * Fold one canonical event into the view in place. Turn events are not the view's
+ * concern; the aggregate tracks the turn. @throws ConversationViewError on a bad sequence.
+ */
+export function applyConversationEvent(view: ConversationView, event: ConversationEvent): void {
   switch (event.type) {
     case 'message.started':
       addItem(view, {
