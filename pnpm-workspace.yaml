@@ -6,6 +6,10 @@ packages:
 catalogMode: strict
 
 minimumReleaseAge: 2880
+# 1.169.2 fixes hydrate(undefined) on query-stream end; allowed through before the age gate.
+minimumReleaseAgeExclude:
+  - '@tanstack/react-router-ssr-query'
+  - '@tanstack/router-ssr-query-core'
 
 catalog:
   '@axe-core/playwright': ^4.13.0
@@ -29,7 +33,7 @@ catalog:
   '@tanstack/react-query-devtools': ^5.102.2
   '@tanstack/react-router': ^1.170.32
   '@tanstack/react-router-devtools': ^1.167.1
-  '@tanstack/react-router-ssr-query': ^1.167.1
+  '@tanstack/react-router-ssr-query': ^1.167.2
   '@tanstack/react-start': ^1.168.49
   '@tanstack/router-cli': ^1.167.33
   '@types/better-sqlite3': ^9.6.0
