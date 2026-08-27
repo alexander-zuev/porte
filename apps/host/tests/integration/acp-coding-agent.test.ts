@@ -65,9 +65,9 @@ describe.skipIf(!grokOnPath())('AcpCodingAgent', () => {
         await expect(agent.prompt(created.id, createTurnId(), PING)).rejects.toBeInstanceOf(
           ConversationNotFoundError,
         )
-        const replay = await agent.loadSession(created.id, cwd)
-        expect(replay[0]).toMatchObject({ type: 'message.started', role: 'user' })
-        expect(replay.filter((event) => event.type === 'message.started')).toHaveLength(2)
+        const loaded = await agent.loadSession(created.id, cwd)
+        expect(loaded.events[0]).toMatchObject({ type: 'message.started', role: 'user' })
+        expect(loaded.events.filter((event) => event.type === 'message.started')).toHaveLength(2)
       })
     },
     GROK_TIMEOUT_MS,

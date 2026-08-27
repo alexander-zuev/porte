@@ -1,0 +1,420 @@
+{
+  "sessions": [
+    {
+      "sessionId": "01a0404e-3f9f-7c82-8bda-ed18f755f2d8",
+      "cwd": "/Users/az/projects/porte",
+      "updatedAt": "2026-08-27T22:54:51.732820+00:00",
+      "_meta": {
+        "x.ai/session": {
+          "kind": "build",
+          "facets": {
+            "cwd": "/Users/az/projects/porte",
+            "gitRoot": "/Users/az/projects/porte/",
+            "kind": "build",
+            "repo": "porte"
+          }
+        }
+      }
+    },
+    {
+      "sessionId": "01a03ffe-f02b-7660-b33d-3b662ad3df28",
+      "cwd": "/Users/az/projects/porte",
+      "title": "ACP transport vs Grok coding-agent split",
+      "updatedAt": "2026-08-27T13:44:21.457153+00:00",
+      "_meta": {
+        "x.ai/session": {
+          "kind": "build",
+          "facets": {
+            "cwd": "/Users/az/projects/porte",
+            "gitRoot": "/Users/az/projects/porte/",
+            "kind": "build",
+            "repo": "porte"
+          }
+        }
+      }
+    }
+  ],
+  "nextCursor": "eyJib3VuZGFyeSI6eyJ1cGRhdGVkX2F0IjoiMjAyNi0wOC0yN1QxMjo1MToxMy43NjIyOTYrMDA6MDAiLCJraW5kIjoiYnVpbGQiLCJzZXNzaW9uX2lkIjoiMDFhMDQzNDYtNDE4OC03NWIyLWE2NDUtMTVlNTk4OWRkODg3In0sImNvbnZfcGFnZV9kcmFpbmVkIjpmYWxzZX0",
+  "_meta": {
+    "x.ai/facets": {
+      "scope": "window",
+      "keys": [
+        {
+          "key": "cwd",
+          "values": [
+            {
+              "value": "/Users/az/projects/porte",
+              "count": 2
+            },
+            {
+              "value": "/private/tmp/porte-list-0v5wS9",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-5aLxJY",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-6VxmAV",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-OJ2iwl",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-RcPtra",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-7954tw",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-82Nosw",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-AQ326E",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-DscRcS",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-JwgGQL",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-LNBxNH",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-PFKblz",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-R57lnn",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-SdyROi",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-SfwdBc",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-UzgVlU",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-h4lvyp",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-hb69lZ",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-kDtV1R",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-kzaQBq",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-n4sNhv",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-plZvLO",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-qQC48p",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-qWWLil",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-sLIDBS",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-wFimGV",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-wjvp6m",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-ztB37C",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "key": "gitRoot",
+          "values": [
+            {
+              "value": "/Users/az/projects/porte/",
+              "count": 2
+            },
+            {
+              "value": "/private/tmp/porte-list-0v5wS9/",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-5aLxJY/",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-6VxmAV/",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-OJ2iwl/",
+              "count": 1
+            },
+            {
+              "value": "/private/tmp/porte-list-RcPtra/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-7954tw/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-82Nosw/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-AQ326E/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-DscRcS/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-JwgGQL/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-LNBxNH/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-PFKblz/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-R57lnn/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-SdyROi/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-SfwdBc/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-UzgVlU/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-h4lvyp/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-hb69lZ/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-kDtV1R/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-kzaQBq/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-n4sNhv/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-plZvLO/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-qQC48p/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-qWWLil/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-sLIDBS/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-wFimGV/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-wjvp6m/",
+              "count": 1
+            },
+            {
+              "value": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-list-ztB37C/",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "key": "kind",
+          "values": [
+            {
+              "value": "build",
+              "count": 30
+            }
+          ]
+        },
+        {
+          "key": "repo",
+          "values": [
+            {
+              "value": "porte",
+              "count": 2
+            },
+            {
+              "value": "porte-list-0v5wS9",
+              "count": 1
+            },
+            {
+              "value": "porte-list-5aLxJY",
+              "count": 1
+            },
+            {
+              "value": "porte-list-6VxmAV",
+              "count": 1
+            },
+            {
+              "value": "porte-list-7954tw",
+              "count": 1
+            },
+            {
+              "value": "porte-list-82Nosw",
+              "count": 1
+            },
+            {
+              "value": "porte-list-AQ326E",
+              "count": 1
+            },
+            {
+              "value": "porte-list-DscRcS",
+              "count": 1
+            },
+            {
+              "value": "porte-list-JwgGQL",
+              "count": 1
+            },
+            {
+              "value": "porte-list-LNBxNH",
+              "count": 1
+            },
+            {
+              "value": "porte-list-OJ2iwl",
+              "count": 1
+            },
+            {
+              "value": "porte-list-PFKblz",
+              "count": 1
+            },
+            {
+              "value": "porte-list-R57lnn",
+              "count": 1
+            },
+            {
+              "value": "porte-list-RcPtra",
+              "count": 1
+            },
+            {
+              "value": "porte-list-SdyROi",
+              "count": 1
+            },
+            {
+              "value": "porte-list-SfwdBc",
+              "count": 1
+            },
+            {
+              "value": "porte-list-UzgVlU",
+              "count": 1
+            },
+            {
+              "value": "porte-list-h4lvyp",
+              "count": 1
+            },
+            {
+              "value": "porte-list-hb69lZ",
+              "count": 1
+            },
+            {
+              "value": "porte-list-kDtV1R",
+              "count": 1
+            },
+            {
+              "value": "porte-list-kzaQBq",
+              "count": 1
+            },
+            {
+              "value": "porte-list-n4sNhv",
+              "count": 1
+            },
+            {
+              "value": "porte-list-plZvLO",
+              "count": 1
+            },
+            {
+              "value": "porte-list-qQC48p",
+              "count": 1
+            },
+            {
+              "value": "porte-list-qWWLil",
+              "count": 1
+            },
+            {
+              "value": "porte-list-sLIDBS",
+              "count": 1
+            },
+            {
+              "value": "porte-list-wFimGV",
+              "count": 1
+            },
+            {
+              "value": "porte-list-wjvp6m",
+              "count": 1
+            },
+            {
+              "value": "porte-list-ztB37C",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "x.ai/partial": {
+      "conversations": false
+    }
+  }
+}

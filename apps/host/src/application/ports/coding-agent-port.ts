@@ -44,6 +44,12 @@ export type CreatedSession = {
   readonly events: readonly ConversationEvent[]
 }
 
+/** A loaded session: its title as the agent lists it, and its history as events. */
+export type LoadedSession = {
+  readonly title: string
+  readonly events: readonly ConversationEvent[]
+}
+
 export type PromptResult = {
   readonly outcome: TurnOutcome
   readonly usage?: ConversationUsage
@@ -69,8 +75,8 @@ export interface AgentListener {
 export interface CodingAgent {
   listSessions(cursor?: ConversationCursor): Promise<SessionPage>
   createSession(input: CreateSession): Promise<CreatedSession>
-  /** Replay the session history as events; the caller folds them with `Conversation.replay`. */
-  loadSession(id: ConversationId, cwd: string): Promise<readonly ConversationEvent[]>
+  /** Replay the session history; the caller folds `events` with `Conversation.replay`. */
+  loadSession(id: ConversationId, cwd: string): Promise<LoadedSession>
   /** Resolves when the turn ends. Rejects only when the agent could not run it. */
   prompt(
     id: ConversationId,

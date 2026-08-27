@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   type AgentCapabilities,
   type AuthMethod,
+  type LoadSessionResponse,
   type PromptResponse,
 } from '@agentclientprotocol/sdk'
 import { CodingAgentCapabilityError } from '@host/application/errors/coding-agent-errors.ts'
@@ -42,6 +43,8 @@ export type ReadyAgent = {
   readonly capabilities: AgentCapabilities
   /** `session/list` row → facts, or undefined when the row is not a git conversation. */
   readonly sessionFacts: (row: Parameters<typeof toSessionFacts>[0]) => SessionFacts | undefined
+  /** Title of a loaded session, or empty when the agent reports none. */
+  readonly sessionTitle: (response: LoadSessionResponse) => string
   /** Context window of the current model, when the agent reports one. */
   readonly contextTokens: (models: AcpSessionModels | null | undefined) => number | undefined
   /** Usage for one finished prompt, when the agent reports it and the context size is known. */
@@ -91,7 +94,14 @@ export async function startGrok(signal: AbortSignal, callbacks: AcpCallbacks): P
     await authenticate(process, initialized.authMethods)
     const capabilities = initialized.agentCapabilities ?? {}
     requireCapabilities(capabilities)
-    return { process, capabilities, sessionFacts: toSessionFacts, contextTokens, promptUsage }
+    return {
+      process,
+      capabilities,
+      sessionFacts: toSessionFacts,
+      sessionTitle,
+      contextTokens,
+      promptUsage,
+    }
   } catch (cause) {
     await process.stop()
     throw cause
@@ -125,6 +135,16 @@ function requireCapabilities(capabilities: AgentCapabilities): void {
       cause: new TypeError('Grok does not advertise ACP loadSession'),
     })
   }
+}
+
+/** Grok puts the list title on the load response under `_meta['x.ai/sessionDetail']` (capture). */
+const sessionDetailSchema = z.object({
+  'x.ai/sessionDetail': z.object({ title: z.string().optional() }).optional(),
+})
+
+function sessionTitle(response: LoadSessionResponse): string {
+  const parsed = sessionDetailSchema.safeParse(response._meta)
+  return parsed.success ? (parsed.data['x.ai/sessionDetail']?.title ?? '') : ''
 }
 
 function contextTokens(models: AcpSessionModels | null | undefined): number | undefined {

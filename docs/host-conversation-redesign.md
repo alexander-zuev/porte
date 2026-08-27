@@ -70,6 +70,13 @@ available_commands_update
 
 Replay via `session/load` for the same 2-turn conversation: **12 updates**. One chunk per message. `tool_call` arrives once with final `status`, `content`, `rawOutput`; no `tool_call_update`. A cancelled turn replays its `user_message_chunk` and partial `agent_thought_chunk` with no end marker.
 
+Replay of a real `/porte` conversation (78 turns, 1392 updates, captured with `scripts/capture-acp-fixtures.ts`; cut down into `tests/fixtures/acp/porte-*.json` by `scripts/clean-acp-fixtures.ts`):
+
+- One turn carried **two `user_message_chunk`s with the same `promptIndex`** (a queued message). Same turn, one user message, two deltas.
+- The legacy `plan` update (entries only, no `planId`) appears in real history; `plan_update` does not.
+- The trailing `available_commands_update` of a load can arrive **after** the `session/load` response, so the next load sees a foreign `sessionId`. Route updates by session id; never attribute by timing.
+- The load response carries the title under `_meta['x.ai/sessionDetail'].title`, and `models` (not in the SDK 0.x types; parsed off the raw response).
+
 Two concurrent `session/prompt` calls on one session both returned `end_turn`. Grok does not reject the second one; the host must serialize turns itself.
 
 ### Inbound client requests

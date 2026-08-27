@@ -184,8 +184,11 @@ export class AcpUpdateMapper {
     if (!promptIndex.success) {
       throw new AcpUpdateValueError('ACP replay user message has no promptIndex')
     }
+    const turnId = replayTurnId(this.conversationId, promptIndex.data)
+    // Real replays repeat a promptIndex when one turn carried several user chunks; same turn.
+    if (this.turn?.live === false && this.turn.turnId === turnId) return []
     const closed = this.closeStreams()
-    this.turn = { turnId: replayTurnId(this.conversationId, promptIndex.data), live: false }
+    this.turn = { turnId, live: false }
     this.ordinal = 0
     return closed
   }

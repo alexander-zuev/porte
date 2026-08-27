@@ -1,0 +1,141 @@
+{
+  "models": {
+    "currentModelId": "grok-4.6",
+    "availableModels": [
+      {
+        "modelId": "grok-4.6",
+        "name": "Grok 4.6",
+        "description": "SpaceXAI's latest frontier model",
+        "_meta": {
+          "totalContextTokens": 500000,
+          "agentType": "grok-build-plan",
+          "supportsReasoningEffort": true,
+          "reasoningEffort": "high",
+          "reasoningEfforts": [
+            {
+              "id": "xhigh",
+              "value": "xhigh",
+              "label": "Extra High Effort",
+              "description": "Highest effort and reasoning level",
+              "default": false
+            },
+            {
+              "id": "high",
+              "value": "high",
+              "label": "High Effort",
+              "description": "Higher implementation quality with extensive reasoning",
+              "default": true
+            },
+            {
+              "id": "medium",
+              "value": "medium",
+              "label": "Medium Effort",
+              "description": "Balanced effort with standard implementation and testing",
+              "default": false
+            },
+            {
+              "id": "low",
+              "value": "low",
+              "label": "Low Effort",
+              "description": "Quick, fast implementations",
+              "default": false
+            }
+          ]
+        }
+      },
+      {
+        "modelId": "grok-4.5",
+        "name": "Grok 4.5",
+        "_meta": {
+          "totalContextTokens": 500000,
+          "agentType": "grok-build-plan",
+          "supportsReasoningEffort": true,
+          "reasoningEffort": "high",
+          "reasoningEfforts": [
+            {
+              "id": "high",
+              "value": "high",
+              "label": "High Effort",
+              "description": "Highest implementation quality with extensive reasoning",
+              "default": true
+            },
+            {
+              "id": "medium",
+              "value": "medium",
+              "label": "Medium Effort",
+              "description": "Balanced effort with standard implementation and testing",
+              "default": false
+            },
+            {
+              "id": "low",
+              "value": "low",
+              "label": "Low Effort",
+              "description": "Quick, fast implementations",
+              "default": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "_meta": {
+    "sessionId": "01a03ffe-f02b-7660-b33d-3b662ad3df28",
+    "codebaseIndexed": [],
+    "gitDivergence": {
+      "sessionCommit": "fe5e19792de1dfa35720aad2eee6b05cbb189b89",
+      "currentCommit": "69ab5e973baaa30a82ab4d8e6787e09cb304c4d9"
+    },
+    "x.ai/sessionConfig": {
+      "options": [
+        {
+          "id": "grok-4.6",
+          "category": "model",
+          "label": "Grok 4.6",
+          "selected": true
+        },
+        {
+          "id": "grok-4.5",
+          "category": "model",
+          "label": "Grok 4.5",
+          "selected": false
+        },
+        {
+          "id": "xhigh",
+          "category": "mode",
+          "label": "Extra High Effort",
+          "description": "Highest effort and reasoning level",
+          "selected": false
+        },
+        {
+          "id": "high",
+          "category": "mode",
+          "label": "High Effort",
+          "description": "Higher implementation quality with extensive reasoning",
+          "selected": true
+        },
+        {
+          "id": "medium",
+          "category": "mode",
+          "label": "Medium Effort",
+          "description": "Balanced effort with standard implementation and testing",
+          "selected": false
+        },
+        {
+          "id": "low",
+          "category": "mode",
+          "label": "Low Effort",
+          "description": "Quick, fast implementations",
+          "selected": false
+        }
+      ]
+    },
+    "x.ai/sessionDetail": {
+      "sessionId": "01a03ffe-f02b-7660-b33d-3b662ad3df28",
+      "kind": "build",
+      "cwd": "/Users/az/projects/porte",
+      "currentModelId": "grok-4.6",
+      "title": "ACP transport vs Grok coding-agent split"
+    },
+    "x.ai/schedulerBackgroundLoops": true
+  }
+}

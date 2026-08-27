@@ -5,6 +5,7 @@ import type {
   CodingAgent,
   CreatedSession,
   CreateSession,
+  LoadedSession,
   PermissionOutcome,
   PromptResult,
   SessionPage,
@@ -127,7 +128,7 @@ export class AcpCodingAgent implements CodingAgent {
     return { id, events }
   }
 
-  async loadSession(id: ConversationId, cwd: string): Promise<readonly ConversationEvent[]> {
+  async loadSession(id: ConversationId, cwd: string): Promise<LoadedSession> {
     const session = this.open(id, cwd, undefined)
     session.replay = []
     try {
@@ -137,7 +138,10 @@ export class AcpCodingAgent implements CodingAgent {
       })
       session.models = parseSessionModels(loaded)
       session.contextTokens = this.agent.contextTokens(session.models)
-      return [...session.replay, ...this.configurationEvents(session)]
+      return {
+        title: this.agent.sessionTitle(loaded),
+        events: [...session.replay, ...this.configurationEvents(session)],
+      }
     } catch (cause) {
       this.sessions.delete(id)
       throw cause
