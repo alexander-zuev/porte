@@ -10,5 +10,5 @@
       "@host/*": ["./src/*"]
     }
   },
-  "include": ["src", "tests", "package.json"]
+  "include": ["src", "tests", "scripts", "package.json"]
 }

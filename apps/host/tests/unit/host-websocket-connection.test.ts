@@ -9,6 +9,7 @@ import type {
 } from '@host/infrastructure/websocket/party-socket-transport.ts'
 import {
   ConversationIdSchema,
+  IsoDateTimeSchema,
   HOST_CONTROL_SUBPROTOCOL,
   JsonRpcDocumentSchema,
   createRequestId,
@@ -107,7 +108,7 @@ describe('Host WebSocket connections', () => {
     })
     await test.conversations[0]?.connect()
     await test.conversations[0]?.connect()
-    expect(test.codingAgent.openConversation).toHaveBeenCalledTimes(2)
+    expect(test.codingAgent.loadSession).toHaveBeenCalledTimes(2)
     await test.manager.closeAll()
   })
 
@@ -161,10 +162,17 @@ function codingAgent(): CodingAgent {
   return {
     listConversations: async () => ({ sessions: [] }),
     createSession: () => Promise.reject(new TypeError('unexpected create')),
-    hold: () => {
-      throw new TypeError('unexpected hold')
-    },
-    openConversation: vi.fn(emptyOperation),
+    hold: () => undefined,
+    drop: () => undefined,
+    has: () => false,
+    findSession: async (id) => ({
+      id,
+      cwd: '/tmp',
+      gitRoot: '/tmp',
+      title: '',
+      updatedAt: IsoDateTimeSchema.parse('2026-01-01T00:00:00.000Z'),
+    }),
+    loadSession: vi.fn(emptyOperation),
     snapshot: () => ({
       turn: { state: 'idle' },
       items: [],

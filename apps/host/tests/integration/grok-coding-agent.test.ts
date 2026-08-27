@@ -1,4 +1,5 @@
 import { createConversation } from '@host/application/commands/create-conversation.command.ts'
+import { openConversation } from '@host/application/commands/open-conversation.command.ts'
 import { AcpRpcError } from '@host/infrastructure/acp/error.ts'
 import { GrokCodingAgent } from '@host/infrastructure/grok/grok-coding-agent.ts'
 import {
@@ -83,7 +84,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
         await withGrokCodingAgent(async (agent) => {
           const created = await createConversation(agent, { cwd: await createGitWorkspace() })
           await agent.closeConversation(created.id)
-          await agent.openConversation(created.id)
+          await openConversation(agent, created.id)
           expect(agent.snapshot(created.id).turn).toEqual({ state: 'idle' })
         })
       },
@@ -94,7 +95,7 @@ describe.skipIf(!grokOnPath())('GrokCodingAgent', () => {
       'rejects an unknown conversation',
       async () => {
         await withGrokCodingAgent(async (agent) => {
-          await expect(agent.openConversation(MISSING)).rejects.toBeInstanceOf(
+          await expect(openConversation(agent, MISSING)).rejects.toBeInstanceOf(
             ConversationNotFoundError,
           )
         })

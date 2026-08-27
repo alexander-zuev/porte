@@ -7,6 +7,7 @@ import type {
   ConversationEvent,
   ConversationId,
   ConversationState,
+  IsoDateTime,
   ElicitationAnswer,
   ElicitationId,
   MessageId,
@@ -58,6 +59,15 @@ export type CreatedSession = {
   readonly id: ConversationId
 }
 
+/** List facts for one coding-agent session this process can open. */
+export type SessionFacts = {
+  readonly id: ConversationId
+  readonly cwd: string
+  readonly gitRoot: string
+  readonly title: string
+  readonly updatedAt: IsoDateTime
+}
+
 /**
  * One coding-agent process (Grok now; Claude/Gemini later).
  *
@@ -67,7 +77,10 @@ export interface CodingAgent {
   listConversations(cursor?: ConversationCursor): Promise<ListSessionsResponse>
   createSession(command: CreateConversation): Promise<CreatedSession>
   hold(conversation: Conversation): void
-  openConversation(conversationId: ConversationId): Promise<void>
+  drop(conversationId: ConversationId): void
+  has(conversationId: ConversationId): boolean
+  findSession(conversationId: ConversationId): Promise<SessionFacts>
+  loadSession(conversation: Conversation): Promise<void>
   snapshot(conversationId: ConversationId): ConversationState
   onEvent(conversationId: ConversationId, listener: (event: ConversationEvent) => void): void
   startTurn(conversationId: ConversationId, command: StartTurn): Promise<void>

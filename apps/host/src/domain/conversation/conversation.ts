@@ -17,6 +17,15 @@ export type CreateConversationInput = {
   readonly now: Date
 }
 
+/** Input to restore one conversation that already exists on the coding agent. */
+export type RestoreConversationInput = {
+  readonly id: ConversationId
+  readonly cwd: string
+  readonly gitRoot: string
+  readonly title: string
+  readonly updatedAt: IsoDateTime
+}
+
 /**
  * One coding conversation in a git workspace.
  *
@@ -34,6 +43,17 @@ export class Conversation {
       title: '',
       // SAFETY: Date#toISOString is RFC 3339 UTC, which IsoDateTime requires.
       updatedAt: input.now.toISOString() as IsoDateTime,
+    })
+  }
+
+  /** Rebuild one conversation from coding-agent list facts. */
+  static restore(input: RestoreConversationInput): Conversation {
+    return new Conversation({
+      id: input.id,
+      cwd: input.cwd,
+      gitRoot: normaliseGitRoot(input.gitRoot),
+      title: input.title,
+      updatedAt: input.updatedAt,
     })
   }
 
