@@ -8,10 +8,12 @@ import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
 import { MessageIdSchema, createTurnId, type ConversationId } from '@porte/core/client'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import { FakeConnections } from '../support/test-deps.ts'
-import { createGitWorkspace, grokOnPath } from './grok-resources.ts'
+import { cleanupGrokSessions, createGitWorkspace, grokOnPath } from './grok-resources.ts'
+
+afterAll(cleanupGrokSessions)
 
 /**
  * The host as `porte up` runs it — real Grok, real bus, real handlers — with the

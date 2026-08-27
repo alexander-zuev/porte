@@ -7,9 +7,11 @@ import {
   createTurnId,
   type ConversationEvent,
 } from '@porte/core/client'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
-import { createGitWorkspace, grokOnPath } from './grok-resources.ts'
+import { cleanupGrokSessions, createGitWorkspace, grokOnPath } from './grok-resources.ts'
+
+afterAll(cleanupGrokSessions)
 
 const GROK_TIMEOUT_MS = 180_000
 const PING = [{ type: 'text' as const, text: 'Reply with exactly: ping' }]
