@@ -1,4 +1,5 @@
 import { cn } from '@web/lib/utils.ts'
+import { useReducedMotion } from '@web/ui/hooks/use-reduced-motion.ts'
 import type { MotionProps } from 'motion/react'
 import { motion } from 'motion/react'
 import type { CSSProperties, ElementType, JSX } from 'react'
@@ -37,8 +38,18 @@ const ShimmerComponent = ({
   spread = 2,
 }: TextShimmerProps) => {
   const MotionComponent = getMotionComponent(Component as keyof JSX.IntrinsicElements)
+  const reducedMotion = useReducedMotion()
 
   const dynamicSpread = useMemo(() => (children?.length ?? 0) * spread, [children, spread])
+
+  // A JS-driven sweep ignores the CSS motion-reduce rules, so it stops here instead.
+  if (reducedMotion) {
+    return (
+      <Component className={cn('inline-block text-muted-foreground', className)}>
+        {children}
+      </Component>
+    )
+  }
 
   return (
     <MotionComponent

@@ -83,7 +83,8 @@ export type ConfirmationTitleProps = Omit<ComponentProps<typeof AlertTitle>, 'ch
  * source and nothing here has to guess what kind of thing it is.
  */
 export const ConfirmationTitle = ({ className, children, ...props }: ConfirmationTitleProps) => (
-  <AlertTitle className={cn('text-foreground', className)} {...props}>
+  // A title often names a path in inline code, which has no natural break.
+  <AlertTitle className={cn('wrap-anywhere text-foreground', className)} {...props}>
     <MessageResponse>{children}</MessageResponse>
   </AlertTitle>
 )

@@ -322,7 +322,7 @@ export const CodeBlockTitle = ({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex items-center gap-2', className)} {...props}>
+  <div className={cn('flex min-w-0 items-center gap-2', className)} {...props}>
     {children}
   </div>
 )
@@ -332,7 +332,7 @@ export const CodeBlockFilename = ({
   className,
   ...props
 }: HTMLAttributes<HTMLSpanElement>) => (
-  <span className={cn('font-mono', className)} {...props}>
+  <span className={cn('truncate font-mono', className)} {...props}>
     {children}
   </span>
 )
@@ -342,7 +342,7 @@ export const CodeBlockActions = ({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('-my-1 -mr-1 flex items-center gap-2', className)} {...props}>
+  <div className={cn('-my-1 -mr-1 flex shrink-0 items-center gap-2', className)} {...props}>
     {children}
   </div>
 )
@@ -392,7 +392,7 @@ export const CodeBlockContent = ({
   const tokenized = asyncTokens ?? syncTokens
 
   return (
-    <div className="relative overflow-auto">
+    <div className="relative overflow-auto" tabIndex={0}>
       <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
     </div>
   )
@@ -465,6 +465,7 @@ export const CodeBlockCopyButton = ({
 
   return (
     <Button
+      aria-label={isCopied ? 'Copied' : 'Copy code'}
       className={cn('shrink-0', className)}
       onClick={copyToClipboard}
       size="icon"

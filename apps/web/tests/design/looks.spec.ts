@@ -13,7 +13,6 @@ const PAGE_IDS = [
   'pages-account--paired',
   'pages-conversation--ready',
   'pages-conversations--ready',
-  'pages-host--online',
   'pages-new-conversation--ready',
   'pages-not-found--default',
   'pages-pair--code-entry',

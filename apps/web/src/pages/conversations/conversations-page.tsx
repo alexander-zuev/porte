@@ -23,7 +23,13 @@ export type ConversationsPageProps = {
  * page is the list and nothing above it.
  */
 export function ConversationsPage(props: ConversationsPageProps) {
-  return <div className="flex flex-1 flex-col gap-2">{body(props)}</div>
+  return (
+    <div className="flex flex-1 flex-col gap-2">
+      {/* Spoken, not shown: the list is the page, and a title above it would say so twice. */}
+      <h1 className="sr-only">Conversations</h1>
+      {body(props)}
+    </div>
+  )
 }
 
 /**

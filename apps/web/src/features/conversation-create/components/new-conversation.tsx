@@ -63,7 +63,7 @@ export function NewConversation(props: NewConversationProps) {
         hostName={props.hostName}
         onBack={props.onBack}
       />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
         <header className="flex flex-col gap-2">
           <h1>New conversation</h1>
           <p className="text-muted-foreground">
@@ -73,7 +73,7 @@ export function NewConversation(props: NewConversationProps) {
         {props.view === 'loading' ? <LoadingRepositories /> : null}
         {props.view === 'empty' ? <NoRepositories /> : null}
         {props.view === 'form' ? <ConversationFormView {...props} /> : null}
-      </main>
+      </div>
     </div>
   )
 }

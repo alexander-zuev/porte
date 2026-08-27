@@ -1,15 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { NotFound } from '@web/ui/components/feedback/not-found.tsx'
-import { PublicShell } from '@web/ui/components/layout/public-shell.tsx'
 
+/** The router's default fallback: it renders alone, with no shell around it. */
 const meta = {
   title: 'Pages/Not found',
   component: NotFound,
-  render: () => (
-    <PublicShell variant="article">
-      <NotFound />
-    </PublicShell>
-  ),
 } satisfies Meta<typeof NotFound>
 
 export default meta

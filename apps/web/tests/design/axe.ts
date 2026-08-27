@@ -44,11 +44,22 @@ export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
   })
 }
 
-export async function axeViolations(page: Page, theme: Theme = 'dark'): Promise<string[]> {
+/** Document-level rules a component board cannot satisfy: it is a fragment, not a page. */
+export const PAGE_ONLY_RULES = ['page-has-heading-one']
+
+export async function axeViolations(
+  page: Page,
+  theme: Theme = 'dark',
+  disabledRules: readonly string[] = [],
+): Promise<string[]> {
   await settle(page, theme)
+  const rules = {
+    ...RULE_OVERRIDES,
+    ...Object.fromEntries(disabledRules.map((rule) => [rule, { enabled: false }])),
+  }
   const { violations } = await new AxeBuilder({ page })
     // `options` replaces the whole option object, so it has to come first.
-    .options({ rules: RULE_OVERRIDES })
+    .options({ rules })
     .withTags(AXE_TAGS)
     .analyze()
   return violations.map((violation) => `${violation.id}: ${violation.nodes[0]?.html ?? ''}`)

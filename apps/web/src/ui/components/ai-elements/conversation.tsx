@@ -21,7 +21,12 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
 export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>
 
 export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
-  <StickToBottom.Content className={cn('flex flex-col gap-8 p-4', className)} {...props} />
+  // Focusable so the keyboard can scroll a transcript that has no control in it.
+  <StickToBottom.Content
+    className={cn('flex flex-col gap-8 p-4', className)}
+    tabIndex={0}
+    {...props}
+  />
 )
 
 export type ConversationEmptyStateProps = ComponentProps<'div'> & {
@@ -76,6 +81,7 @@ export const ConversationScrollButton = ({
           'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
           className,
         )}
+        aria-label="Scroll to bottom"
         onClick={handleScrollToBottom}
         size="icon"
         type="button"

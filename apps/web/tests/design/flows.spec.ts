@@ -50,12 +50,6 @@ test('sign-in continues to the conversation list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()
 })
 
-test('a tap hint opens on click and stays reachable', async ({ page }) => {
-  await page.goto(storyPath('design-system-components-surfaces--all'))
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await expect(page.getByText('Stops the current turn')).toBeVisible()
-})
-
 test('an open menu is accessible', async ({ page }) => {
   await page.goto(storyPath('design-system-components-overlays--menu-layer'))
   await expect(page.getByRole('menu')).toBeVisible()

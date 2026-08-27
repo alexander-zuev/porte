@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { RouteError } from '@web/ui/components/feedback/route-error.tsx'
-import { PublicShell } from '@web/ui/components/layout/public-shell.tsx'
 
+/** The router's default fallback: it renders alone, with no shell around it. */
 const meta = {
   title: 'Pages/Route error',
   component: RouteError,
@@ -9,11 +9,6 @@ const meta = {
     error: new Error('Private error detail'),
     reset: () => undefined,
   },
-  render: (args) => (
-    <PublicShell variant="article">
-      <RouteError {...args} />
-    </PublicShell>
-  ),
 } satisfies Meta<typeof RouteError>
 
 export default meta

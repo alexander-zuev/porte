@@ -46,7 +46,8 @@ const agent = {
   send: () => undefined,
   addEventListener: () => undefined,
   removeEventListener: () => undefined,
-  getHttpUrl: () => 'http://localhost/api/host/ws',
+  // Empty on purpose: `useAgentChat` fetches `/get-messages` from any URL it is given.
+  getHttpUrl: () => '',
 } satisfies ConversationState['agent']
 
 const ready: ConversationState = {

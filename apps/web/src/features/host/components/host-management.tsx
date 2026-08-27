@@ -58,13 +58,13 @@ export function HostManagement(props: HostManagementProps) {
           <Logo size="sm" />
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
         <header className="flex flex-col gap-2">
           <h1>Paired Mac</h1>
           <p className="text-muted-foreground">Manage remote access to your local conversations.</p>
         </header>
         {props.state === 'revoked' ? <RevokedHost {...props} /> : <ActiveHost {...props} />}
-      </main>
+      </div>
     </div>
   )
 }
