@@ -1,0 +1,1625 @@
+[
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "Read README.md in this repo and reply with its first line only.",
+        "type": "text"
+      },
+      "_meta": {
+        "modelId": "grok-4.6",
+        "promptIndex": 0
+      },
+      "sessionUpdate": "user_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "title": "Read README.md first line only",
+      "sessionUpdate": "session_info_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "The",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " user",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " wants",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " me",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " to",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " read",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " README",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".md",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " and",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " reply",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " with",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " its",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " first",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " line",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " only",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " Simple",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " task",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "I'll",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " read",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " README",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".md",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " and",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " return",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " only",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " its",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " first",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " line",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "availableCommands": [
+        {
+          "name": "compact",
+          "description": "Compress conversation history to save context window",
+          "input": {
+            "hint": "optional context about what to preserve"
+          }
+        },
+        {
+          "name": "always-approve",
+          "description": "Toggle always-approve mode (skip all permission prompts)",
+          "input": {
+            "hint": "on|off"
+          }
+        },
+        {
+          "name": "context",
+          "description": "Show context window usage and session stats",
+          "input": null
+        }
+      ],
+      "_meta": {
+        "tools": [
+          "run_terminal_command",
+          "read_file",
+          "search_replace",
+          "list_dir",
+          "grep",
+          "kill_command_or_subagent",
+          "todo_write",
+          "get_command_or_subagent_output",
+          "spawn_subagent",
+          "scheduler_create",
+          "scheduler_delete",
+          "scheduler_list",
+          "monitor",
+          "search_tool",
+          "use_tool",
+          "workflow",
+          "enter_plan_mode",
+          "exit_plan_mode",
+          "ask_user_question",
+          "web_search",
+          "web_fetch",
+          "image_gen",
+          "image_edit",
+          "image_to_video",
+          "reference_to_video",
+          "write",
+          "cloudflare-docs__search_cloudflare_documentation",
+          "cloudflare-docs__migrate_pages_to_workers_guide",
+          "linear__get_attachment",
+          "linear__prepare_attachment_upload",
+          "linear__create_attachment_from_upload",
+          "linear__create_attachment",
+          "linear__delete_attachment",
+          "linear__list_agent_skills",
+          "linear__get_agent_skill",
+          "linear__list_comments",
+          "linear__save_comment",
+          "linear__delete_comment",
+          "linear__list_cycles",
+          "linear__get_document",
+          "linear__list_documents",
+          "linear__save_document",
+          "linear__extract_images",
+          "linear__get_issue",
+          "linear__list_issues",
+          "linear__save_issue",
+          "linear__list_issue_statuses",
+          "linear__get_issue_status",
+          "linear__list_issue_labels",
+          "linear__create_issue_label",
+          "linear__list_projects",
+          "linear__get_project",
+          "linear__save_project",
+          "linear__list_project_labels",
+          "linear__list_release_pipelines",
+          "linear__list_releases",
+          "linear__get_release",
+          "linear__save_release",
+          "linear__list_release_notes",
+          "linear__get_release_note",
+          "linear__save_release_note",
+          "linear__get_diff",
+          "linear__list_diffs",
+          "linear__get_diff_threads",
+          "linear__save_diff_comment",
+          "linear__resolve_diff_thread",
+          "linear__delete_diff_comment",
+          "linear__submit_diff_review",
+          "linear__merge_diff",
+          "linear__share_issue",
+          "linear__unshare_issue",
+          "linear__list_milestones",
+          "linear__get_milestone",
+          "linear__save_milestone",
+          "linear__list_teams",
+          "linear__get_team",
+          "linear__list_users",
+          "linear__get_user",
+          "linear__get_workspace",
+          "linear__search_documentation",
+          "linear__get_status_updates",
+          "linear__save_status_update",
+          "linear__delete_status_update",
+          "posthog__exec",
+          "chrome-devtools__click",
+          "chrome-devtools__close_page",
+          "chrome-devtools__drag",
+          "chrome-devtools__emulate",
+          "chrome-devtools__evaluate_script",
+          "chrome-devtools__fill",
+          "chrome-devtools__fill_form",
+          "chrome-devtools__get_console_message",
+          "chrome-devtools__get_network_request",
+          "chrome-devtools__handle_dialog",
+          "chrome-devtools__hover",
+          "chrome-devtools__lighthouse_audit",
+          "chrome-devtools__list_console_messages",
+          "chrome-devtools__list_network_requests",
+          "chrome-devtools__list_pages",
+          "chrome-devtools__navigate_page",
+          "chrome-devtools__new_page",
+          "chrome-devtools__performance_analyze_insight",
+          "chrome-devtools__performance_start_trace",
+          "chrome-devtools__performance_stop_trace",
+          "chrome-devtools__press_key",
+          "chrome-devtools__resize_page",
+          "chrome-devtools__select_page",
+          "chrome-devtools__take_heapsnapshot",
+          "chrome-devtools__take_screenshot",
+          "chrome-devtools__take_snapshot",
+          "chrome-devtools__type_text",
+          "chrome-devtools__upload_file",
+          "chrome-devtools__wait_for"
+        ]
+      },
+      "sessionUpdate": "available_commands_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-1bbb7549-ea71-4803-8546-b6dac3a9d59b-0",
+      "title": "read_file",
+      "rawInput": {
+        "target_file": "README.md",
+        "limit": 5
+      },
+      "_meta": {
+        "x.ai/tool": {
+          "version": 1,
+          "name": "read_file",
+          "kind": "read",
+          "namespace": "grok_build",
+          "label": "Read",
+          "read_only": true
+        }
+      },
+      "sessionUpdate": "tool_call"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-1bbb7549-ea71-4803-8546-b6dac3a9d59b-0",
+      "kind": "read",
+      "title": "Read `README.md`",
+      "locations": [
+        {
+          "path": "README.md"
+        }
+      ],
+      "rawInput": {
+        "variant": "ReadFile",
+        "target_file": "README.md",
+        "limit": 5
+      },
+      "_meta": {
+        "x.ai/tool": {
+          "version": 1,
+          "name": "read_file",
+          "kind": "read",
+          "namespace": "grok_build",
+          "label": "Read",
+          "read_only": true,
+          "input": {
+            "path": "README.md",
+            "limit": 5
+          }
+        }
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-1bbb7549-ea71-4803-8546-b6dac3a9d59b-0",
+      "status": "failed",
+      "content": [
+        {
+          "content": {
+            "text": "Failed to read file: /private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-spike-flJDZX/README.md, IO Error: path is outside the conversation directory",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "rawOutput": {
+        "type": "ReadFile",
+        "FileReadError": "Failed to read file: /private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-spike-flJDZX/README.md, IO Error: path is outside the conversation directory"
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "The",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " read",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "_",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "file",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " tool",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " failed",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " because",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " the",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " path",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " is",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " outside",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " the",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " conversation",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " directory",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " Let",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " me",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " try",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " using",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " bash",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " cat",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " instead",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "The",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " file",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " tool",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " blocked",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " that",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " path",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ",",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " so",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " I’ll",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " read",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " README",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".md",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " from",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " the",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " shell",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " instead",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "availableCommands": [
+        {
+          "name": "compact",
+          "description": "Compress conversation history to save context window",
+          "input": {
+            "hint": "optional context about what to preserve"
+          }
+        },
+        {
+          "name": "always-approve",
+          "description": "Toggle always-approve mode (skip all permission prompts)",
+          "input": {
+            "hint": "on|off"
+          }
+        },
+        {
+          "name": "context",
+          "description": "Show context window usage and session stats",
+          "input": null
+        }
+      ],
+      "_meta": {
+        "tools": [
+          "run_terminal_command",
+          "read_file",
+          "search_replace",
+          "list_dir",
+          "grep",
+          "kill_command_or_subagent",
+          "todo_write",
+          "get_command_or_subagent_output",
+          "spawn_subagent",
+          "scheduler_create",
+          "scheduler_delete",
+          "scheduler_list",
+          "monitor",
+          "search_tool",
+          "use_tool",
+          "workflow",
+          "enter_plan_mode",
+          "exit_plan_mode",
+          "ask_user_question",
+          "web_search",
+          "web_fetch",
+          "image_gen",
+          "image_edit",
+          "image_to_video",
+          "reference_to_video",
+          "write",
+          "cloudflare-docs__search_cloudflare_documentation",
+          "cloudflare-docs__migrate_pages_to_workers_guide",
+          "linear__get_attachment",
+          "linear__prepare_attachment_upload",
+          "linear__create_attachment_from_upload",
+          "linear__create_attachment",
+          "linear__delete_attachment",
+          "linear__list_agent_skills",
+          "linear__get_agent_skill",
+          "linear__list_comments",
+          "linear__save_comment",
+          "linear__delete_comment",
+          "linear__list_cycles",
+          "linear__get_document",
+          "linear__list_documents",
+          "linear__save_document",
+          "linear__extract_images",
+          "linear__get_issue",
+          "linear__list_issues",
+          "linear__save_issue",
+          "linear__list_issue_statuses",
+          "linear__get_issue_status",
+          "linear__list_issue_labels",
+          "linear__create_issue_label",
+          "linear__list_projects",
+          "linear__get_project",
+          "linear__save_project",
+          "linear__list_project_labels",
+          "linear__list_release_pipelines",
+          "linear__list_releases",
+          "linear__get_release",
+          "linear__save_release",
+          "linear__list_release_notes",
+          "linear__get_release_note",
+          "linear__save_release_note",
+          "linear__get_diff",
+          "linear__list_diffs",
+          "linear__get_diff_threads",
+          "linear__save_diff_comment",
+          "linear__resolve_diff_thread",
+          "linear__delete_diff_comment",
+          "linear__submit_diff_review",
+          "linear__merge_diff",
+          "linear__share_issue",
+          "linear__unshare_issue",
+          "linear__list_milestones",
+          "linear__get_milestone",
+          "linear__save_milestone",
+          "linear__list_teams",
+          "linear__get_team",
+          "linear__list_users",
+          "linear__get_user",
+          "linear__get_workspace",
+          "linear__search_documentation",
+          "linear__get_status_updates",
+          "linear__save_status_update",
+          "linear__delete_status_update",
+          "posthog__exec",
+          "chrome-devtools__click",
+          "chrome-devtools__close_page",
+          "chrome-devtools__drag",
+          "chrome-devtools__emulate",
+          "chrome-devtools__evaluate_script",
+          "chrome-devtools__fill",
+          "chrome-devtools__fill_form",
+          "chrome-devtools__get_console_message",
+          "chrome-devtools__get_network_request",
+          "chrome-devtools__handle_dialog",
+          "chrome-devtools__hover",
+          "chrome-devtools__lighthouse_audit",
+          "chrome-devtools__list_console_messages",
+          "chrome-devtools__list_network_requests",
+          "chrome-devtools__list_pages",
+          "chrome-devtools__navigate_page",
+          "chrome-devtools__new_page",
+          "chrome-devtools__performance_analyze_insight",
+          "chrome-devtools__performance_start_trace",
+          "chrome-devtools__performance_stop_trace",
+          "chrome-devtools__press_key",
+          "chrome-devtools__resize_page",
+          "chrome-devtools__select_page",
+          "chrome-devtools__take_heapsnapshot",
+          "chrome-devtools__take_screenshot",
+          "chrome-devtools__take_snapshot",
+          "chrome-devtools__type_text",
+          "chrome-devtools__upload_file",
+          "chrome-devtools__wait_for"
+        ]
+      },
+      "sessionUpdate": "available_commands_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1",
+      "title": "run_terminal_command",
+      "rawInput": {
+        "command": "head -n 1 README.md",
+        "description": "Read first line of README.md"
+      },
+      "_meta": {
+        "x.ai/tool": {
+          "version": 1,
+          "name": "run_terminal_command",
+          "kind": "execute",
+          "namespace": "grok_build",
+          "label": "Run Command",
+          "read_only": false
+        }
+      },
+      "sessionUpdate": "tool_call"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1",
+      "kind": "execute",
+      "title": "Execute `head -n 1 README.md`",
+      "content": [
+        {
+          "content": {
+            "text": "Read first line of README.md",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "locations": [],
+      "rawInput": {
+        "variant": "Bash",
+        "command": "head -n 1 README.md",
+        "description": "Read first line of README.md",
+        "is_background": false
+      },
+      "_meta": {
+        "x.ai/tool": {
+          "version": 1,
+          "name": "run_terminal_command",
+          "kind": "execute",
+          "namespace": "grok_build",
+          "label": "Run Command",
+          "read_only": false,
+          "input": {
+            "command": "head -n 1 README.md",
+            "description": "Read first line of README.md"
+          }
+        }
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1",
+      "status": "in_progress",
+      "content": [
+        {
+          "content": {
+            "text": "",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "rawOutput": {
+        "type": "Bash",
+        "output": [],
+        "output_for_prompt": "",
+        "exit_code": 0,
+        "command": "head -n 1 README.md",
+        "truncated": false,
+        "signal": null,
+        "timed_out": false,
+        "description": null,
+        "current_dir": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-spike-flJDZX",
+        "output_file": "",
+        "total_bytes": 0
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1",
+      "status": "in_progress",
+      "content": [
+        {
+          "content": {
+            "text": "# spike\n",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "rawOutput": {
+        "type": "Bash",
+        "output": [35, 32, 115, 112, 105, 107, 101, 10],
+        "output_for_prompt": "# spike\n",
+        "exit_code": 0,
+        "command": "head -n 1 README.md",
+        "truncated": false,
+        "signal": null,
+        "timed_out": false,
+        "description": null,
+        "current_dir": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-spike-flJDZX",
+        "output_file": "",
+        "total_bytes": 8
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "toolCallId": "call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1",
+      "status": "completed",
+      "content": [
+        {
+          "content": {
+            "text": "# spike\n",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "rawOutput": {
+        "type": "Bash",
+        "output": [35, 32, 115, 112, 105, 107, 101, 10],
+        "output_for_prompt": "exit: 0\n# spike\n",
+        "exit_code": 0,
+        "command": "head -n 1 README.md",
+        "truncated": false,
+        "signal": null,
+        "timed_out": false,
+        "description": "Read first line of README.md",
+        "current_dir": "/private/var/folders/9h/vkvybtyn339_r3nkcqx84_100000gn/T/porte-spike-flJDZX",
+        "output_file": "/Users/az/.grok/sessions/%2Fprivate%2Fvar%2Ffolders%2F9h%2Fvkvybtyn339_r3nkcqx84_100000gn%2FT%2Fporte-spike-flJDZX/01a0433a-65d1-7de3-b27b-66b600212f0d/terminal/call-b40af23d-7f41-45ad-a746-0f09d17dcd14-1.log",
+        "total_bytes": 8
+      },
+      "sessionUpdate": "tool_call_update"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "The",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " first",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " line",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " of",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " README",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".md",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " is",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " \"#",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " spike",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "\".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " The",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " user",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " asked",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " me",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " to",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " reply",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " with",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " its",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " first",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " line",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " only",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": ".",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_thought_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": "#",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "content": {
+        "text": " spike",
+        "type": "text"
+      },
+      "sessionUpdate": "agent_message_chunk"
+    }
+  },
+  {
+    "sessionId": "01a0433a-65d1-7de3-b27b-66b600212f0d",
+    "update": {
+      "availableCommands": [
+        {
+          "name": "compact",
+          "description": "Compress conversation history to save context window",
+          "input": {
+            "hint": "optional context about what to preserve"
+          }
+        },
+        {
+          "name": "always-approve",
+          "description": "Toggle always-approve mode (skip all permission prompts)",
+          "input": {
+            "hint": "on|off"
+          }
+        },
+        {
+          "name": "context",
+          "description": "Show context window usage and session stats",
+          "input": null
+        }
+      ],
+      "_meta": {
+        "tools": [
+          "run_terminal_command",
+          "read_file",
+          "search_replace",
+          "list_dir",
+          "grep",
+          "kill_command_or_subagent",
+          "todo_write",
+          "get_command_or_subagent_output",
+          "spawn_subagent",
+          "scheduler_create",
+          "scheduler_delete",
+          "scheduler_list",
+          "monitor",
+          "search_tool",
+          "use_tool",
+          "workflow",
+          "enter_plan_mode",
+          "exit_plan_mode",
+          "ask_user_question",
+          "web_search",
+          "web_fetch",
+          "image_gen",
+          "image_edit",
+          "image_to_video",
+          "reference_to_video",
+          "write",
+          "cloudflare-docs__search_cloudflare_documentation",
+          "cloudflare-docs__migrate_pages_to_workers_guide",
+          "linear__get_attachment",
+          "linear__prepare_attachment_upload",
+          "linear__create_attachment_from_upload",
+          "linear__create_attachment",
+          "linear__delete_attachment",
+          "linear__list_agent_skills",
+          "linear__get_agent_skill",
+          "linear__list_comments",
+          "linear__save_comment",
+          "linear__delete_comment",
+          "linear__list_cycles",
+          "linear__get_document",
+          "linear__list_documents",
+          "linear__save_document",
+          "linear__extract_images",
+          "linear__get_issue",
+          "linear__list_issues",
+          "linear__save_issue",
+          "linear__list_issue_statuses",
+          "linear__get_issue_status",
+          "linear__list_issue_labels",
+          "linear__create_issue_label",
+          "linear__list_projects",
+          "linear__get_project",
+          "linear__save_project",
+          "linear__list_project_labels",
+          "linear__list_release_pipelines",
+          "linear__list_releases",
+          "linear__get_release",
+          "linear__save_release",
+          "linear__list_release_notes",
+          "linear__get_release_note",
+          "linear__save_release_note",
+          "linear__get_diff",
+          "linear__list_diffs",
+          "linear__get_diff_threads",
+          "linear__save_diff_comment",
+          "linear__resolve_diff_thread",
+          "linear__delete_diff_comment",
+          "linear__submit_diff_review",
+          "linear__merge_diff",
+          "linear__share_issue",
+          "linear__unshare_issue",
+          "linear__list_milestones",
+          "linear__get_milestone",
+          "linear__save_milestone",
+          "linear__list_teams",
+          "linear__get_team",
+          "linear__list_users",
+          "linear__get_user",
+          "linear__get_workspace",
+          "linear__search_documentation",
+          "linear__get_status_updates",
+          "linear__save_status_update",
+          "linear__delete_status_update",
+          "posthog__exec",
+          "chrome-devtools__click",
+          "chrome-devtools__close_page",
+          "chrome-devtools__drag",
+          "chrome-devtools__emulate",
+          "chrome-devtools__evaluate_script",
+          "chrome-devtools__fill",
+          "chrome-devtools__fill_form",
+          "chrome-devtools__get_console_message",
+          "chrome-devtools__get_network_request",
+          "chrome-devtools__handle_dialog",
+          "chrome-devtools__hover",
+          "chrome-devtools__lighthouse_audit",
+          "chrome-devtools__list_console_messages",
+          "chrome-devtools__list_network_requests",
+          "chrome-devtools__list_pages",
+          "chrome-devtools__navigate_page",
+          "chrome-devtools__new_page",
+          "chrome-devtools__performance_analyze_insight",
+          "chrome-devtools__performance_start_trace",
+          "chrome-devtools__performance_stop_trace",
+          "chrome-devtools__press_key",
+          "chrome-devtools__resize_page",
+          "chrome-devtools__select_page",
+          "chrome-devtools__take_heapsnapshot",
+          "chrome-devtools__take_screenshot",
+          "chrome-devtools__take_snapshot",
+          "chrome-devtools__type_text",
+          "chrome-devtools__upload_file",
+          "chrome-devtools__wait_for"
+        ]
+      },
+      "sessionUpdate": "available_commands_update"
+    }
+  }
+]
