@@ -1,9 +1,9 @@
+import { AcpAgentProcess } from '@host/infrastructure/acp/acp-agent-process.ts'
 import { AcpClientRequestError } from '@host/infrastructure/acp/error.ts'
-import { AcpTransport } from '@host/infrastructure/acp/transport.ts'
 import { describe, expect, it } from 'vitest'
 
 function startIdleTransport(signal: AbortSignal) {
-  return AcpTransport.start({
+  return AcpAgentProcess.start({
     command: process.execPath,
     args: ['-e', 'process.stdin.resume()'],
     cwd: process.cwd(),
@@ -15,7 +15,7 @@ function startIdleTransport(signal: AbortSignal) {
   })
 }
 
-describe('AcpTransport', () => {
+describe('AcpAgentProcess', () => {
   it('stops one request at its deadline', async () => {
     const transport = await startIdleTransport(new AbortController().signal)
     await expect(

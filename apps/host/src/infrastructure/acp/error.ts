@@ -56,14 +56,14 @@ export class AcpExitedError extends TaggedError('AcpExitedError')<{
   }
 }
 
-/** The active ACP process reported a transport failure. */
-export class AcpTransportError extends TaggedError('AcpTransportError')<{
+/** The ACP process connection failed for a reason other than exit or timeout. */
+export class AcpProcessError extends TaggedError('AcpProcessError')<{
   cause: unknown
   message: string
   classification: FailureClassification
 }> {
   constructor(args: { cause: unknown }) {
-    super({ ...args, message: 'ACP process transport failed', classification: 'transient' })
+    super({ ...args, message: 'ACP process connection failed', classification: 'transient' })
   }
 }
 

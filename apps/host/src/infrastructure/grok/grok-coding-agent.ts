@@ -7,9 +7,7 @@ import {
   type ContentBlock,
   type CreateElicitationResponse,
   type ListSessionsResponse,
-  type LoadSessionResponse,
   type McpServer,
-  type SessionInfo,
 } from '@agentclientprotocol/sdk'
 import {
   CodingAgentCapabilityError,
@@ -24,10 +22,13 @@ import {
   type SetConfiguration,
   type CreatedSession,
   type CreateConversation,
+  type SessionFacts,
   type StartTurn,
 } from '@host/application/ports/coding-agent.ts'
 import { applyConversationEvents } from '@host/domain/conversation/conversation-view-reducer.ts'
 import { Conversation } from '@host/domain/conversation/conversation.ts'
+import type { AcpRequestHandler } from '@host/infrastructure/acp/acp-agent-process.ts'
+import { AcpAgentProcess } from '@host/infrastructure/acp/acp-agent-process.ts'
 import { AcpClientRequestError } from '@host/infrastructure/acp/error.ts'
 import { AcpProtocolVersionMismatchError } from '@host/infrastructure/acp/error.ts'
 import {
@@ -36,8 +37,6 @@ import {
   parsePermissionRequest,
 } from '@host/infrastructure/acp/incoming-request.ts'
 import type { AcpSessionNotification, JsonValue } from '@host/infrastructure/acp/message.ts'
-import type { AcpRequestHandler } from '@host/infrastructure/acp/transport.ts'
-import { AcpTransport } from '@host/infrastructure/acp/transport.ts'
 import {
   GrokEventMapper,
   GrokReplayMapper,
@@ -45,6 +44,7 @@ import {
   mapGrokConfiguration,
   type GrokEventMappingError,
 } from '@host/infrastructure/grok/grok-event-mapper.ts'
+import { toSessionFacts } from '@host/infrastructure/grok/grok-session.ts'
 import {
   CodingAgentUnavailableError,
   ConversationBusyError,
@@ -85,19 +85,22 @@ const emptyView = ConversationViewSchema.parse({
 })
 
 type ReadyGrok = {
-  readonly transport: AcpTransport
+  readonly transport: AcpAgentProcess
   readonly capabilities: AgentCapabilities
 }
 
 /**
  * One Grok ACP process that implements Porte `CodingAgent`.
  *
- * Owns the child through `AcpTransport` and per-open-chat RAM by id.
+ * Owns the child through `AcpAgentProcess` and per-open-chat RAM by id.
  * Open conversations do not own the process or its capabilities.
  */
 export class GrokCodingAgent implements CodingAgent {
   private acp: ReadyGrok | undefined
   private readonly held = new Map<ConversationId, Conversation>()
+  private readonly snapshots = new Map<ConversationId, ConversationView>()
+  private readonly loadSinks = new Map<ConversationId, GrokReplayMapper>()
+  private readonly loadErrors = new Map<ConversationId, GrokEventMappingError>()
   private readonly conversations = new Map<ConversationId, OpenConversation>()
 
   constructor(private readonly signal: AbortSignal) {}
@@ -126,34 +129,72 @@ export class GrokCodingAgent implements CodingAgent {
     this.held.set(conversation.id, conversation)
   }
 
-  /** Load one Grok conversation onto this process. */
-  async openConversation(conversationId: ConversationId): Promise<void> {
-    if (this.held.has(conversationId) || this.conversations.has(conversationId)) return
+  /** Drop one held conversation from this process without closing the ACP session. */
+  drop(conversationId: ConversationId): void {
+    this.held.delete(conversationId)
+    this.snapshots.delete(conversationId)
+    this.loadSinks.delete(conversationId)
+    this.loadErrors.delete(conversationId)
+    this.conversations.delete(conversationId)
+  }
 
-    const listed = await this.findConversation(conversationId)
+  /** True when this process already holds the conversation. */
+  has(conversationId: ConversationId): boolean {
+    return this.held.has(conversationId)
+  }
+
+  /** Find one Grok session this process can open. */
+  async findSession(conversationId: ConversationId): Promise<SessionFacts> {
+    let cursor: string | undefined
+    for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- ACP gives each cursor in the prior page.
+      const listed = await this.listConversations(
+        cursor === undefined ? undefined : ConversationCursorSchema.parse(cursor),
+      )
+      const found = listed.sessions.find((session) => session.sessionId === conversationId)
+      if (found !== undefined) {
+        const facts = toSessionFacts(found)
+        if (facts === undefined) throw new ConversationNotFoundError()
+        return facts
+      }
+      if (listed.nextCursor == null) break
+      cursor = listed.nextCursor
+    }
+    throw new ConversationNotFoundError()
+  }
+
+  /** Load one Grok session history into the snapshot cache. */
+  async loadSession(conversation: Conversation): Promise<void> {
     const { transport } = await this.ensureAcp()
-    const conversation = OpenConversation.loading(conversationId, listed.cwd)
-    this.conversations.set(conversationId, conversation)
+    const replay = new GrokReplayMapper()
+    this.loadSinks.set(conversation.id, replay)
     try {
-      const response = await transport.request({
+      const loaded = await transport.request({
         method: 'session/load',
-        params: { sessionId: conversationId, cwd: listed.cwd, mcpServers: [] },
+        params: { sessionId: conversation.id, cwd: conversation.cwd, mcpServers: [] },
       })
-      conversation.finishLoad(response)
+      const loadError = this.loadErrors.get(conversation.id)
+      if (loadError !== undefined) throw new CodingAgentResponseError({ cause: loadError })
+      replay.seedSession(loaded)
+      this.snapshots.set(conversation.id, replay.snapshot(conversation.id))
     } catch (cause) {
-      this.conversations.delete(conversationId)
+      this.loadSinks.delete(conversation.id)
+      this.loadErrors.delete(conversation.id)
       if (isGrokEventMappingError(cause)) throw new CodingAgentResponseError({ cause })
       throw cause
     }
+    this.loadSinks.delete(conversation.id)
+    this.loadErrors.delete(conversation.id)
   }
 
   /** Current view and turn of one open conversation. */
   snapshot(conversationId: ConversationId): ConversationState {
     const session = this.conversations.get(conversationId)
     if (session !== undefined) return session.snapshot()
-    const conversation = this.held.get(conversationId)
-    if (conversation === undefined) throw new ConversationNotFoundError()
-    return makeConversationState(emptyView, { state: 'idle' })
+    const snapshot = this.snapshots.get(conversationId)
+    if (snapshot !== undefined) return makeConversationState(snapshot, { state: 'idle' })
+    if (this.held.has(conversationId)) return makeConversationState(emptyView, { state: 'idle' })
+    throw new ConversationNotFoundError()
   }
 
   /** Subscribe to canonical events from one open conversation. */
@@ -222,6 +263,9 @@ export class GrokCodingAgent implements CodingAgent {
   /** Drop one open conversation. Does not stop the process. */
   async closeConversation(conversationId: ConversationId): Promise<void> {
     this.held.delete(conversationId)
+    this.snapshots.delete(conversationId)
+    this.loadSinks.delete(conversationId)
+    this.loadErrors.delete(conversationId)
     const session = this.conversations.get(conversationId)
     this.conversations.delete(conversationId)
     const acp = this.acp
@@ -251,21 +295,6 @@ export class GrokCodingAgent implements CodingAgent {
     await acp?.transport.stop()
   }
 
-  private async findConversation(conversationId: ConversationId): Promise<SessionInfo> {
-    let cursor: string | undefined
-    for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
-      // oxlint-disable-next-line no-await-in-loop -- ACP gives each cursor in the prior page.
-      const listed = await this.listConversations(
-        cursor === undefined ? undefined : ConversationCursorSchema.parse(cursor),
-      )
-      const found = listed.sessions.find((session) => session.sessionId === conversationId)
-      if (found !== undefined) return found
-      if (listed.nextCursor == null) break
-      cursor = listed.nextCursor
-    }
-    throw new ConversationNotFoundError()
-  }
-
   private async ensureAcp(): Promise<ReadyGrok> {
     if (this.acp !== undefined) return this.acp
     const acp = await this.startGrok()
@@ -275,7 +304,7 @@ export class GrokCodingAgent implements CodingAgent {
   }
 
   private async startGrok(): Promise<ReadyGrok> {
-    const transport = await AcpTransport.start({
+    const transport = await AcpAgentProcess.start({
       command: 'grok',
       args: ['--no-auto-update', 'agent', 'stdio'],
       cwd: homedir(),
@@ -324,6 +353,16 @@ export class GrokCodingAgent implements CodingAgent {
   private receiveUpdate(notification: AcpSessionNotification): void {
     const conversationId = ConversationIdSchema.safeParse(notification.sessionId)
     if (!conversationId.success) return
+    const sink = this.loadSinks.get(conversationId.data)
+    if (sink !== undefined) {
+      try {
+        sink.map(notification)
+      } catch (cause) {
+        if (isGrokEventMappingError(cause)) this.loadErrors.set(conversationId.data, cause)
+        else throw cause
+      }
+      return
+    }
     this.conversations.get(conversationId.data)?.receiveUpdate(notification)
   }
 
@@ -341,7 +380,7 @@ export class GrokCodingAgent implements CodingAgent {
     if (existing !== undefined) return existing
     const held = this.held.get(conversationId)
     if (held === undefined) throw new ConversationNotFoundError()
-    const session = OpenConversation.attach(held)
+    const session = OpenConversation.attach(held, this.snapshots.get(conversationId) ?? emptyView)
     this.conversations.set(conversationId, session)
     return session
   }
@@ -395,8 +434,6 @@ type AcpEmbeddedResource =
  */
 class OpenConversation {
   private view: ConversationView
-  private replay: GrokReplayMapper | undefined
-  private replayError: GrokEventMappingError | undefined
   private mapper: GrokEventMapper | undefined
   private turnId: TurnId | undefined
   private listener: (event: ConversationEvent) => void = () => undefined
@@ -408,29 +445,12 @@ class OpenConversation {
     readonly conversationId: ConversationId,
     readonly cwd: string,
     view: ConversationView,
-    replay: GrokReplayMapper | undefined,
   ) {
     this.view = view
-    this.replay = replay
   }
 
-  static attach(conversation: Conversation): OpenConversation {
-    return new OpenConversation(conversation.id, conversation.cwd, emptyView, undefined)
-  }
-
-  static loading(conversationId: ConversationId, cwd: string): OpenConversation {
-    return new OpenConversation(conversationId, cwd, emptyView, new GrokReplayMapper())
-  }
-
-  finishLoad(response: LoadSessionResponse): void {
-    if (this.replayError !== undefined) {
-      throw new CodingAgentResponseError({ cause: this.replayError })
-    }
-    const replay = this.replay
-    if (replay === undefined) return
-    replay.seedSession(response)
-    this.view = replay.snapshot(this.conversationId)
-    this.replay = undefined
+  static attach(conversation: Conversation, view: ConversationView): OpenConversation {
+    return new OpenConversation(conversation.id, conversation.cwd, view)
   }
 
   snapshot(): ConversationState {
@@ -583,16 +603,6 @@ class OpenConversation {
   }
 
   receiveUpdate(notification: AcpSessionNotification): void {
-    if (this.replay !== undefined) {
-      if (this.replayError !== undefined) return
-      try {
-        this.replay.map(notification)
-      } catch (cause) {
-        if (isGrokEventMappingError(cause)) this.replayError = cause
-        else throw cause
-      }
-      return
-    }
     if (this.mapper === undefined) {
       this.applyIdleUpdate(notification)
       return
@@ -737,7 +747,7 @@ function requireSupportedProtocol(received: number): void {
 }
 
 async function authenticateGrok(
-  transport: AcpTransport,
+  transport: AcpAgentProcess,
   methods: readonly AuthMethod[] | null | undefined,
 ): Promise<void> {
   const cachedTokenAuthMethod = methods?.find(

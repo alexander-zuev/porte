@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { addAbortListener } from 'node:events'
+import { addAbortListener, once } from 'node:events'
 import { Readable, Writable } from 'node:stream'
 
 import * as acp from '@agentclientprotocol/sdk'
@@ -11,11 +11,11 @@ import {
   AcpRpcError,
   AcpStartError,
   AcpTimeoutError,
-  AcpTransportError,
+  AcpProcessError,
 } from './error.ts'
 import type { AcpSessionNotification, JsonValue } from './message.ts'
 
-type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpTransportError
+type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpProcessError
 type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
 
 /** Deadline for one ACP JSON-RPC request unless the caller passes `timeoutMs`. */
@@ -31,7 +31,7 @@ export type AcpRequestHandler = (
 ) => Promise<JsonValue>
 
 /** How to spawn one ACP agent subprocess. */
-export type StartAcpTransport = {
+export type StartAcpAgentProcess = {
   /** Agent binary. */
   readonly command: string
   /** Agent argv after the binary. */
@@ -49,19 +49,19 @@ export type StartAcpTransport = {
 }
 
 /**
- * One ACP agent subprocess over stdio.
+ * One ACP agent process and the JSON-RPC connection to it over stdio.
  *
- * Owns spawn, JSON-RPC, inbound ACP client methods, timeouts, and process stop.
+ * Owns spawn, typed requests with deadlines, inbound ACP client methods, and stop.
  * Does not know which agent binary it runs, or Porte conversations.
  */
-export class AcpTransport {
+export class AcpAgentProcess {
   private readonly stdio: acp.ClientConnection
   private stopped = false
   private abortListener: Disposable | undefined
 
   private constructor(
     private readonly child: ChildProcessWithoutNullStreams,
-    input: StartAcpTransport,
+    input: StartAcpAgentProcess,
   ) {
     const app = acp
       .client({ name: 'porte' })
@@ -92,43 +92,22 @@ export class AcpTransport {
    * @param input - Binary, argv, working directory, host signal, and ACP callbacks.
    * @returns A live transport, or `AcpStartError` when spawn fails or the host signal is already aborted.
    */
-  static start(input: StartAcpTransport): Promise<AcpTransport> {
-    if (input.signal.aborted) {
-      return Promise.reject(new AcpStartError({ cause: input.signal.reason }))
-    }
+  static async start(input: StartAcpAgentProcess): Promise<AcpAgentProcess> {
+    if (input.signal.aborted) throw new AcpStartError({ cause: input.signal.reason })
 
-    return new Promise((resolve, reject) => {
-      let settled = false
-      const child = spawn(input.command, [...input.args], {
-        cwd: input.cwd,
-        env: process.env,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      })
-      const abortListener = addAbortListener(input.signal, () => {
-        child.kill('SIGTERM')
-        fail(new AcpStartError({ cause: input.signal.reason }))
-      })
-      const fail = (cause: AcpStartError): void => {
-        if (settled) return
-        settled = true
-        abortListener[Symbol.dispose]()
-        reject(cause)
-      }
-      child.once('error', (cause: unknown) => {
-        fail(new AcpStartError({ cause }))
-      })
-      child.once('spawn', () => {
-        child.removeAllListeners('error')
-        const transport = new AcpTransport(child, input)
-        abortListener[Symbol.dispose]()
-        if (settled) {
-          void transport.stop()
-          return
-        }
-        settled = true
-        resolve(transport)
-      })
+    const child = spawn(input.command, [...input.args], {
+      cwd: input.cwd,
+      env: process.env,
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
+    try {
+      // `once` rejects on `error` before `spawn` and on host abort.
+      await once(child, 'spawn', { signal: input.signal })
+    } catch (cause) {
+      child.kill('SIGTERM')
+      throw new AcpStartError({ cause })
+    }
+    return new AcpAgentProcess(child, input)
   }
 
   /**
@@ -159,26 +138,26 @@ export class AcpTransport {
     this.throwIfStopped()
 
     const timeoutMs = request.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
-    const cancellation = new AbortController()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        cancellation.abort()
-        reject(new AcpTimeoutError({ timeoutMs }))
-      }, timeoutMs)
-    })
+    // ACP cancellation is cooperative: the peer still answers, so the deadline is enforced here.
+    const deadline = new AbortController()
+    const timer = setTimeout(() => {
+      deadline.abort(new AcpTimeoutError({ timeoutMs }))
+    }, timeoutMs)
     const response = this.stdio.agent
       .request<Response, AcpOutgoingParams>(request.method, request.params, {
-        cancellationSignal: cancellation.signal,
+        cancellationSignal: deadline.signal,
       })
       .catch((cause: unknown) => {
         throw this.mapRequestError(cause)
       })
+    const expired = once(deadline.signal, 'abort').then(() => {
+      throw deadline.signal.reason
+    })
 
     try {
-      return await Promise.race([response, timeout])
+      return await Promise.race([response, expired])
     } finally {
-      if (timer !== undefined) clearTimeout(timer)
+      clearTimeout(timer)
     }
   }
 
@@ -195,7 +174,7 @@ export class AcpTransport {
     try {
       await this.stdio.agent.notify(notification.method, notification.params)
     } catch (cause) {
-      throw new AcpTransportError({ cause })
+      throw new AcpProcessError({ cause })
     }
   }
 
@@ -211,10 +190,9 @@ export class AcpTransport {
     if (this.child.exitCode !== null || this.child.signalCode !== null) return
 
     this.child.kill('SIGTERM')
-    const exited = await waitForExit(this.child, 2_000)
-    if (exited) return
+    if (await exited(this.child, 2_000)) return
     this.child.kill('SIGKILL')
-    await waitForExit(this.child, 2_000)
+    await exited(this.child, 2_000)
   }
 
   private throwIfStopped(): void {
@@ -230,7 +208,7 @@ export class AcpTransport {
     if (this.child.exitCode !== null || this.child.signalCode !== null) {
       return new AcpExitedError({ code: this.child.exitCode })
     }
-    return new AcpTransportError({ cause })
+    return new AcpProcessError({ cause })
   }
 }
 
@@ -285,24 +263,11 @@ async function handleClientRequest<Method extends acp.ClientRequestMethod>(
   }
 }
 
-function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<boolean> {
+/** True when the child has exited within `timeoutMs`. */
+function exited(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<boolean> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true)
-  return new Promise((resolve) => {
-    let settled = false
-    const finish = (value: boolean) => {
-      if (settled) return
-      settled = true
-      child.removeListener('exit', onExit)
-      clearTimeout(timer)
-      // oxlint-disable-next-line promise/no-multiple-resolved -- `settled` guards this resolver.
-      resolve(value)
-    }
-    const timer = setTimeout(() => {
-      finish(false)
-    }, timeoutMs)
-    const onExit = (): void => {
-      finish(true)
-    }
-    child.once('exit', onExit)
-  })
+  return once(child, 'exit', { signal: AbortSignal.timeout(timeoutMs) }).then(
+    () => true,
+    () => false,
+  )
 }
