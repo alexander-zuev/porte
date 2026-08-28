@@ -1,23 +1,24 @@
 import type { PairingVerdict } from '@porte/core/client'
 import { decidePairing } from '@server/entrypoints/functions/pairing.fn.ts'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { useNavigate, useRouteContext } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { hostQueryKeys } from '@web/entities/host/host-queries.ts'
-import { pairingQueries, pairingQueryKeys } from '@web/entities/pairing/pairing-queries.ts'
-import { PairPage } from '@web/pages/pair/pair-page.tsx'
+import { pairingQueryKeys } from '@web/entities/pairing/pairing-queries.ts'
+
+export type DecidePairing = {
+  readonly pending: boolean
+  readonly onApprove: () => void
+  readonly onDeny: () => void
+}
 
 /**
- * Decide the claimed code.
+ * Decide the claimed code, then leave for the route that outcome owns.
  *
- * Which code that is lives in a cookie the server set when it was claimed, so
- * this route needs no parameter and the code stays out of browser history.
  * Every outcome is a route of its own, because a decision must survive reload.
  */
-export function PairConfirmation() {
+export function useDecidePairing(): DecidePairing {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user } = useRouteContext({ from: '/_auth' })
-  const claim = useSuspenseQuery(pairingQueries.claim())
 
   const decide = useMutation({
     mutationFn: (verdict: PairingVerdict) => decidePairing({ data: verdict }),
@@ -44,19 +45,13 @@ export function PairConfirmation() {
     },
   })
 
-  return (
-    <PairPage
-      view="confirm"
-      accountImage={user.image}
-      accountLabel={user.email}
-      pending={decide.isPending}
-      requestedFrom={claim.data.claimed ? claim.data.requestedFrom : { origin: 'unknown' }}
-      onApprove={() => {
-        decide.mutate('approve')
-      }}
-      onDeny={() => {
-        decide.mutate('deny')
-      }}
-    />
-  )
+  return {
+    pending: decide.isPending,
+    onApprove: () => {
+      decide.mutate('approve')
+    },
+    onDeny: () => {
+      decide.mutate('deny')
+    },
+  }
 }

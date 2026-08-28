@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PairCodeEntry } from '@web/features/pair/components/pair-code-entry.tsx'
 import { createSeoHead } from '@web/lib/seo.ts'
+import { PairCodeEntry } from '@web/pages/pair/pair-code-entry.tsx'
 import { z } from 'zod'
 
 /** Why a previous attempt ended, carried back so the form can explain itself. */

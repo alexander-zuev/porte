@@ -1,9 +1,9 @@
 import { getLastLoginMethodFn } from '@server/entrypoints/functions/last-login-method.fn.ts'
 import { createFileRoute } from '@tanstack/react-router'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
-import { SignInFlow } from '@web/features/auth/components/sign-in-flow.tsx'
 import { internalReturnTo } from '@web/lib/auth/internal-return-to.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
+import { SignInFlow } from '@web/pages/sign-in/sign-in-flow.tsx'
 import { z } from 'zod'
 
 const signInSearchSchema = z.object({

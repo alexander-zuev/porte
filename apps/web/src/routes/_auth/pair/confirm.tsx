@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { pairingQueries } from '@web/entities/pairing/pairing-queries.ts'
-import { PairConfirmation } from '@web/features/pair/components/pair-confirmation.tsx'
 import { createSeoHead } from '@web/lib/seo.ts'
+import { PairConfirmation } from '@web/pages/pair/pair-confirmation.tsx'
 import { PairPage } from '@web/pages/pair/pair-page.tsx'
 
 export const Route = createFileRoute('/_auth/pair/confirm')({

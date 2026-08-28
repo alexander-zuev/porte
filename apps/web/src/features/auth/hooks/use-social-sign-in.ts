@@ -2,22 +2,20 @@ import type { TurnstileInstance } from '@marsidev/react-turnstile'
 import { useMutation } from '@tanstack/react-query'
 import { authService } from '@web/lib/auth/auth-service.ts'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
-import { SignInPage } from '@web/pages/sign-in/sign-in-page.tsx'
-import { TurnstileWidget } from '@web/ui/components/security/turnstile-widget.tsx'
 import { toast } from '@web/ui/components/ui/sonner.tsx'
-import { useRef, useState } from 'react'
-
-/** Props controlling where OAuth returns after authentication. */
-export type SignInFlowProps = {
-  readonly redirectTo: string
-  readonly notice?: React.ReactNode
-  /** The provider this browser signed in with last, read from the Better Auth cookie. */
-  readonly lastMethod?: string | null
-}
+import { useRef, useState, type RefObject } from 'react'
 
 type OAuthVariables = {
   readonly provider: SocialProvider
   readonly captchaToken: string
+}
+
+export type SocialSignIn = {
+  /** The provider being verified or redirected to, so its button can lock. */
+  readonly pendingProvider: SocialProvider | undefined
+  /** The page mounts the widget; the hook drives it. */
+  readonly turnstileRef: RefObject<TurnstileInstance | null>
+  readonly signIn: (provider: SocialProvider) => void
 }
 
 const FALLBACK_DETAIL = 'Try again in a moment.'
@@ -30,8 +28,8 @@ function signInFailureDetail(cause: unknown): string {
   return message.toLowerCase() === 'sign-in failed' ? FALLBACK_DETAIL : message
 }
 
-/** Run the social sign-in interaction and preserve its validated destination. */
-export function SignInFlow({ redirectTo, notice, lastMethod }: SignInFlowProps) {
+/** Verify with Turnstile, then start the OAuth redirect to `redirectTo`. */
+export function useSocialSignIn(redirectTo: string): SocialSignIn {
   const [verifyingProvider, setVerifyingProvider] = useState<SocialProvider>()
   const turnstileRef = useRef<TurnstileInstance | null>(null)
 
@@ -47,7 +45,7 @@ export function SignInFlow({ redirectTo, notice, lastMethod }: SignInFlowProps) 
     },
   })
 
-  async function signIn(provider: SocialProvider) {
+  async function verifyThenSignIn(provider: SocialProvider) {
     const widget = turnstileRef.current
     if (widget === null) {
       toast.error('Verification unavailable', {
@@ -68,16 +66,11 @@ export function SignInFlow({ redirectTo, notice, lastMethod }: SignInFlowProps) 
     }
   }
 
-  return (
-    <SignInPage
-      lastMethod={lastMethod}
-      notice={notice}
-      pendingProvider={oauth.isPending ? oauth.variables.provider : verifyingProvider}
-      onSocial={(provider) => {
-        void signIn(provider)
-      }}
-    >
-      <TurnstileWidget ref={turnstileRef} />
-    </SignInPage>
-  )
+  return {
+    pendingProvider: oauth.isPending ? oauth.variables.provider : verifyingProvider,
+    turnstileRef,
+    signIn: (provider) => {
+      void verifyThenSignIn(provider)
+    },
+  }
 }
