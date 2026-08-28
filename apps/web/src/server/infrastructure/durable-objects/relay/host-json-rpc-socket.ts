@@ -27,6 +27,8 @@ import {
 import type { Connection, WSMessage } from 'agents'
 import type { z } from 'zod'
 
+import { isOpenConnection } from './host-subprotocol.ts'
+
 const logger = createLogger('host-json-rpc-socket')
 const REQUEST_TIMEOUT_MS = 60_000
 
@@ -164,8 +166,10 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
     try {
       const incoming = readJsonRpcIncoming(frame, this.input.methods, HostRequestIdSchema)
       if (incoming.kind === 'response') {
-        if (this.complete(incoming.data)) return undefined
-        return UNEXPECTED_DOCUMENT
+        // Waiters live in memory: a response can outlive its request across a
+        // timeout or an Agent restart. Late is not malformed, so the socket stays.
+        if (!this.complete(incoming.data)) logger.warn('host_response_unmatched')
+        return undefined
       }
       if (incoming.kind === 'notification') {
         const handler = this.input.notificationHandlers[incoming.data.method]
@@ -209,9 +213,9 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
 
   private async send(frame: string): Promise<void> {
     const host = this.peer
-    if (host === undefined || host.readyState !== WebSocket.OPEN) throw new HostOfflineError()
+    if (host === undefined || !isOpenConnection(host)) throw new HostOfflineError()
     await sendJsonRpcFrame(() => {
-      if (host.readyState !== WebSocket.OPEN) return false
+      if (!isOpenConnection(host)) return false
       host.send(frame)
       return true
     })

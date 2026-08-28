@@ -104,8 +104,7 @@ describe('HostRelayAgent control connection', () => {
     })
     const data = await connectConversation(host.stub, hostId, conversation.id)
     const turnId = createTurnId()
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    expect(data.inbox.snapshot()).toEqual([])
+    // The child asks the Host for its snapshot as soon as the Host socket is up.
     const get = await nextConversationRequest(data.inbox, 'conversation.get')
     data.socket.send(
       JSON.stringify({

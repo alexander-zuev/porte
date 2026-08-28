@@ -196,8 +196,8 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
       }
       turnId = this.state.runningTurnId
     } else {
+      // The Host's `turn.started` sets `runningTurnId`; this viewer context is readonly.
       turnId = createTurnId()
-      this.setState({ ...this.state, runningTurnId: turnId })
     }
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
     const active = {
@@ -248,14 +248,22 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     return await this.hostSocket.request('elicitation.answer', params)
   }
 
+  // `onStart` and `onConnect` both ask; one snapshot per socket is enough.
+  private snapshotInFlight: Promise<void> | undefined
+
   private requestSnapshotInBackground(): void {
-    void this.loadSnapshot().catch((error) => {
-      if (error instanceof HostOfflineError) return
-      logger.warn('conversation_get_failed', {
-        error: toErrorPayload(error),
-        details: { conversationId: this.conversationId },
+    if (this.snapshotInFlight !== undefined) return
+    this.snapshotInFlight = this.loadSnapshot()
+      .catch((error) => {
+        if (error instanceof HostOfflineError) return
+        logger.warn('conversation_get_failed', {
+          error: toErrorPayload(error),
+          details: { conversationId: this.conversationId },
+        })
       })
-    })
+      .finally(() => {
+        this.snapshotInFlight = undefined
+      })
   }
 
   private async loadSnapshot(): Promise<void> {

@@ -65,7 +65,23 @@ export function admitHostSocket(input: AdmitHostSocketInput): boolean {
  */
 export function openHostConnection(connections: Iterable<Connection>): Connection | undefined {
   for (const connection of connections) {
-    if (connection.readyState === WebSocket.OPEN) return connection
+    if (isOpenConnection(connection)) return connection
   }
   return undefined
+}
+
+/**
+ * True when frames can be sent on the connection.
+ *
+ * A sub-agent reaches its Host socket through an SDK bridge object that has
+ * no `readyState`; the parent owns the real socket and closes the bridge with it.
+ */
+export function isOpenConnection(connection: Connection): boolean {
+  const readyState = readyStateOf(connection)
+  return readyState === undefined || readyState === WebSocket.OPEN
+}
+
+/** The SDK types every connection as a WebSocket; a bridge object has no `readyState`. */
+function readyStateOf(connection: Connection): number | undefined {
+  return connection.readyState
 }
