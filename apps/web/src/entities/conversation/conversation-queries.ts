@@ -1,6 +1,14 @@
-import { LIST_CONVERSATIONS_LIMIT_DEFAULT, type ListConversationsResult } from '@porte/core/client'
-import { getConversations } from '@server/entrypoints/functions/conversation.fn.ts'
-import { infiniteQueryOptions } from '@tanstack/react-query'
+import {
+  LIST_CONVERSATIONS_LIMIT_DEFAULT,
+  type ConversationId,
+  type ListConversationsResult,
+} from '@porte/core/client'
+import {
+  getConversationMessages,
+  getConversations,
+} from '@server/entrypoints/functions/conversation.fn.ts'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import type { UIMessage } from 'ai'
 
 /**
  * Query factory for the conversations on the account's Mac.
@@ -25,5 +33,17 @@ export const conversationQueries = {
         }),
       initialPageParam: undefined,
       getNextPageParam: (result: ListConversationsResult) => result.next,
+    }),
+  /** The snapshot one conversation page starts from; the socket carries every later change. */
+  messages: (conversationId: ConversationId) =>
+    queryOptions({
+      queryKey: ['conversation', 'messages', conversationId] as const,
+      queryFn: async () => {
+        const response = await getConversationMessages({ data: { conversationId } })
+        // SAFETY: our own ConversationAgent wrote this JSON from `UIMessage[]` in the same
+        // deploy; Start refuses the AI SDK's type because it carries `unknown` fields.
+        const messages: UIMessage[] = await response.json()
+        return messages
+      },
     }),
 }

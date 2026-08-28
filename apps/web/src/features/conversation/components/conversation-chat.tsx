@@ -19,6 +19,7 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
+import type { UIMessage } from 'ai'
 
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
@@ -27,6 +28,7 @@ import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
   readonly agent: ConversationAgentConnection
+  readonly messages: UIMessage[]
   readonly permissions: readonly ConversationPermission[]
   readonly state: ConversationRelayState
   readonly actions: ConversationActions
@@ -36,12 +38,14 @@ export type ConversationChatProps = {
 /** Renders one conversation from its AIChatAgent connection. */
 export function ConversationChat({
   agent,
+  messages,
   permissions,
   state,
   actions,
   canSend,
 }: ConversationChatProps) {
-  const chat = useAgentChat({ agent })
+  // `null` turns off the SDK's own fetch: the route loader already read the transcript.
+  const chat = useAgentChat({ agent, getInitialMessages: null, messages })
   const childReady = agent.readyState === agent.OPEN
   const canSubmit = canSend && childReady
 

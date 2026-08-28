@@ -29,7 +29,6 @@ import { Route as ApiCacheImagesRouteImport } from './../../routes/api/cache/ima
 import { Route as ApiPairCodeRouteImport } from './../../routes/api/pair/code'
 import { Route as ApiHostWsIndexRouteImport } from './../../routes/api/host/ws/index'
 import { Route as ApiHostWsSubConversationAgentConversationIdIndexRouteImport } from './../../routes/api/host/ws/sub/conversation-agent/$conversationId/index'
-import { Route as ApiHostWsSubConversationAgentConversationIdGetMessagesRouteImport } from './../../routes/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
@@ -131,12 +130,6 @@ const ApiHostWsSubConversationAgentConversationIdIndexRoute =
     path: '/api/host/ws/sub/conversation-agent/$conversationId/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiHostWsSubConversationAgentConversationIdGetMessagesRoute =
-  ApiHostWsSubConversationAgentConversationIdGetMessagesRouteImport.update({
-    id: '/api/host/ws/sub/conversation-agent/$conversationId/get-messages',
-    path: '/api/host/ws/sub/conversation-agent/$conversationId/get-messages',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -156,7 +149,6 @@ export interface FileRoutesByFullPath {
   '/conversations/': typeof AuthConversationsIndexRoute
   '/pair/': typeof AuthPairIndexRoute
   '/api/host/ws/': typeof ApiHostWsIndexRoute
-  '/api/host/ws/sub/conversation-agent/$conversationId/get-messages': typeof ApiHostWsSubConversationAgentConversationIdGetMessagesRoute
   '/api/host/ws/sub/conversation-agent/$conversationId/': typeof ApiHostWsSubConversationAgentConversationIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -176,7 +168,6 @@ export interface FileRoutesByTo {
   '/conversations': typeof AuthConversationsIndexRoute
   '/pair': typeof AuthPairIndexRoute
   '/api/host/ws': typeof ApiHostWsIndexRoute
-  '/api/host/ws/sub/conversation-agent/$conversationId/get-messages': typeof ApiHostWsSubConversationAgentConversationIdGetMessagesRoute
   '/api/host/ws/sub/conversation-agent/$conversationId': typeof ApiHostWsSubConversationAgentConversationIdIndexRoute
 }
 export interface FileRoutesById {
@@ -200,7 +191,6 @@ export interface FileRoutesById {
   '/_auth/conversations/': typeof AuthConversationsIndexRoute
   '/_auth/pair/': typeof AuthPairIndexRoute
   '/api/host/ws/': typeof ApiHostWsIndexRoute
-  '/api/host/ws/sub/conversation-agent/$conversationId/get-messages': typeof ApiHostWsSubConversationAgentConversationIdGetMessagesRoute
   '/api/host/ws/sub/conversation-agent/$conversationId/': typeof ApiHostWsSubConversationAgentConversationIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -223,7 +213,6 @@ export interface FileRouteTypes {
     | '/conversations/'
     | '/pair/'
     | '/api/host/ws/'
-    | '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
     | '/api/host/ws/sub/conversation-agent/$conversationId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -243,7 +232,6 @@ export interface FileRouteTypes {
     | '/conversations'
     | '/pair'
     | '/api/host/ws'
-    | '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
     | '/api/host/ws/sub/conversation-agent/$conversationId'
   id:
     | '__root__'
@@ -266,7 +254,6 @@ export interface FileRouteTypes {
     | '/_auth/conversations/'
     | '/_auth/pair/'
     | '/api/host/ws/'
-    | '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
     | '/api/host/ws/sub/conversation-agent/$conversationId/'
   fileRoutesById: FileRoutesById
 }
@@ -277,7 +264,6 @@ export interface RootRouteChildren {
   ApiCacheImagesRoute: typeof ApiCacheImagesRoute
   ApiPairCodeRoute: typeof ApiPairCodeRoute
   ApiHostWsIndexRoute: typeof ApiHostWsIndexRoute
-  ApiHostWsSubConversationAgentConversationIdGetMessagesRoute: typeof ApiHostWsSubConversationAgentConversationIdGetMessagesRoute
   ApiHostWsSubConversationAgentConversationIdIndexRoute: typeof ApiHostWsSubConversationAgentConversationIdIndexRoute
 }
 
@@ -423,13 +409,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHostWsSubConversationAgentConversationIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/host/ws/sub/conversation-agent/$conversationId/get-messages': {
-      id: '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
-      path: '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
-      fullPath: '/api/host/ws/sub/conversation-agent/$conversationId/get-messages'
-      preLoaderRoute: typeof ApiHostWsSubConversationAgentConversationIdGetMessagesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -496,8 +475,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCacheImagesRoute: ApiCacheImagesRoute,
   ApiPairCodeRoute: ApiPairCodeRoute,
   ApiHostWsIndexRoute: ApiHostWsIndexRoute,
-  ApiHostWsSubConversationAgentConversationIdGetMessagesRoute:
-    ApiHostWsSubConversationAgentConversationIdGetMessagesRoute,
   ApiHostWsSubConversationAgentConversationIdIndexRoute:
     ApiHostWsSubConversationAgentConversationIdIndexRoute,
 }
