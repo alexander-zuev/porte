@@ -2,12 +2,12 @@ import { ConversationIdSchema } from '@porte/core/client'
 import { noop } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
-import { useVisibleConversation } from '@web/entities/conversation/unseen-conversations-context.tsx'
-import { useConversation } from '@web/entities/conversation/use-conversation.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
-import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
+import { useVisibleConversation } from '@web/features/conversations/hooks/unseen-conversations-context.tsx'
+import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
+import { useConversation } from '@web/pages/conversation/use-conversation.ts'
 
 export const Route = createFileRoute('/_auth/conversations/$conversationId')({
   params: {

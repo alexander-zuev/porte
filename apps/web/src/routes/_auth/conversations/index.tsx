@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
-import { useConversationList } from '@web/entities/conversation/use-conversation-list.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
-import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
+import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
+import { useConversationList } from '@web/pages/conversations/use-conversation-list.ts'
 
 export const Route = createFileRoute('/_auth/conversations/')({
   /** An unpaired account has nothing to see here, and `host` is known by now. */

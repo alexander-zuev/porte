@@ -1,4 +1,12 @@
-import type { RelayConnection } from '@web/lib/relay/relay-provider.tsx'
+import type { HostRelayState } from '@porte/core/client'
+
+/** This browser's connection to the relay: the socket, and the last state the relay sent over it. */
+export type RelayConnection = {
+  /** True once the socket is open and the relay has answered; false again on close. */
+  readonly identified: boolean
+  /** Undefined until the relay's first state frame. */
+  readonly state: HostRelayState | undefined
+}
 
 /**
  * The end-to-end connection from this browser to the paired Mac, from two facts:

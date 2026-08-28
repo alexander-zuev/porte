@@ -1,11 +1,13 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { useRelay } from '@web/lib/relay/relay-provider.tsx'
+import {
+  conversationAttentionStatus,
+  conversationTurnStatus,
+} from '@web/entities/conversation/conversation-attention.ts'
+import type { ConversationList } from '@web/entities/conversation/conversation-list.ts'
+import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
+import { useUnseenConversations } from '@web/features/conversations/hooks/unseen-conversations-context.tsx'
+import { useRelay } from '@web/features/relay/relay-provider.tsx'
 import { useMemo } from 'react'
-
-import { conversationAttentionStatus, conversationTurnStatus } from './conversation-attention.ts'
-import type { ConversationList } from './conversation-list.ts'
-import { conversationQueries } from './conversation-queries.ts'
-import { useUnseenConversations } from './unseen-conversations-context.tsx'
 
 /** The read and its mapping, so a page never sees a query and a route only passes it down. */
 export function useConversationList(): ConversationList {

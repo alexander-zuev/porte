@@ -7,15 +7,15 @@ import {
   type PairedHost,
 } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type {
-  ConversationState,
-  OpenConversation,
-} from '@web/entities/conversation/use-conversation.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import {
   ConversationPage,
   type ConversationPageProps,
 } from '@web/pages/conversation/conversation-page.tsx'
+import type {
+  ConversationState,
+  OpenConversation,
+} from '@web/pages/conversation/use-conversation.ts'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 

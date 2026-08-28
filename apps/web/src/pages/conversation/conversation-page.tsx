@@ -1,9 +1,10 @@
 import type { PairedHost } from '@porte/core/client'
-import type { ConversationState } from '@web/entities/conversation/use-conversation.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { ConversationChat } from '@web/features/conversation/components/conversation-chat.tsx'
 import { ConversationSkeleton } from '@web/features/conversation/components/conversation-skeleton.tsx'
 import { ConversationFailed } from '@web/features/conversation/components/conversation-states.tsx'
+
+import type { ConversationState } from './use-conversation.ts'
 
 export type ConversationPageProps = {
   /** From the database, so a failure can name the Mac before any socket exists. */

@@ -4,7 +4,7 @@ import type {
   ConversationActions,
   ConversationAgentConnection,
   ConversationPermission,
-} from '@web/entities/conversation/use-conversation.ts'
+} from '@web/pages/conversation/use-conversation.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,

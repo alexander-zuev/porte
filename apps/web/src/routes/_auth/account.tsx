@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { AccountFlow } from '@web/features/account/components/account-flow.tsx'
-import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
+import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 
 export const Route = createFileRoute('/_auth/account')({
   loader: ({ context }) => context.queryClient.ensureQueryData(hostQueries.forAccount()),

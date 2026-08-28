@@ -2,19 +2,12 @@ import type { HostRelayState } from '@porte/core/client'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
+import type { RelayConnection } from '@web/entities/host/host-connection.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 
 const RELAY_PATH = 'api/host/ws'
-
-/** This browser's connection to the relay: the socket, and the last state the relay sent over it. */
-export type RelayConnection = {
-  /** True once the socket is open and the relay has answered; false again on close. */
-  readonly identified: boolean
-  /** Undefined until the relay's first state frame. */
-  readonly state: HostRelayState | undefined
-}
 
 const RelayContext = createContext<RelayConnection | null>(null)
 

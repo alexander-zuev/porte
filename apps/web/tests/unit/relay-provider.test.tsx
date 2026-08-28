@@ -2,8 +2,8 @@
 import type { HostRelayState } from '@porte/core/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
-import { RelayProvider } from '@web/lib/relay/relay-provider.tsx'
+import { RelayProvider } from '@web/features/relay/relay-provider.tsx'
+import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { memo, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

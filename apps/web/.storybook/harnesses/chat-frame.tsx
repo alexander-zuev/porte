@@ -1,5 +1,4 @@
 import type { ConversationRelayState } from '@porte/core/client'
-import type { ConversationPermission } from '@web/entities/conversation/use-conversation.ts'
 import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
 import {
@@ -7,6 +6,7 @@ import {
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import { ConversationTurnFailed } from '@web/features/conversation/components/conversation-states.tsx'
+import type { ConversationPermission } from '@web/pages/conversation/use-conversation.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,

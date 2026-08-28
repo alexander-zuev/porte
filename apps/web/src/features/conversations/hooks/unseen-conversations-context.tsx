@@ -1,6 +1,12 @@
 import type { ConversationId, RelayActiveConversation } from '@porte/core/client'
+import {
+  addUnseenConversations,
+  completedAssistantConversations,
+  indexActiveConversations,
+  markConversationSeen,
+} from '@web/entities/conversation/conversation-attention.ts'
+import { useRelay } from '@web/features/relay/relay-provider.tsx'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
-import { useRelay } from '@web/lib/relay/relay-provider.tsx'
 import {
   createContext,
   useCallback,
@@ -11,13 +17,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-
-import {
-  addUnseenConversations,
-  completedAssistantConversations,
-  indexActiveConversations,
-  markConversationSeen,
-} from './conversation-attention.ts'
 
 type UnseenConversations = {
   readonly unseenConversationIds: ReadonlySet<ConversationId>

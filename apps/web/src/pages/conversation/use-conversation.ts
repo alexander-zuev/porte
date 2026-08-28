@@ -3,11 +3,10 @@ import type { ConversationId, ConversationRelayState, PendingPermission } from '
 import { INITIAL_CONVERSATION_RELAY_STATE } from '@porte/core/client'
 import type { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
 import { useQuery } from '@tanstack/react-query'
+import type { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { useAgent } from 'agents/react'
 import type { UIMessage } from 'ai'
 import { useMemo, useState } from 'react'
-
-import type { conversationQueries } from './conversation-queries.ts'
 
 /** The bound read the route context carries, so the page observes what the loader started. */
 export type ConversationMessagesQuery = ReturnType<typeof conversationQueries.messages>
