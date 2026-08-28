@@ -8,16 +8,16 @@ import {
 } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import { ConversationSkeleton } from '@web/features/conversation/components/conversation-skeleton.tsx'
+import { ConversationFailed } from '@web/features/conversation/components/conversation-states.tsx'
 import {
-  ConversationPage,
-  type ConversationPageProps,
+  ConversationView,
+  type ConversationViewProps,
 } from '@web/pages/conversation/conversation-page.tsx'
-import type {
-  ConversationState,
-  OpenConversation,
-} from '@web/pages/conversation/use-conversation.ts'
+import type { OpenConversation } from '@web/pages/conversation/use-conversation.ts'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
+import type { ReactNode } from 'react'
 
 const CONNECTED = { status: 'connected' } satisfies HostConnection
 const DISCONNECTED = { status: 'offline' } satisfies HostConnection
@@ -99,58 +99,69 @@ const open: OpenConversation = {
   actions: { onAnswerPermission: () => undefined },
 }
 
-const ready: ConversationState = { status: 'ready', ...open }
-
 /** Every state one conversation screen can be in, without a socket or a Mac. */
-function page(
-  conversation: ConversationState,
+function view(
+  conversation: OpenConversation,
   connection: HostConnection = CONNECTED,
-): ConversationPageProps {
-  return { host: HOST, conversation, connection }
+): ConversationViewProps {
+  return { conversation, connection }
+}
+
+/** The frame the route puts around every arm: shell, header, and the spoken heading. */
+function frame(children: ReactNode) {
+  return (
+    <AppShell header={<AppHeader />} variant="fill">
+      <h1 className="sr-only">Conversation</h1>
+      {children}
+    </AppShell>
+  )
 }
 
 const meta = {
   title: 'Pages/Conversation',
-  component: ConversationPage,
+  component: ConversationView,
   parameters: { layout: 'fullscreen' },
-  render: (args) => (
-    <AppShell header={<AppHeader />} variant="fill">
-      <ConversationPage {...args} />
-    </AppShell>
-  ),
-} satisfies Meta<typeof ConversationPage>
+  render: (args) => frame(<ConversationView {...args} />),
+} satisfies Meta<typeof ConversationView>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The transcript has not been read yet. */
-export const Loading: Story = { args: page({ status: 'pending' }) }
+/** The transcript has not been read yet: the Suspense fallback. */
+export const Loading: Story = {
+  args: view(open),
+  render: () => frame(<ConversationSkeleton />),
+}
 
 /** The child Agent has reported nothing yet, so only the composer is here. */
 export const Opening: Story = {
-  args: page({
-    ...ready,
+  args: view({
+    ...open,
     state: { plans: [], pending: { permissions: [], elicitations: [] } },
   }),
 }
 
-export const Ready: Story = { args: page(ready) }
+export const Ready: Story = { args: view(open) }
 
 /** The agent stopped to ask. Until this is answered the turn goes nowhere. */
 export const AwaitingPermission: Story = {
-  args: page({ ...ready, permissions: [{ permission: PERMISSION, answering: false }] }),
+  args: view({ ...open, permissions: [{ permission: PERMISSION, answering: false }] }),
 }
 
 /** The Mac is away. The composer does not accept work. */
 export const MacOffline: Story = {
-  args: page(ready, DISCONNECTED),
+  args: view(open, DISCONNECTED),
 }
 
-/** The Mac no longer has this conversation. */
+/** The Mac no longer has this conversation: the error boundary's view. */
 export const Gone: Story = {
-  args: page({
-    status: 'failed',
-    error: new ConversationNotFoundError(),
-    onRetry: () => undefined,
-  }),
+  args: view(open),
+  render: () =>
+    frame(
+      <ConversationFailed
+        error={new ConversationNotFoundError()}
+        host={HOST}
+        onRetry={() => undefined}
+      />,
+    ),
 }

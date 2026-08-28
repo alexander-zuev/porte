@@ -7,7 +7,6 @@ import { useVisibleConversation } from '@web/features/conversations/hooks/unseen
 import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
-import { useConversation } from '@web/pages/conversation/use-conversation.ts'
 
 export const Route = createFileRoute('/_auth/conversations/$conversationId')({
   params: {
@@ -50,10 +49,15 @@ export const Route = createFileRoute('/_auth/conversations/$conversationId')({
 
 function ConversationRoute() {
   const { conversationId } = Route.useParams()
-  const { host, messagesQuery } = Route.useRouteContext()
+  const { messagesQuery } = Route.useRouteContext()
   const connection = useHostConnection()
-  const conversation = useConversation(conversationId, messagesQuery)
   useVisibleConversation(conversationId)
 
-  return <ConversationPage connection={connection} conversation={conversation} host={host} />
+  return (
+    <ConversationPage
+      connection={connection}
+      conversationId={conversationId}
+      messagesQuery={messagesQuery}
+    />
+  )
 }

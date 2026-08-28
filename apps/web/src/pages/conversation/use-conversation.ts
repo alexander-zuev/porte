@@ -1,6 +1,6 @@
 import type { ConversationId, ConversationRelayState } from '@porte/core/client'
 import { INITIAL_CONVERSATION_RELAY_STATE } from '@porte/core/client'
-import { useQuery } from '@tanstack/react-query'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import type { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import {
   useAnswerPermission,
@@ -26,18 +26,17 @@ export type OpenConversation = {
   readonly actions: ConversationActions
 }
 
-/** The transcript read decides the arm; the socket is opened in every arm so it is ready when the read lands. */
-export type ConversationState =
-  | { readonly status: 'pending' }
-  | { readonly status: 'failed'; readonly error: unknown; readonly onRetry: () => void }
-  | ({ readonly status: 'ready' } & OpenConversation)
-
-/** One conversation screen: the stored transcript, the live socket, and what the person can do. */
+/**
+ * One conversation screen: the stored transcript, the live socket, and what the person can do.
+ *
+ * Suspends until the transcript is read and throws when the read fails, so the
+ * caller owns the pending and failed views through Suspense and an error boundary.
+ */
 export function useConversation(
   conversationId: ConversationId,
   messagesQuery: ConversationMessagesQuery,
-): ConversationState {
-  const query = useQuery(messagesQuery)
+): OpenConversation {
+  const query = useSuspenseQuery(messagesQuery)
   const agent = useConversationAgent(conversationId)
   const { actions, answeringId } = useAnswerPermission(agent)
   // Until the first sync the Agent has reported nothing, which is what the initial state means.
@@ -51,11 +50,5 @@ export function useConversation(
     [answeringId, state],
   )
 
-  if (query.status === 'pending') return { status: 'pending' }
-
-  if (query.status === 'error') {
-    return { status: 'failed', error: query.error, onRetry: () => void query.refetch() }
-  }
-
-  return { status: 'ready', agent, messages: query.data, permissions, state, actions }
+  return { agent, messages: query.data, permissions, state, actions }
 }
