@@ -8,11 +8,7 @@ import type { ConversationAgentConnection } from '@web/features/conversation/hoo
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
-  PromptInputActionMenuItem,
+  PromptInputAttachments,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
@@ -21,6 +17,7 @@ import {
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import type { UIMessage } from 'ai'
 
+import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
 import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
@@ -68,31 +65,20 @@ export function ConversationChat({
         }}
       >
         <PromptInputBody>
+          <PromptInputAttachments />
           <PromptInputTextarea
             disabled={!canSubmit}
             placeholder={promptPlaceholder(canSend, childReady)}
           />
           <PromptInputFooter>
             <PromptInputTools>
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger aria-label="Add attachment" disabled={!canSubmit} />
-                {/* Grok lists hundreds of commands; names only, in a list that scrolls, not a column that wraps. */}
-                <PromptInputActionMenuContent className="max-h-[60svh] min-w-56 overflow-y-auto sm:min-w-72">
-                  <PromptInputActionAddAttachments />
-                  {state.commands?.map((command) => (
-                    <PromptInputActionMenuItem
-                      key={command.name}
-                      className="font-mono"
-                      disabled={!canSubmit}
-                      onClick={() => {
-                        void chat.sendMessage({ text: `/${command.name}` })
-                      }}
-                    >
-                      /{command.name}
-                    </PromptInputActionMenuItem>
-                  ))}
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
+              <ComposerAddMenu
+                commands={state.commands}
+                disabled={!canSubmit}
+                onCommand={(name) => {
+                  void chat.sendMessage({ text: `/${name}` })
+                }}
+              />
               {state.configuration?.map((option) => (
                 <small key={option.id} className="hidden text-muted-foreground md:inline">
                   {option.name}: {configurationValue(option)}

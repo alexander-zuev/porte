@@ -7,6 +7,13 @@ import {
 } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import {
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  AttachmentRemove,
+  Attachments,
+} from '@web/ui/components/ai-elements/attachments.tsx'
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -392,16 +399,10 @@ export const PromptInputActionAddAttachments = ({
 }: PromptInputActionAddAttachmentsProps) => {
   const attachments = usePromptInputAttachments()
 
-  const handleSelect = useCallback(
-    (e: { preventDefault: () => void }) => {
-      e.preventDefault()
-      attachments.openFileDialog()
-    },
-    [attachments],
-  )
-
+  // Base UI fires `onClick`; the Radix `onSelect` upstream wires is React's
+  // text-selection DOM event here, so it typechecks and never runs.
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    <DropdownMenuItem {...props} onClick={attachments.openFileDialog}>
       <ImageIcon className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
   )
@@ -413,14 +414,14 @@ export type PromptInputActionAddScreenshotProps = ComponentProps<typeof Dropdown
 
 export const PromptInputActionAddScreenshot = ({
   label = 'Take screenshot',
-  onSelect,
+  onClick,
   ...props
 }: PromptInputActionAddScreenshotProps) => {
   const attachments = usePromptInputAttachments()
 
-  const handleSelect = useCallback(
-    async (event: Parameters<NonNullable<typeof onSelect>>[0]) => {
-      onSelect?.(event)
+  const handleClick = useCallback(
+    async (event: Parameters<NonNullable<typeof onClick>>[0]) => {
+      onClick?.(event)
       if (event.defaultPrevented) {
         return
       }
@@ -440,11 +441,11 @@ export const PromptInputActionAddScreenshot = ({
         throw error
       }
     },
-    [onSelect, attachments],
+    [onClick, attachments],
   )
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    <DropdownMenuItem {...props} onClick={handleClick}>
       <MonitorIcon className="mr-2 size-4" />
       {label}
     </DropdownMenuItem>
@@ -1014,6 +1015,100 @@ export const PromptInputHeader = ({ className, ...props }: PromptInputHeaderProp
     {...props}
   />
 )
+
+/**
+ * The files picked for the next prompt, in one row above the text.
+ *
+ * Nothing at all when the set is empty, so the composer stays one line until a
+ * file is added. The row scrolls sideways rather than wrapping: on a phone a
+ * wrap would push the text out of reach under the keyboard.
+ */
+export const PromptInputAttachments = ({ className, ...props }: PromptInputHeaderProps) => {
+  const attachments = usePromptInputAttachments()
+  if (attachments.files.length === 0) return null
+
+  return (
+    <PromptInputHeader className={cn('flex-nowrap gap-2 overflow-x-auto', className)} {...props}>
+      <Attachments className="flex-nowrap">
+        {attachments.files.map((file) => (
+          <PromptInputAttachment key={file.id} data={file} />
+        ))}
+      </Attachments>
+    </PromptInputHeader>
+  )
+}
+
+export type PromptInputAttachmentProps = ComponentProps<typeof Attachment>
+
+/** A photo is the picture and an X. Anything else has to be named to be recognised. */
+export const PromptInputAttachment = ({
+  data,
+  className,
+  ...props
+}: PromptInputAttachmentProps) => {
+  const attachments = usePromptInputAttachments()
+  const remove = () => {
+    attachments.remove(data.id)
+  }
+
+  if (data.type === 'file' && data.mediaType.startsWith('image/')) {
+    return (
+      <Attachment
+        className={cn('relative size-16 shrink-0 overflow-hidden rounded-lg p-0', className)}
+        data={data}
+        {...props}
+      >
+        <AttachmentPreview className="size-full rounded-none" />
+        <AttachmentRemove
+          className="absolute top-1 right-1 bg-background/80 hover:bg-background"
+          onRemove={remove}
+        />
+      </Attachment>
+    )
+  }
+
+  return (
+    <Attachment className={cn('max-w-64 shrink-0', className)} data={data} {...props}>
+      <AttachmentPreview />
+      <AttachmentInfo />
+      <AttachmentRemove onRemove={remove} />
+    </Attachment>
+  )
+}
+
+export type PromptInputFileInputProps = Omit<ComponentProps<'input'>, 'type' | 'onChange'> & {
+  /** Called after the picked files are added, so a sheet holding this can close. */
+  onPicked?: () => void
+}
+
+/**
+ * A hidden picker that adds what it picks to the prompt.
+ *
+ * One per way in: `accept="image/*"` reaches the photo library on a phone, and
+ * `capture` on top of it opens the camera. Click it through a ref.
+ */
+export const PromptInputFileInput = ({
+  onPicked,
+  className,
+  ...props
+}: PromptInputFileInputProps) => {
+  const attachments = usePromptInputAttachments()
+  return (
+    <input
+      aria-hidden
+      className={cn('hidden', className)}
+      tabIndex={-1}
+      type="file"
+      onChange={(event) => {
+        if (event.currentTarget.files !== null) attachments.add(event.currentTarget.files)
+        // Cleared so the same file can be picked again after it was removed.
+        event.currentTarget.value = ''
+        onPicked?.()
+      }}
+      {...props}
+    />
+  )
+}
 
 export type PromptInputFooterProps = Omit<ComponentProps<typeof InputGroupAddon>, 'align'>
 

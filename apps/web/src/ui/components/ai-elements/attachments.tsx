@@ -4,8 +4,10 @@ import {
   ImageIcon,
   MusicNoteIcon,
   VideoCameraIcon,
+  XIcon,
 } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
+import { Button } from '@web/ui/components/ui/button.tsx'
 import type { FileUIPart, SourceDocumentUIPart } from 'ai'
 import { createContext, useContext, useMemo, type ComponentProps } from 'react'
 
@@ -71,13 +73,40 @@ export function AttachmentPreview({ className, ...props }: ComponentProps<'div'>
 /** Shows the attachment name and media type. */
 export function AttachmentInfo({ className, ...props }: ComponentProps<'div'>) {
   const { data } = useAttachment()
-  const name = data.type === 'source-document' ? data.title : (data.filename ?? 'Attachment')
   return (
     <div className={cn('min-w-0', className)} {...props}>
-      <span className="block truncate text-sm font-medium">{name}</span>
+      <span className="block truncate text-sm font-medium">{attachmentName(data)}</span>
       <span className="block truncate text-xs text-muted-foreground">{data.mediaType}</span>
     </div>
   )
+}
+
+/** Takes one attachment out of the set it sits in. Named after the file, so a row of X buttons reads apart. */
+export function AttachmentRemove({
+  onRemove,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'onClick' | 'children'> & {
+  readonly onRemove: () => void
+}) {
+  const { data } = useAttachment()
+  return (
+    <Button
+      aria-label={`Remove ${attachmentName(data)}`}
+      className={cn('shrink-0', className)}
+      size="icon-xs"
+      type="button"
+      variant="ghost"
+      onClick={onRemove}
+      {...props}
+    >
+      <XIcon aria-hidden />
+    </Button>
+  )
+}
+
+function attachmentName(data: AttachmentData): string {
+  return data.type === 'source-document' ? data.title : (data.filename ?? 'attachment')
 }
 
 function useAttachment(): AttachmentContextValue {

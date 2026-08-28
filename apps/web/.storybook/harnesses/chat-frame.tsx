@@ -1,4 +1,5 @@
 import type { ConversationRelayState } from '@porte/core/client'
+import { ComposerAddMenu } from '@web/features/conversation/components/composer-add-menu.tsx'
 import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
 import {
@@ -10,11 +11,7 @@ import type { ConversationPermission } from '@web/features/conversation/hooks/us
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
+  PromptInputAttachments,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
@@ -79,20 +76,15 @@ export function ChatFrame({
         }}
       >
         <PromptInputBody>
+          <PromptInputAttachments />
           <PromptInputTextarea disabled={!canSend} placeholder={placeholder} />
           <PromptInputFooter>
             <PromptInputTools>
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger aria-label="Add attachment" disabled={!canSend} />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                  {state.commands?.map((command) => (
-                    <PromptInputActionMenuItem key={command.name} disabled={!canSend}>
-                      /{command.name} — {command.description}
-                    </PromptInputActionMenuItem>
-                  ))}
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
+              <ComposerAddMenu
+                commands={state.commands}
+                disabled={!canSend}
+                onCommand={() => undefined}
+              />
               {state.configuration?.map((option) => (
                 <small key={option.id} className="hidden text-muted-foreground md:inline">
                   {option.name}: {configurationValue(option)}
