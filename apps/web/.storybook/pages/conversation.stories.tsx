@@ -15,11 +15,7 @@ import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 const CONNECTED = { status: 'connected' } satisfies HostConnection
-const DISCONNECTED = {
-  status: 'disconnected',
-  reconnecting: false,
-  reconnect: () => undefined,
-} satisfies HostConnection
+const DISCONNECTED = { status: 'offline' } satisfies HostConnection
 
 const SUMMARY = makeConversationSummary({
   id: ConversationIdSchema.parse('01a01e5d-e64c-76e2-9c93-ca69580001fd'),

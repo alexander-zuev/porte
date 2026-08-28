@@ -44,15 +44,8 @@ function body({ host, connection, conversationList }: ConversationsPageProps) {
   // so they get one skeleton rather than a spinner that hands over to another.
   if (connection.status === 'loading') return <ProjectListSkeleton />
 
-  if (connection.status === 'disconnected') {
-    return (
-      <StartPorteOnMac
-        hostName={host.name}
-        lastSeenAt={host.lastSeenAt}
-        reconnecting={connection.reconnecting}
-        onReconnect={connection.reconnect}
-      />
-    )
+  if (connection.status === 'offline') {
+    return <StartPorteOnMac hostName={host.name} lastSeenAt={host.lastSeenAt} />
   }
 
   if (conversationList.status === 'failed') {

@@ -45,7 +45,7 @@ export const Paired: Story = {
 }
 
 export const HostOffline: Story = {
-  args: { host: seenHost, connection: 'disconnected' },
+  args: { host: seenHost, connection: 'offline' },
 }
 
 export const Unpaired: Story = {}

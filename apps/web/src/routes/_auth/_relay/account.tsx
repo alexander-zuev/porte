@@ -5,11 +5,7 @@ import { AccountFlow } from '@web/features/account/components/account-flow.tsx'
 import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 
 export const Route = createFileRoute('/_auth/_relay/account')({
-  loader: ({ context }) =>
-    Promise.all([
-      context.queryClient.ensureQueryData(hostQueries.forAccount()),
-      context.queryClient.ensureQueryData(hostQueries.status()),
-    ]),
+  loader: ({ context }) => context.queryClient.ensureQueryData(hostQueries.forAccount()),
   component: AccountRoute,
 })
 

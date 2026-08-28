@@ -217,8 +217,9 @@ function SurfacesBoard() {
       <Section title="Product surfaces" note="Small compositions the product repeats everywhere.">
         <Specimen label="Host status" stack>
           <HostStatus connection="loading" />
+          <HostStatus connection="connecting" />
           <HostStatus connection="connected" />
-          <HostStatus connection="disconnected" />
+          <HostStatus connection="offline" />
         </Specimen>
         <Specimen label="Terminal command" stack wide>
           <TerminalCommand command="porte pair" />

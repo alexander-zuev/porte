@@ -4,16 +4,18 @@ import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 /**
- * What each settled state looks like.
+ * What each state looks like once the relay has answered.
  *
  * A dot and nothing else. The word it replaces said the same thing twice, and
  * a status that appears and then leaves moves the line beside it.
  *
- * `disconnected` is red because these screens cannot work without the Mac.
+ * `offline` is red because these screens cannot work without the Mac.
+ * `connecting` flashes: the socket is retrying, the last known state is stale.
  */
 const SETTLED = {
+  connecting: { label: 'Reconnecting', dot: 'bg-muted-foreground animate-pulse' },
   connected: { label: 'Online', dot: 'bg-status-success' },
-  disconnected: { label: 'Offline', dot: 'bg-destructive' },
+  offline: { label: 'Offline', dot: 'bg-destructive' },
 } as const satisfies Record<
   Exclude<HostConnectionStatus, 'loading'>,
   { readonly label: string; readonly dot: string }
@@ -22,9 +24,8 @@ const SETTLED = {
 /**
  * The dot alone. Its word is written for a screen reader, never shown.
  *
- * Still looking is a spinner rather than a pulsing dot: a dot says the Mac is
- * in some state, and a fading one reads as a state we are reporting instead of
- * a question we have not answered yet.
+ * Still looking is a spinner rather than a dot: a dot says the Mac is in some
+ * state, and we have not heard from the relay yet.
  */
 export function HostStatus({ connection }: { readonly connection: HostConnectionStatus }) {
   if (connection === 'loading') {

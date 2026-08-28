@@ -1,9 +1,4 @@
-import type {
-  HostId,
-  HostStatus,
-  ListConversationsParams,
-  ListConversationsResult,
-} from '@porte/core'
+import type { HostId, ListConversationsParams, ListConversationsResult } from '@porte/core'
 
 import type { AgentConnection } from './agent-connection.ts'
 
@@ -16,9 +11,6 @@ export interface IHostRelayClient {
     hostId: HostId,
     query: ListConversationsParams,
   ): Promise<ListConversationsResult>
-
-  /** Whether the relay holds the Mac's socket. The only liveness anything can see. */
-  readStatus(hostId: HostId): Promise<HostStatus>
 
   /**
    * Turn everyone out of one Mac's relay.

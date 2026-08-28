@@ -1,9 +1,4 @@
-import type {
-  HostId,
-  HostStatus,
-  ListConversationsParams,
-  ListConversationsResult,
-} from '@porte/core'
+import type { HostId, ListConversationsParams, ListConversationsResult } from '@porte/core'
 import { DurableObjectClient, HOST_CONTROL_SUBPROTOCOL } from '@porte/core'
 import type { AgentConnection } from '@server/application/ports/agent-connection.ts'
 import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client.ts'
@@ -37,12 +32,6 @@ export class HostRelayClient
     const conversations = [...read.conversations]
     // The stub hands back a disposable proxy, so the result is copied out.
     return read.next === undefined ? { conversations } : { conversations, next: read.next }
-  }
-
-  async readStatus(hostId: HostId): Promise<HostStatus> {
-    // The stub hands back a disposable proxy, so the answer is copied out.
-    const read = await this.repeatable(hostId, (relay) => relay.readStatus())
-    return { status: read.status }
   }
 
   disconnect(hostId: HostId): Promise<void> {

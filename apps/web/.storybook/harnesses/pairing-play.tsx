@@ -31,9 +31,7 @@ const HOST = {
 function homeList(paired: boolean) {
   return {
     host: HOST,
-    connection: paired
-      ? ({ status: 'connected' } as const)
-      : ({ status: 'disconnected', reconnecting: false, reconnect: () => undefined } as const),
+    connection: paired ? ({ status: 'connected' } as const) : ({ status: 'offline' } as const),
     conversationList: {
       status: 'ready',
       conversations: paired

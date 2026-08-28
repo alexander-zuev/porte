@@ -25,11 +25,7 @@ const HOST = {
 
 const CONNECTING = { status: 'loading' } satisfies HostConnection
 const CONNECTED = { status: 'connected' } satisfies HostConnection
-const DISCONNECTED = {
-  status: 'disconnected',
-  reconnecting: false,
-  reconnect: () => undefined,
-} satisfies HostConnection
+const DISCONNECTED = { status: 'offline' } satisfies HostConnection
 
 /**
  * One story per situation the page can be in.

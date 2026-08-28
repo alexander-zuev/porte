@@ -1,6 +1,5 @@
 import { ChatCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairedHost } from '@porte/core/client'
-import type { HostConnection } from '@web/entities/host/host-connection.ts'
 import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
 import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
@@ -12,12 +11,10 @@ export function ConversationFailed({
   error,
   host,
   onRetry,
-  connection,
 }: {
   readonly error: unknown
   readonly host: PairedHost
   readonly onRetry: () => void
-  readonly connection: HostConnection
 }) {
   const failure = readErrorPayload(error)
   const retry = (
@@ -27,17 +24,7 @@ export function ConversationFailed({
   )
 
   if (failure._tag === 'HostOfflineError') {
-    const reconnecting = connection.status === 'disconnected' && connection.reconnecting
-    const reconnect = connection.status === 'disconnected' ? connection.reconnect : onRetry
-
-    return (
-      <StartPorteOnMac
-        hostName={host.name}
-        lastSeenAt={host.lastSeenAt}
-        reconnecting={reconnecting}
-        onReconnect={reconnect}
-      />
-    )
+    return <StartPorteOnMac hostName={host.name} lastSeenAt={host.lastSeenAt} />
   }
 
   if (failure._tag === 'ConversationNotFoundError') {

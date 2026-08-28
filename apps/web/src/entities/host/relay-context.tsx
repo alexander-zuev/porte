@@ -1,17 +1,11 @@
-import {
-  JsonRpcNotificationSchema,
-  createLogger,
-  type HostRelayState,
-  type HostStatus,
-} from '@porte/core/client'
+import { JsonRpcNotificationSchema, createLogger, type HostRelayState } from '@porte/core/client'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { ConversationAttentionProvider } from '@web/entities/conversation/conversation-attention-context.tsx'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
-import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { RelayProviderMissing } from '@web/lib/errors/relay-error.ts'
 import { useAgent } from 'agents/react'
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { z } from 'zod'
 
 const logger = createLogger('relay-context')
@@ -25,18 +19,33 @@ const BROWSER_NOTIFICATION_HANDLERS = {
 
 type HostAgentConnection = ReturnType<typeof useAgent<HostRelayAgent, HostRelayState>>
 
-const RelayContext = createContext<HostAgentConnection | null>(null)
+/** The two facts the relay socket knows, as a value that changes when they do. */
+export type Relay = {
+  readonly agent: HostAgentConnection
+  /** WebSocket `readyState`: CONNECTING, OPEN, CLOSING, CLOSED. */
+  readonly readyState: number
+  /** Undefined until the relay's first state frame. */
+  readonly state: HostRelayState | undefined
+}
 
-/** Holds one Cloudflare Agent connection for the signed-in route tree. */
+const RelayContext = createContext<Relay | null>(null)
+
+/**
+ * Holds one Cloudflare Agent connection for the signed-in route tree.
+ *
+ * `useAgent` hands back one mutable socket object, so the context carries a
+ * fresh `Relay` value whenever `readyState` or the relay state changes; that is
+ * what makes consumers re-render. The conversation list stays an HTTP query;
+ * the socket only says when to refetch it.
+ */
 export function RelayProvider({ children }: { readonly children: ReactNode }) {
   const queryClient = useQueryClient()
   const agent = useAgent<HostRelayAgent, HostRelayState>({
     agent: 'HostRelayAgent',
     basePath: RELAY_PATH,
-    onStateUpdate: (state) => {
-      queryClient.setQueryData(hostQueries.status().queryKey, {
-        status: state.hostStatus,
-      } satisfies HostStatus)
+    // A reconnect may have missed `conversations.changed`; the list is cheap to read again.
+    onOpen: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationQueries.list().queryKey })
     },
     onMessage: (message) => {
       const frame = z.string().safeParse(message.data)
@@ -44,25 +53,44 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
       handleBrowserNotification(frame.data, queryClient)
     },
   })
+  const readyState = useReadyState(agent)
+  // Read off the mutable socket here: `agent` itself never changes identity.
+  const { state } = agent
+  const relay = useMemo<Relay>(() => ({ agent, readyState, state }), [agent, readyState, state])
   return (
-    <RelayContext value={agent}>
-      <ConversationAttentionProvider activeConversations={agent.state?.activeConversations ?? null}>
+    <RelayContext value={relay}>
+      <ConversationAttentionProvider activeConversations={relay.state?.activeConversations ?? null}>
         {children}
       </ConversationAttentionProvider>
     </RelayContext>
   )
 }
 
-/** Returns the parent Agent connection for host state and reconnect control. */
-export function useRelay(): HostAgentConnection {
-  const agent = useContext(RelayContext)
-  if (agent === null) throw new RelayProviderMissing('useRelay')
-  return agent
+/** Returns the relay socket facts and the connection for reconnect control. */
+export function useRelay(): Relay {
+  const relay = useContext(RelayContext)
+  if (relay === null) throw new RelayProviderMissing('useRelay')
+  return relay
 }
 
-/** Returns the browser connection state for the parent Agent. */
-export function useRelayReadyState(): number {
-  return useRelay().readyState
+/** The socket reports lifecycle as events, not renders; mirror `readyState` into React. */
+function useReadyState(agent: HostAgentConnection): number {
+  const [readyState, setReadyState] = useState(() => agent.readyState)
+  useEffect(() => {
+    const update = () => {
+      setReadyState(agent.readyState)
+    }
+    update()
+    agent.addEventListener('open', update)
+    agent.addEventListener('close', update)
+    agent.addEventListener('error', update)
+    return () => {
+      agent.removeEventListener('open', update)
+      agent.removeEventListener('close', update)
+      agent.removeEventListener('error', update)
+    }
+  }, [agent])
+  return readyState
 }
 
 function handleBrowserNotification(frame: string, queryClient: QueryClient): void {
