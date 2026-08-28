@@ -6,7 +6,7 @@ import {
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import { ConversationTurnFailed } from '@web/features/conversation/components/conversation-states.tsx'
-import type { ConversationPermission } from '@web/pages/conversation/use-conversation.ts'
+import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,

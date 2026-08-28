@@ -2,9 +2,9 @@ import { useAgentChat } from '@cloudflare/ai-chat/react'
 import type { ConversationRelayState } from '@porte/core/client'
 import type {
   ConversationActions,
-  ConversationAgentConnection,
   ConversationPermission,
-} from '@web/pages/conversation/use-conversation.ts'
+} from '@web/features/conversation/hooks/use-answer-permission.ts'
+import type { ConversationAgentConnection } from '@web/features/conversation/hooks/use-conversation-agent.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
