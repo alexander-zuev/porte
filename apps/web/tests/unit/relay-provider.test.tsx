@@ -20,22 +20,22 @@ const offline: HostRelayState = {
 
 /**
  * Mirrors what `useAgent` really does: one mutable socket object whose identity
- * never changes. A state frame re-renders the hook's owner; a socket lifecycle
- * change only fires an event.
+ * never changes, and `identified` and `state` kept as React state so each
+ * change re-renders the hook's owner.
  */
-class FakeAgent extends EventTarget {
-  readyState: number = WebSocket.CONNECTING
+class FakeAgent {
+  identified = false
   state: HostRelayState | undefined = undefined
   rerender: () => void = () => undefined
 
-  open(): void {
-    this.readyState = WebSocket.OPEN
-    this.dispatchEvent(new Event('open'))
+  identify(): void {
+    this.identified = true
+    this.rerender()
   }
 
   close(): void {
-    this.readyState = WebSocket.CLOSED
-    this.dispatchEvent(new Event('close'))
+    this.identified = false
+    this.rerender()
   }
 
   receiveState(state: HostRelayState): void {
@@ -75,7 +75,7 @@ function mountDot() {
 }
 
 beforeEach(() => {
-  fake.readyState = WebSocket.CONNECTING
+  fake.identified = false
   fake.state = undefined
 })
 
@@ -86,7 +86,7 @@ describe('RelayProvider → useHostConnection', () => {
     const { status } = mountDot()
     expect(status()).toBe('loading')
 
-    act(() => fake.open())
+    act(() => fake.identify())
     expect(status()).toBe('loading')
 
     act(() => fake.receiveState(online))
@@ -95,24 +95,16 @@ describe('RelayProvider → useHostConnection', () => {
     act(() => fake.close())
     expect(status()).toBe('connecting')
 
-    act(() => fake.open())
+    act(() => fake.identify())
     expect(status()).toBe('connected')
 
     act(() => fake.receiveState(offline))
     expect(status()).toBe('offline')
   })
 
-  it('re-renders a memoized consumer on a socket event alone', () => {
-    fake.state = online
-    const { status } = mountDot()
-    expect(status()).toBe('connecting')
-    act(() => fake.open())
-    expect(status()).toBe('connected')
-  })
-
   it('refetches the conversation list only when the version moves', () => {
     const { invalidate } = mountDot()
-    act(() => fake.open())
+    act(() => fake.identify())
     act(() => fake.receiveState(online))
     act(() => fake.receiveState({ ...online, hostStatus: 'offline' }))
     expect(invalidate).not.toHaveBeenCalled()

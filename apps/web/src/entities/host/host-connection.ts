@@ -2,7 +2,7 @@ import type { RelayConnection } from '@web/lib/relay/relay-provider.tsx'
 
 /**
  * The end-to-end connection from this browser to the paired Mac, from two facts:
- * the relay socket (`readyState`) and what the relay reports about the Mac.
+ * the relay socket (`identified`) and what the relay reports about the Mac.
  *
  * - `loading`: the relay has not answered yet (no state frame). Spinner.
  * - `connecting`: the socket dropped and is retrying on its own. Flashing dot.
@@ -18,8 +18,8 @@ export type HostConnection =
 export type HostConnectionStatus = HostConnection['status']
 
 /** Socket first, then the Mac. Pure, so every branch is a one-line test. */
-export function hostConnectionFrom({ readyState, state }: RelayConnection): HostConnection {
+export function hostConnectionFrom({ identified, state }: RelayConnection): HostConnection {
   if (state === undefined) return { status: 'loading' }
-  if (readyState !== WebSocket.OPEN) return { status: 'connecting' }
+  if (!identified) return { status: 'connecting' }
   return state.hostStatus === 'online' ? { status: 'connected' } : { status: 'offline' }
 }

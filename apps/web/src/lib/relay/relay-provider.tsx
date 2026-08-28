@@ -4,24 +4,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-  type ReactNode,
-} from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 
 const RELAY_PATH = 'api/host/ws'
 
-type HostAgentConnection = ReturnType<typeof useAgent<HostRelayAgent, HostRelayState>>
-
 /** This browser's connection to the relay: the socket, and the last state the relay sent over it. */
 export type RelayConnection = {
-  /** WebSocket `readyState`: CONNECTING, OPEN, CLOSING, CLOSED. */
-  readonly readyState: number
+  /** True once the socket is open and the relay has answered; false again on close. */
+  readonly identified: boolean
   /** Undefined until the relay's first state frame. */
   readonly state: HostRelayState | undefined
 }
@@ -32,7 +22,7 @@ const RelayContext = createContext<RelayConnection | null>(null)
  * Holds the browser's one socket to the account's `HostRelayAgent`.
  *
  * `useAgent` hands back one mutable socket object, so the context carries a
- * fresh `RelayConnection` value whenever `readyState` or the relay state
+ * fresh `RelayConnection` value whenever `identified` or the relay state
  * changes; that is what makes consumers re-render. Everything the relay says
  * arrives as typed state; conversation content has its own socket per
  * conversation.
@@ -42,11 +32,10 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
     agent: 'HostRelayAgent',
     basePath: RELAY_PATH,
   })
-  const readyState = useReadyState(agent)
   // Read off the mutable socket here: `agent` itself never changes identity.
-  const { state } = agent
+  const { identified, state } = agent
   useConversationListRefresh(state?.conversationsVersion)
-  const connection = useMemo<RelayConnection>(() => ({ readyState, state }), [readyState, state])
+  const connection = useMemo<RelayConnection>(() => ({ identified, state }), [identified, state])
   return <RelayContext value={connection}>{children}</RelayContext>
 }
 
@@ -55,24 +44,6 @@ export function useRelay(): RelayConnection {
   const relay = useContext(RelayContext)
   if (relay === null) throw new ProviderMissing('useRelay', 'RelayProvider')
   return relay
-}
-
-/** `readyState` is a field on the socket, not React state; `useAgent` does not re-render on `open`. */
-function useReadyState(agent: HostAgentConnection): number {
-  return useSyncExternalStore(
-    (onChange) => {
-      agent.addEventListener('open', onChange)
-      agent.addEventListener('close', onChange)
-      agent.addEventListener('error', onChange)
-      return () => {
-        agent.removeEventListener('open', onChange)
-        agent.removeEventListener('close', onChange)
-        agent.removeEventListener('error', onChange)
-      }
-    },
-    () => agent.readyState,
-    () => WebSocket.CONNECTING,
-  )
 }
 
 /** Refetch the list when the relay's version moves past the first one seen; a re-sent version is free. */
