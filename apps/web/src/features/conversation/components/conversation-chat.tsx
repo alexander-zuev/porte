@@ -72,17 +72,19 @@ export function ConversationChat({
             <PromptInputTools>
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger aria-label="Add attachment" disabled={!canSubmit} />
-                <PromptInputActionMenuContent>
+                {/* Grok lists hundreds of commands; names only, in a list that scrolls, not a column that wraps. */}
+                <PromptInputActionMenuContent className="max-h-[60svh] min-w-56 overflow-y-auto sm:min-w-72">
                   <PromptInputActionAddAttachments />
                   {state.commands?.map((command) => (
                     <PromptInputActionMenuItem
                       key={command.name}
+                      className="font-mono"
                       disabled={!canSubmit}
                       onClick={() => {
                         void chat.sendMessage({ text: `/${command.name}` })
                       }}
                     >
-                      /{command.name} — {command.description}
+                      /{command.name}
                     </PromptInputActionMenuItem>
                   ))}
                 </PromptInputActionMenuContent>
