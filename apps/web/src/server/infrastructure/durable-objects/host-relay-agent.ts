@@ -6,6 +6,7 @@ import {
   HostControlMethods,
   HostIdSchema,
   HostOfflineError,
+  HostRelayStateSchema,
   createLogger,
   type ConversationSummary,
   type ConversationId,
@@ -76,6 +77,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   /** Restore status from hibernating sockets without replaying application requests. */
   override onStart(): void {
+    // Stored state predates a schema change: start over rather than compute on missing fields.
+    if (!HostRelayStateSchema.safeParse(this.state).success) this.setState(this.initialState)
     const host = this.hostConnection()
     if (host !== undefined) this.hostSocket.attach(host)
     this.setHostStatus(host !== undefined ? 'online' : 'offline')
