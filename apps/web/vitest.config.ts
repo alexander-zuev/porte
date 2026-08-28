@@ -36,7 +36,8 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: 'unit',
-          include: ['tests/unit/**/*.test.ts'],
+          include: ['tests/unit/**/*.test.{ts,tsx}'],
+          // Hook tests opt into happy-dom per file with `@vitest-environment`.
           environment: 'node',
         },
       },
