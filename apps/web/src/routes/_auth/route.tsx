@@ -1,7 +1,8 @@
 import { ensureSession } from '@server/entrypoints/functions/auth.fn.ts'
-import { createFileRoute, Outlet, redirect, useChildMatches } from '@tanstack/react-router'
-import { RelayProvider } from '@web/entities/host/relay-context.tsx'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { UnseenConversationsProvider } from '@web/entities/conversation/unseen-conversations-context.tsx'
 import { signInSearchFromLocation } from '@web/lib/auth/internal-return-to.ts'
+import { RelayProvider } from '@web/lib/relay/relay-provider.tsx'
 import { useAppShellVariant } from '@web/lib/router/use-shell-variant.ts'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
@@ -28,23 +29,21 @@ export const Route = createFileRoute('/_auth')({
 /**
  * Everything behind the session, in one frame.
  *
- * The shell is here rather than a layer below, so signing in and moving between
- * pairing, the list, and settings never rebuilds it. Pages ask for the shape
- * they need through `staticData`, because a child cannot pass props to the
- * layout that renders its `Outlet`.
+ * The shell and the relay socket are here rather than a layer below, so signing
+ * in and moving between pairing, the list, and settings never rebuilds either.
+ * Pages ask for the shape they need through `staticData`, because a child
+ * cannot pass props to the layout that renders its `Outlet`.
  */
 function AuthLayout() {
   const variant = useAppShellVariant('scroll')
-  const usesRelay = useChildMatches({
-    select: (matches) => matches.some((match) => match.routeId.startsWith('/_auth/_relay')),
-  })
 
-  const shell = (
-    <AppShell header={<AppHeader />} variant={variant}>
-      <Outlet />
-    </AppShell>
+  return (
+    <RelayProvider>
+      <UnseenConversationsProvider>
+        <AppShell header={<AppHeader />} variant={variant}>
+          <Outlet />
+        </AppShell>
+      </UnseenConversationsProvider>
+    </RelayProvider>
   )
-
-  if (!usesRelay) return shell
-  return <RelayProvider>{shell}</RelayProvider>
 }

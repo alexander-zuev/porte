@@ -1,5 +1,6 @@
 import type { ConversationId, RelayActiveConversation } from '@porte/core/client'
-import { RelayProviderMissing } from '@web/lib/errors/relay-error.ts'
+import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
+import { useRelay } from '@web/lib/relay/relay-provider.tsx'
 import {
   createContext,
   useCallback,
@@ -18,22 +19,22 @@ import {
   markConversationSeen,
 } from './conversation-attention.ts'
 
-type ConversationAttention = {
-  readonly activeConversationIds: ReadonlySet<ConversationId>
+type UnseenConversations = {
   readonly unseenConversationIds: ReadonlySet<ConversationId>
   readonly setVisibleConversation: (conversationId: ConversationId | null) => void
 }
 
-const ConversationAttentionContext = createContext<ConversationAttention | null>(null)
+const UnseenConversationsContext = createContext<UnseenConversations | null>(null)
 
-/** Owns temporary list attention for the current browser lifetime. */
-export function ConversationAttentionProvider({
-  activeConversations,
-  children,
-}: {
-  readonly activeConversations: readonly RelayActiveConversation[] | null
-  readonly children: ReactNode
-}) {
+/**
+ * Remembers which conversations finished a turn while this browser was not
+ * looking at them, until each one is opened.
+ *
+ * Client memory only: it diffs consecutive relay state frames, so it must
+ * outlive every signed-in route or a completion on another page is missed.
+ */
+export function UnseenConversationsProvider({ children }: { readonly children: ReactNode }) {
+  const activeConversations = useRelay().state?.activeConversations ?? null
   const previous = useRef<ReadonlyMap<ConversationId, RelayActiveConversation> | null>(null)
   const openedConversationIds = useRef<ReadonlySet<ConversationId>>(new Set())
   const visibleConversationId = useRef<ConversationId | null>(null)
@@ -70,27 +71,25 @@ export function ConversationAttentionProvider({
   }, [])
 
   const value = useMemo(
-    () => ({
-      activeConversationIds: new Set(active.keys()),
-      unseenConversationIds,
-      setVisibleConversation,
-    }),
-    [active, setVisibleConversation, unseenConversationIds],
+    () => ({ unseenConversationIds, setVisibleConversation }),
+    [setVisibleConversation, unseenConversationIds],
   )
 
-  return <ConversationAttentionContext value={value}>{children}</ConversationAttentionContext>
+  return <UnseenConversationsContext value={value}>{children}</UnseenConversationsContext>
 }
 
-/** Returns temporary list attention for the current browser. */
-export function useConversationAttention(): ConversationAttention {
-  const attention = useContext(ConversationAttentionContext)
-  if (attention === null) throw new RelayProviderMissing('useConversationAttention')
-  return attention
+/** Returns the conversations this browser has not looked at since they finished. */
+export function useUnseenConversations(): UnseenConversations {
+  const unseen = useContext(UnseenConversationsContext)
+  if (unseen === null) {
+    throw new ProviderMissing('useUnseenConversations', 'UnseenConversationsProvider')
+  }
+  return unseen
 }
 
 /** Marks one conversation visible until its route unmounts. */
 export function useVisibleConversation(conversationId: ConversationId): void {
-  const { setVisibleConversation } = useConversationAttention()
+  const { setVisibleConversation } = useUnseenConversations()
   useEffect(() => {
     setVisibleConversation(conversationId)
     return () => {

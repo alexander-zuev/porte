@@ -7,7 +7,6 @@ import {
   HostIdSchema,
   HostOfflineError,
   createLogger,
-  jsonRpcNotification,
   type ConversationSummary,
   type ConversationId,
   type HostControlMethodMap,
@@ -43,15 +42,16 @@ import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
-const CONVERSATIONS_CHANGED_NOTIFICATION = JSON.stringify(
-  jsonRpcNotification('conversations.changed', {}),
-)
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   static options = { sendIdentityOnConnect: true }
 
-  initialState: HostRelayState = { hostStatus: 'offline', activeConversations: [] }
+  initialState: HostRelayState = {
+    hostStatus: 'offline',
+    activeConversations: [],
+    conversationsVersion: 0,
+  }
 
   private readonly resources: HostRelayResources
   private readonly hostId: HostId
@@ -306,8 +306,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   private publishConversationChange(): void {
-    const host = this.hostConnection()
-    this.broadcast(CONVERSATIONS_CHANGED_NOTIFICATION, host === undefined ? [] : [host.id])
+    this.setState({ ...this.state, conversationsVersion: this.state.conversationsVersion + 1 })
   }
 
   private async rememberSeen(hostId: HostId): Promise<void> {

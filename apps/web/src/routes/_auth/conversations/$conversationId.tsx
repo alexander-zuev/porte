@@ -1,13 +1,13 @@
 import { ConversationIdSchema } from '@porte/core/client'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useVisibleConversation } from '@web/entities/conversation/conversation-attention-context.tsx'
+import { useVisibleConversation } from '@web/entities/conversation/unseen-conversations-context.tsx'
 import { useConversation } from '@web/entities/conversation/use-conversation.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationPage } from '@web/pages/conversation/conversation-page.tsx'
 
-export const Route = createFileRoute('/_auth/_relay/conversations/$conversationId')({
+export const Route = createFileRoute('/_auth/conversations/$conversationId')({
   params: {
     parse: ({ conversationId }) => {
       const parsed = ConversationIdSchema.safeParse(conversationId)

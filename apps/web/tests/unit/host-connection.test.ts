@@ -2,8 +2,16 @@ import type { HostRelayState } from '@porte/core/client'
 import { hostConnectionFrom } from '@web/entities/host/host-connection.ts'
 import { describe, expect, it } from 'vitest'
 
-const online: HostRelayState = { hostStatus: 'online', activeConversations: [] }
-const offline: HostRelayState = { hostStatus: 'offline', activeConversations: [] }
+const online: HostRelayState = {
+  hostStatus: 'online',
+  activeConversations: [],
+  conversationsVersion: 0,
+}
+const offline: HostRelayState = {
+  hostStatus: 'offline',
+  activeConversations: [],
+  conversationsVersion: 0,
+}
 const { CONNECTING, OPEN, CLOSING, CLOSED } = WebSocket
 
 describe('hostConnectionFrom', () => {

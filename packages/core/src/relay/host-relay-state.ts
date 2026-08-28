@@ -16,6 +16,7 @@ export type RelayActiveConversation = z.infer<typeof RelayActiveConversationSche
 export const HostRelayStateSchema = z.object({
   hostStatus: z.enum(['online', 'offline']),
   activeConversations: z.array(RelayActiveConversationSchema),
+  conversationsVersion: z.int().nonnegative(),
 })
 
 /** Reactive parent Agent state sent to web clients. */

@@ -18,8 +18,7 @@ import { Logo } from '@web/ui/components/logo.tsx'
  */
 export function AppHeader() {
   const controllingHost = useChildMatches({
-    select: (matches) =>
-      matches.some((match) => match.routeId.startsWith('/_auth/_relay/conversations')),
+    select: (matches) => matches.some((match) => match.routeId.startsWith('/_auth/conversations')),
   })
 
   return (
@@ -44,9 +43,6 @@ export function AppHeader() {
  * Only on the screens that control it. Settings and pairing can read the same
  * Mac — settings names it in full — but neither is remote-controlling one, and
  * a bar that said so would be describing the wrong thing.
- *
- * `AppHeader` mounts this component only for conversation routes, where the
- * relay provider wraps the complete shell.
  */
 function RemoteHost() {
   const owned = useQuery(hostQueries.forAccount())

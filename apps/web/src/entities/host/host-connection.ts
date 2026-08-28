@@ -1,4 +1,4 @@
-import type { HostRelayState } from '@porte/core/client'
+import type { RelayConnection } from '@web/lib/relay/relay-provider.tsx'
 
 /**
  * The end-to-end connection from this browser to the paired Mac, from two facts:
@@ -17,16 +17,8 @@ export type HostConnection =
 
 export type HostConnectionStatus = HostConnection['status']
 
-/** What the relay socket knows; the hook reads these off the socket. */
-export type RelayFacts = {
-  /** WebSocket `readyState`: CONNECTING, OPEN, CLOSING, CLOSED. */
-  readonly readyState: number
-  /** Undefined until the relay's first state frame. */
-  readonly state: HostRelayState | undefined
-}
-
 /** Socket first, then the Mac. Pure, so every branch is a one-line test. */
-export function hostConnectionFrom({ readyState, state }: RelayFacts): HostConnection {
+export function hostConnectionFrom({ readyState, state }: RelayConnection): HostConnection {
   if (state === undefined) return { status: 'loading' }
   if (readyState !== WebSocket.OPEN) return { status: 'connecting' }
   return state.hostStatus === 'online' ? { status: 'connected' } : { status: 'offline' }

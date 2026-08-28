@@ -2,13 +2,21 @@
 import type { HostRelayState } from '@porte/core/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { RelayProvider } from '@web/entities/host/relay-context.tsx'
 import { useHostConnection } from '@web/lib/host/use-host-connection.ts'
+import { RelayProvider } from '@web/lib/relay/relay-provider.tsx'
 import { memo, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const online: HostRelayState = { hostStatus: 'online', activeConversations: [] }
-const offline: HostRelayState = { hostStatus: 'offline', activeConversations: [] }
+const online: HostRelayState = {
+  hostStatus: 'online',
+  activeConversations: [],
+  conversationsVersion: 0,
+}
+const offline: HostRelayState = {
+  hostStatus: 'offline',
+  activeConversations: [],
+  conversationsVersion: 0,
+}
 
 /**
  * Mirrors what `useAgent` really does: one mutable socket object whose identity
@@ -19,12 +27,9 @@ class FakeAgent extends EventTarget {
   readyState: number = WebSocket.CONNECTING
   state: HostRelayState | undefined = undefined
   rerender: () => void = () => undefined
-  readonly reconnect = vi.fn()
-  onOpen: (() => void) | undefined
 
   open(): void {
     this.readyState = WebSocket.OPEN
-    this.onOpen?.()
     this.dispatchEvent(new Event('open'))
   }
 
@@ -42,12 +47,11 @@ class FakeAgent extends EventTarget {
 const fake = new FakeAgent()
 
 vi.mock('agents/react', () => ({
-  useAgent: (options: { onOpen?: () => void }) => {
+  useAgent: () => {
     const [, tick] = useState(0)
     fake.rerender = () => {
       tick((n) => n + 1)
     }
-    fake.onOpen = options.onOpen
     return fake
   },
 }))
@@ -106,14 +110,16 @@ describe('RelayProvider → useHostConnection', () => {
     expect(status()).toBe('connected')
   })
 
-  it('refetches the conversation list on every open, never on state', () => {
+  it('refetches the conversation list only when the version moves', () => {
     const { invalidate } = mountDot()
+    act(() => fake.open())
     act(() => fake.receiveState(online))
+    act(() => fake.receiveState({ ...online, hostStatus: 'offline' }))
     expect(invalidate).not.toHaveBeenCalled()
-    act(() => fake.open())
-    act(() => fake.close())
-    act(() => fake.open())
-    expect(invalidate).toHaveBeenCalledTimes(2)
+    act(() => fake.receiveState({ ...online, conversationsVersion: 1 }))
+    expect(invalidate).toHaveBeenCalledTimes(1)
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['conversation', 'list'] })
+    act(() => fake.receiveState({ ...online, conversationsVersion: 1 }))
+    expect(invalidate).toHaveBeenCalledTimes(1)
   })
 })
