@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Navigate, redirect } from '@tanstack/react-router'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
+import { useCreateConversation } from '@web/features/conversations/hooks/use-create-conversation.ts'
 import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { createSeoHead } from '@web/lib/seo.ts'
 import { ConversationsPage } from '@web/pages/conversations/conversations-page.tsx'
@@ -37,6 +38,7 @@ function ConversationsRoute() {
   const owned = useSuspenseQuery(hostQueries.forAccount()).data
   const connection = useHostConnection()
   const conversationList = useConversationList()
+  const create = useCreateConversation()
 
   // Unpaired mid-visit (the account page): `beforeLoad` only guards the navigation.
   if (owned.state !== 'paired') return <Navigate to="/pair" />
@@ -44,6 +46,7 @@ function ConversationsRoute() {
     <ConversationsPage
       connection={connection}
       conversationList={conversationList}
+      create={create}
       host={owned.host}
     />
   )

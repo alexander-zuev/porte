@@ -1,4 +1,9 @@
-import type { HostId, ListConversationsParams, ListConversationsResult } from '@porte/core'
+import type {
+  ConversationSummary,
+  HostId,
+  ListConversationsParams,
+  ListConversationsResult,
+} from '@porte/core'
 import { DurableObjectClient, HOST_CONTROL_SUBPROTOCOL } from '@porte/core'
 import type { AgentConnection } from '@server/application/ports/agent-connection.ts'
 import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client.ts'
@@ -32,6 +37,13 @@ export class HostRelayClient
     const conversations = [...read.conversations]
     // The stub hands back a disposable proxy, so the result is copied out.
     return read.next === undefined ? { conversations } : { conversations, next: read.next }
+  }
+
+  createConversation(
+    hostId: HostId,
+    params: { readonly cwd: string },
+  ): Promise<ConversationSummary> {
+    return this.once(hostId, (relay) => relay.createConversation(params))
   }
 
   disconnect(hostId: HostId): Promise<void> {

@@ -26,6 +26,7 @@ import { Route as AuthPairConfirmRouteImport } from './../../routes/_auth/pair/c
 import { Route as AuthPairSuccessRouteImport } from './../../routes/_auth/pair/success'
 import { Route as ApiAuthSplatRouteImport } from './../../routes/api/auth/$'
 import { Route as ApiCacheImagesRouteImport } from './../../routes/api/cache/images'
+import { Route as ApiHostPairingRouteImport } from './../../routes/api/host/pairing'
 import { Route as ApiPairCodeRouteImport } from './../../routes/api/pair/code'
 import { Route as ApiHostWsIndexRouteImport } from './../../routes/api/host/ws/index'
 import { Route as ApiHostWsSubConversationAgentConversationIdIndexRouteImport } from './../../routes/api/host/ws/sub/conversation-agent/$conversationId/index'
@@ -114,6 +115,11 @@ const ApiCacheImagesRoute = ApiCacheImagesRouteImport.update({
   path: '/api/cache/images',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHostPairingRoute = ApiHostPairingRouteImport.update({
+  id: '/api/host/pairing',
+  path: '/api/host/pairing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPairCodeRoute = ApiPairCodeRouteImport.update({
   id: '/api/pair/code',
   path: '/api/pair/code',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/images': typeof ApiCacheImagesRoute
+  '/api/host/pairing': typeof ApiHostPairingRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/conversations/': typeof AuthConversationsIndexRoute
   '/pair/': typeof AuthPairIndexRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/images': typeof ApiCacheImagesRoute
+  '/api/host/pairing': typeof ApiHostPairingRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/conversations': typeof AuthConversationsIndexRoute
   '/pair': typeof AuthPairIndexRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/_auth/pair/success': typeof AuthPairSuccessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cache/images': typeof ApiCacheImagesRoute
+  '/api/host/pairing': typeof ApiHostPairingRoute
   '/api/pair/code': typeof ApiPairCodeRoute
   '/_auth/conversations/': typeof AuthConversationsIndexRoute
   '/_auth/pair/': typeof AuthPairIndexRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/pair/success'
     | '/api/auth/$'
     | '/api/cache/images'
+    | '/api/host/pairing'
     | '/api/pair/code'
     | '/conversations/'
     | '/pair/'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/pair/success'
     | '/api/auth/$'
     | '/api/cache/images'
+    | '/api/host/pairing'
     | '/api/pair/code'
     | '/conversations'
     | '/pair'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_auth/pair/success'
     | '/api/auth/$'
     | '/api/cache/images'
+    | '/api/host/pairing'
     | '/api/pair/code'
     | '/_auth/conversations/'
     | '/_auth/pair/'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCacheImagesRoute: typeof ApiCacheImagesRoute
+  ApiHostPairingRoute: typeof ApiHostPairingRoute
   ApiPairCodeRoute: typeof ApiPairCodeRoute
   ApiHostWsIndexRoute: typeof ApiHostWsIndexRoute
   ApiHostWsSubConversationAgentConversationIdIndexRoute: typeof ApiHostWsSubConversationAgentConversationIdIndexRoute
@@ -388,6 +401,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCacheImagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/host/pairing': {
+      id: '/api/host/pairing'
+      path: '/api/host/pairing'
+      fullPath: '/api/host/pairing'
+      preLoaderRoute: typeof ApiHostPairingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pair/code': {
       id: '/api/pair/code'
       path: '/api/pair/code'
@@ -473,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCacheImagesRoute: ApiCacheImagesRoute,
+  ApiHostPairingRoute: ApiHostPairingRoute,
   ApiPairCodeRoute: ApiPairCodeRoute,
   ApiHostWsIndexRoute: ApiHostWsIndexRoute,
   ApiHostWsSubConversationAgentConversationIdIndexRoute:

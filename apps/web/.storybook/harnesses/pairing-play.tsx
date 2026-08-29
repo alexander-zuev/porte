@@ -51,6 +51,7 @@ function homeList(paired: boolean) {
       isLoadingMore: false,
       onLoadMore: () => undefined,
     },
+    create: { start: () => undefined, pendingCwd: undefined },
   } satisfies ConversationsPageProps
 }
 

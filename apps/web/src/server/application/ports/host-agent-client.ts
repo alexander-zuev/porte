@@ -1,4 +1,9 @@
-import type { HostId, ListConversationsParams, ListConversationsResult } from '@porte/core'
+import type {
+  ConversationSummary,
+  HostId,
+  ListConversationsParams,
+  ListConversationsResult,
+} from '@porte/core'
 
 import type { AgentConnection } from './agent-connection.ts'
 
@@ -11,6 +16,9 @@ export interface IHostRelayClient {
     hostId: HostId,
     query: ListConversationsParams,
   ): Promise<ListConversationsResult>
+
+  /** Open a new coding-agent session in `cwd` on the machine. Not repeatable: each call is one session. */
+  createConversation(hostId: HostId, params: { readonly cwd: string }): Promise<ConversationSummary>
 
   /**
    * Turn everyone out of one machine's relay.

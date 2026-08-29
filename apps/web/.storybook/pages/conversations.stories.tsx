@@ -6,6 +6,7 @@ import type {
   ConversationTurnStatus,
 } from '@web/entities/conversation/conversation-list.ts'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import type { CreateConversation } from '@web/features/conversations/hooks/use-create-conversation.ts'
 import {
   ConversationsPage,
   type ConversationsPageProps,
@@ -38,8 +39,10 @@ function page(
   connection: HostConnection,
   conversationList: ConversationList,
 ): ConversationsPageProps {
-  return { connection, conversationList, host: HOST }
+  return { connection, conversationList, host: HOST, create: IDLE_CREATE }
 }
+
+const IDLE_CREATE = { start: () => undefined, pendingCwd: undefined } satisfies CreateConversation
 
 /** The list arrived. Paging is off unless a story says otherwise. */
 function listed(

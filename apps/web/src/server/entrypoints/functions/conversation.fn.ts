@@ -1,8 +1,10 @@
 import {
   ConversationIdSchema,
   ListConversationsParamsSchema,
+  type ConversationSummary,
   type ListConversationsResult,
 } from '@porte/core/client'
+import { createConversation as createConversationCommand } from '@server/application/commands/create-conversation.command.ts'
 import { getConversationMessages as getConversationMessagesQuery } from '@server/application/queries/get-conversation-messages.query.ts'
 import { getConversations as getConversationsQuery } from '@server/application/queries/get-conversations.query.ts'
 import { requireAuth } from '@server/entrypoints/middleware/auth.middleware.ts'
@@ -23,6 +25,19 @@ export const getConversations = createServerFn({ method: 'GET' })
   .validator(ListConversationsParamsSchema)
   .handler(async ({ context, data }): Promise<ListConversationsResult> => {
     return getConversationsQuery(context.deps.hosts, context.deps.hostRelay, context.user.id, data)
+  })
+
+/** Start a conversation in one folder on the machine and answer with its summary. */
+export const createConversation = createServerFn({ method: 'POST' })
+  .middleware([requireAuth])
+  .validator(z.object({ cwd: z.string().min(1) }))
+  .handler(async ({ context, data }): Promise<ConversationSummary> => {
+    return createConversationCommand(
+      context.deps.hosts,
+      context.deps.hostRelay,
+      context.user.id,
+      data.cwd,
+    )
   })
 
 /**

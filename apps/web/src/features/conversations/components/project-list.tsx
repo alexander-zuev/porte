@@ -10,6 +10,7 @@ import {
   groupConversationsByRepo,
   type Project,
 } from '@web/entities/conversation/group-conversations.ts'
+import type { CreateConversation } from '@web/features/conversations/hooks/use-create-conversation.ts'
 import { cn } from '@web/lib/utils.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
@@ -22,6 +23,7 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 type ProjectListProps = {
   readonly conversations: readonly ConversationListItem[]
   readonly selectedConversationId?: string
+  readonly create: CreateConversation
 }
 
 /**
@@ -30,7 +32,7 @@ type ProjectListProps = {
  * Nothing here sets side padding. The page owns the one left edge, and a row
  * that added its own would sit inside the heading above it.
  */
-export function ProjectList({ conversations, selectedConversationId }: ProjectListProps) {
+export function ProjectList({ conversations, selectedConversationId, create }: ProjectListProps) {
   return (
     <nav aria-label="Projects" className="flex flex-col">
       {/* A label, not a heading: the page's only heading is its `h1`, and a `h5`
@@ -41,6 +43,7 @@ export function ProjectList({ conversations, selectedConversationId }: ProjectLi
       {groupConversationsByRepo(conversations).map((project) => (
         <ProjectRow
           key={project.gitRoot}
+          create={create}
           project={project}
           selectedConversationId={selectedConversationId}
         />
@@ -58,13 +61,16 @@ export function ProjectList({ conversations, selectedConversationId }: ProjectLi
 function ProjectRow({
   project,
   selectedConversationId,
+  create,
 }: {
   readonly project: Project
   readonly selectedConversationId?: string
+  readonly create: CreateConversation
 }) {
   const holdsSelected = project.conversations.some(
     ({ conversation }) => conversation.id === selectedConversationId,
   )
+  const creatingHere = create.pendingCwd === project.gitRoot
 
   return (
     <Collapsible defaultOpen={holdsSelected}>
@@ -85,13 +91,18 @@ function ProjectRow({
           />
         </CollapsibleTrigger>
 
+        {/* One creation at a time: every pencil waits, only the busy one shows it. */}
         <Button
           aria-label={`New conversation in ${project.name}`}
           className="shrink-0 text-muted-foreground"
+          disabled={create.pendingCwd !== undefined}
           size="icon"
           variant="ghost"
+          onClick={() => {
+            create.start(project.gitRoot)
+          }}
         >
-          <NotePencilIcon aria-hidden />
+          {creatingHere ? <Spinner /> : <NotePencilIcon aria-hidden />}
         </Button>
       </div>
 
