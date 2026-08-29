@@ -7,6 +7,8 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { notifyHostOffline, notifyHostOnline } from '@web/features/relay/host-connection-toasts.ts'
+import { CopyPrompt } from '@web/ui/components/copy-prompt.tsx'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
@@ -283,6 +285,12 @@ function SurfacesBoard() {
           <Separator />
           <TerminalCommand command="curl -fsSL https://porte.dev/install.sh | sh" />
         </Specimen>
+        <Specimen
+          label="Copy prompt"
+          note="Beside the command, for the person who hands setup to an agent."
+        >
+          <CopyPrompt prompt="Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this Mac." />
+        </Specimen>
       </Section>
     </Board>
   )
@@ -315,6 +323,40 @@ function ToastBoard() {
       <Section title="Raised messages" note="Neutral, success, and failure, held open for review.">
         <Specimen label="Host" wide>
           <p className="text-muted-foreground">Three toasts sit in the bottom corner.</p>
+        </Specimen>
+      </Section>
+      <Toaster />
+    </Board>
+  )
+}
+
+/** The two toasts the relay raises on its own when the Mac leaves and returns. */
+function HostConnectionToastBoard() {
+  useEffect(() => {
+    notifyHostOffline()
+    return () => {
+      toast.dismiss()
+    }
+  }, [])
+
+  return (
+    <Board
+      title="Toast"
+      summary="Raised by the relay when the paired Mac drops or comes back while a page is open. Never on first load: the pages already show the offline state."
+    >
+      <Section
+        title="Host connection"
+        note="Offline holds until dismissed or replaced; online clears itself."
+      >
+        <Specimen label="Transitions" wide>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={notifyHostOffline}>
+              Mac went offline
+            </Button>
+            <Button size="sm" variant="outline" onClick={notifyHostOnline}>
+              Mac back online
+            </Button>
+          </div>
         </Specimen>
       </Section>
       <Toaster />
@@ -369,3 +411,4 @@ type Story = StoryObj<typeof meta>
 export const All: Story = { render: () => <SurfacesBoard /> }
 export const Toasts: Story = { render: () => <ToastBoard /> }
 export const ToastsLongCopy: Story = { render: () => <LongToastBoard /> }
+export const ToastsHostConnection: Story = { render: () => <HostConnectionToastBoard /> }

@@ -1,5 +1,5 @@
 import type { HostRelayState } from '@porte/core/client'
-import { hostConnectionFrom } from '@web/entities/host/host-connection.ts'
+import { hostConnectionFrom, hostConnectionNotice } from '@web/entities/host/host-connection.ts'
 import { describe, expect, it } from 'vitest'
 
 const online: HostRelayState = {
@@ -30,5 +30,19 @@ describe('hostConnectionFrom', () => {
       status: 'connected',
     })
     expect(hostConnectionFrom({ identified: true, state: offline })).toEqual({ status: 'offline' })
+  })
+})
+
+describe('hostConnectionNotice', () => {
+  it('speaks only when the Mac leaves or returns', () => {
+    expect(hostConnectionNotice('connected', 'offline')).toBe('host-offline')
+    expect(hostConnectionNotice('offline', 'connected')).toBe('host-online')
+  })
+
+  it('stays quiet on first load and on socket blips', () => {
+    expect(hostConnectionNotice('loading', 'offline')).toBeUndefined()
+    expect(hostConnectionNotice('loading', 'connected')).toBeUndefined()
+    expect(hostConnectionNotice('connected', 'connecting')).toBeUndefined()
+    expect(hostConnectionNotice('connecting', 'connected')).toBeUndefined()
   })
 })

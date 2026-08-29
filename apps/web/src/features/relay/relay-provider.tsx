@@ -2,7 +2,8 @@ import type { HostRelayState } from '@porte/core/client'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
-import type { RelayConnection } from '@web/entities/host/host-connection.ts'
+import { hostConnectionFrom, type RelayConnection } from '@web/entities/host/host-connection.ts'
+import { useHostConnectionToasts } from '@web/features/relay/use-host-connection-toasts.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
@@ -29,6 +30,7 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
   const { identified, state } = agent
   useConversationListRefresh(state?.conversationsVersion)
   const connection = useMemo<RelayConnection>(() => ({ identified, state }), [identified, state])
+  useHostConnectionToasts(hostConnectionFrom(connection).status)
   return <RelayContext value={connection}>{children}</RelayContext>
 }
 

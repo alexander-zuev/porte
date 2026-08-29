@@ -25,6 +25,22 @@ export type HostConnection =
 
 export type HostConnectionStatus = HostConnection['status']
 
+/** What to tell the person when the connection moves from one status to the next. */
+export type HostConnectionNotice = 'host-offline' | 'host-online'
+
+/**
+ * Only a Mac that leaves or returns is news. A page that opens onto an offline
+ * Mac already shows it, and a socket blip (`connecting`) belongs to the header dot.
+ */
+export function hostConnectionNotice(
+  before: HostConnectionStatus,
+  after: HostConnectionStatus,
+): HostConnectionNotice | undefined {
+  if (before === 'connected' && after === 'offline') return 'host-offline'
+  if (before === 'offline' && after === 'connected') return 'host-online'
+  return undefined
+}
+
 /** Socket first, then the Mac. Pure, so every branch is a one-line test. */
 export function hostConnectionFrom({ identified, state }: RelayConnection): HostConnection {
   if (state === undefined) return { status: 'loading' }
