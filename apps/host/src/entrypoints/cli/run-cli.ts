@@ -40,9 +40,7 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
 
   const config = loadConfig(io.env)
   if (command.kind === 'up') {
-    await runUpCommand({
-      config,
-    })
+    await runUpCommand({ config, stderr: io.stderr })
     return 0
   }
 

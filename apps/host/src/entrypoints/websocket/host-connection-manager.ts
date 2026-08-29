@@ -2,6 +2,7 @@ import type { IMessageBus } from '@host/application/message-bus.ts'
 import type { ControlNotifications } from '@host/application/ports/control-notifications.ts'
 import type { ConversationNotifications } from '@host/application/ports/conversation-notifications.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
+import type { RelayStatusListener } from '@host/application/ports/relay-status.ts'
 import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
 import type { ControlMethodHandlerRegistry } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { ConversationConnection } from '@host/entrypoints/websocket/conversation-connection.ts'
@@ -53,8 +54,8 @@ export class HostConnectionManager implements HostConnections {
     return this.controlConnection.notifications
   }
 
-  connectControl(): void {
-    this.controlConnection.start()
+  connectControl(onStatus?: RelayStatusListener): void {
+    this.controlConnection.start(onStatus)
   }
 
   connectConversation(conversationId: ConversationId, cwd: string): void {

@@ -54,6 +54,12 @@ export type Output = {
   warned: (text: string) => void
   /** Plain text with no styling, for output that is already formatted. */
   raw: (text: string) => void
+  /**
+   * A line that replaces the previous `status` line on a terminal, so a long
+   * wait shows one changing line instead of a growing list. Elsewhere it is a
+   * plain line. `done`, `failed`, and `warned` end the sequence.
+   */
+  status: (text: string) => void
   /** A line awaiting a keypress. No newline, so the cursor rests after it. */
   prompt: (text: string) => void
   /**
@@ -89,6 +95,12 @@ export type Output = {
 export function createOutput(stream: NodeJS.WritableStream): Output {
   const c = createColors(isColorAllowed(stream))
   const line = (text: string) => stream.write(`${text}\n`)
+  const terminal = 'isTTY' in stream && stream.isTTY === true
+  // Rows the last `status` line took, so the next one can erase exactly that.
+  let statusRows = 0
+  const endStatus = () => {
+    statusRows = 0
+  }
 
   return {
     blank: () => stream.write('\n'),
@@ -101,15 +113,27 @@ export function createOutput(stream: NodeJS.WritableStream): Output {
     note: (text) => line(`${INDENT}${c.dim(text)}`),
     // The mark carries the outcome, so the sentence stays plain and readable.
     done: (text) => {
+      endStatus()
       stream.write('\n')
       line(`${c.green(EMOJI.done)} ${text}`)
     },
     failed: (text) => {
+      endStatus()
       stream.write('\n')
       line(`${c.red(EMOJI.failed)} ${text}`)
     },
-    warned: (text) => line(`${EMOJI.warned} ${c.yellow(text)}`),
+    warned: (text) => {
+      endStatus()
+      line(`${EMOJI.warned} ${c.yellow(text)}`)
+    },
     raw: (text) => line(text),
+    status: (text) => {
+      if (terminal && statusRows > 0) {
+        stream.write(`${CURSOR_UP.repeat(statusRows)}${CLEAR_BELOW}`)
+      }
+      line(text)
+      statusRows = terminal ? rowsUsed(text, terminalColumns(stream)) : 0
+    },
     prompt: (text) => stream.write(text),
     rewrite: (above, prompt) => {
       // Both lines may have wrapped, and the cursor sits at the end of the last

@@ -195,10 +195,13 @@ export class AcpAgentProcess {
     await exited(this.child, 2_000)
   }
 
+  /** True once the child is gone, by our stop or its own exit; every request then fails. */
+  get exited(): boolean {
+    return this.stopped || this.child.exitCode !== null || this.child.signalCode !== null
+  }
+
   private throwIfStopped(): void {
-    if (this.stopped || this.child.exitCode !== null || this.child.signalCode !== null) {
-      throw new AcpExitedError({ code: this.child.exitCode })
-    }
+    if (this.exited) throw new AcpExitedError({ code: this.child.exitCode })
   }
 
   private mapRequestError(cause: unknown): AcpRequestFailure {

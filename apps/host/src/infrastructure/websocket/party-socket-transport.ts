@@ -1,3 +1,4 @@
+import type { RelayDropCause, RelayStatusListener } from '@host/application/ports/relay-status.ts'
 import {
   JsonRpcSendError,
   JsonRpcTextSchema,
@@ -34,6 +35,8 @@ export type RelaySocketListeners = {
   readonly onFrame: (frame: string) => Promise<JsonRpcResponse<unknown, unknown> | undefined>
   /** Handle the first open and every reconnect. */
   readonly onUp?: () => Promise<void>
+  /** Watch the socket's state; the CLI renders it. Terminal failures reject `stopped` instead. */
+  readonly onStatus?: RelayStatusListener
 }
 
 /**
@@ -107,10 +110,11 @@ export class PartySocketTransport implements RelaySocket {
   /** Attach listeners and start connecting. Does not wait for open. */
   start(listeners: RelaySocketListeners): void {
     this.listeners = listeners
-    logger.info('websocket_connecting', {
+    logger.debug('websocket_connecting', {
       url: this.input.url,
       subprotocol: this.input.subprotocol,
     })
+    listeners.onStatus?.({ type: 'connecting' })
     this.socket.addEventListener('open', this.onOpen)
     this.socket.addEventListener('message', this.onMessage)
     this.socket.addEventListener('error', this.onError)
@@ -145,9 +149,10 @@ export class PartySocketTransport implements RelaySocket {
 
   private readonly onOpen = (): void => {
     if (this.closed) return
-    logger.info('websocket_connected', {
+    logger.debug('websocket_connected', {
       details: { url: this.input.url, retryCount: this.socket.retryCount },
     })
+    this.listeners?.onStatus?.({ type: 'connected', attempt: this.socket.retryCount })
     const onUp = this.listeners?.onUp
     this.up =
       onUp === undefined
@@ -175,7 +180,8 @@ export class PartySocketTransport implements RelaySocket {
   private readonly onError = (event: Event): void => {
     if (this.closed) return
     const parsed = InboundErrorSchema.safeParse(event)
-    logger.warn('websocket_error', {
+    // The close that follows carries the decision; this is detail for `--verbose`.
+    logger.debug('websocket_error', {
       url: this.input.url,
       retryCount: this.socket.retryCount,
       message: parsed.success ? readErrorMessage(parsed.data) : undefined,
@@ -201,12 +207,17 @@ export class PartySocketTransport implements RelaySocket {
       )
       return
     }
-    logger.warn('websocket_reconnecting', {
+    logger.debug('websocket_reconnecting', {
       url: this.input.url,
       retryCount: this.socket.retryCount,
       handshakeStatus: handshake?.status,
       closeCode: code,
       closeReason: reason,
+    })
+    this.listeners?.onStatus?.({
+      type: 'reconnecting',
+      attempt: this.socket.retryCount + 1,
+      cause: dropCause(handshake?.status),
     })
   }
 
@@ -279,6 +290,17 @@ function authenticatedWebSocketConstructor(
       })
     }
   }
+}
+
+/**
+ * A 5xx handshake means the relay's edge answered but the app behind it did
+ * not (Cloudflare 530 through a tunnel, 502/503 on deploy). Anything else is
+ * the network between here and there.
+ */
+export function dropCause(handshakeStatus: number | undefined): RelayDropCause {
+  return handshakeStatus !== undefined && handshakeStatus >= 500
+    ? 'server-unreachable'
+    : 'connection-lost'
 }
 
 function isTerminalCloseCode(code: number): boolean {

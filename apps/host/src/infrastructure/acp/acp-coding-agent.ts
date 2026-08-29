@@ -177,6 +177,8 @@ export class AcpCodingAgent implements CodingAgent {
 
   async cancel(id: ConversationId): Promise<void> {
     this.requireSession(id)
+    // A dead agent has nothing left to cancel; Ctrl-C reaches it before it reaches us.
+    if (this.agent.process.exited) return
     await this.agent.process.notify({ method: 'session/cancel', params: { sessionId: id } })
   }
 
@@ -199,6 +201,8 @@ export class AcpCodingAgent implements CodingAgent {
     this.orphans.delete(id)
     this.releaseParked(id)
     if (this.agent.capabilities.sessionCapabilities?.close == null) return
+    // The session died with the process; closing it is already done.
+    if (this.agent.process.exited) return
     await this.agent.process.request({ method: 'session/close', params: { sessionId: id } })
   }
 

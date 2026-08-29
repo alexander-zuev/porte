@@ -1,3 +1,4 @@
+import type { RelayStatusListener } from '@host/application/ports/relay-status.ts'
 import { createCommand } from '@host/domain/messages/types.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
 
@@ -9,10 +10,10 @@ export class HostRuntime {
   ) {}
 
   /** Open the control connection and wait for shutdown. */
-  async run(): Promise<void> {
+  async run(onStatus?: RelayStatusListener): Promise<void> {
     if (this.signal.aborted) return
     try {
-      this.deps.connections.connectControl()
+      this.deps.connections.connectControl(onStatus)
       await waitForStop(this.signal, this.deps.connections.controlStopped)
     } finally {
       await this.shutdown()

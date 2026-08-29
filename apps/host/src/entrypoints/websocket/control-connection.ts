@@ -1,4 +1,5 @@
 import type { ControlNotifications } from '@host/application/ports/control-notifications.ts'
+import type { RelayStatusListener } from '@host/application/ports/relay-status.ts'
 import type {
   ControlMethodContext,
   ControlMethodHandlerRegistry,
@@ -30,8 +31,8 @@ export class ControlConnection {
     })
   }
 
-  start(): void {
-    this.transport.start({ onFrame: this.onFrame })
+  start(onStatus?: RelayStatusListener): void {
+    this.transport.start({ onFrame: this.onFrame, onStatus })
   }
 
   stop(): void {

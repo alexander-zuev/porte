@@ -14,6 +14,7 @@ Pair, unpair, or connect this host to Porte.
 Options:
   -h, --help       Show help
   -V, --version    Show version
+  -v, --verbose    Write debug logs to stderr
 
 Commands:
   pair             Link this Mac to your Porte account
@@ -62,6 +63,7 @@ Connect this host to Porte and stay connected. Run \`porte pair\` first.
 
 Options:
   -h, --help        Show this help
+  -v, --verbose     Write debug logs to stderr
 
 Environment:
   PORTE_URL             Porte origin. Defaults to https://useporte.dev
@@ -138,6 +140,8 @@ function parseCommandArgs(argv: readonly string[]) {
     options: {
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'V', default: false },
+      // Read by `main.ts` before this module loads; accepted here so it is not a usage error.
+      verbose: { type: 'boolean', short: 'v', default: false },
     },
     allowPositionals: true,
     strict: true,

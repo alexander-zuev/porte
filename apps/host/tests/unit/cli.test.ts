@@ -31,7 +31,12 @@ describe('parseCommand', () => {
     expect(() => parseCommand([])).toThrow(UsageError)
     expect(() => parseCommand(['list'])).toThrow(UsageError)
     expect(() => parseCommand(['resume'])).toThrow(UsageError)
-    expect(() => parseCommand(['up', '--verbose'])).toThrow(UsageError)
+    expect(() => parseCommand(['up', '--json'])).toThrow(UsageError)
     expect(() => parseCommand(['nope'])).toThrow(UsageError)
+  })
+
+  it('accepts --verbose, which main.ts applies before the CLI loads', () => {
+    expect(parseCommand(['up', '--verbose'])).toEqual({ kind: 'up' })
+    expect(parseCommand(['-v', 'up'])).toEqual({ kind: 'up' })
   })
 })
