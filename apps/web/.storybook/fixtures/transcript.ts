@@ -259,7 +259,7 @@ export const answerStop: UIMessage = {
         '**What changed**',
         '',
         '- `useStopTurn` takes the agent stub and `state.runningTurnId`, and calls `stub.cancelTurn` through a mutation.',
-        '- `stopping` is the mutation\'s pending flag, so the placeholder reads "Stopping…" until the Host confirms.',
+        "- `stopping` is the mutation's pending flag, so the stop control stays inert until the Host confirms.",
         '- A reload mid-turn still shows Stop, because `runningTurnId` comes from live state, not from the SDK stream.',
         '',
         '```ts',
