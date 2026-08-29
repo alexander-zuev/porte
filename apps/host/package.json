@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
   "name": "@porte/cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Run your local Grok sessions from your phone. The daemon that pairs a machine with useporte.dev.",
   "keywords": [
     "acp",
