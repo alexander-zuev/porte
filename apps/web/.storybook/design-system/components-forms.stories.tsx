@@ -129,7 +129,7 @@ function FormsBoard() {
             <FieldError
               errors={[
                 { message: 'The path must be absolute.' },
-                { message: 'The Mac cannot reach this folder.' },
+                { message: 'The machine cannot reach this folder.' },
               ]}
             />
           </Field>
@@ -140,7 +140,7 @@ function FormsBoard() {
         <Specimen label="Checkbox" stack>
           <Field orientation="horizontal">
             <Checkbox id="remember" />
-            <FieldLabel htmlFor="remember">Remember this Mac</FieldLabel>
+            <FieldLabel htmlFor="remember">Remember this machine</FieldLabel>
           </Field>
           <Field orientation="horizontal">
             <Checkbox defaultChecked id="notify" />
@@ -172,7 +172,7 @@ function FormsBoard() {
                 <SelectItem value="site">marketing-site</SelectItem>
               </SelectContent>
             </Select>
-            <FieldDescription>Only folders the Mac has opened before.</FieldDescription>
+            <FieldDescription>Only folders the machine has opened before.</FieldDescription>
           </Field>
           <Field>
             <FieldTitle>Preselected, small</FieldTitle>
@@ -276,7 +276,7 @@ function FormsBoard() {
             <CodeGroup start={4} />
           </InputOTP>
           <p className="text-destructive-muted-foreground" role="alert">
-            That code has expired. Ask the Mac for a new one.
+            That code has expired. Ask the machine for a new one.
           </p>
         </Specimen>
       </Section>
@@ -284,7 +284,7 @@ function FormsBoard() {
       <Section title="Grouped form" note="A fieldset names the group; a legend names the question.">
         <Specimen label="Sign-in form" stack wide>
           <FieldSet>
-            <FieldLegend>Connect a Mac</FieldLegend>
+            <FieldLegend>Connect a machine</FieldLegend>
             <FieldDescription>
               Porte runs the agent on your machine. The browser only sends instructions.
             </FieldDescription>

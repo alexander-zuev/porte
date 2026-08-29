@@ -146,7 +146,7 @@ export const askStop: UIMessage = {
     },
     {
       type: 'text',
-      text: 'Stop still calls `chat.stop()` after the turn redesign, so the Mac keeps running. Wire it to the Host cancel command, and make sure a reload mid-turn still shows Stop.',
+      text: 'Stop still calls `chat.stop()` after the turn redesign, so the machine keeps running. Wire it to the Host cancel command, and make sure a reload mid-turn still shows Stop.',
     },
   ],
 }
@@ -264,7 +264,7 @@ export const answerStop: UIMessage = {
         '',
         '| Case | Before | After |',
         '| --- | --- | --- |',
-        '| Stop pressed | Browser stream closes, Mac keeps running | Host cancels the turn |',
+        '| Stop pressed | Browser stream closes, machine keeps running | Host cancels the turn |',
         '| Reload mid-turn | Send arrow | Stop, from `runningTurnId` |',
         '| Turn already over | No-op | No-op |',
         '',
@@ -295,7 +295,7 @@ const TESTS_THOUGHT =
 
 const TEST_COMMAND = 'pnpm --filter @porte/web test:integration'
 
-/** The prompt is on the Mac and the first token has not come back. */
+/** The prompt is on the machine and the first token has not come back. */
 export const answerTestsThinking: UIMessage = {
   id: 'msg-answer-tests',
   role: 'assistant',
@@ -364,7 +364,7 @@ export const answerTestsDone: UIMessage = {
   ],
 }
 
-/** The Mac closed the socket while the answer was being written. */
+/** The machine closed the socket while the answer was being written. */
 export const answerTestsInterrupted: UIMessage = {
   id: 'msg-answer-tests',
   role: 'assistant',

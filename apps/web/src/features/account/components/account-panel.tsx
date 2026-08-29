@@ -36,9 +36,9 @@ export type AccountPending = 'none' | 'unpair' | 'delete'
 
 export type AccountPanelProps = {
   readonly identity: AccountIdentity
-  /** Absent when the account controls no Mac. */
+  /** Absent when the account controls no machine. */
   readonly host?: PairedHost
-  /** Whether that Mac is reachable right now. */
+  /** Whether that machine is reachable right now. */
   readonly connection: HostConnectionStatus
   readonly pending: AccountPending
   /** Set when the last destructive action failed. */
@@ -51,7 +51,7 @@ export type AccountPanelProps = {
 }
 
 /**
- * Who you are, which Mac you control, and how to leave.
+ * Who you are, which machine you control, and how to leave.
  *
  * Signing out is not here. It lives in the menu, one tap from every page, and
  * a second way to do it would be a second thing to keep true.
@@ -74,11 +74,11 @@ export function AccountPanel({
     <div className="flex w-full flex-col gap-8">
       <header className="flex flex-col gap-2">
         <small className="text-muted-foreground">Account</small>
-        <h1>Profile and Mac</h1>
+        <h1>Profile and machine</h1>
       </header>
 
       <Profile identity={identity} />
-      <PairedMac
+      <PairedMachine
         busy={busy}
         connection={connection}
         host={host}
@@ -120,7 +120,7 @@ function Profile({ identity }: { readonly identity: AccountIdentity }) {
   )
 }
 
-function PairedMac({
+function PairedMachine({
   host,
   connection,
   pending,
@@ -137,8 +137,8 @@ function PairedMac({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Paired Mac</CardTitle>
-          <CardDescription>No Mac is paired with this account.</CardDescription>
+          <CardTitle>Paired machine</CardTitle>
+          <CardDescription>No machine is paired with this account.</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -147,9 +147,9 @@ function PairedMac({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Paired Mac</CardTitle>
+        <CardTitle>Paired machine</CardTitle>
         <CardDescription>
-          Unpairing stops remote control. The Mac keeps its sessions and files.
+          Unpairing stops remote control. The machine keeps its sessions and files.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-1.5">
@@ -174,7 +174,7 @@ function PairedMac({
       <CardFooter className="justify-end border-t">
         <Button disabled={busy} variant="outline" onClick={onUnpair}>
           {pending === 'unpair' ? <Spinner data-icon="inline-start" /> : null}
-          Unpair this Mac
+          Unpair this machine
         </Button>
       </CardFooter>
     </Card>

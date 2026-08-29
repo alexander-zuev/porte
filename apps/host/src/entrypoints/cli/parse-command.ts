@@ -17,8 +17,8 @@ Options:
   -v, --verbose    Write debug logs to stderr
 
 Commands:
-  pair             Link this Mac to your Porte account
-  unpair           End this Mac's pairing
+  pair             Link this machine to your Porte account
+  unpair           End this machine's pairing
   up               Connect this host to Porte
 
 Examples:
@@ -30,7 +30,7 @@ Examples:
 export const PAIR_HELP = `Usage:
   porte pair
 
-Link this Mac to your Porte account. Prints a code to approve in any browser,
+Link this machine to your Porte account. Prints a code to approve in any browser,
 then waits. Run this once; \`porte up\` uses what it stores.
 
 Options:
@@ -45,7 +45,7 @@ Environment:
 export const UNPAIR_HELP = `Usage:
   porte unpair
 
-End this Mac's pairing. Porte stops accepting it, and the local credential is
+End this machine's pairing. Porte stops accepting it, and the local credential is
 deleted. Run \`porte pair\` to connect it again.
 
 Options:

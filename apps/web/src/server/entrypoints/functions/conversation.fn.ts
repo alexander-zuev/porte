@@ -17,7 +17,7 @@ import { z } from 'zod'
  * owns every later change, over its socket.
  */
 
-/** Read one page of the conversations on the account's Mac. */
+/** Read one page of the conversations on the account's machine. */
 export const getConversations = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
   .validator(ListConversationsParamsSchema)

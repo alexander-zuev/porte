@@ -8,7 +8,7 @@ import { createRelayUpgradeRequest } from './relay/relay-upgrade-request.ts'
 import { completeRelayUpgrade } from './relay/relay-upgrade-response.ts'
 
 /**
- * How the Worker reaches one Mac's relay.
+ * How the Worker reaches one machine's relay.
  *
  * The relay's own types come through each call, so nothing here repeats a
  * signature. What a method adds is the name a caller means, and whether running

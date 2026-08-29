@@ -1,7 +1,7 @@
 import { getAccountHost } from '@server/entrypoints/functions/host.fn.ts'
 import { queryOptions } from '@tanstack/react-query'
 
-/** Query factory for the account's paired Mac. Whether it is online comes from the relay socket. */
+/** Query factory for the account's paired machine. Whether it is online comes from the relay socket. */
 export const hostQueries = {
   forAccount: () =>
     queryOptions({

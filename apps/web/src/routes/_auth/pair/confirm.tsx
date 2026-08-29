@@ -16,8 +16,8 @@ export const Route = createFileRoute('/_auth/pair/confirm')({
   },
   head: () =>
     createSeoHead({
-      title: 'Connect this Mac | Porte',
-      description: 'Approve or refuse the Mac that asked to connect to your Porte account.',
+      title: 'Connect this machine | Porte',
+      description: 'Approve or refuse the machine that asked to connect to your Porte account.',
       path: '/pair/confirm',
       noIndex: true,
     }),

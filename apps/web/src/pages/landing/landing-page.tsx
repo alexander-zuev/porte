@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 
 const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
   { icon: <ShieldCheckIcon aria-hidden />, label: 'Adds no new permissions' },
-  { icon: <LaptopIcon aria-hidden />, label: 'Repos never leave the Mac' },
+  { icon: <LaptopIcon aria-hidden />, label: 'Repos never leave the machine' },
   { icon: <GithubLogoIcon aria-hidden />, label: 'Apache-2.0' },
 ]
 
@@ -23,7 +23,7 @@ export function LandingPage() {
           className="mr-[0.18em] inline-block align-baseline"
           size="0.8em"
         />
-        Grok stays on your Mac.
+        Grok stays on your machine.
         <br />
         <span className="text-muted-foreground">You do not have to.</span>
       </h1>
@@ -36,7 +36,7 @@ export function LandingPage() {
           <CopyPrompt prompt={AGENT_PROMPT} />
         </div>
         <p className="max-w-[46ch] text-muted-foreground">
-          Pair your Mac. Then run Grok from your phone.
+          Pair your machine. Then run Grok from your phone.
         </p>
       </div>
 

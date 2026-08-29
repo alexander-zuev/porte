@@ -76,7 +76,7 @@ export function formatError(error: CliError): string {
   } else if (error instanceof WebSocketHandshakeRefused) {
     body =
       error.status === 401 || error.status === 403
-        ? `Error (EAUTH): ${error.message} Run \`porte pair\` to pair this Mac again.`
+        ? `Error (EAUTH): ${error.message} Run \`porte pair\` to pair this machine again.`
         : `Error (ERELAY): ${error.message}`
   } else if (error instanceof WebSocketProtocolClose) {
     body = `Error (ERELAY): ${error.message}`

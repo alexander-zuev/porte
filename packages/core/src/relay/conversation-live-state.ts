@@ -18,7 +18,7 @@ import type { TurnId } from '../identity/identity.ts'
 export type ConversationLiveState = {
   readonly plans: readonly ConversationPlan[]
   readonly pending: PendingInteractions
-  /** The Mac's running turn. Durable, so a restarted relay knows a turn may still run. */
+  /** The machine's running turn. Durable, so a restarted relay knows a turn may still run. */
   readonly runningTurnId?: TurnId
   readonly usage?: ConversationUsage
   readonly configuration?: readonly ConversationConfigurationOption[]

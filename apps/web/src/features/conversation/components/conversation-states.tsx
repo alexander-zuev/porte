@@ -1,6 +1,6 @@
 import { ChatCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairedHost } from '@porte/core/client'
-import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
+import { StartPorteOnMachine } from '@web/features/host/components/start-porte-on-machine.tsx'
 import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
 import { Shimmer } from '@web/ui/components/ai-elements/shimmer.tsx'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
@@ -24,13 +24,13 @@ export function ConversationFailed({
   )
 
   if (failure._tag === 'HostOfflineError') {
-    return <StartPorteOnMac hostName={host.name} lastSeenAt={host.lastSeenAt} />
+    return <StartPorteOnMachine hostName={host.name} lastSeenAt={host.lastSeenAt} />
   }
 
   if (failure._tag === 'ConversationNotFoundError') {
     return (
       <EmptyState
-        body="It may have been removed on the Mac."
+        body="It may have been removed on the machine."
         icon={<WarningCircleIcon aria-hidden />}
         title="That conversation is gone"
       />
@@ -56,7 +56,7 @@ export function ConversationFailed({
 export function NoMessagesYet() {
   return (
     <EmptyState
-      body="Send your first prompt. It runs on the Mac, and the answer appears here."
+      body="Send your first prompt. It runs on the machine, and the answer appears here."
       icon={<ChatCircleIcon aria-hidden />}
       title="No messages yet"
     />
@@ -64,7 +64,7 @@ export function NoMessagesYet() {
 }
 
 /**
- * The prompt is on the Mac and nothing has come back yet.
+ * The prompt is on the machine and nothing has come back yet.
  *
  * Rendered in the answer's own slot, so the answer replaces it in place and
  * nothing moves. A slow first token must not look like a prompt that never

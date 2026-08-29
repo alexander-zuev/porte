@@ -11,7 +11,7 @@ const RETRY_ATTEMPTS = 2
  * The only failures that answer differently to the same question.
  *
  * Both say the server could not get to the work, not that the work was wrong.
- * An offline Mac is deliberately absent: it comes back when someone starts the
+ * An offline machine is deliberately absent: it comes back when someone starts the
  * daemon, and the relay says so on its own, so asking again only burns requests.
  */
 const RETRIED: ReadonlySet<DomainErrorTag> = new Set([

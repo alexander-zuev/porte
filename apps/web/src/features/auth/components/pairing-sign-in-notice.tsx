@@ -19,10 +19,10 @@ export function PairingSignInNotice() {
   return (
     <Alert>
       <ShieldCheckIcon />
-      <AlertTitle>Sign in to connect your Mac</AlertTitle>
+      <AlertTitle>Sign in to connect your machine</AlertTitle>
       <AlertDescription>
-        Pairing links this Mac to your account, so you can drive its Grok sessions from your phone.
-        Your code is still waiting.
+        Pairing links this machine to your account, so you can drive its Grok sessions from your
+        phone. Your code is still waiting.
       </AlertDescription>
     </Alert>
   )

@@ -27,7 +27,7 @@ export type PairHostInput = {
   readonly authorizer: DeviceAuthorizer
   readonly credentials: CredentialStore
   readonly baseUrl: string
-  /** What this Mac is called. Only the machine asking for a code knows it. */
+  /** What this machine is called. Only the machine asking for a code knows it. */
   readonly host: HostDescriptor
   /** Called once, as soon as there is a code worth showing. */
   readonly onPrompt: (prompt: PairingPrompt) => void
@@ -38,7 +38,7 @@ export type PairHostInput = {
 }
 
 /**
- * Pair this Mac with a Porte account.
+ * Pair this machine with a Porte account.
  *
  * The daemon asks for a code, shows it, and waits. Approval happens on the
  * person's phone, so this machine never handles a password and the credential

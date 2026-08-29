@@ -3,7 +3,7 @@ import { deleteAccount, unpairHost } from '@server/entrypoints/functions/host.fn
 import { hostQueryKeys } from './host-queries.ts'
 
 /**
- * Mutation factories for the account's Mac.
+ * Mutation factories for the account's machine.
  *
  * Each one invalidates the host view, so the surface moves to its next state
  * from the server's answer rather than from an optimistic guess.

@@ -4,10 +4,10 @@ import { UP_COMMAND } from '@web/lib/product.ts'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 
 /**
- * The paired Mac is not connected to the relay. Nothing here can change that;
- * the relay reports the Mac the moment `porte up` connects, so there is no button.
+ * The paired machine is not connected to the relay. Nothing here can change that;
+ * the relay reports the machine the moment `porte up` connects, so there is no button.
  */
-export function StartPorteOnMac({
+export function StartPorteOnMachine({
   hostName,
   lastSeenAt,
 }: {

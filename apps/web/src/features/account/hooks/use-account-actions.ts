@@ -53,7 +53,7 @@ export function useAccountActions(): AccountActions {
       await queryClient.invalidateQueries({ queryKey: hostQueryKeys.all })
     },
     onError: () => {
-      setFailure('Unpairing failed. This Mac is still paired.')
+      setFailure('Unpairing failed. This machine is still paired.')
     },
     onSettled: () => {
       setPending('none')

@@ -43,8 +43,8 @@ export function NoConversations({
         <EmptyTitle>No conversations yet</EmptyTitle>
         <EmptyDescription>
           {canCreate
-            ? 'Start a conversation in a repository that this Mac already knows.'
-            : 'Open Porte from a repository on the Mac before you create a conversation.'}
+            ? 'Start a conversation in a repository that this machine already knows.'
+            : 'Open Porte from a repository on the machine before you create a conversation.'}
         </EmptyDescription>
       </EmptyHeader>
       {canCreate ? (
@@ -97,15 +97,15 @@ function failureContent(state: 'error' | 'unpaired' | 'revoked', hostName?: stri
   if (state === 'unpaired') {
     return {
       icon: <LinkIcon />,
-      title: 'Pair your Mac',
-      description: 'Run this on the Mac where you use Grok, then open the link it prints.',
+      title: 'Pair your machine',
+      description: 'Run this on the machine where you use Grok, then open the link it prints.',
     }
   }
   if (state === 'revoked') {
     return {
       icon: <WarningCircleIcon />,
       title: 'Pairing was revoked',
-      description: `${hostName ?? 'This Mac'} no longer accepts remote control. Pair it again to continue.`,
+      description: `${hostName ?? 'This machine'} no longer accepts remote control. Pair it again to continue.`,
     }
   }
   return {

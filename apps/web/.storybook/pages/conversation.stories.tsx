@@ -102,7 +102,7 @@ const open: OpenConversation = {
   actions: { onAnswerPermission: () => undefined },
 }
 
-/** Every state one conversation screen can be in, without a socket or a Mac. */
+/** Every state one conversation screen can be in, without a socket or a machine. */
 function view(
   conversation: OpenConversation,
   connection: HostConnection = CONNECTED,
@@ -146,7 +146,7 @@ export const Opening: Story = {
 
 export const Ready: Story = { args: view(open) }
 
-/** The Mac runs a turn. Stop is a command to the Host; the composer waits for `turn.finished`. */
+/** The machine runs a turn. Stop is a command to the Host; the composer waits for `turn.finished`. */
 export const Streaming: Story = {
   args: view({ ...open, state: { ...open.state, runningTurnId: PERMISSION.turnId } }),
 }
@@ -156,12 +156,12 @@ export const AwaitingPermission: Story = {
   args: view({ ...open, permissions: [{ permission: PERMISSION, answering: false }] }),
 }
 
-/** The Mac is away. The composer does not accept work. */
-export const MacOffline: Story = {
+/** The machine is away. The composer does not accept work. */
+export const MachineOffline: Story = {
   args: view(open, DISCONNECTED),
 }
 
-/** The Mac no longer has this conversation: the error boundary's view. */
+/** The machine no longer has this conversation: the error boundary's view. */
 export const Gone: Story = {
   args: view(open),
   render: () =>

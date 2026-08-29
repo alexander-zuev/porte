@@ -122,7 +122,7 @@ function NoRepositories() {
         </EmptyMedia>
         <EmptyTitle>No known repositories</EmptyTitle>
         <EmptyDescription>
-          Open Porte from a repository on the Mac before you start a remote conversation.
+          Open Porte from a repository on the machine before you start a remote conversation.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
@@ -219,9 +219,9 @@ function ConversationCreationFeedback({
     return (
       <Alert>
         <WarningCircleIcon />
-        <AlertTitle>Mac is offline</AlertTitle>
+        <AlertTitle>Machine is offline</AlertTitle>
         <AlertDescription>
-          Your prompt remains here. Start Porte on the Mac to continue.
+          Your prompt remains here. Start Porte on the machine to continue.
         </AlertDescription>
       </Alert>
     )

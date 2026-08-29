@@ -8,9 +8,9 @@ export function PrivacyPage() {
     <LegalPage title="Privacy" updated={LEGAL_UPDATED}>
       <LegalSection heading="The short version">
         <p>
-          Your repositories, your files, and your Grok account stay on your Mac. Porte stores your
-          sign-in identity, your pairing, and the transcript of every conversation you run through
-          it.
+          Your repositories, your files, and your Grok account stay on your machine. Porte stores
+          your sign-in identity, your pairing, and the transcript of every conversation you run
+          through it.
         </p>
       </LegalSection>
 
@@ -21,15 +21,15 @@ export function PrivacyPage() {
             sign-in session lasts 7 days.
           </li>
           <li>
-            Pairing: the Mac's name and platform, and when it last connected. While a pairing code
-            is open, the IP address and approximate location of the machine that asked for it.
+            Pairing: the machine's name and platform, and when it last connected. While a pairing
+            code is open, the IP address and approximate location of the machine that asked for it.
             Deleted when the code is approved, refused, or expires.
           </li>
           <li>
             Conversations: the id, working directory, repository path, title, and the transcript.
             The transcript holds your prompts and attached files, the answers, the reasoning, and
-            every tool call with its output, as the Mac reports them. It is stored so your phone can
-            read a conversation while the Mac is offline.
+            every tool call with its output, as the machine reports them. It is stored so your phone
+            can read a conversation while the machine is offline.
           </li>
           <li>
             Product analytics through PostHog and error reports through Sentry. Neither receives
@@ -49,7 +49,7 @@ export function PrivacyPage() {
 
       <LegalSection heading="Deleting your data">
         <p>
-          Unpair a Mac to revoke its pairing. Account deletion is not built yet: to delete your
+          Unpair a machine to revoke its pairing. Account deletion is not built yet: to delete your
           transcripts or your account, open an issue at{' '}
           <a href={REPOSITORY_URL} rel="noreferrer" target="_blank">
             the Porte repository

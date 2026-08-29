@@ -27,7 +27,7 @@ const HOST = {
   lastSeenAt: null,
 } satisfies PairedHost
 
-/** Where every pairing journey lands. Only a paired Mac has conversations to list. */
+/** Where every pairing journey lands. Only a paired machine has conversations to list. */
 function homeList(paired: boolean) {
   return {
     host: HOST,
@@ -120,7 +120,7 @@ export function PairingPlay({
   }, [])
 
   // The daemon only learns of the approval on its next poll, so the approved
-  // screen holds before the dashboard has a Mac to show.
+  // screen holds before the dashboard has a machine to show.
   useEffect(() => {
     if (!simulateRemote || screen.kind !== 'approved') return
     const timer = window.setTimeout(() => {

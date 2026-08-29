@@ -17,7 +17,7 @@ export class CredentialStoreError extends TaggedError('CredentialStoreError')<{
 }
 
 /**
- * What pairing leaves behind on this Mac.
+ * What pairing leaves behind on this machine.
  *
  * The base URL is stored beside the token because a credential is only valid
  * against the server that issued it. Keeping them together means `porte up`
@@ -31,7 +31,7 @@ export type StoredCredential = {
 
 /** Where this machine keeps its Porte credential. */
 export interface CredentialStore {
-  /** The stored credential, or null when this Mac has never paired. */
+  /** The stored credential, or null when this machine has never paired. */
   read(): Promise<StoredCredential | null>
 
   /** Replace whatever is stored. Readable only by this user. */

@@ -5,7 +5,7 @@ import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
 /**
- * Where an account with no Mac lands.
+ * Where an account with no machine lands.
  *
  * The commands come first because they are the only thing that can happen next,
  * and they happen somewhere else. Entering a code is the second half of that
@@ -21,9 +21,9 @@ export function PairStart() {
         <span className="text-muted-foreground">
           <LaptopIcon aria-hidden className="size-7" />
         </span>
-        <h1>Pair your Mac</h1>
+        <h1>Pair your machine</h1>
         <p className="max-w-[46ch] text-muted-foreground">
-          Porte controls Grok on one Mac. Run these in a terminal there, and the second prints a
+          Porte controls Grok on one machine. Run these in a terminal there, and the second prints a
           code to enter here.
         </p>
       </div>

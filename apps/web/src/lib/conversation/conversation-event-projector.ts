@@ -23,7 +23,7 @@ export type ConversationEventProjectionState = {
  *
  * The Host names the user message itself and echoes it on `message.started`
  * with `role: 'user'`; the projector records that id and skips its deltas, so
- * no stored-ids seed is needed. Tool signatures start empty: the Mac only
+ * no stored-ids seed is needed. Tool signatures start empty: the machine only
  * updates tools belonging to the turn being projected.
  */
 export function createConversationEventProjectionState(): ConversationEventProjectionState {
@@ -35,7 +35,7 @@ export function createConversationEventProjectionState(): ConversationEventProje
   }
 }
 
-/** Maps canonical Mac events to AI SDK chunks without transport logic. */
+/** Maps canonical machine events to AI SDK chunks without transport logic. */
 export class ConversationEventProjector {
   project(event: ConversationEvent, state: ConversationEventProjectionState): UIMessageChunk[] {
     switch (event.type) {

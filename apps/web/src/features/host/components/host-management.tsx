@@ -60,7 +60,7 @@ export function HostManagement(props: HostManagementProps) {
       </header>
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-8 md:py-12">
         <header className="flex flex-col gap-2">
-          <h1>Paired Mac</h1>
+          <h1>Paired machine</h1>
           <p className="text-muted-foreground">Manage remote access to your local conversations.</p>
         </header>
         {props.state === 'revoked' ? <RevokedHost {...props} /> : <ActiveHost {...props} />}
@@ -105,7 +105,7 @@ function ActiveHost(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
         <header className="flex flex-col gap-1">
           <h2>Revoke access</h2>
           <p className="text-muted-foreground">
-            This phone will lose remote access. Conversations and files remain on the Mac.
+            This phone will lose remote access. Conversations and files remain on the machine.
           </p>
         </header>
         <RevokeHostAction hostName={props.host.name} pending={revoking} onRevoke={props.onRevoke} />
@@ -141,7 +141,7 @@ function RevokeHostAction({
           <AlertDialogTitle>Revoke access to {hostName}?</AlertDialogTitle>
           <AlertDialogDescription>
             Porte will reject this host credential. Local conversations and files will remain on the
-            Mac.
+            machine.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -169,7 +169,7 @@ function RevokedHost(props: Extract<HostManagementProps, { state: 'revoked' }>) 
       <CardFooter>
         <Button onClick={props.onPair}>
           <LinkIcon data-icon="inline-start" />
-          Pair a Mac
+          Pair a machine
         </Button>
       </CardFooter>
     </Card>
@@ -182,7 +182,7 @@ function hostStatus(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
       label: 'Online',
       variant: 'secondary' as const,
       title: 'Ready for remote control',
-      description: 'Porte is running and connected on this Mac.',
+      description: 'Porte is running and connected on this machine.',
     }
   }
   if (props.state === 'offline') {
@@ -190,7 +190,7 @@ function hostStatus(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
       label: 'Offline',
       variant: 'outline' as const,
       title: `Last seen ${props.lastSeen}`,
-      description: 'Run `porte start` on the Mac to restore remote access.',
+      description: 'Run `porte start` on the machine to restore remote access.',
     }
   }
   if (props.state === 'revoking') {
@@ -205,6 +205,6 @@ function hostStatus(props: Exclude<HostManagementProps, { state: 'revoked' }>) {
     label: 'Pair again',
     variant: 'destructive' as const,
     title: props.state === 'credential-rejected' ? 'Credential rejected' : 'Pairing required',
-    description: 'Run `porte pair` on this Mac, then confirm the new request on this phone.',
+    description: 'Run `porte pair` on this machine, then confirm the new request on this phone.',
   }
 }

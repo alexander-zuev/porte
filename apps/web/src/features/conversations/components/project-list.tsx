@@ -25,7 +25,7 @@ type ProjectListProps = {
 }
 
 /**
- * Every folder on the Mac, each opening to the conversations inside it.
+ * Every folder on the machine, each opening to the conversations inside it.
  *
  * Nothing here sets side padding. The page owns the one left edge, and a row
  * that added its own would sit inside the heading above it.
@@ -162,7 +162,7 @@ function ConversationRowStatus({
 /**
  * What to call a conversation the agent has not titled.
  *
- * The Mac creates a conversation with an empty title and the agent writes one
+ * The machine creates a conversation with an empty title and the agent writes one
  * later, so a blank row is a real state rather than missing data.
  */
 function conversationTitle(conversation: ConversationSummary): string {

@@ -12,7 +12,7 @@ export type AgentErrorDetails = {
 export type RethrowAgentErrorInput = {
   /** Log event when the SDK reports an Agent-level error. */
   readonly agentEvent: string
-  /** Connection tag that marks the Mac Host socket. */
+  /** Connection tag that marks the machine Host socket. */
   readonly hostTag: string
   /** Stable ids for this Agent. `connectionId` is added from the socket. */
   readonly details: AgentErrorDetails

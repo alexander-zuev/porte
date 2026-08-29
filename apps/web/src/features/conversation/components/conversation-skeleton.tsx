@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
 
 /**
- * One waiting transcript: what the Mac said, and what was asked before it.
+ * One waiting transcript: what the machine said, and what was asked before it.
  *
  * Widths are written out rather than generated. A column of identical bars
  * reads as a chart, and fixing them by hand keeps the same shape on every

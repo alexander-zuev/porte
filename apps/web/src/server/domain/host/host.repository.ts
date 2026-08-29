@@ -10,12 +10,12 @@ import type { Host } from './host.aggregate.ts'
  * aggregate it will not act on.
  *
  * Lookup is by owner rather than by host id because one account holds at most
- * one Mac, so the owner is the natural key for every command we have.
+ * one machine, so the owner is the natural key for every command we have.
  */
 /**
- * The account's Mac, and what it may be used for.
+ * The account's machine, and what it may be used for.
  *
- * One row, three answers. Nothing hands out a Mac without saying which, so no
+ * One row, three answers. Nothing hands out a machine without saying which, so no
  * caller can act on a pairing that has ended by forgetting to ask.
  */
 export type HostPairing =
@@ -26,10 +26,10 @@ export type HostPairing =
 export interface HostRepository {
   findPairing(userId: UserId): Promise<HostPairing>
 
-  /** By its own id. The relay knows which Mac it holds, never whose it is. */
+  /** By its own id. The relay knows which machine it holds, never whose it is. */
   findById(hostId: HostId): Promise<Host | null>
 
-  /** Insert or overwrite the account's Mac. */
+  /** Insert or overwrite the account's machine. */
   save(host: Host): Promise<void>
 
   /** Record a later observation without changing pairing state. */

@@ -9,5 +9,5 @@
  * Worker can reach the binding, which is what makes that safe.
  */
 
-/** Which Mac this relay serves. It is addressed by name and cannot read its own name back. */
+/** Which machine this relay serves. It is addressed by name and cannot read its own name back. */
 export const RELAY_HOST_ID_HEADER = 'x-porte-host-id'

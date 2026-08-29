@@ -3,7 +3,7 @@ import type { HostRepository } from '@server/domain/host/host.repository.ts'
 import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client'
 
 /**
- * Release the Mac an account controls.
+ * Release the machine an account controls.
  *
  * The row stays and carries `revokedAt`, rather than being deleted. A daemon
  * holding a still-valid session must be refused on its next connection, and a

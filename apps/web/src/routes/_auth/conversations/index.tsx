@@ -24,7 +24,7 @@ export const Route = createFileRoute('/_auth/conversations/')({
   head: () =>
     createSeoHead({
       title: 'Conversations | Porte',
-      description: 'The Grok conversations on your paired Mac, ready to pick up from anywhere.',
+      description: 'The Grok conversations on your paired machine, ready to pick up from anywhere.',
       path: '/conversations/',
       noIndex: true,
     }),

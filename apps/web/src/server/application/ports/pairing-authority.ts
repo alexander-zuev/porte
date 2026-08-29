@@ -26,9 +26,9 @@ export interface PairingAuthority {
   /** Bind a pending code to the caller's account. Never decides it. */
   claim(code: PairingCode): Promise<PairingCodeStatus>
 
-  /** Let the waiting Mac have a session on the caller's account. */
+  /** Let the waiting machine have a session on the caller's account. */
   approve(code: PairingCode): Promise<PairingDecision>
 
-  /** Refuse the waiting Mac. The code cannot be used again. */
+  /** Refuse the waiting machine. The code cannot be used again. */
   deny(code: PairingCode): Promise<PairingDecision>
 }

@@ -184,8 +184,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   /**
    * Refuse every child this relay does not know.
    *
-   * A gate and nothing else. Waking the Mac for a conversation belongs to the
-   * child, which is the only side that can see whether the Mac is already there.
+   * A gate and nothing else. Waking the machine for a conversation belongs to the
+   * child, which is the only side that can see whether the machine is already there.
    */
   override async onBeforeSubAgent(
     _request: Request,

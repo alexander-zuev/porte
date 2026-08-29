@@ -19,7 +19,7 @@ export type ConversationList =
   | {
       readonly status: 'ready'
       readonly conversations: readonly ConversationListItem[]
-      /** A Mac's history has no bound, so the page shows what was asked for and offers the rest. */
+      /** A machine's history has no bound, so the page shows what was asked for and offers the rest. */
       readonly hasMore: boolean
       readonly isLoadingMore: boolean
       readonly onLoadMore: () => void

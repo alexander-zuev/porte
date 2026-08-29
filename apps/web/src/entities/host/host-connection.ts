@@ -9,13 +9,13 @@ export type RelayConnection = {
 }
 
 /**
- * The end-to-end connection from this browser to the paired Mac, from two facts:
- * the relay socket (`identified`) and what the relay reports about the Mac.
+ * The end-to-end connection from this browser to the paired machine, from two facts:
+ * the relay socket (`identified`) and what the relay reports about the machine.
  *
  * - `loading`: the relay has not answered yet (no state frame). Spinner.
  * - `connecting`: the socket dropped and is retrying on its own. Flashing dot.
- * - `connected`: socket open, Mac online.
- * - `offline`: socket open, Mac not connected to the relay. Only the Mac can fix it.
+ * - `connected`: socket open, machine online.
+ * - `offline`: socket open, machine not connected to the relay. Only the machine can fix it.
  */
 export type HostConnection =
   | { readonly status: 'loading' }
@@ -29,8 +29,8 @@ export type HostConnectionStatus = HostConnection['status']
 export type HostConnectionNotice = 'host-offline' | 'host-online'
 
 /**
- * Only a Mac that leaves or returns is news. A page that opens onto an offline
- * Mac already shows it, and a socket blip (`connecting`) belongs to the header dot.
+ * Only a machine that leaves or returns is news. A page that opens onto an offline
+ * machine already shows it, and a socket blip (`connecting`) belongs to the header dot.
  */
 export function hostConnectionNotice(
   before: HostConnectionStatus,
@@ -41,7 +41,7 @@ export function hostConnectionNotice(
   return undefined
 }
 
-/** Socket first, then the Mac. Pure, so every branch is a one-line test. */
+/** Socket first, then the machine. Pure, so every branch is a one-line test. */
 export function hostConnectionFrom({ identified, state }: RelayConnection): HostConnection {
   if (state === undefined) return { status: 'loading' }
   if (!identified) return { status: 'connecting' }

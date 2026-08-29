@@ -13,8 +13,8 @@ export const Route = createFileRoute('/_auth/pair/code')({
   // A live pairing code is typed on this page, so it must never be indexed.
   head: () =>
     createSeoHead({
-      title: 'Authorize your Mac | Porte',
-      description: 'Enter the code shown by porte pair to connect a Mac to your Porte account.',
+      title: 'Authorize your machine | Porte',
+      description: 'Enter the code shown by porte pair to connect a machine to your Porte account.',
       path: '/pair/code',
       noIndex: true,
     }),

@@ -36,12 +36,12 @@ export type ChatFrameProps = {
   /** Stop was pressed and the Host has not yet finished the turn. */
   readonly stopping?: boolean
   readonly onStop?: () => void
-  /** The Mac is reachable and the child socket is open. */
+  /** The machine is reachable and the child socket is open. */
   readonly canSend: boolean
   readonly placeholder: string
   readonly onReadOlder?: (() => void) | null
   readonly readingOlder?: boolean
-  /** Where a send lands. The real screen has a Mac; a story has a line of text. */
+  /** Where a send lands. The real screen has a machine; a story has a line of text. */
   readonly onSend?: (message: PromptInputMessage) => void
   readonly onCommand?: (name: string) => void
 }
@@ -50,7 +50,7 @@ export type ChatFrameProps = {
  * The conversation screen, driven by props instead of a socket.
  *
  * `ConversationChat` reads `useAgentChat`, which needs a live WebSocket and a
- * Mac behind it, so no story can put a transcript on the screen through it.
+ * machine behind it, so no story can put a transcript on the screen through it.
  * This frame renders the same children in the same order, and every state a
  * story shows is one the real screen can reach.
  */

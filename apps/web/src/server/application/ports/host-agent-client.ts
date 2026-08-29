@@ -6,14 +6,14 @@ import type { AgentConnection } from './agent-connection.ts'
 export interface IHostRelayClient {
   connect(input: AgentConnection): Promise<Response>
 
-  /** One page of what a Mac has reported, newest first. */
+  /** One page of what a machine has reported, newest first. */
   readConversations(
     hostId: HostId,
     query: ListConversationsParams,
   ): Promise<ListConversationsResult>
 
   /**
-   * Turn everyone out of one Mac's relay.
+   * Turn everyone out of one machine's relay.
    *
    * Refusing the next connection is not enough: a daemon already holding a
    * socket would keep serving a pairing that has ended.

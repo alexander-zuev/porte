@@ -18,7 +18,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The whole journey: type the code, approve it, watch the Mac arrive. */
+/** The whole journey: type the code, approve it, watch the machine arrive. */
 export const Interactive: Story = {
   args: { start: 'code-entry', simulateRemote: true },
 }

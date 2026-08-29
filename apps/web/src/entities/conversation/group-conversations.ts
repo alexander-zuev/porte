@@ -1,7 +1,7 @@
 import type { ConversationListItem } from './conversation-list.ts'
 
 /**
- * One repository on the Mac and the conversations opened inside it.
+ * One repository on the machine and the conversations opened inside it.
  *
  * Named here rather than in the component, so a screen renders a value instead
  * of deriving one.
@@ -15,7 +15,7 @@ export type Project = {
 /**
  * Group conversations by repository. Newest first inside each.
  *
- * Every conversation has one: the Mac reports only those it can place in a
+ * Every conversation has one: the machine reports only those it can place in a
  * repository, which is what keeps a folder a test made and deleted out of the
  * list. Repositories appear in the order their newest conversation does.
  */

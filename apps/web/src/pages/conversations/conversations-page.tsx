@@ -5,21 +5,21 @@ import { NoConversationsYet } from '@web/features/conversations/components/conve
 import { ConversationsFailure } from '@web/features/conversations/components/conversations-failure.tsx'
 import { ProjectListSkeleton } from '@web/features/conversations/components/project-list-skeleton.tsx'
 import { ProjectList } from '@web/features/conversations/components/project-list.tsx'
-import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
+import { StartPorteOnMachine } from '@web/features/host/components/start-porte-on-machine.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
 export type ConversationsPageProps = {
-  /** From the database, so the Mac has a name before any socket exists. */
+  /** From the database, so the machine has a name before any socket exists. */
   readonly host: PairedHost
   readonly conversationList: ConversationList
   readonly connection: HostConnection
 }
 
 /**
- * Everything a signed-in account with a paired Mac sees. Renders, never waits.
+ * Everything a signed-in account with a paired machine sees. Renders, never waits.
  *
- * Which Mac this is belongs to `AppHeader`, which every page here shares. The
+ * Which machine this is belongs to `AppHeader`, which every page here shares. The
  * page is the list and nothing above it.
  */
 export function ConversationsPage(props: ConversationsPageProps) {
@@ -33,11 +33,11 @@ export function ConversationsPage(props: ConversationsPageProps) {
 }
 
 /**
- * An away Mac is the whole screen, even though the list would render.
+ * An away machine is the whole screen, even though the list would render.
  *
  * The relay holds a copy, so there is something to show. It is not shown: every
  * row on it opens a conversation that cannot be read, and offering a list that
- * does nothing when tapped is worse than saying where the Mac went.
+ * does nothing when tapped is worse than saying where the machine went.
  */
 function body({ host, connection, conversationList }: ConversationsPageProps) {
   // Opening the line and reading the list are one wait to the person watching,
@@ -45,7 +45,7 @@ function body({ host, connection, conversationList }: ConversationsPageProps) {
   if (connection.status === 'loading') return <ProjectListSkeleton />
 
   if (connection.status === 'offline') {
-    return <StartPorteOnMac hostName={host.name} lastSeenAt={host.lastSeenAt} />
+    return <StartPorteOnMachine hostName={host.name} lastSeenAt={host.lastSeenAt} />
   }
 
   if (conversationList.status === 'failed') {

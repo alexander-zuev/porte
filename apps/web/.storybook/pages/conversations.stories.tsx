@@ -73,12 +73,12 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The line is opening. A healthy Mac must never flash the offline screen here. */
+/** The line is opening. A healthy machine must never flash the offline screen here. */
 export const Connecting: Story = {
   args: page(CONNECTING, listed(NONE)),
 }
 
-export const MacOffline: Story = {
+export const MachineOffline: Story = {
   args: page(DISCONNECTED, listed(conversations)),
 }
 

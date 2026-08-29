@@ -102,7 +102,7 @@ export type HostJsonRpcSocketInput<Registry extends JsonRpcMethodRegistry> = {
   readonly sequence: SequencePersistence
 }
 
-/** JSON-RPC client for one Mac Host WebSocket the Agent already admitted. */
+/** JSON-RPC client for one machine Host WebSocket the Agent already admitted. */
 export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   private readonly pending = new Map<HostRequestId, PendingCall>()
   private peer: Connection | undefined

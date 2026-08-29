@@ -39,7 +39,7 @@ export const Route = createFileRoute('/_auth/conversations/$conversationId')({
   head: () =>
     createSeoHead({
       title: 'Conversation | Porte',
-      description: 'One Grok conversation on your paired Mac.',
+      description: 'One Grok conversation on your paired machine.',
       path: '/conversations/$conversationId',
       noIndex: true,
     }),

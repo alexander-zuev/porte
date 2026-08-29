@@ -6,7 +6,7 @@ import { getPairingOrigin } from '@server/application/queries/get-pairing-origin
 /**
  * Bind a pairing code to the account that is signed in.
  *
- * Claiming and deciding are separate on purpose. A person about to hand a Mac
+ * Claiming and deciding are separate on purpose. A person about to hand a machine
  * an account needs a moment to read what they are about to do, after the code
  * resolves and before anything is granted.
  */

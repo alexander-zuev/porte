@@ -76,7 +76,7 @@ export type PendingClaim =
   | { readonly claimed: false }
   | { readonly claimed: true; readonly requestedFrom: PairingOrigin }
 
-/** Settle the claimed code, either way. Approval lets the Mac have a session. */
+/** Settle the claimed code, either way. Approval lets the machine have a session. */
 export const decidePairing = createServerFn({ method: 'POST' })
   .middleware([requireAuth])
   .validator(PairingVerdictSchema)

@@ -19,7 +19,7 @@ export class UnsupportedPlatformError extends TaggedError('UnsupportedPlatformEr
 }
 
 /**
- * What this Mac calls itself.
+ * What this machine calls itself.
  *
  * `platform` stays the runtime's own token, so what is stored is what Node
  * reported. Turning `darwin` into `macOS` is the reader's job, and spelling it

@@ -11,7 +11,7 @@ npm i -g @porte/cli
 porte pair
 ```
 
-Or hand it to your agent: `Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this Mac.`
+Or hand it to your agent: `Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.`
 
 ## How it works
 

@@ -20,7 +20,7 @@ export function hasSubprotocol(request: Request, expected: string): boolean {
   )
 }
 
-/** Input that admits one Mac Host socket on a relay Agent. */
+/** Input that admits one machine Host socket on a relay Agent. */
 export type AdmitHostSocketInput = {
   /** The connecting socket. */
   readonly connection: Connection

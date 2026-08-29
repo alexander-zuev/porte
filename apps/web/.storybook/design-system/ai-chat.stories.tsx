@@ -243,7 +243,7 @@ function TurnStory({ initial }: { readonly initial: Stage }) {
 
 /**
  * The agent stopped to ask, twice in one turn. The first question is already
- * answered and waits for the Mac, so its buttons are dead; the second still
+ * answered and waits for the machine, so its buttons are dead; the second still
  * blocks. Answer it and it goes the same way.
  */
 export const Permission: Story = {
@@ -279,7 +279,7 @@ function PermissionStory() {
   )
 }
 
-/** The Mac closed the socket mid-answer. One line under what arrived says so; the next prompt still works. */
+/** The machine closed the socket mid-answer. One line under what arrived says so; the next prompt still works. */
 export const TurnFailed: Story = {
   render: () => (
     <Screen>
@@ -287,7 +287,7 @@ export const TurnFailed: Story = {
         {...READY}
         messages={[...BEFORE_TESTS, answerTestsInterrupted]}
         status="error"
-        error={new Error('The Mac closed the connection while the answer was being written.')}
+        error={new Error('The machine closed the connection while the answer was being written.')}
       />
     </Screen>
   ),
@@ -298,7 +298,7 @@ type Reason = (typeof REASONS)[number]
 
 /** Every way the composer refuses a prompt, with the word in the box that says why. */
 function blockedFrame(reason: Reason): Partial<ChatFrameProps> {
-  if (reason === 'offline') return { canSend: false, placeholder: 'Your Mac is offline' }
+  if (reason === 'offline') return { canSend: false, placeholder: 'Your machine is offline' }
   if (reason === 'reconnecting') return { canSend: false, placeholder: 'Reconnecting…' }
   return { messages: [...BEFORE_TESTS, answerTestsStreaming], status: 'streaming', stopping: true }
 }

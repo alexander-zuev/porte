@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_public/sign-in')({
   head: () =>
     createSeoHead({
       title: 'Sign in | Porte',
-      description: 'Sign in to Porte to reach the Grok sessions running on your paired Mac.',
+      description: 'Sign in to Porte to reach the Grok sessions running on your paired machine.',
       path: '/sign-in',
       noIndex: true,
     }),

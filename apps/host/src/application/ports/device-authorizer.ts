@@ -31,7 +31,7 @@ export type DevicePollResult =
   | { readonly status: 'expired' }
 
 /**
- * This Mac's pairing with Porte, over its whole life.
+ * This machine's pairing with Porte, over its whole life.
  *
  * The daemon starts the flow and waits. Approval happens on a different device
  * entirely, which is the whole point: this machine never sees a password.
@@ -39,7 +39,7 @@ export type DevicePollResult =
  * is the only one that can take it back.
  */
 export interface DeviceAuthorizer {
-  /** Ask for a code the person can approve elsewhere, naming the Mac that asked. */
+  /** Ask for a code the person can approve elsewhere, naming the machine that asked. */
   requestCode(host: HostDescriptor): Promise<DeviceCodeGrant>
 
   /** Ask once whether approval has happened yet. */
@@ -49,7 +49,7 @@ export interface DeviceAuthorizer {
   revoke(token: string): Promise<void>
 
   /**
-   * Who approved, so the Mac can say whose account it now answers to.
+   * Who approved, so the machine can say whose account it now answers to.
    *
    * The grant hands back a token and nothing else, so this is the only way the
    * daemon learns the account. Null when the server will not say, which is not

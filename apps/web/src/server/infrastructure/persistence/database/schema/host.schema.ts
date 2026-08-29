@@ -5,14 +5,14 @@ import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { user } from './auth.schema'
 
 /**
- * The Mac an account controls.
+ * The machine an account controls.
  *
  * `userId` is unique because the first release binds one host to one account,
  * so a second host is unrepresentable rather than merely discouraged.
  *
  * There is no credential column. The daemon authenticates with the Better Auth
  * session issued by the device authorization grant; this row answers the other
- * question, which is whether that user's Mac is still allowed to connect.
+ * question, which is whether that user's machine is still allowed to connect.
  */
 export const host = sqliteTable(
   'host',

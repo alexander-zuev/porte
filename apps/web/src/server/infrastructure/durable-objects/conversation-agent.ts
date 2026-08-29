@@ -105,7 +105,7 @@ type ActiveStream =
 /**
  * Child chat Agent for one conversation data connection.
  *
- * Owns a projection, never the truth: the Mac runs the turn and keeps the
+ * Owns a projection, never the truth: the machine runs the turn and keeps the
  * transcript. The stream writes the running turn; snapshots and the per-turn
  * reconcile write finished turns under the Host's ids.
  */
@@ -129,7 +129,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   }
 
   /**
-   * A restart is not a reason to call anything again: the Mac runs the turn
+   * A restart is not a reason to call anything again: the machine runs the turn
    * and its `turn.finished` reconciles the rows. The SDK's own
    * partial row would be a second writer, so it neither persists nor continues.
    */
@@ -294,7 +294,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     return await this.hostSocket.request('conversation.close', {})
   }
 
-  /** Stop is a command to the Mac; the stream ends when the Host sends `turn.finished`. */
+  /** Stop is a command to the machine; the stream ends when the Host sends `turn.finished`. */
   @callable()
   async cancelTurn(params: HostConversationMethodMap['turn.cancel']['params']): Promise<null> {
     return await this.hostSocket.request('turn.cancel', params)
@@ -497,15 +497,15 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   }
 
   /**
-   * A viewer is here, so ask for the Mac unless this Agent already has it.
+   * A viewer is here, so ask for the machine unless this Agent already has it.
    *
-   * Off the connect path on purpose: the ask spawns a session on the Mac, and a
+   * Off the connect path on purpose: the ask spawns a session on the machine, and a
    * viewer that cannot reach one still reads what this Agent already stored.
    */
   private requestHostAttachInBackground(): void {
     if (this.hostConnection() !== undefined) return
     void this.requestHostAttach().catch((error) => {
-      // An away Mac is what the status dot already reports, so it is not a fault here.
+      // An away machine is what the status dot already reports, so it is not a fault here.
       if (error instanceof HostOfflineError) return
       logger.warn('conversation_attach_failed', {
         error: toErrorPayload(error),
@@ -514,7 +514,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     })
   }
 
-  /** The parent owns the control socket, so the ask for a Mac goes through it. */
+  /** The parent owns the control socket, so the ask for a machine goes through it. */
   private async requestHostAttach(): Promise<void> {
     const parent = await this.parentAgent(HostRelayAgent)
     await parent.attachConversation(this.conversationId)
@@ -639,7 +639,7 @@ function isTerminalEvent(event: ConversationEvent): boolean {
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Catch values have no declared runtime type.
 function hostErrorMessage(error: unknown): string {
-  if (error instanceof HostOfflineError) return 'The Mac host is offline.'
+  if (error instanceof HostOfflineError) return 'Your machine is offline.'
   if (error instanceof ConversationBusyError) return 'A turn is already running.'
   return 'The conversation could not start.'
 }

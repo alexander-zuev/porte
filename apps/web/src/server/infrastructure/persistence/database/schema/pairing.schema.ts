@@ -8,7 +8,7 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
  * request moment can answer either question: by approval time the headers
  * describe whoever is approving. The confirmation screen reads the address to
  * ask "did this come from the machine I am sitting at?", and approval reads
- * the name to record which Mac it just granted.
+ * the name to record which machine it just granted.
  *
  * The row is deleted when the code is decided, so nothing here outlives the
  * decision it informed.

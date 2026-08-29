@@ -22,7 +22,7 @@ export type ConversationPageProps = {
 }
 
 /**
- * One conversation on the paired Mac: what it said, and what to say next.
+ * One conversation on the paired machine: what it said, and what to say next.
  *
  * The transcript read suspends and throws inside these boundaries, so the
  * shell stays up while the page shows the skeleton or the failure in place.
@@ -53,7 +53,7 @@ export function ConversationPage({
 
 /** The read failed. Clearing the query first makes the remount fetch again instead of rethrowing. */
 function ReadFailed({ error, reset: remount }: ErrorComponentProps) {
-  // From the database, so the failure can name the Mac before any socket exists.
+  // From the database, so the failure can name the machine before any socket exists.
   const { host } = route.useRouteContext()
   const { reset } = useQueryErrorResetBoundary()
 

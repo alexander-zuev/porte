@@ -46,7 +46,7 @@ export function formatPairingCode(code: string): string {
 /**
  * Where the code was asked for, judged against where it is being answered.
  *
- * The server compares, not the screen. Both halves normally happen on one Mac,
+ * The server compares, not the screen. Both halves normally happen on one machine,
  * so `elsewhere` is the whole signal: someone else's machine asked for a code
  * you are about to approve.
  */
@@ -72,7 +72,7 @@ export const PairingClaimSchema = z.discriminatedUnion('state', [
 ])
 export type PairingClaim = z.infer<typeof PairingClaimSchema>
 
-/** What the person chose about a Mac that is waiting on a code. */
+/** What the person chose about a machine that is waiting on a code. */
 export const PairingVerdictSchema = z.enum(['approve', 'deny'])
 export type PairingVerdict = z.infer<typeof PairingVerdictSchema>
 

@@ -1,11 +1,11 @@
 import type { HostId, HostPlatform, UserId } from '@porte/core'
 
 /**
- * The Mac one account controls.
+ * The machine one account controls.
  *
  * Comes into being at approval, which is the only moment both halves are known:
- * the grant proves which person owns the Mac, and the request that asked for the
- * code says what the Mac is called. A daemon connecting later refreshes both.
+ * the grant proves which person owns the machine, and the request that asked for the
+ * code says what the machine is called. A daemon connecting later refreshes both.
  */
 /** The aggregate flattened to data. What a repository stores and restores from. */
 export type HostSnapshot = {
@@ -28,7 +28,7 @@ export class Host {
   }
 
   /**
-   * The account takes ownership of a Mac, at the moment it approves the grant.
+   * The account takes ownership of a machine, at the moment it approves the grant.
    *
    * `lastSeenAt` is null because nothing has been seen yet. The daemon may
    * connect a second later or never, and only its announcement can say.
@@ -68,7 +68,7 @@ export class Host {
     return this.state
   }
 
-  /** Release the Mac. Repeating this keeps the original moment. */
+  /** Release the machine. Repeating this keeps the original moment. */
   revoke(at: Date): void {
     if (this.isRevoked) return
 

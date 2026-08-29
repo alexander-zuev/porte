@@ -13,7 +13,7 @@ import { Logo } from '@web/ui/components/logo.tsx'
  * The bar above every signed-in page.
  *
  * The same `ShellHeader` the public site uses, so the wordmark does not move
- * when somebody signs in. The Mac is named in the centre because it is the one
+ * when somebody signs in. The machine is named in the centre because it is the one
  * thing every page here is about, and it is read straight from the cache rather
  * than passed down: no page owns this bar.
  */
@@ -41,11 +41,11 @@ export function AppHeader() {
 const CONVERSATION_ROUTE = '/_auth/conversations/$conversationId'
 
 /**
- * What this screen is about, and the Mac behind it.
+ * What this screen is about, and the machine behind it.
  *
  * Inside a conversation the bar names the conversation, the way a chat app
  * does; on the list it names the job. Only on the screens that control the
- * Mac: settings and pairing can read the same Mac, but neither is remote-
+ * machine: settings and pairing can read the same machine, but neither is remote-
  * controlling one, and a bar that said so would be describing the wrong thing.
  */
 function RemoteHost() {

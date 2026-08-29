@@ -11,9 +11,9 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import type { UIMessage } from 'ai'
 
 /**
- * Query factory for the conversations on the account's Mac.
+ * Query factory for the conversations on the account's machine.
  *
- * Paged, because a Mac's history has no bound. The socket never carries the
+ * Paged, because a machine's history has no bound. The socket never carries the
  * list: it patches one summary or says the list moved, and this refetches.
  *
  * The server function returns the page or throws, so nothing is unwrapped here.

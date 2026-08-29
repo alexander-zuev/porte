@@ -18,7 +18,7 @@ export const ProblemDetailsSchema = z.looseObject({
   title: z.string(),
   /**
    * Safe human-readable explanation for this occurrence; clients must not parse it.
-   * @example "Porte is not connected on the paired Mac."
+   * @example "Porte is not connected on the paired machine."
    */
   detail: z.string().optional(),
   /**

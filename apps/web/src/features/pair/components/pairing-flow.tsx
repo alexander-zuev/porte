@@ -26,7 +26,7 @@ export type PairingIssue = 'expired' | 'already-decided' | 'not-yours' | 'unavai
  * The impersonation warning, kept where the code is typed.
  *
  * A pairing code is only ever printed by your own terminal. Anyone handing you
- * one is asking you to attach their Mac to your account.
+ * one is asking you to attach their machine to your account.
  */
 const NEVER_SENT =
   'A real pairing code only ever appears in your own terminal, and expires in minutes'
@@ -34,13 +34,13 @@ const NEVER_SENT =
 /**
  * What approving actually hands over.
  *
- * Written as power the account gains over the Mac, not the reverse: the Mac
+ * Written as power the account gains over the machine, not the reverse: the machine
  * could always do these things, and the decision is whether anyone signed in
  * to this account may drive it remotely.
  */
-const MAC_GRANTS = [
+const MACHINE_GRANTS = [
   'See your Grok sessions and the files they change',
-  'Start a new session in any folder on this Mac',
+  'Start a new session in any folder on this machine',
   'Send prompts to a running session',
   'Stop a session that is working',
   'Approve or refuse what Grok asks to do',
@@ -84,7 +84,7 @@ function CodePairing(props: Extract<PairingFlowProps, { view: 'code-entry' }>) {
   return (
     <PairingLayout
       footnote={NEVER_SENT}
-      title="Authorize your Mac"
+      title="Authorize your machine"
       account={<PairingAccount image={props.accountImage} label={props.accountLabel} />}
     >
       <p className="text-muted-foreground">
@@ -104,8 +104,8 @@ function CodePairing(props: Extract<PairingFlowProps, { view: 'code-entry' }>) {
 function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
   return (
     <PairingLayout
-      footnote="Your Grok credentials and your code never leave this Mac"
-      title="Connect this Mac?"
+      footnote="Your Grok credentials and your code never leave this machine"
+      title="Connect this machine?"
       account={<PairingAccount image={props.accountImage} label={props.accountLabel} />}
       alert={<PairingRequestOrigin origin={props.requestedFrom} />}
       actions={
@@ -122,13 +122,13 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
           {/* Never focused on mount: a held Enter from the code form would approve. */}
           <Button className="flex-1" disabled={props.pending} onClick={props.onApprove}>
             {props.pending ? <Spinner data-icon="inline-start" /> : null}
-            Connect this Mac
+            Connect this machine
           </Button>
         </div>
       }
     >
       <PairingRequestTime origin={props.requestedFrom} />
-      <PairingGrants grants={MAC_GRANTS} />
+      <PairingGrants grants={MACHINE_GRANTS} />
     </PairingLayout>
   )
 }
@@ -139,11 +139,11 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
  * What happens next happens in the terminal, and the dashboard still reads
  * unpaired until the daemon connects, so a button here would lead nowhere good.
  */
-/** Paired, not yet connected: nothing reaches this Mac until the daemon runs. */
+/** Paired, not yet connected: nothing reaches this machine until the daemon runs. */
 function ApprovedPairing() {
   return (
     <PairingLayout
-      title="Mac paired"
+      title="Machine paired"
       icon={
         <PairingStatusIcon tone="success">
           <CheckCircleIcon aria-hidden className="size-6" />
@@ -151,7 +151,7 @@ function ApprovedPairing() {
       }
     >
       <p className="text-muted-foreground">
-        Back in your terminal, run <code>{UP_COMMAND}</code> to connect this Mac.
+        Back in your terminal, run <code>{UP_COMMAND}</code> to connect this machine.
       </p>
     </PairingLayout>
   )
@@ -167,7 +167,7 @@ function DeniedPairing() {
         </PairingStatusIcon>
       }
     >
-      <p className="text-muted-foreground">That code is dead and no Mac was connected</p>
+      <p className="text-muted-foreground">That code is dead and no machine was connected</p>
     </PairingLayout>
   )
 }
@@ -185,12 +185,12 @@ const ISSUE_CONTENT = {
   },
   'not-yours': {
     title: 'Code belongs to another account',
-    description: 'Do not continue unless you ran porte pair yourself on this Mac',
+    description: 'Do not continue unless you ran porte pair yourself on this machine',
     tone: 'warning',
   },
   unavailable: {
     title: 'Pairing is unavailable',
-    description: 'Porte did not respond. No Mac was connected.',
+    description: 'Porte did not respond. No machine was connected.',
     tone: 'destructive',
   },
 } satisfies Record<PairingIssue, { title: string; description: string; tone: PairingTone }>

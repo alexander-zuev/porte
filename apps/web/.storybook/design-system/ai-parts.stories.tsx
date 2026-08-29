@@ -218,7 +218,7 @@ function PartsBoard() {
             onAnswer={() => undefined}
           />
         </Specimen>
-        <Specimen label="Answering" note="Sent, and dead until the Mac replies." stack wide>
+        <Specimen label="Answering" note="Sent, and dead until the machine replies." stack wide>
           <ConversationPermissions
             waiting={[{ permission: writeFilePermission, answering: true }]}
             onAnswer={() => undefined}
@@ -264,7 +264,9 @@ function PartsBoard() {
         </Specimen>
         <Specimen label="Turn failed" stack wide>
           <ConversationTurnFailed
-            error={new Error('The Mac closed the connection while the answer was being written.')}
+            error={
+              new Error('The machine closed the connection while the answer was being written.')
+            }
           />
         </Specimen>
       </Section>

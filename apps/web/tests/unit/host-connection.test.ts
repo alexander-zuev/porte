@@ -25,7 +25,7 @@ describe('hostConnectionFrom', () => {
     })
   })
 
-  it('reports the Mac only through an identified socket', () => {
+  it('reports the machine only through an identified socket', () => {
     expect(hostConnectionFrom({ identified: true, state: online })).toEqual({
       status: 'connected',
     })
@@ -34,7 +34,7 @@ describe('hostConnectionFrom', () => {
 })
 
 describe('hostConnectionNotice', () => {
-  it('speaks only when the Mac leaves or returns', () => {
+  it('speaks only when the machine leaves or returns', () => {
     expect(hostConnectionNotice('connected', 'offline')).toBe('host-offline')
     expect(hostConnectionNotice('offline', 'connected')).toBe('host-online')
   })

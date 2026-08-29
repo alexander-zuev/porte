@@ -52,9 +52,9 @@ export class DrizzleHostRepository implements HostRepository {
   }
 
   /**
-   * Insert the account's Mac, or overwrite the one already there.
+   * Insert the account's machine, or overwrite the one already there.
    *
-   * Conflict targets `user_id`, not the primary key: an account holds one Mac,
+   * Conflict targets `user_id`, not the primary key: an account holds one machine,
    * so the owner is what collides. `id` is overwritten with the rest, because
    * re-pairing after unpair is a new host and must not inherit the relay object
    * the revoked one left behind.

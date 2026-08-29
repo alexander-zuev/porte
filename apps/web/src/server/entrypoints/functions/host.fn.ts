@@ -11,14 +11,14 @@ import { createServerFn } from '@tanstack/react-start'
  * read through the read-only connection; commands go through the repository.
  */
 
-/** Read what the signed-in account controls. One Mac, or none. */
+/** Read what the signed-in account controls. One machine, or none. */
 export const getAccountHost = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AccountHost> => {
     return getAccountHostQuery(context.deps.db(), context.user.id)
   })
 
-/** Release the paired Mac. Local sessions and files on that Mac are untouched. */
+/** Release the paired machine. Local sessions and files on that machine are untouched. */
 export const unpairHost = createServerFn({ method: 'POST' })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AccountActionResult> => {

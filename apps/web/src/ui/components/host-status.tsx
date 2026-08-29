@@ -9,7 +9,7 @@ import { Spinner } from '@web/ui/components/ui/spinner.tsx'
  * A dot and nothing else. The word it replaces said the same thing twice, and
  * a status that appears and then leaves moves the line beside it.
  *
- * `offline` is red because these screens cannot work without the Mac.
+ * `offline` is red because these screens cannot work without the machine.
  * `connecting` flashes: the socket is retrying, the last known state is stale.
  */
 const SETTLED = {
@@ -24,12 +24,14 @@ const SETTLED = {
 /**
  * The dot alone. Its word is written for a screen reader, never shown.
  *
- * Still looking is a spinner rather than a dot: a dot says the Mac is in some
+ * Still looking is a spinner rather than a dot: a dot says the machine is in some
  * state, and we have not heard from the relay yet.
  */
 export function HostStatus({ connection }: { readonly connection: HostConnectionStatus }) {
   if (connection === 'loading') {
-    return <Spinner aria-label="Looking for your Mac" className="size-3 text-muted-foreground" />
+    return (
+      <Spinner aria-label="Looking for your machine" className="size-3 text-muted-foreground" />
+    )
   }
 
   const { label, dot } = SETTLED[connection]
@@ -46,7 +48,7 @@ export function HostOfflineAlert() {
   return (
     <Alert>
       <AlertTitle>Host is offline</AlertTitle>
-      <AlertDescription>Open the daemon on the Mac, then retry.</AlertDescription>
+      <AlertDescription>Open the daemon on the machine, then retry.</AlertDescription>
     </Alert>
   )
 }

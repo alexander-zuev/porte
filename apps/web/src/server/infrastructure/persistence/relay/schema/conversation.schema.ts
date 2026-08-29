@@ -1,10 +1,10 @@
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 /**
- * One Mac's conversations, replicated into its relay's own SQLite.
+ * One machine's conversations, replicated into its relay's own SQLite.
  *
  * Identity and metadata only: no message, no turn, no file. The browser reads
- * only this, so a sleeping Mac still has a list worth paging through.
+ * only this, so a sleeping machine still has a list worth paging through.
  *
  * Lives in a Durable Object, not D1: its own Drizzle config, its own migrations.
  */

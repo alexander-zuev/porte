@@ -5,8 +5,8 @@ import { createSeoHead } from '@web/lib/seo.ts'
 export const Route = createFileRoute('/_auth/pair/')({
   head: () =>
     createSeoHead({
-      title: 'Pair your Mac | Porte',
-      description: 'Run porte pair on the Mac that runs Grok, then enter the code it prints.',
+      title: 'Pair your machine | Porte',
+      description: 'Run porte pair on the machine that runs Grok, then enter the code it prints.',
       path: '/pair/',
       noIndex: true,
     }),

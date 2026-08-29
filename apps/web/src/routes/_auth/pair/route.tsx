@@ -8,7 +8,7 @@ import { createFileRoute } from '@tanstack/react-router'
  * a machine, and the terms belong in view. Declared here rather than on each
  * step, so every screen under it shares one shape.
  *
- * There is no Mac yet, so the bar names none. It carries the wordmark and the
+ * There is no machine yet, so the bar names none. It carries the wordmark and the
  * menu, which is the way out for somebody stuck partway through.
  */
 export const Route = createFileRoute('/_auth/pair')({

@@ -3,18 +3,18 @@ import { expect, test } from '@playwright/test'
 import { axeViolations } from './axe.ts'
 import { storyPath } from './stories.ts'
 
-test('pairing runs from code entry to a connected Mac', async ({ page }) => {
+test('pairing runs from code entry to a connected machine', async ({ page }) => {
   await page.goto(storyPath('pages-pair--interactive'))
-  await expect(page.getByRole('heading', { name: 'Authorize your Mac' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Authorize your machine' })).toBeVisible()
 
   await page.getByRole('textbox', { name: 'Pairing code' }).fill('4821AB39')
   await page.getByRole('button', { name: 'Continue' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Connect this Mac?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Connect this machine?' })).toBeVisible()
   expect(await axeViolations(page)).toEqual([])
 
-  await page.getByRole('button', { name: 'Connect this Mac' }).click()
-  await expect(page.getByRole('heading', { name: 'Mac paired' })).toBeVisible()
+  await page.getByRole('button', { name: 'Connect this machine' }).click()
+  await expect(page.getByRole('heading', { name: 'Machine paired' })).toBeVisible()
 
   // The daemon reconnects on its own poll, so the list arrives a beat later.
   await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()
@@ -26,15 +26,15 @@ test('an expired code offers a fresh attempt', async ({ page }) => {
   expect(await axeViolations(page)).toEqual([])
 
   await page.getByRole('button', { name: 'Enter a code' }).click()
-  await expect(page.getByRole('heading', { name: 'Authorize your Mac' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Authorize your machine' })).toBeVisible()
 })
 
 test('cancelling a pairing issue lands on the conversation list', async ({ page }) => {
   await page.goto(storyPath('pages-pair--unavailable'))
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()
-  // The Mac in this harness is paired and has never connected, so the list
-  // names the Mac and asks for the daemon rather than reporting an empty list.
+  // The machine in this harness is paired and has never connected, so the list
+  // names the machine and asks for the daemon rather than reporting an empty list.
   await expect(page.getByRole('heading', { name: "Alex's MacBook Pro" })).toBeVisible()
 })
 

@@ -134,14 +134,14 @@ function SurfacesBoard() {
           <Alert>
             <InfoIcon />
             <AlertTitle>Host is offline</AlertTitle>
-            <AlertDescription>Open the daemon on the Mac, then retry.</AlertDescription>
+            <AlertDescription>Open the daemon on the machine, then retry.</AlertDescription>
           </Alert>
         </Specimen>
         <Specimen label="Warning" stack>
           <Alert variant="warning">
             <WarningCircleIcon />
             <AlertTitle>Pairing expires in two minutes</AlertTitle>
-            <AlertDescription>Approve it on the Mac or start again.</AlertDescription>
+            <AlertDescription>Approve it on the machine or start again.</AlertDescription>
           </Alert>
         </Specimen>
         <Specimen label="Destructive" stack>
@@ -157,7 +157,7 @@ function SurfacesBoard() {
           <Alert>
             <CheckCircleIcon />
             <AlertTitle>Reconnected</AlertTitle>
-            <AlertDescription>The Mac answered after 12 seconds.</AlertDescription>
+            <AlertDescription>The machine answered after 12 seconds.</AlertDescription>
             <AlertAction>
               <Button size="xs" variant="ghost">
                 Dismiss
@@ -167,7 +167,7 @@ function SurfacesBoard() {
         </Specimen>
         <Specimen label="Title only" stack wide>
           <Alert>
-            <AlertTitle>Read-only: this conversation ended on the Mac.</AlertTitle>
+            <AlertTitle>Read-only: this conversation ended on the machine.</AlertTitle>
           </Alert>
         </Specimen>
       </Section>
@@ -184,7 +184,7 @@ function SurfacesBoard() {
               </EmptyMedia>
               <EmptyTitle>No conversations yet</EmptyTitle>
               <EmptyDescription>
-                Start one from the browser and it runs on your Mac.
+                Start one from the browser and it runs on your machine.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -265,7 +265,7 @@ function SurfacesBoard() {
                   <code>/pair</code>
                 </TableCell>
                 <TableCell>
-                  Install Porte, run <code>porte pair</code> on the Mac
+                  Install Porte, run <code>porte pair</code> on the machine
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -289,7 +289,7 @@ function SurfacesBoard() {
           label="Copy prompt"
           note="Beside the command, for the person who hands setup to an agent."
         >
-          <CopyPrompt prompt="Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this Mac." />
+          <CopyPrompt prompt="Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine." />
         </Specimen>
       </Section>
     </Board>
@@ -300,7 +300,7 @@ function SurfacesBoard() {
 function ToastBoard() {
   useEffect(() => {
     toast('Conversation resumed', {
-      description: 'The Mac answered after 12 seconds.',
+      description: 'The machine answered after 12 seconds.',
       duration: Number.POSITIVE_INFINITY,
     })
     toast.success('Paired with Alexander’s MacBook Pro', {
@@ -330,7 +330,7 @@ function ToastBoard() {
   )
 }
 
-/** The two toasts the relay raises on its own when the Mac leaves and returns. */
+/** The two toasts the relay raises on its own when the machine leaves and returns. */
 function HostConnectionToastBoard() {
   useEffect(() => {
     notifyHostOffline()
@@ -342,7 +342,7 @@ function HostConnectionToastBoard() {
   return (
     <Board
       title="Toast"
-      summary="Raised by the relay when the paired Mac drops or comes back while a page is open. Never on first load: the pages already show the offline state."
+      summary="Raised by the relay when the paired machine drops or comes back while a page is open. Never on first load: the pages already show the offline state."
     >
       <Section
         title="Host connection"
@@ -351,10 +351,10 @@ function HostConnectionToastBoard() {
         <Specimen label="Transitions" wide>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={notifyHostOffline}>
-              Mac went offline
+              Machine went offline
             </Button>
             <Button size="sm" variant="outline" onClick={notifyHostOnline}>
-              Mac back online
+              Machine back online
             </Button>
           </div>
         </Specimen>
@@ -373,7 +373,7 @@ function LongToastBoard() {
       duration: Number.POSITIVE_INFINITY,
     })
     toast.error(
-      'The relay refused the request because the credential for this Mac was revoked somewhere else',
+      'The relay refused the request because the credential for this machine was revoked somewhere else',
       { duration: Number.POSITIVE_INFINITY },
     )
     toast.success('Paired', {

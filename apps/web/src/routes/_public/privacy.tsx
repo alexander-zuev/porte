@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_public/privacy')({
     createSeoHead({
       title: 'Privacy | Porte',
       description:
-        'What the hosted Porte relay stores, and what never leaves your Mac. Your repositories, files, and Grok account stay local.',
+        'What the hosted Porte relay stores, and what never leaves your machine. Your repositories, files, and Grok account stay local.',
       path: '/privacy',
     }),
   component: PrivacyPage,

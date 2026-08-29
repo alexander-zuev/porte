@@ -146,7 +146,7 @@ function AlertDialogSpecimen() {
               </AlertDialogMedia>
               <AlertDialogTitle>Delete your account?</AlertDialogTitle>
               <AlertDialogDescription>
-                This removes every paired Mac and every conversation. It cannot be undone.
+                This removes every paired machine and every conversation. It cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -180,7 +180,7 @@ function SheetSpecimen() {
             <div className="flex flex-col gap-2 px-4">
               <Button className="justify-start" variant="ghost">
                 <ArrowClockwiseIcon data-icon="inline-start" />
-                Resume on the Mac
+                Resume on the machine
               </Button>
               <Button className="justify-start" variant="ghost">
                 <FolderSimpleIcon data-icon="inline-start" />
@@ -268,9 +268,9 @@ function HintSpecimen() {
           <PopoverTrigger render={<Button variant="outline" />}>Why offline?</PopoverTrigger>
           <PopoverContent side="bottom">
             <PopoverHeader>
-              <PopoverTitle>The Mac is asleep</PopoverTitle>
+              <PopoverTitle>The machine is asleep</PopoverTitle>
               <PopoverDescription>
-                Porte reaches your machine only while the daemon runs. Wake the Mac and it
+                Porte reaches your machine only while the daemon runs. Wake the machine and it
                 reconnects.
               </PopoverDescription>
             </PopoverHeader>
@@ -318,7 +318,7 @@ function CommandSpecimen() {
                   <CommandShortcut>⌘N</CommandShortcut>
                 </CommandItem>
                 <CommandItem>
-                  Pair a Mac
+                  Pair a machine
                   <CommandShortcut>⌘P</CommandShortcut>
                 </CommandItem>
               </CommandGroup>

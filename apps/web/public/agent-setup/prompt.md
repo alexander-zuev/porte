@@ -1,8 +1,8 @@
-# Set up Porte on this Mac
+# Set up Porte on this machine
 
-Porte runs your local Grok sessions from your phone. A small daemon on the Mac pairs with https://useporte.dev; Grok, the repos, and every transcript stay on the Mac. Source: https://github.com/alexander-zuev/porte (Apache-2.0).
+Porte runs your local Grok sessions from your phone. A small daemon on the machine pairs with https://useporte.dev; Grok, the repos, and every transcript stay on the machine. Source: https://github.com/alexander-zuev/porte (Apache-2.0).
 
-You are an AI agent running on the person's Mac. Follow these steps in order. Report each result in one line.
+You are an AI agent running on the person's machine. Follow these steps in order. Report each result in one line.
 
 ## Rules
 
@@ -31,7 +31,7 @@ porte --version
 
 If `npm i -g` fails with a permissions error, do not retry with `sudo`. Tell the person, and suggest a Node version manager (fnm, nvm, volta) that owns the global folder.
 
-## 3. Pair the Mac
+## 3. Pair the machine
 
 ```sh
 porte pair
@@ -49,8 +49,8 @@ Show the person the code and the URL, then wait. They open the URL on their phon
 porte up
 ```
 
-This keeps running. It is what the phone talks to; the person starts it whenever they want the Mac reachable. Leave it running in its own terminal, or tell the person the command to run it themselves.
+This keeps running. It is what the phone talks to; the person starts it whenever they want the machine reachable. Leave it running in its own terminal, or tell the person the command to run it themselves.
 
 ## Done
 
-Tell the person: open https://useporte.dev on the phone, pick this Mac, and open a conversation. To undo everything: `porte unpair`, then `npm rm -g @porte/cli`.
+Tell the person: open https://useporte.dev on the phone, pick this machine, and open a conversation. To undo everything: `porte unpair`, then `npm rm -g @porte/cli`.

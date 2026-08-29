@@ -31,7 +31,7 @@ Reference stories (Storybook on http://localhost:6006):
 2. Thin track-less scrollbar on the transcript scroller (`scrollbar-thin` utility).
 3. Send icon → `ArrowUpIcon`; stop stays the square.
 4. `gap-2` between the `+` circle and the model label.
-5. Placeholder "Ask your Mac…" → "Message Grok…".
+5. Placeholder "Ask your machine…" → "Message Grok…".
 6. Reasoning row label as `<span>` so it is 14px like a tool row; drop its `mb-4`.
 7. Fixture `answerRelay` tool part gets `title`/`kind` (real Grok shape).
 8. Vertical scale: 32px between turns, 16px between blocks in an answer, 0 between rows in a run.
@@ -63,7 +63,7 @@ Reference stories (Storybook on http://localhost:6006):
 ### Composer and header
 
 9. **Composer shape.** `rounded-2xl`, taller row, `+` as a circle button. Ours: `InputGroup` with `rounded-md`.
-10. **Header shows the conversation.** Title, `porte · Mac name` subtitle, blurred backdrop. Ours: `Remote / Mac name`.
+10. **Header shows the conversation.** Title, `porte · machine name` subtitle, blurred backdrop. Ours: `Remote / machine name`.
 11. **Sticky change summary.** Codex: `101 files +6.9K −4.1K` above the composer while a turn edits. Later.
 12. **Queued prompts.** Codex `Queued ···`; Claude changes the placeholder to `Queue for after this turn…` while streaming. Needs host support. Later.
 

@@ -7,12 +7,12 @@ import type { ReadDb } from '@server/infrastructure/persistence/database/types.t
 import { eq } from 'drizzle-orm'
 
 /**
- * What Mac the signed-in account owns, if any.
+ * What machine the signed-in account owns, if any.
  *
  * Reads the row directly rather than through the repository: this answers a
  * question, it does not act, so rebuilding an aggregate would buy nothing.
  *
- * Nothing here says whether the Mac is reachable. That is a live question the
+ * Nothing here says whether the machine is reachable. That is a live question the
  * relay answers, and a read that guessed would be a second version of a fact it
  * cannot see.
  */

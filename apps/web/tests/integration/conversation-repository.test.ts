@@ -133,7 +133,7 @@ describe('conversation repository', () => {
   /**
    * Durable Object SQLite binds at most 100 parameters per statement, and a row
    * costs one per column. Both of these wrote a single statement once, which
-   * threw on the socket carrying the sync and left the Mac reconnecting.
+   * threw on the socket carrying the sync and left the machine reconnecting.
    */
   it('saves a whole sync chunk, past the bound-parameter cap', async () => {
     await withStore('bulk-save', (conversations) => {

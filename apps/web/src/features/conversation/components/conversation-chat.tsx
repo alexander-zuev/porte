@@ -158,7 +158,7 @@ function submitStatus(chatStatus: ChatStatus, running: boolean): ChatStatus {
 }
 
 function promptPlaceholder(canSend: boolean, identified: boolean): string {
-  if (!canSend) return 'Your Mac is offline'
+  if (!canSend) return 'Your machine is offline'
   if (!identified) return 'Reconnecting…'
   // The agent is addressed, not the machine it runs on.
   return 'Message Grok…'

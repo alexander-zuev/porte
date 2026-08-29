@@ -158,7 +158,7 @@ export function createBetterAuthOptions(
       }),
       // Cookie only. Nothing reads a stored column, so the user table stays as it is.
       lastLoginMethod(),
-      // The Mac daemon has no browser, so it earns a session through RFC 8628.
+      // The machine daemon has no browser, so it earns a session through RFC 8628.
       deviceAuthorization(buildDeviceAuthorization(config)),
       // The daemon holds that session as a token, not a cookie.
       bearer(),

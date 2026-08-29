@@ -8,24 +8,25 @@ export function TermsPage() {
     <LegalPage title="Terms of Service" updated={LEGAL_UPDATED}>
       <LegalSection heading="What Porte is">
         <p>
-          Porte connects your phone to a Mac you control, so you can continue and start Grok
-          conversations that run on that Mac. The Porte source code is open under the Apache License
-          2.0. These terms cover the hosted service that relays messages between your devices and
-          stores the conversations you run through it.
+          Porte connects your phone to a machine you control, so you can continue and start Grok
+          conversations that run on that machine. The Porte source code is open under the Apache
+          License 2.0. These terms cover the hosted service that relays messages between your
+          devices and stores the conversations you run through it.
         </p>
       </LegalSection>
 
       <LegalSection heading="Your account">
         <p>
           You sign in with Google, Apple, GitHub, or X. You are responsible for the security of that
-          account and of every Mac you pair. Pair only machines you own or are allowed to control.
+          account and of every machine you pair. Pair only machines you own or are allowed to
+          control.
         </p>
       </LegalSection>
 
       <LegalSection heading="Your machine, your responsibility">
         <p>
           Porte relays your prompts and approvals. It does not add permissions to the coding agent
-          on your Mac. The agent keeps the rules, hooks, and approval prompts you already
+          on your machine. The agent keeps the rules, hooks, and approval prompts you already
           configured. You remain responsible for what the agent does when you approve an action.
         </p>
       </LegalSection>

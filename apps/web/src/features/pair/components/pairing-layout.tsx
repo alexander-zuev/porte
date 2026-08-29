@@ -84,7 +84,7 @@ export function PairingStatusIcon({
 /**
  * Where the request came from, when that is worth saying.
  *
- * Silent on a match: both halves normally happen on one Mac, so an address on
+ * Silent on a match: both halves normally happen on one machine, so an address on
  * screen every time trains the eye to skip it. `unknown` still speaks, because
  * a failed lookup must never read like a confirmed one.
  */
@@ -126,11 +126,11 @@ export function PairingRequestTime({ origin }: { readonly origin: PairingOrigin 
   )
 }
 
-/** What the Mac will and will not be able to do, spelled out before you agree. */
+/** What the machine will and will not be able to do, spelled out before you agree. */
 export function PairingGrants({ grants }: { readonly grants: readonly string[] }) {
   return (
     <section className="flex w-full flex-col gap-2 text-left">
-      {/* The account is the subject: the Mac could always do these things. */}
+      {/* The account is the subject: the machine could always do these things. */}
       <h2>Your Porte account will be able to</h2>
       <ul className="flex flex-col">
         {grants.map((grant) => (

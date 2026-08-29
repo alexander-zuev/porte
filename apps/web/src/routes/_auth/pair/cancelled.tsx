@@ -6,7 +6,7 @@ export const Route = createFileRoute('/_auth/pair/cancelled')({
   head: () =>
     createSeoHead({
       title: 'Pairing cancelled | Porte',
-      description: 'That pairing code was refused and no Mac was connected.',
+      description: 'That pairing code was refused and no machine was connected.',
       path: '/pair/cancelled',
       noIndex: true,
     }),

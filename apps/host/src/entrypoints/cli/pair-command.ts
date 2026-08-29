@@ -30,7 +30,7 @@ export async function runPairCommand(input: {
         Math.round(prompt.expiresInSeconds / 60),
       )} minutes.  ${WAITING_EMOJI}`
 
-      output.title('Pair this Mac with Porte', PAIR_EMOJI)
+      output.title('Pair this machine with Porte', PAIR_EMOJI)
       if (!interactive) {
         output.raw(`First copy your pairing code:  ${code(shown)}`)
         output.raw(`Then open ${url(prompt.verificationUri)} in your browser.`)
@@ -86,7 +86,7 @@ export async function runPairCommand(input: {
       : `Paired ${machine} with ${strong(account)} on Porte`,
   )
   output.blank()
-  output.raw(`  Run ${code('porte up')} to control this Mac's Grok conversations from anywhere`)
+  output.raw(`  Run ${code('porte up')} to control this machine's Grok conversations from anywhere`)
   output.note('Expires in 7 days if it never connects')
   return 0
 }

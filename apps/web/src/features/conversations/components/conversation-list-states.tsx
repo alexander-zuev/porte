@@ -16,7 +16,7 @@ import { EmptyState } from '@web/ui/components/empty-state.tsx'
 export function NoConversationsYet() {
   return (
     <EmptyState
-      body="Open Porte from a repository on the Mac to start your first one."
+      body="Open Porte from a repository on the machine to start your first one."
       icon={<FolderIcon aria-hidden />}
       title="No conversations yet"
     />

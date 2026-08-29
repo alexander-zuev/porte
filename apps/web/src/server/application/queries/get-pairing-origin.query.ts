@@ -17,7 +17,7 @@ export async function getPairingOrigin(
 /**
  * Judge one against the other.
  *
- * Both halves normally happen on one Mac, so a match is the quiet case and
+ * Both halves normally happen on one machine, so a match is the quiet case and
  * needs no address on screen. A mismatch is the whole reason this exists.
  * Pure, so the comparison can be tested without a database.
  */
