@@ -48,6 +48,13 @@ export const answerRelay: UIMessage = {
       type: 'dynamic-tool',
       toolCallId: 'call-read-relay',
       toolName: 'read_file',
+      title: 'Read `conversation-relay-state.ts`',
+      toolMetadata: {
+        kind: 'read',
+        locations: [
+          { path: '/Users/az/projects/porte/packages/core/src/relay/conversation-relay-state.ts' },
+        ],
+      },
       state: 'output-available',
       input: { path: 'packages/core/src/relay/conversation-relay-state.ts', limit: 120 },
       output: {
@@ -187,6 +194,18 @@ export const askWithFile: UIMessage = {
       mediaType: 'text/plain',
       filename: 'relay-deploy.log',
       url: 'data:text/plain;base64,cmVsYXk6IHNvY2tldCBjbG9zZWQ=',
+    },
+    {
+      type: 'file',
+      mediaType: 'image/svg+xml',
+      filename: 'dashboard.svg',
+      url: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3"><rect width="4" height="3" fill="#2f6f9f"/></svg>')}`,
+    },
+    {
+      type: 'file',
+      mediaType: 'image/svg+xml',
+      filename: 'logs.svg',
+      url: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3"><rect width="4" height="3" fill="#8f5f2f"/></svg>')}`,
     },
   ],
 }

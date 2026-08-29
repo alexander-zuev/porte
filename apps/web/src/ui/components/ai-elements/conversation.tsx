@@ -24,6 +24,8 @@ export const ConversationContent = ({ className, ...props }: ConversationContent
   // Focusable so the keyboard can scroll a transcript that has no control in it.
   <StickToBottom.Content
     className={cn('flex flex-col gap-8 p-4', className)}
+    // The library's scroller; its bar must not take a slice off the column.
+    scrollClassName="scrollbar-thin"
     tabIndex={0}
     {...props}
   />

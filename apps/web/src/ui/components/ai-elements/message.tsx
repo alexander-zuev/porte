@@ -34,7 +34,9 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      'flex min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
+      // 16px between blocks, the same as between two paragraphs, so a tool run
+      // reads as a block of the answer rather than something dropped between two.
+      'flex min-w-0 max-w-full flex-col gap-4 overflow-hidden text-sm',
       // The prompt is a bubble, so it sizes to its words. The answer is the
       // page: it takes the column, or a tool call inside it shrinks to a chip.
       'group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-2xl group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',

@@ -20,11 +20,12 @@ import {
   SourcesTrigger,
 } from '@web/ui/components/ai-elements/sources.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
-import { isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
+import { isFileUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
 
 import { groupParts } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
 import { NoMessagesYet, TurnPending } from './conversation-states.tsx'
+import { MessageFiles } from './message-files.tsx'
 import { ToolRun } from './tool-run.tsx'
 
 export type ConversationMessagesProps = {
@@ -50,7 +51,8 @@ export function ConversationMessages({
 }: ConversationMessagesProps) {
   return (
     <Conversation className="min-h-0 flex-1">
-      <ConversationContent className="gap-6 px-1 py-4 md:px-4">
+      {/* 32px between turns; the composer below uses the same 12px inset, so text edges line up. */}
+      <ConversationContent className="gap-8 px-3 py-4">
         {messages.length === 0 ? <NoMessagesYet /> : null}
 
         {onReadOlder === null ? null : (
@@ -88,8 +90,10 @@ export function ConversationMessages({
 
 function MessageParts({ message }: { readonly message: UIMessage }) {
   const sources = message.parts.filter((part) => part.type === 'source-url')
+  const files = message.parts.filter(isFileUIPart)
   return (
     <>
+      {files.length === 0 ? null : <MessageFiles files={files} />}
       {sources.length === 0 ? null : (
         <Sources>
           <SourcesTrigger count={sources.length} />
@@ -102,7 +106,7 @@ function MessageParts({ message }: { readonly message: UIMessage }) {
           </SourcesContent>
         </Sources>
       )}
-      {groupParts(message.parts).map((stretch, index) =>
+      {groupParts(message.parts.filter((part) => !isFileUIPart(part))).map((stretch, index) =>
         stretch.type === 'run' ? (
           <ToolRun
             key={stretch.calls[0]?.part.toolCallId ?? String(index)}

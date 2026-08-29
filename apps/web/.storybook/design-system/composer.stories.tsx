@@ -68,7 +68,7 @@ function Composer() {
         <PromptInput onSubmit={(message) => setSent(message)}>
           <PromptInputBody>
             <PromptInputAttachments />
-            <PromptInputTextarea placeholder="Ask your Mac…" />
+            <PromptInputTextarea placeholder="Message Grok…" />
             <PromptInputFooter>
               <PromptInputTools>
                 <ComposerAddMenu commands={COMMANDS} disabled={false} onCommand={setCommand} />

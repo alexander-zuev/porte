@@ -71,7 +71,13 @@ export function ConversationSkeleton() {
           <PromptInputTextarea disabled placeholder="Reading this conversation…" />
           <PromptInputFooter>
             <PromptInputTools>
-              <PromptInputButton aria-label="Add attachment" disabled>
+              <PromptInputButton
+                aria-label="Add attachment"
+                className="rounded-full"
+                disabled
+                size="icon-sm"
+                variant="outline"
+              >
                 <PlusIcon className="size-4" />
               </PromptInputButton>
             </PromptInputTools>

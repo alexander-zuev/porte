@@ -96,7 +96,7 @@ export const Reasoning = memo(
       return (
         <ReasoningContext.Provider value={contextValue}>
           <Drawer open={isOpen} onOpenChange={setIsOpen}>
-            <div className={cn('not-prose mb-4', className)}>{children}</div>
+            <div className={cn('not-prose', className)}>{children}</div>
           </Drawer>
         </ReasoningContext.Provider>
       )
@@ -105,7 +105,7 @@ export const Reasoning = memo(
     return (
       <ReasoningContext.Provider value={contextValue}>
         <Collapsible
-          className={cn('not-prose mb-4', className)}
+          className={cn('not-prose', className)}
           onOpenChange={setIsOpen}
           open={isOpen}
           {...props}
@@ -125,10 +125,11 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (isStreaming || duration === 0) {
     return <Shimmer duration={1}>Thinking...</Shimmer>
   }
+  // A span, not a p: the base `p` rule would lift this row to 16px above the tool rows.
   if (duration === undefined) {
-    return <p>Thought for a few seconds</p>
+    return <span>Thought for a few seconds</span>
   }
-  return <p>Thought for {duration} seconds</p>
+  return <span>Thought for {duration} seconds</span>
 }
 
 const TRIGGER =

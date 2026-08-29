@@ -33,7 +33,7 @@ const READY: ChatFrameProps = {
   permissions: [],
   status: 'ready',
   canSend: true,
-  placeholder: 'Ask your Mac…',
+  placeholder: 'Message Grok…',
 }
 
 function Screen({ children }: { readonly children: ReactNode }) {

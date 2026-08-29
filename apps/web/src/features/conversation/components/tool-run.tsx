@@ -80,11 +80,16 @@ export type ToolRunProps = {
  */
 export function ToolRun({ calls, settled }: ToolRunProps) {
   const phone = usePhone()
-  if (!settled || calls.length === 1) {
-    return calls.map((call) => <ToolCallRow key={call.part.toolCallId} call={call} />)
-  }
+  // One column with no gap: rows are a list, and each row's height is its air.
+  const rows = (
+    <div className="flex flex-col">
+      {calls.map((call) => (
+        <ToolCallRow key={call.part.toolCallId} call={call} />
+      ))}
+    </div>
+  )
+  if (!settled || calls.length === 1) return rows
   const summary = describeRun(calls)
-  const rows = calls.map((call) => <ToolCallRow key={call.part.toolCallId} call={call} />)
 
   if (phone) {
     return (
@@ -94,7 +99,7 @@ export function ToolRun({ calls, settled }: ToolRunProps) {
         </DrawerTrigger>
         <DrawerContent>
           <DrawerTitle className="px-4" render={<h3>{summary}</h3>} />
-          <div className="flex flex-col px-4">{rows}</div>
+          <div className="px-4">{rows}</div>
         </DrawerContent>
       </Drawer>
     )

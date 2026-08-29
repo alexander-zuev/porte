@@ -487,7 +487,7 @@ function ControlsBoard() {
         <Specimen label="Ready" stack wide>
           <PromptInput onSubmit={() => undefined}>
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Ask your Mac…" />
+              <PromptInputTextarea placeholder="Message Grok…" />
               <PromptInputFooter>
                 <PromptInputTools>
                   <PromptInputActionMenu>
@@ -510,7 +510,7 @@ function ControlsBoard() {
         <Specimen label="Sent" note="Waiting for the first token." stack wide>
           <PromptInput onSubmit={() => undefined}>
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Ask your Mac…" />
+              <PromptInputTextarea placeholder="Message Grok…" />
               <PromptInputFooter>
                 <PromptInputTools>
                   <PromptInputActionMenu>
@@ -529,7 +529,7 @@ function ControlsBoard() {
         <Specimen label="Answering" note="The same control stops the turn." stack wide>
           <PromptInput onSubmit={() => undefined}>
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Ask your Mac…" />
+              <PromptInputTextarea placeholder="Message Grok…" />
               <PromptInputFooter>
                 <PromptInputTools>
                   <PromptInputActionMenu>
@@ -552,7 +552,7 @@ function ControlsBoard() {
         <Specimen label="Failed" stack wide>
           <PromptInput onSubmit={() => undefined}>
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Ask your Mac…" />
+              <PromptInputTextarea placeholder="Message Grok…" />
               <PromptInputFooter>
                 <PromptInputTools />
                 <PromptInputSubmit className="ml-auto" status="error" />

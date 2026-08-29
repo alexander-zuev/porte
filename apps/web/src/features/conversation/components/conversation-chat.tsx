@@ -1,5 +1,5 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
-import type { ConversationRelayState } from '@porte/core/client'
+import type { ConversationLiveState } from '@porte/core/client'
 import type {
   ConversationActions,
   ConversationPermission,
@@ -27,7 +27,7 @@ export type ConversationChatProps = {
   readonly agent: ConversationAgentConnection
   readonly messages: UIMessage[]
   readonly permissions: readonly ConversationPermission[]
-  readonly state: ConversationRelayState
+  readonly state: ConversationLiveState
   readonly actions: ConversationActions
   readonly canSend: boolean
 }
@@ -123,7 +123,7 @@ export function ConversationChat({
 }
 
 function configurationValue(
-  option: NonNullable<ConversationRelayState['configuration']>[number],
+  option: NonNullable<ConversationLiveState['configuration']>[number],
 ): string {
   if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
   const values = option.options.flatMap((value) =>
@@ -135,5 +135,6 @@ function configurationValue(
 function promptPlaceholder(canSend: boolean, childReady: boolean): string {
   if (!canSend) return 'Your Mac is offline'
   if (!childReady) return 'Reconnecting…'
-  return 'Ask your Mac…'
+  // The agent is addressed, not the machine it runs on.
+  return 'Message Grok…'
 }

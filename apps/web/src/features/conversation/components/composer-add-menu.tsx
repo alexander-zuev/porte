@@ -76,7 +76,17 @@ function AddSheet({ commands, disabled, onCommand }: ComposerAddMenuProps) {
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger render={<PromptInputButton aria-label="Add attachment" disabled={disabled} />}>
+      <DrawerTrigger
+        render={
+          <PromptInputButton
+            aria-label="Add attachment"
+            className="rounded-full"
+            disabled={disabled}
+            size="icon-sm"
+            variant="outline"
+          />
+        }
+      >
         <PlusIcon className="size-4" />
       </DrawerTrigger>
       <DrawerContent>
