@@ -48,7 +48,12 @@ export function ConversationChat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <ConversationMessages messages={chat.messages} readingOlder={false} onReadOlder={null} />
+      <ConversationMessages
+        messages={chat.messages}
+        pending={chat.status === 'submitted'}
+        readingOlder={false}
+        onReadOlder={null}
+      />
 
       <ConversationPlans plans={state.plans} running={chat.isServerStreaming} />
 

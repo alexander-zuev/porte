@@ -1,5 +1,6 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
+import { codePlugin } from '@web/ui/components/ai-elements/code-block.tsx'
 import { ButtonGroup, ButtonGroupText } from '@web/ui/components/ui/button-group.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
@@ -33,10 +34,10 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      'is-user:dark flex min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
+      'flex min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
       // The prompt is a bubble, so it sizes to its words. The answer is the
       // page: it takes the column, or a tool call inside it shrinks to a chip.
-      'group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',
+      'group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-2xl group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',
       'group-[.is-assistant]:w-full group-[.is-assistant]:text-foreground',
       className,
     )}
@@ -280,10 +281,16 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>
 
+// Only the highlighter. Math, mermaid, and CJK are bundles nothing here has needed.
+const STREAMDOWN_PLUGINS = { code: codePlugin }
+
+/** Every markdown on the page: answers, reasoning, plans, tool text. One highlighter, one theme. */
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+      plugins={STREAMDOWN_PLUGINS}
+      shikiTheme={codePlugin.getThemes()}
       {...props}
     />
   ),

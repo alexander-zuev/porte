@@ -114,6 +114,8 @@ export const toolRunning: UIMessage = {
       type: 'dynamic-tool',
       toolCallId: 'call-run-tests',
       toolName: 'run_command',
+      title: 'Run `pnpm test --filter @porte/core`',
+      toolMetadata: { kind: 'execute', locations: [] },
       state: 'input-available',
       input: { command: 'pnpm test --filter @porte/core', cwd: '/Users/az/projects/porte' },
     },
@@ -129,6 +131,8 @@ export const toolFailed: UIMessage = {
       type: 'dynamic-tool',
       toolCallId: 'call-failed',
       toolName: 'run_command',
+      title: 'Run `pnpm typecheck`',
+      toolMetadata: { kind: 'execute', locations: [] },
       state: 'output-error',
       input: { command: 'pnpm typecheck', cwd: '/Users/az/projects/porte' },
       errorText: 'Command failed with exit code 2: 4 type errors in apps/web.',
@@ -136,7 +140,7 @@ export const toolFailed: UIMessage = {
   ],
 }
 
-/** A tool call that wrote a file, so the output carries a diff. */
+/** A tool call that edited a file. The diff is the replaced span, as Grok sends it. */
 export const toolDiff: UIMessage = {
   id: 'msg-tool-diff',
   role: 'assistant',
@@ -144,17 +148,26 @@ export const toolDiff: UIMessage = {
     {
       type: 'dynamic-tool',
       toolCallId: 'call-edit',
-      toolName: 'edit_file',
+      toolName: 'search_replace',
+      title: 'Edit `relay.ts`',
+      toolMetadata: {
+        kind: 'edit',
+        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
+      },
       state: 'output-available',
-      input: { path: 'packages/core/src/relay/relay.ts' },
+      input: {
+        path: 'packages/core/src/relay/relay.ts',
+        old_string: 'relay.drain()\nrelay.register(socket)',
+        new_string: 'relay.register(socket)\nrelay.drain()',
+      },
       output: {
         content: [
           {
             type: 'diff',
-            path: 'packages/core/src/relay/relay.ts',
+            path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts',
             oldText: 'relay.drain()\nrelay.register(socket)',
-            newText:
-              '-relay.drain()\n-relay.register(socket)\n+relay.register(socket)\n+relay.drain()',
+            newText: 'relay.register(socket)\nrelay.drain()',
+            _meta: { old_line: 41, new_line: 41 },
           },
         ],
         rawOutput: null,
@@ -198,6 +211,107 @@ export const answerWithSources: UIMessage = {
     {
       type: 'text',
       text: 'Hibernation drops the in-memory queue, which is why the frames only survive in storage.',
+      state: 'done',
+    },
+  ],
+}
+
+/** A finished turn that read, edited, and ran: the calls fold to one line, the answer stays. */
+export const toolRunDone: UIMessage = {
+  id: 'msg-tool-run-done',
+  role: 'assistant',
+  parts: [
+    {
+      type: 'dynamic-tool',
+      toolCallId: 'run-read-relay',
+      toolName: 'read_file',
+      title: 'Read `relay.ts`',
+      toolMetadata: {
+        kind: 'read',
+        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
+      },
+      state: 'output-available',
+      input: { path: 'packages/core/src/relay/relay.ts' },
+      output: {
+        content: [
+          {
+            type: 'content',
+            content: { type: 'text', text: 'Read 88 lines from `relay.ts`.' },
+          },
+        ],
+        rawOutput: null,
+      },
+    },
+    {
+      type: 'dynamic-tool',
+      toolCallId: 'run-read-test',
+      toolName: 'read_file',
+      title: 'Read `relay.test.ts`',
+      toolMetadata: {
+        kind: 'read',
+        locations: [{ path: '/Users/az/projects/porte/packages/core/tests/relay.test.ts' }],
+      },
+      state: 'output-available',
+      input: { path: 'packages/core/tests/relay.test.ts' },
+      output: {
+        content: [
+          {
+            type: 'content',
+            content: { type: 'text', text: 'Read 40 lines from `relay.test.ts`.' },
+          },
+        ],
+        rawOutput: null,
+      },
+    },
+    {
+      type: 'dynamic-tool',
+      toolCallId: 'run-edit-relay',
+      toolName: 'search_replace',
+      title: 'Edit `relay.ts`',
+      toolMetadata: {
+        kind: 'edit',
+        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
+      },
+      state: 'output-available',
+      input: {
+        path: 'packages/core/src/relay/relay.ts',
+        old_string: 'relay.drain()\nrelay.register(socket)',
+        new_string: 'relay.register(socket)\nrelay.drain()',
+      },
+      output: {
+        content: [
+          {
+            type: 'diff',
+            path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts',
+            oldText: 'relay.drain()\nrelay.register(socket)',
+            newText: 'relay.register(socket)\nrelay.drain()',
+            _meta: { old_line: 41, new_line: 41 },
+          },
+        ],
+        rawOutput: null,
+      },
+    },
+    {
+      type: 'dynamic-tool',
+      toolCallId: 'run-test',
+      toolName: 'run_command',
+      title: 'Run `pnpm test --filter @porte/core`',
+      toolMetadata: { kind: 'execute', locations: [] },
+      state: 'output-available',
+      input: { command: 'pnpm test --filter @porte/core', cwd: '/Users/az/projects/porte' },
+      output: {
+        content: [
+          {
+            type: 'content',
+            content: { type: 'text', text: 'Test Files  3 passed (3)\nTests  12 passed (12)' },
+          },
+        ],
+        rawOutput: null,
+      },
+    },
+    {
+      type: 'text',
+      text: 'Swapped the two lines. The relay tests pass.',
       state: 'done',
     },
   ],

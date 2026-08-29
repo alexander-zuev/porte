@@ -116,8 +116,10 @@
   --quote-font-weight: inherit;
   --quote-letter-spacing: -0.01em;
 
-  /* text-xs is an alias of text-sm: the 14px floor leaves no room below it. */
+  /* text-xs is an alias of text-sm: the 14px floor leaves no room below it.
+     Its line height follows, or Tailwind's own 1.333 ratio lands off the grid. */
   --text-xs: var(--text-14);
+  --text-xs--line-height: var(--leading-20);
   --text-sm: var(--text-14);
   --text-base: var(--text-16);
   --text-lg: var(--text-18);
@@ -223,10 +225,13 @@
     border-radius: var(--radius-xs, 3px);
   }
 
+  /* A block is set by its `pre`; the inline 0.95em shrink would take it under the floor. */
   pre code {
     background: none;
     padding: 0;
     border-radius: 0;
+    font-size: var(--text-14);
+    line-height: var(--leading-20);
   }
 
   strong {

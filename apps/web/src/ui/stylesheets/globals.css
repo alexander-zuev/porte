@@ -5,6 +5,9 @@
 @import '@fontsource/space-grotesk/500.css';
 @import '@fontsource/space-grotesk/700.css';
 @import 'tailwindcss';
+/* Streamdown styles its own markdown with utilities; without this they are never generated. */
+@source '../../../node_modules/streamdown/dist/*.js';
+@source '../../../node_modules/@streamdown/code/dist/*.js';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
 @import './tokens.css';

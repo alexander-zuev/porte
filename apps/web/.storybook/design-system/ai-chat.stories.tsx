@@ -19,6 +19,7 @@ import {
   runTestsPermission,
   toolDiff,
   toolFailed,
+  toolRunDone,
   toolRunning,
   transcript,
   writeFilePermission,
@@ -145,9 +146,9 @@ export const Reconnecting: Story = {
   render: chat({ canSend: false, placeholder: 'Reconnecting…' }),
 }
 
-/** A tool is running, has failed, and has written a file. */
+/** A finished run folded to a line; then one call running, one failed, one that edited. */
 export const ToolCalls: Story = {
-  render: chat({ messages: [askRelay, toolRunning, toolFailed, toolDiff] }),
+  render: chat({ messages: [askRelay, toolRunDone, toolRunning, toolFailed, toolDiff] }),
 }
 
 /** A file went up with the prompt and the answer cites what it read. */

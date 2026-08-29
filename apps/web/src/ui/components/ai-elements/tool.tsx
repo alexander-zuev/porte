@@ -9,7 +9,7 @@ import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { ComponentProps, ReactNode } from 'react'
 import { isValidElement } from 'react'
 
-import { CodeBlock } from './code-block'
+import { TitledCodeBlock } from './code-block'
 
 export type ToolProps = ComponentProps<typeof Collapsible>
 
@@ -29,6 +29,10 @@ export type ToolPart = ToolUIPart | DynamicToolUIPart
 export type ToolHeaderProps = {
   title?: string
   className?: string
+  /** What kind of call this is. Shown once the call has settled; the dot shows while it moves. */
+  icon?: ReactNode
+  /** Lines in and out, for an edit. */
+  change?: { readonly added: number; readonly removed: number }
 } & (
   | { type: ToolUIPart['type']; state: ToolUIPart['state']; toolName?: never }
   | {
@@ -73,15 +77,25 @@ export const getStatusDot = (status: ToolPart['state']) => (
   </span>
 )
 
+/** A call still moving keeps the dot, whatever icon its kind has. */
+const MOVING = new Set<ToolPart['state']>([
+  'approval-requested',
+  'input-available',
+  'input-streaming',
+])
+
 export const ToolHeader = ({
   className,
   title,
   type,
   state,
   toolName,
+  icon,
+  change,
   ...props
 }: ToolHeaderProps) => {
   const derivedName = type === 'dynamic-tool' ? toolName : type.split('-').slice(1).join('-')
+  const failed = state === 'output-error' || state === 'output-denied'
 
   return (
     <CollapsibleTrigger
@@ -91,8 +105,26 @@ export const ToolHeader = ({
       )}
       {...props}
     >
-      {getStatusDot(state)}
-      <span className="min-w-0 truncate font-mono text-sm">{title ?? derivedName}</span>
+      {icon === undefined || MOVING.has(state) ? (
+        getStatusDot(state)
+      ) : (
+        <span
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center [&_svg]:size-4',
+            failed && 'text-destructive-muted-foreground',
+          )}
+        >
+          {icon}
+          <span className="sr-only">{statusLabels[state]}</span>
+        </span>
+      )}
+      <span className="min-w-0 truncate">{title ?? derivedName}</span>
+      {change === undefined ? null : (
+        <small className="shrink-0 font-mono">
+          <span className="text-status-success-muted-foreground">+{change.added}</span>{' '}
+          <span className="text-destructive-muted-foreground">−{change.removed}</span>
+        </small>
+      )}
       <CaretRightIcon
         aria-hidden
         className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
@@ -117,11 +149,8 @@ export type ToolInputProps = ComponentProps<'div'> & {
 }
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn('space-y-2 overflow-hidden', className)} {...props}>
-    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Parameters</p>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
-    </div>
+  <div className={cn('overflow-hidden', className)} {...props}>
+    <TitledCodeBlock code={JSON.stringify(input, null, 2)} language="json" title="Parameters" />
   </div>
 )
 
@@ -146,20 +175,18 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
     )
   }
 
-  let Output = <div>{output as ReactNode}</div>
-
-  if (typeof output === 'object' && !isValidElement(output)) {
-    Output = <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
-  } else if (typeof output === 'string') {
-    Output = <CodeBlock code={output} language="json" />
-  }
-
-  return (
-    <div className={cn('space-y-2', className)} {...props}>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Result</p>
-      <div className="overflow-x-auto rounded-md bg-muted/50 text-xs text-foreground [&_table]:w-full">
-        {Output}
+  // A rendered element brings its own blocks; anything else is shown as one.
+  if (isValidElement(output)) {
+    return (
+      <div className={cn('overflow-hidden', className)} {...props}>
+        {output}
       </div>
+    )
+  }
+  const code = typeof output === 'string' ? output : JSON.stringify(output, null, 2)
+  return (
+    <div className={cn('overflow-hidden', className)} {...props}>
+      <TitledCodeBlock code={code} language="json" title="Result" />
     </div>
   )
 }

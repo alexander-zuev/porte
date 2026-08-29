@@ -17,8 +17,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Streamdown } from 'streamdown'
-
+import { MessageResponse } from './message.tsx'
 import { Shimmer } from './shimmer'
 
 interface ReasoningContextValue {
@@ -193,7 +192,7 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
     className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
     {...props}
   >
-    <Streamdown>{children}</Streamdown>
+    <MessageResponse>{children}</MessageResponse>
   </CollapsibleContent>
 ))
 

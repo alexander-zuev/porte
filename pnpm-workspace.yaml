@@ -75,7 +75,7 @@ catalog:
   zod: ^4.4.3
   input-otp: ^1.4.2
   ai: ^7.0.77
-  streamdown: ^2.5.0
+  streamdown: ^2.6.0
   use-stick-to-bottom: ^1.1.6
   nanoid: ^6.0.1
   cmdk: ^1.1.1

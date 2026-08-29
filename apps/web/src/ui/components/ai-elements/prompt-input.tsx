@@ -993,7 +993,8 @@ export const PromptInputTextarea = ({
 
   return (
     <InputGroupTextarea
-      className={cn('field-sizing-content max-h-48 min-h-16', className)}
+      // The same size as the bubble it becomes; the form primitive's desktop 14px is for fields.
+      className={cn('field-sizing-content max-h-48 min-h-16 md:text-base', className)}
       name="message"
       onCompositionEnd={handleCompositionEnd}
       onCompositionStart={handleCompositionStart}

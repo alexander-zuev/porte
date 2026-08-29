@@ -11,24 +11,23 @@ Reference stories (Storybook on http://localhost:6006):
 
 ## 1. Tool calls
 
-1. **One verb row per call.** Theirs: `✎ Edited client.ts +1 −0 ›`, `📖 Read client.ts ›`, `▸ Ran ls packages/… ›`. Ours: status dot + `read_file` in mono. Change: icon per ACP `kind`, label from `title`, `+N −M` from the diff, chevron right. Data is already in the part (`conversation-event-projector.ts:171-174`).
-2. **Fold finished runs.** A run is every consecutive tool part between two text or reasoning parts. The run in flight stays open as rows; every finished run folds to one row: `Edited 4 files, deleted 1 file, explored 13 files, 1 search` (Codex) or `Ran 6 commands ›` (Claude). One-call runs are just the row. Counts group by `kind`, deduped by path; `Created` when `oldText === null`.
-3. **Folded run opens a sheet on phone.** Claude: tapping `Ran 5 commands ›` opens a bottom sheet titled the same, with the rows as a timeline (icon, verb in foreground, description in muted, thin vertical line between rows, X to close). Desktop: expand inline.
+1. **One verb row per call.** Done: icon by `kind` (read, edit, delete, search, execute, fetch; wrench for the rest), Grok's title from the part (`Edit \`relay.ts\``), `+N −M` for an edit, dot only while the call moves (`tool-run.tsx`, `tool.tsx`).
+2. **Fold finished runs.** Done: `groupParts` cuts a message into parts and runs; a settled run of two or more folds to `Edited 1 file, read 2 files, ran 1 command` (`tool-runs.ts`). A run with a call still moving stays open.
+3. **Folded run opens a sheet on phone.** Done: `Drawer` below `md`, inline `Collapsible` from `md` up.
 4. **Tool card inside a step.** Grok: a step title with a check (`✓ Running a test shell command`), then a card `▸ Ran command` with copy on the right and the command in mono below, then a status card (`Connected to computer`), then `✓ Done`. Use for a run's expanded view: header row = title, body = input or diff.
 5. **Status by glyph, not dot.** Check for done, spinner for running, red text for failed. Our dot stays as the running indicator only.
 
 ## 2. Reasoning
 
-1. **Title, not timer.** Codex: `Refining UIMessage type usage ⌄`; Grok: `Thoughts ›`. Ours: `Thought for N seconds` with a brain icon. Change: first line of the reasoning text as the trigger, muted, no icon, caret right.
-2. **Opens a sheet on phone.** Grok: `Thoughts ›` opens a bottom sheet titled `Thoughts` that holds the reasoning and the tool cards from that stretch. Desktop: inline collapsible as now.
-3. **No auto-open.** Reasoning stays closed while it streams; the trigger shimmers instead. Ours opens every block while streaming and closes it one second later.
+1. **Opens a sheet on phone.** Grok: `Thoughts ›` opens a bottom sheet titled `Thoughts` that holds the reasoning and the tool cards from that stretch. Desktop: inline collapsible as now.
+2. **No auto-open.** Reasoning stays closed while it streams; the trigger shimmers instead. Ours opens every block while streaming and closes it one second later.
 
 ## 3. Code and diffs
 
-1. **Header on every block.** Language or `Diff` left, copy right (Grok adds expand). `rounded-xl`, muted fill, `border`, no wrap, horizontal scroll. Ours: `CodeBlock` renders no header in the transcript; the header parts exist but only the specimen story uses them.
-2. **Diff shows old and new.** Ours passes `newText` only with `language="diff"`. Change: build a unified diff from `oldText`/`newText` (or render two-colour lines), with `@@` hunk header, `+` green, `−` red.
+1. **Header on every block.** Done: `TitledCodeBlock` (name + copy) on tool parameters, results, raw output, and diffs; theme `github-dark-default` everywhere; one shiki, through `@streamdown/code`.
+2. **Diff shows old and new.** Done. Grok sends `diff` content on every edit as a *span* pair — `oldText`/`newText` are the replaced text, not the file; `_meta.old_line`/`new_line` give the position; a created file has `oldText: ''` (not `null`). `span-diff.ts` writes `−`/`+` lines with the `@@` header.
 3. **Full-screen viewer on tap.** Codex: `Done` left, filename centre, share right, line numbers, wrapped long lines. Use the `Sheet` full height on phone, a `Dialog` on desktop.
-4. **Streamdown fences use the same block.** Add `@source "../../../../node_modules/streamdown/dist/*.js"` to `globals.css` so its classes exist, then pass our `CodeBlock` through Streamdown's `components` so a fenced block and a tool block look the same.
+4. **Streamdown fences use the same block.** Done: `@source` lines, highlighting through the shared plugin. Open, minor: a fenced block keeps Streamdown's frame (line numbers, download) while a tool block has ours; unify only if it bothers.
 5. **Inline code and file chips.** Grok colours inline code with an accent and renders a file reference as a chip (doc icon + name on a pill). Ours: inline code on `bg-muted` at 95% size, no chips. Chip is a later item; accent colour on inline code is one token.
 
 ## 4. Sheets on phone
@@ -40,13 +39,13 @@ Done: the `+` menu is an "Add context" sheet below `md` (`composer-add-menu.tsx`
 
 ## 5. Transcript
 
-1. **Body text at 16px.** Codex and Grok run ~17px. Ours: `MessageContent` sets `text-sm` (14px), below the typography floor for body copy. Change: drop `text-sm`, let `p` take the base.
-2. **User bubble.** Grok: right-aligned, `w-fit`, `rounded-2xl`, dark-gray fill, no `dark` class. Ours: `rounded-lg bg-secondary` with a stray `is-user:dark`. Change: `rounded-2xl`, remove `is-user:dark`, keep `bg-secondary`.
+1. **Type sizes.** Done: `pre code` pinned to 14px/20px, `text-xs` line height to 20px, composer textarea 16px on desktop. Open: `--text-3xl` and `--text-4xl` still use Tailwind's line-height ratio (38.4px, 44.4px); pin every `--text-*--line-height` to a `--leading-*` token in one block.
+2. **User bubble.** Done: `rounded-2xl`, stray `is-user:dark` removed, `bg-secondary` kept.
 3. **Answer is the page.** Same as now. Keep `max-w` off the assistant column; user bubble caps at ~85%.
 4. **Message actions.** Grok: copy, share, up, down, speak, retry, more, plus duration right-aligned under each answer. `MessageActions` exists unused. Later: copy + retry only.
 5. **Suggestion chips.** Grok: `Think harder` pill above the composer. Skip.
 
-6. **Turn status line.** Claude: `★ Noodling…` in the accent colour under the last message while the answer is being written, before the first token. Ours: only the submit button changes to a spinner. Change: one `Shimmer` line below the transcript while `status === 'submitted'`.
+6. **Turn status line.** Done: while `status === 'submitted'` the transcript ends with an assistant message holding a shimmering "Thinking…"; the answer mounts in that slot, so nothing moves.
 7. **Images in a user message.** Claude: a horizontal row of thumbnails inside the bubble, above the text. Ours: one `Attachments` block per file part, stacked. Change: collect the message's file parts into one row, then the text.
 
 ## 6. Composer and header

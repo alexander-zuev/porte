@@ -19,22 +19,18 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from '@web/ui/components/ai-elements/sources.tsx'
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@web/ui/components/ai-elements/tool.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
-import { isDynamicToolUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
+import { isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
 
+import { groupParts } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
-import { NoMessagesYet } from './conversation-states.tsx'
-import { ConversationToolOutput } from './conversation-tool-output.tsx'
+import { NoMessagesYet, TurnPending } from './conversation-states.tsx'
+import { ToolRun } from './tool-run.tsx'
 
 export type ConversationMessagesProps = {
   readonly messages: readonly UIMessage[]
+  /** A prompt is sent and no part of the answer has arrived. */
+  readonly pending: boolean
   /** Older turns exist. Absent once the whole transcript has been read. */
   readonly onReadOlder: (() => void) | null
   readonly readingOlder: boolean
@@ -48,6 +44,7 @@ export type ConversationMessagesProps = {
  */
 export function ConversationMessages({
   messages,
+  pending,
   onReadOlder,
   readingOlder,
 }: ConversationMessagesProps) {
@@ -74,6 +71,15 @@ export function ConversationMessages({
             </MessageContent>
           </Message>
         ))}
+
+        {/* The answer's slot, held until the answer takes it. */}
+        {pending ? (
+          <Message from="assistant">
+            <MessageContent>
+              <TurnPending />
+            </MessageContent>
+          </Message>
+        ) : null}
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>
@@ -96,9 +102,15 @@ function MessageParts({ message }: { readonly message: UIMessage }) {
           </SourcesContent>
         </Sources>
       )}
-      {message.parts.map((part, index) =>
-        part.type === 'source-url' ? null : (
-          <MessagePart key={`${message.id}-${String(index)}`} part={part} />
+      {groupParts(message.parts).map((stretch, index) =>
+        stretch.type === 'run' ? (
+          <ToolRun
+            key={stretch.calls[0]?.part.toolCallId ?? String(index)}
+            calls={stretch.calls}
+            settled={stretch.settled}
+          />
+        ) : stretch.part.type === 'source-url' ? null : (
+          <MessagePart key={`${message.id}-${String(index)}`} part={stretch.part} />
         ),
       )}
     </>
@@ -116,23 +128,6 @@ function MessagePart({ part }: { readonly part: UIMessage['parts'][number] }) {
         <ReasoningTrigger />
         <ReasoningContent>{part.text}</ReasoningContent>
       </Reasoning>
-    )
-  }
-
-  if (isDynamicToolUIPart(part)) {
-    return (
-      <Tool>
-        <ToolHeader state={part.state} toolName={part.toolName} type={part.type} />
-        <ToolContent>
-          <ToolInput input={part.input} />
-          {part.state === 'output-available' ? (
-            <ConversationToolOutput output={part.output} />
-          ) : null}
-          {part.state === 'output-error' ? (
-            <ToolOutput errorText={part.errorText} output={undefined} />
-          ) : null}
-        </ToolContent>
-      </Tool>
     )
   }
 

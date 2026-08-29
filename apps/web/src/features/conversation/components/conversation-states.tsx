@@ -2,6 +2,7 @@ import { ChatCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairedHost } from '@porte/core/client'
 import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-mac.tsx'
 import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
+import { Shimmer } from '@web/ui/components/ai-elements/shimmer.tsx'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -61,6 +62,17 @@ export function NoMessagesYet() {
       title="No messages yet"
     />
   )
+}
+
+/**
+ * The prompt is on the Mac and nothing has come back yet.
+ *
+ * Rendered in the answer's own slot, so the answer replaces it in place and
+ * nothing moves. A slow first token must not look like a prompt that never
+ * left, and the send button at the foot of the screen is not where the eye is.
+ */
+export function TurnPending() {
+  return <Shimmer>Thinking…</Shimmer>
 }
 
 /**

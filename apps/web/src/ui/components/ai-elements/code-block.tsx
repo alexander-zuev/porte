@@ -19,8 +19,30 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki'
-import { createHighlighter } from 'shiki'
+import {
+  createCodePlugin,
+  type HighlightOptions,
+  type HighlightResult,
+  type ThemeInput,
+} from '@streamdown/code'
+
+/**
+ * The one code theme, for every block on the page.
+ *
+ * Dark only, like the app. GitHub's current dark theme: the colours every
+ * developer already reads diffs in, on a ground close to the page's grey.
+ * Streamdown asks for a light and a dark theme; both slots hold this one.
+ */
+const CODE_THEME: ThemeInput = 'github-dark-default'
+
+/**
+ * The one highlighter: Streamdown's code plugin, shared with every markdown
+ * on the page, so the app ships one copy of shiki and one theme.
+ */
+export const codePlugin = createCodePlugin({ themes: [CODE_THEME, CODE_THEME] })
+
+type BundledLanguage = HighlightOptions['language']
+type ThemedToken = HighlightResult['tokens'][number][number]
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -119,41 +141,6 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
   code: '',
 })
 
-// Highlighter cache (singleton per language)
-const highlighterCache = new Map<
-  string,
-  Promise<HighlighterGeneric<BundledLanguage, BundledTheme>>
->()
-
-// Token cache
-const tokensCache = new Map<string, TokenizedCode>()
-
-// Subscribers for async token updates
-const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>()
-
-const getTokensCacheKey = (code: string, language: BundledLanguage) => {
-  const start = code.slice(0, 100)
-  const end = code.length > 100 ? code.slice(-100) : ''
-  return `${language}:${code.length}:${start}:${end}`
-}
-
-const getHighlighter = (
-  language: BundledLanguage,
-): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> => {
-  const cached = highlighterCache.get(language)
-  if (cached) {
-    return cached
-  }
-
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: ['github-light', 'github-dark'],
-  })
-
-  highlighterCache.set(language, highlighterPromise)
-  return highlighterPromise
-}
-
 // Create raw tokens for immediate display while highlighting loads
 const createRawTokens = (code: string): TokenizedCode => ({
   bg: 'transparent',
@@ -170,71 +157,31 @@ const createRawTokens = (code: string): TokenizedCode => ({
   ),
 })
 
-// Synchronous highlight with callback for async results
+const toTokenized = (result: HighlightResult): TokenizedCode => ({
+  bg: result.bg ?? 'transparent',
+  fg: result.fg ?? 'inherit',
+  tokens: result.tokens,
+})
+
+/**
+ * Tokens now if the plugin has them, else null and the callback later.
+ * The plugin owns the shiki instance, its language loading, and its cache.
+ */
 export const highlightCode = (
   code: string,
   language: BundledLanguage,
   // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null => {
-  const tokensCacheKey = getTokensCacheKey(code, language)
-
-  // Return cached result if available
-  const cached = tokensCache.get(tokensCacheKey)
-  if (cached) {
-    return cached
-  }
-
-  // Subscribe callback if provided
-  if (callback) {
-    if (!subscribers.has(tokensCacheKey)) {
-      subscribers.set(tokensCacheKey, new Set())
-    }
-    subscribers.get(tokensCacheKey)?.add(callback)
-  }
-
-  // Start highlighting in background - fire-and-forget async pattern
-  getHighlighter(language)
-    // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then)
-    .then((highlighter) => {
-      const availableLangs = highlighter.getLoadedLanguages()
-      const langToUse = availableLangs.includes(language) ? language : 'text'
-
-      const result = highlighter.codeToTokens(code, {
-        lang: langToUse,
-        themes: {
-          dark: 'github-dark',
-          light: 'github-light',
-        },
-        // The app is dark-only, so the dark theme supplies the inline colors.
-        defaultColor: 'dark',
-      })
-
-      const tokenized: TokenizedCode = {
-        bg: result.bg ?? 'transparent',
-        fg: result.fg ?? 'inherit',
-        tokens: result.tokens,
-      }
-
-      // Cache the result
-      tokensCache.set(tokensCacheKey, tokenized)
-
-      // Notify all subscribers
-      const subs = subscribers.get(tokensCacheKey)
-      if (subs) {
-        for (const sub of subs) {
-          sub(tokenized)
-        }
-        subscribers.delete(tokensCacheKey)
-      }
-    })
-    // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then), eslint-plugin-promise(prefer-await-to-callbacks)
-    .catch((error) => {
-      console.error('Failed to highlight code:', error)
-      subscribers.delete(tokensCacheKey)
-    })
-
-  return null
+  const result = codePlugin.highlight(
+    {
+      code,
+      language: codePlugin.supportsLanguage(language) ? language : 'text',
+      themes: codePlugin.getThemes(),
+    },
+    callback === undefined ? undefined : (highlighted) => callback(toTokenized(highlighted)),
+  )
+  return result === null ? null : toTokenized(result)
 }
 
 const CodeBlockBody = memo(
@@ -288,7 +235,7 @@ export const CodeBlockContainer = ({
 }: HTMLAttributes<HTMLDivElement> & { language: string }) => (
   <div
     className={cn(
-      'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+      'group relative w-full overflow-hidden rounded-xl border bg-background text-foreground',
       className,
     )}
     data-language={language}
@@ -417,6 +364,20 @@ export const CodeBlock = ({
     </CodeBlockContext.Provider>
   )
 }
+
+/** A block with its name and a copy button: what every code on the page looks like. */
+export const TitledCodeBlock = ({ title, ...props }: CodeBlockProps & { title: string }) => (
+  <CodeBlock {...props}>
+    <CodeBlockHeader>
+      <CodeBlockTitle>
+        <CodeBlockFilename>{title}</CodeBlockFilename>
+      </CodeBlockTitle>
+      <CodeBlockActions>
+        <CodeBlockCopyButton />
+      </CodeBlockActions>
+    </CodeBlockHeader>
+  </CodeBlock>
+)
 
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void
