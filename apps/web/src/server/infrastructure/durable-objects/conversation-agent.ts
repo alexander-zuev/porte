@@ -187,6 +187,15 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     options?: OnChatMessageOptions,
   ): Promise<Response> {
     const userMessage = latestUserMessage(this.messages)
+    // SPIKE: temporary trace of what AIChatAgent holds when a turn starts.
+    console.error(
+      'SPIKE_CHAT',
+      JSON.stringify({
+        continuation: options?.continuation,
+        stored: this.messages.map((m) => `${m.role}:${m.id}`),
+        user: userMessage?.id,
+      }),
+    )
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
 
     let turnId: TurnId
@@ -287,6 +296,12 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
   }
 
   private async acceptEvent(event: ConversationEvent): Promise<void> {
+    // SPIKE: temporary order trace on the relay side.
+    console.error(
+      'SPIKE_RELAY',
+      event.type,
+      'content' in event && event.content.type === 'text' ? JSON.stringify(event.content.text) : '',
+    )
     this.setState(reduceConversationRelayState(this.state, event))
     this.publishActivity(event)
     const active = this.activeStream

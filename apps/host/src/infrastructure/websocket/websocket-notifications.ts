@@ -19,6 +19,14 @@ export function createControlNotifications(send: SendFrame): ControlNotification
 export function createConversationNotifications(send: SendFrame): ConversationNotifications {
   return {
     sendEvent: (event) => {
+      // SPIKE: temporary order trace.
+      console.error(
+        'SPIKE_EVENT',
+        event.type,
+        'content' in event && event.content.type === 'text'
+          ? JSON.stringify(event.content.text)
+          : '',
+      )
       void send(JSON.stringify(jsonRpcNotification('conversation.event', { event })))
     },
   }
