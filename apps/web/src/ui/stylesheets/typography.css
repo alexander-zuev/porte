@@ -298,6 +298,14 @@
     line-height: var(--leading-40);
   }
 
+  /* The mark takes its size from the tile that holds it, so no font-size here. */
+  .text-mark {
+    font-family: var(--font-brand);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+  }
+
   /* Fixed sizes swapped at a breakpoint. No clamp: display type needs exact control. */
   .text-display-hero {
     font-size: var(--text-40);

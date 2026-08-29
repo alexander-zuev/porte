@@ -8,6 +8,31 @@ const OG_IMAGE = `${CANONICAL_ORIGIN}/og.png`
 const OG_IMAGE_ALT =
   'Porte wordmark. Grok stays on your machine. You do not have to. The command porte pair.'
 
+/** The page background (`--gray-1` dark), for the bars around a home-screen app. */
+// oxlint-disable-next-line design-system/no-raw-colors -- a meta tag cannot read a CSS token.
+export const THEME_COLOR = '#111111'
+
+/** Head entries every page shares; routes add their own on top. */
+export const ROOT_META = [
+  { charSet: 'utf-8' },
+  // `viewport-fit=cover` is what makes the safe-area insets non-zero.
+  { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+  { title: SITE_NAME },
+  // Added to the home screen, Porte opens without browser chrome; the bars take the page colour.
+  { name: 'theme-color', content: THEME_COLOR },
+  { name: 'mobile-web-app-capable', content: 'yes' },
+  { name: 'apple-mobile-web-app-capable', content: 'yes' },
+  { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+  { name: 'apple-mobile-web-app-title', content: SITE_NAME },
+] as const
+
+/** All three icons are the same drawing (`Design System/Logo › Icon`), exported per size. */
+export const ROOT_LINKS = [
+  { rel: 'icon', type: 'image/png', sizes: '64x64', href: '/favicon.png' },
+  { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+  { rel: 'manifest', href: '/manifest.webmanifest' },
+] as const
+
 /** SERP truncates meta descriptions near 160 chars; cap at 155 to keep a safety margin. */
 export const META_DESCRIPTION_MAX = 155
 /** SERP truncates titles near 60 chars. */

@@ -30,6 +30,20 @@ export function Logo({ size = 'md', className }: LogoProps) {
   )
 }
 
+/**
+ * The wordmark cut to its first letter and the caret: the icon for a favicon,
+ * a home-screen tile, anywhere a word will not fit. Sized by the font size of
+ * its parent, so one component serves 16px and 512px.
+ */
+export function LogoMark({ className }: { readonly className?: string }) {
+  return (
+    <span aria-hidden className={cn('text-mark', className)}>
+      P{/* The wordmark's caret, unchanged: the mark is the wordmark cut short. */}
+      <span className="ml-[0.12em] inline-block h-[1em] w-[0.4em] translate-y-[0.14em] bg-current" />
+    </span>
+  )
+}
+
 /** The wordmark as the way home, above a page built around one decision. */
 export function LogoLink({ size = 'lg' }: Pick<LogoProps, 'size'>) {
   return (

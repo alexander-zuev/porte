@@ -2,6 +2,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
+import { ROOT_LINKS, ROOT_META } from '@web/lib/seo.ts'
 import { Toaster } from '@web/ui/components/ui/sonner.tsx'
 import { TooltipProvider } from '@web/ui/components/ui/tooltip.tsx'
 
@@ -18,27 +19,8 @@ interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
-    meta: [
-      {
-        charSet: 'utf-8',
-      },
-      {
-        name: 'viewport',
-        // `viewport-fit=cover` is what makes the safe-area insets non-zero.
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
-      },
-      {
-        title: 'Porte',
-      },
-    ],
-    links: [
-      // The emoji is drawn by the reader's own font, so the file stays 3 lines.
-      {
-        rel: 'icon',
-        type: 'image/svg+xml',
-        href: '/favicon.svg',
-      },
-    ],
+    meta: [...ROOT_META],
+    links: [...ROOT_LINKS],
   }),
   shellComponent: RootDocument,
 })
