@@ -12,6 +12,7 @@ import {
   DeviceTokenErrorSchema,
   DeviceTokenRequestSchema,
   DeviceTokenResponseSchema,
+  HOST_PAIRING_PATH,
   PAIRING_CODE_PATH,
   PORTE_CLI_CLIENT_ID,
   ProblemDetailsSchema,
@@ -105,13 +106,24 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
   }
 
   /**
-   * End the pairing.
+   * End the pairing on the server, before the credential is dropped locally.
    *
-   * Stubbed: the route it needs does not exist yet, so unpairing currently only
-   * clears the local credential. Wiring the request is a change to this method.
+   * A refused token means the browser already ended it, which is the state
+   * asked for. Anything else stays an error, so the caller keeps the credential
+   * and can try again: a pairing the server still holds is what nothing else can clean up.
    */
-  revoke(_token: string): Promise<void> {
-    return Promise.resolve()
+  async revoke(token: string): Promise<void> {
+    let response: Response
+    try {
+      response = await fetch(new URL(HOST_PAIRING_PATH, this.baseUrl), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    } catch (cause) {
+      throw new PairingError({ reason: 'unreachable', cause })
+    }
+    if (response.ok || response.status === 401 || response.status === 403) return
+    throw new PairingError({ reason: 'unexpected', cause: response.status })
   }
 
   /**

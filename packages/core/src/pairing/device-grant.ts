@@ -20,6 +20,8 @@ export const PORTE_CLI_CLIENT_ID = 'porte-cli'
  * serves it cannot drift; the route asserts it against the generated tree.
  */
 export const PAIRING_CODE_PATH = '/api/pair/code' as const
+/** Where the daemon ends its own pairing: DELETE with its bearer token. */
+export const HOST_PAIRING_PATH = '/api/host/pairing' as const
 
 /** RFC 8628 fixes this value; the token request is invalid without it. */
 export const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
