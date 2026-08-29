@@ -41,8 +41,12 @@ export function ShellHeader({
             `pointer-events-none` keeps it from covering either of them. */}
         {center === undefined ? null : (
           <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-            {/* Clear of the wordmark and the menu: on a phone those sit inside 96px, on a desktop 64px. */}
-            <div className="pointer-events-auto min-w-0 px-24 md:px-16">{center}</div>
+            {/* Spans the bar so a long title has a width to truncate at; the
+                padding keeps it clear of the wordmark and the menu (96px on a
+                phone, 64px on a desktop), and only the block inside takes clicks. */}
+            <div className="w-full min-w-0 px-24 md:px-16">
+              <div className="pointer-events-auto min-w-0">{center}</div>
+            </div>
           </div>
         )}
         {action}

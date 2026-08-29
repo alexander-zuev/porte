@@ -6,7 +6,7 @@ export type PairPageProps = PairingFlowProps
 /** One card under the wordmark. Nothing else competes. */
 export function PairPage(props: PairPageProps) {
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full md:max-w-md">
       <PairingFlow {...props} />
     </div>
   )

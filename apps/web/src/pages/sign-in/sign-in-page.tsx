@@ -26,7 +26,8 @@ export function SignInPage({
       <LogoLink />
       {/* Why you are here comes before what to do about it. Wide enough for the
           pairing notice to read as sentences, not a column. */}
-      <div className="flex w-full max-w-sm flex-col gap-6">
+      {/* Capped from md only: on a phone the shell padding sets the edge, the same on every page. */}
+      <div className="flex w-full flex-col gap-6 md:max-w-sm">
         {notice}
         <h1 className="text-center">Sign in to Porte</h1>
         <SocialSignInButtons

@@ -21,7 +21,8 @@ export function MessageCopy({ text }: { readonly text: string }) {
 
   return (
     <MessageToolbar className="mt-0">
-      <MessageActions>
+      {/* Pulled left by the button's inset so the glyph starts on the text edge, like a tool icon. */}
+      <MessageActions className="-ml-2">
         <MessageAction
           label={copied ? 'Copied' : 'Copy answer'}
           onClick={() => {

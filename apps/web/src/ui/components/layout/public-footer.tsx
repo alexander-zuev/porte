@@ -1,3 +1,4 @@
+import { GithubLogoIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
 import { REPOSITORY_URL } from '@web/lib/product.ts'
 import type { ReactNode } from 'react'
@@ -24,8 +25,14 @@ export function PublicFooter({ variant }: PublicFooterProps) {
     <FooterBar>
       <small className="text-muted-foreground">Remote control for local Grok sessions</small>
       <nav className="flex items-center gap-5">
-        <a className={FOOTER_LINK} href={REPOSITORY_URL} rel="noreferrer" target="_blank">
-          <small>GitHub</small>
+        <a
+          aria-label="GitHub"
+          className={FOOTER_LINK}
+          href={REPOSITORY_URL}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <GithubLogoIcon aria-hidden className="size-5" />
         </a>
         <LegalLinks />
       </nav>
@@ -53,7 +60,8 @@ function LegalLinks() {
 function FooterBar({ children }: { readonly children: ReactNode }) {
   return (
     <footer className="bg-gradient-to-t from-background to-transparent">
-      <div className="container-page shell-x flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-5">
+      {/* The line and the links are wider than a phone, so there they stack, centred; one row from md. */}
+      <div className="container-page shell-x flex flex-col items-center gap-x-6 gap-y-2 py-5 text-center md:flex-row md:justify-between">
         {children}
       </div>
     </footer>
