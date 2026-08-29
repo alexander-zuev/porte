@@ -136,8 +136,24 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   return <span>Thought for {duration} seconds</span>
 }
 
-const TRIGGER =
-  'group flex min-h-11 w-full items-center gap-2 text-left text-muted-foreground text-sm transition-colors hover:text-foreground'
+/** The row a thought takes: the trigger, and the placeholder that a thought replaces in place. */
+const ROW = 'flex min-h-11 w-full items-center gap-2 text-left text-muted-foreground text-sm'
+const TRIGGER = `group ${ROW} transition-colors hover:text-foreground`
+
+/**
+ * Nothing has come back from the machine yet.
+ *
+ * Same row, icon, and shimmer as a streaming trigger, so the first thought
+ * lands exactly where this sat and nothing moves.
+ */
+export function ReasoningPending() {
+  return (
+    <output className={ROW}>
+      <BrainIcon className="size-4" />
+      {defaultGetThinkingMessage(true)}
+    </output>
+  )
+}
 
 export const ReasoningTrigger = memo(
   ({

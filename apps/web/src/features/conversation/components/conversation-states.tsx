@@ -2,7 +2,7 @@ import { ChatCircleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairedHost } from '@porte/core/client'
 import { StartPorteOnMachine } from '@web/features/host/components/start-porte-on-machine.tsx'
 import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
-import { Shimmer } from '@web/ui/components/ai-elements/shimmer.tsx'
+import { ReasoningPending } from '@web/ui/components/ai-elements/reasoning.tsx'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
@@ -71,7 +71,7 @@ export function NoMessagesYet() {
  * left, and the send button at the foot of the screen is not where the eye is.
  */
 export function TurnPending() {
-  return <Shimmer>Thinking…</Shimmer>
+  return <ReasoningPending />
 }
 
 /**
