@@ -31,12 +31,7 @@ jobs:
         with:
           cache: true
 
-      # Trusted publishing needs npm 11.5+, which the pinned Node carries.
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
-
+      # pnpm does the OIDC exchange itself; no npm CLI, no token.
       - run: pnpm install --frozen-lockfile
 
       - name: Is this version already on npm?
@@ -44,7 +39,7 @@ jobs:
         run: |
           version=$(node -p "require('./apps/host/package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if npm view "@porte/cli@$version" version >/dev/null 2>&1; then
+          if pnpm view "@porte/cli@$version" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"

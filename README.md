@@ -47,6 +47,32 @@ Remote Grok is the same Grok you already run.
 - No `--always-approve`. No extra filesystem or network power
 - A click on the TUI is still a click on the phone. Deny still denies
 
+## Development
+
+```sh
+pnpm install
+pnpm dev                                          # web on :3000; `pnpm dev up` connects a local host through the tunnel
+pnpm turbo run lint typecheck test:unit test:integration
+pnpm --filter @porte/web test:design              # Playwright pictures; Mac only, run before a commit
+```
+
+Cloudflare types are generated (`worker-configuration.d.ts`, gitignored). Turbo runs `cf-typegen` before lint, typecheck, tests, and build, so a fresh checkout sees what a dev does.
+
+### Releasing the CLI
+
+`apps/host` publishes as `@porte/cli`. A release is a version bump on `main`:
+
+```sh
+pnpm --filter @porte/cli version patch --no-git-checks   # bumps apps/host/package.json only
+git commit -am "release(cli): x.y.z" && git push
+```
+
+`.github/workflows/publish-cli.yaml` lints, typechecks, tests, builds, and publishes with provenance through npm trusted publishing (`pnpm publish --provenance`, no token). A push that leaves the version alone publishes nothing. The npm page shows this README, copied at pack time.
+
+### Deploying the web app
+
+Cloudflare Workers Builds is connected to this repository: every push to `main` builds and deploys the web app. Nothing is deployed by hand.
+
 ## License
 
 [Apache License 2.0](LICENSE).
