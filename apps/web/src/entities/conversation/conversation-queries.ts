@@ -34,10 +34,11 @@ export const conversationQueries = {
       initialPageParam: undefined,
       getNextPageParam: (result: ListConversationsResult) => result.next,
     }),
-  /** The snapshot one conversation page starts from; the socket carries every later change. */
+  /** First paint only: the socket seeds the mounted screen and carries every later change. */
   messages: (conversationId: ConversationId) =>
     queryOptions({
       queryKey: ['conversation', 'messages', conversationId] as const,
+      staleTime: 'static',
       queryFn: async () => {
         const response = await getConversationMessages({ data: { conversationId } })
         // SAFETY: our own ConversationAgent wrote this JSON from `UIMessage[]` in the same

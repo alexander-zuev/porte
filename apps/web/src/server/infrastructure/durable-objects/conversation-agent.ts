@@ -68,6 +68,9 @@ const logger = createLogger('conversation-agent')
 /** Holds no state of its own: every call takes the projection it works on. */
 const eventProjector = new ConversationEventProjector()
 const HOST_CONNECTION_TAG = 'host-conversation'
+/** The SDK frame that replaces a browser's transcript (`agents/chat` wire types, not exported). */
+const CHAT_MESSAGES_FRAME = 'cf_agent_chat_messages'
+
 /** DO storage key for the Host's command list; too big for `state`. */
 const COMMANDS_KEY = 'commands'
 
@@ -183,6 +186,9 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   /** Accept one authenticated Host conversation socket, or answer a viewer's arrival. */
   override async onConnect(connection: Connection, context: ConnectionContext): Promise<void> {
     if (!hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)) {
+      // The socket is the transcript's source: seed the screen the way every later
+      // persist reaches it. The page turns the SDK's own HTTP seed off for SSR.
+      connection.send(JSON.stringify({ type: CHAT_MESSAGES_FRAME, messages: this.messages }))
       this.requestHostAttachInBackground()
       return
     }

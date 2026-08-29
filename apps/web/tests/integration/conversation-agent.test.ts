@@ -90,6 +90,14 @@ describe('ConversationAgent through its facet', () => {
       expect(rows[0]?.metadata).toEqual({ turnId })
       expect(JSON.stringify(rows[1]?.parts)).toContain('hello world, reconciled')
     })
+
+    // A browser that connects later is seeded by the socket, not by HTTP.
+    const late = await flow.viewer()
+    const seed = await nextRequest(late.inbox, ChatMessagesFrameSchema)
+    expect(seed.messages.map((row) => `${row.role} ${row.id}`)).toEqual([
+      'user browser-1',
+      `assistant ${turnId}`,
+    ])
   })
 
   it('leaves exactly one assistant row when a snapshot lands during a stream', async () => {
@@ -309,6 +317,12 @@ async function connectSocket(
   response.webSocket.accept()
   return { socket: response.webSocket, inbox }
 }
+
+/** The SDK frame that seeds and replaces a browser's transcript. */
+const ChatMessagesFrameSchema = z.object({
+  type: z.literal('cf_agent_chat_messages'),
+  messages: z.array(z.object({ id: z.string(), role: z.string() })),
+})
 
 async function nextRequest<Result>(
   inbox: SocketInbox,
