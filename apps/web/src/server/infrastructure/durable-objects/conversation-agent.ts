@@ -1,5 +1,6 @@
 import {
   AIChatAgent,
+  type ChatRecoveryOptions,
   type ChatResponseResult,
   type OnChatMessageOptions,
 } from '@cloudflare/ai-chat'
@@ -107,9 +108,6 @@ type ActiveStream =
  */
 export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveState> {
   initialState: ConversationLiveState = INITIAL_CONVERSATION_LIVE_STATE
-  /** The SDK's "call the model again" recovery is wrong here: the Mac runs the turn (plan §5.5). */
-  chatRecovery = false
-
   private readonly conversationId: ConversationId
   private readonly hostSocket: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
@@ -124,13 +122,16 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         'conversation.event': (params) => this.acceptEvent(params.event),
       },
       sequence: hostSequenceStorage(ctx),
-      // A facet's bridged connection cannot send after its invocation ends (F13);
-      // the parent holds the real socket, so every outbound frame goes through it.
-      transmit: async (frame) => {
-        const parent = await this.parentAgent(HostRelayAgent)
-        return parent.sendConversationFrame(this.conversationId, frame)
-      },
     })
+  }
+
+  /**
+   * A restart is not a reason to call anything again: the Mac runs the turn
+   * and its `turn.finished` reconciles the rows (plan §5.5). The SDK's own
+   * partial row would be a second writer, so it neither persists nor continues.
+   */
+  protected override async onChatRecovery(): Promise<ChatRecoveryOptions> {
+    return { persist: false, continue: false }
   }
 
   /**

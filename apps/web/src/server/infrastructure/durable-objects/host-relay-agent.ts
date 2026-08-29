@@ -45,11 +45,6 @@ const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
 
-/** The parent-side tag that names which conversation a Host data socket carries. */
-function conversationSocketTag(conversationId: string): string {
-  return `${HOST_CONVERSATION_TAG}:${conversationId}`
-}
-
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   static options = { sendIdentityOnConnect: true }
@@ -98,31 +93,10 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     })
     if (child !== null) {
       return hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)
-        ? [HOST_CONVERSATION_TAG, conversationSocketTag(child.childName)]
+        ? [HOST_CONVERSATION_TAG]
         : []
     }
     return hasSubprotocol(context.request, HOST_CONTROL_SUBPROTOCOL) ? [HOST_CONNECTION_TAG] : []
-  }
-
-  /**
-   * Send one frame on the Host conversation socket this parent holds.
-   *
-   * The child cannot send itself: its bridged connection is an RPC stub that
-   * dies with the invocation that delivered it (plan F13). The parent owns the
-   * real WebSocket, so the child transmits through this method.
-   *
-   * @param conversationId - The conversation whose Host socket carries the frame.
-   * @param frame - One JSON-RPC document.
-   * @returns False when no open socket exists for that conversation.
-   */
-  sendConversationFrame(conversationId: ConversationId, frame: string): boolean {
-    // `getConnections` hides sockets forwarded to a child, so read the runtime's own registry.
-    const socket = this.ctx
-      .getWebSockets(conversationSocketTag(conversationId))
-      .find((candidate) => candidate.readyState === WebSocket.OPEN)
-    if (socket === undefined) return false
-    socket.send(frame)
-    return true
   }
 
   override shouldConnectionBeReadonly(

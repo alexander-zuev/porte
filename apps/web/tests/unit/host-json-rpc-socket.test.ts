@@ -56,38 +56,6 @@ describe('HostJsonRpcSocket ordering', () => {
     expect(saved.at(-1)).toBe(3)
   })
 
-  it('keeps the waiter when a send failed after the frame may have left (F13)', async () => {
-    const socket = new HostJsonRpcSocket({
-      methods: HostControlMethods,
-      notificationHandlers: {
-        'conversation.updated': async () => undefined,
-        'conversation.removed': async () => undefined,
-      },
-      sequence: { load: async () => 0, save: async () => undefined },
-    })
-    let sent: string | undefined
-    const flaky = {
-      id: 'host-1',
-      send: (frame: string) => {
-        // The bridge dispatched the frame, then threw; the Host may still answer.
-        sent = frame
-        throw new Error('RPC stub failed after dispatch')
-      },
-      // SAFETY: the client only reads `id` and `send`.
-    } as unknown as Connection
-    socket.attach(flaky)
-
-    const listing = socket.request('conversations.list', {})
-    await Promise.resolve()
-    // SAFETY: the test parses the frame the client just built.
-    const request = JSON.parse(sent ?? '{}') as { id: string }
-    await socket.handleMessage(
-      flaky,
-      JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { conversations: [] } }),
-    )
-    await expect(listing).resolves.toEqual({ conversations: [] })
-  })
-
   it('resumes from the persisted seq after a wake', async () => {
     const applied: number[] = []
     const socket = new HostJsonRpcSocket({

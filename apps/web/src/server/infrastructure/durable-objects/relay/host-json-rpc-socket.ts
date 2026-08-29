@@ -5,7 +5,6 @@ import {
   InternalServerError,
   JSON_RPC_METHOD_KINDS,
   JsonRpcReadError,
-  JsonRpcSendError,
   JsonRpcTextSchema,
   RequestTimeoutError,
   SequenceNumberSchema,
@@ -101,13 +100,6 @@ export type HostJsonRpcSocketInput<Registry extends JsonRpcMethodRegistry> = {
   readonly notificationHandlers: HostJsonRpcNotificationHandlers<Registry>
   /** Durable home of the `seq` expectation. */
   readonly sequence: SequencePersistence
-  /**
-   * How outbound frames reach the socket, when the attached `Connection` cannot
-   * carry them. A facet's bridged connection is an RPC stub that dies with the
-   * invocation that delivered it (plan F13), so a facet transmits through its
-   * parent, which holds the real socket. Return false when no socket is open.
-   */
-  readonly transmit?: (frame: string) => Promise<boolean>
 }
 
 /** JSON-RPC client for one Mac Host WebSocket the Agent already admitted. */
@@ -197,14 +189,9 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
     })
     try {
       await this.send(JSON.stringify(jsonRpcRequest(id, method, params)))
-    } catch (cause) {
-      // Offline only when the frame never left (plan F13): a send that may have
-      // reached the Host keeps its waiter, and the response or the timeout decides.
-      if (!(cause instanceof JsonRpcSendError) || cause.neverLeft) {
-        this.fail(id, new HostOfflineError())
-      } else {
-        logger.warn('host_send_unconfirmed', { details: { method } })
-      }
+    } catch {
+      // A hibernatable socket refuses a frame only when it is closed: the Host is gone.
+      this.fail(id, new HostOfflineError())
     }
     return settled.promise
   }
@@ -311,11 +298,6 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   private async send(frame: string): Promise<void> {
     const host = this.peer
     if (host === undefined || !isOpenConnection(host)) throw new HostOfflineError()
-    const transmit = this.input.transmit
-    if (transmit !== undefined) {
-      if (!(await transmit(frame))) throw new HostOfflineError()
-      return
-    }
     await sendJsonRpcFrame(() => {
       if (!isOpenConnection(host)) return false
       host.send(frame)
