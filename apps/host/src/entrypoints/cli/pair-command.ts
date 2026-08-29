@@ -1,4 +1,4 @@
-import { pairHost } from '@host/application/commands/pair-host.ts'
+import { pairHost, type PairingPoll } from '@host/application/commands/pair-host.ts'
 import { PAIR_EMOJI, WAITING_EMOJI, createOutput } from '@host/entrypoints/cli/output.ts'
 import { createPairingResources } from '@host/infrastructure/bootstrap/pairing-resources.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
@@ -18,24 +18,35 @@ export async function runPairCommand(input: {
   const { code, url, quiet, strong, ok } = output.emphasis
   const interactive = process.stdin.isTTY
   let stopWatching: (() => void) | undefined
+  // The wait line appears once the prompt is answered; polls before that stay silent.
+  let showingWait = false
+  let lastPoll: PairingPoll | undefined
+  const waiting = (poll: PairingPoll | undefined) =>
+    quiet(
+      poll === undefined
+        ? `Waiting for approval — checking with Porte…  ${WAITING_EMOJI}`
+        : `Waiting for approval — checking with Porte every ${String(poll.intervalSeconds)}s (${String(poll.attempt)} so far)  ${WAITING_EMOJI}`,
+    )
 
   const paired = await pairHost({
     authorizer: resources.authorizer,
     credentials: resources.credentials,
     baseUrl: input.config.baseUrl,
     host: describeThisMachine(),
+    onPoll: (poll) => {
+      lastPoll = poll
+      if (showingWait) output.status(waiting(poll))
+    },
     onPrompt: (prompt) => {
       const shown = formatPairingCode(prompt.userCode)
-      const waiting = `Waiting for approval — the code expires in ${String(
-        Math.round(prompt.expiresInSeconds / 60),
-      )} minutes.  ${WAITING_EMOJI}`
 
       output.title('Pair this machine with Porte', PAIR_EMOJI)
       if (!interactive) {
         output.raw(`First copy your pairing code:  ${code(shown)}`)
         output.raw(`Then open ${url(prompt.verificationUri)} in your browser.`)
         output.blank()
-        output.raw(quiet(waiting))
+        // No terminal to redraw, so one line says what the process is doing.
+        output.raw(waiting(undefined))
         return
       }
 
@@ -51,7 +62,8 @@ export async function runPairCommand(input: {
           stopWatching?.()
           output.blank()
           output.blank()
-          output.raw(quiet(waiting))
+          showingWait = true
+          output.status(waiting(lastPoll))
           void openUrl(prompt.verificationUri)
           return
         }

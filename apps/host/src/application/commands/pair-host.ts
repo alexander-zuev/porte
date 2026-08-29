@@ -23,6 +23,12 @@ export type PairingPrompt = {
   readonly expiresInSeconds: number
 }
 
+/** One unanswered check with the server. */
+export type PairingPoll = {
+  readonly attempt: number
+  readonly intervalSeconds: number
+}
+
 export type PairHostInput = {
   readonly authorizer: DeviceAuthorizer
   readonly credentials: CredentialStore
@@ -31,6 +37,8 @@ export type PairHostInput = {
   readonly host: HostDescriptor
   /** Called once, as soon as there is a code worth showing. */
   readonly onPrompt: (prompt: PairingPrompt) => void
+  /** Called after each poll that found no answer yet, so the wait can show it is checking. */
+  readonly onPoll?: (poll: PairingPoll) => void
   /** Injected so tests do not wait in real time. */
   readonly sleep: (ms: number) => Promise<void>
   /** Injected so an expiry deadline can be tested without a clock. */
@@ -75,6 +83,7 @@ export async function pairHost(input: PairHostInput): Promise<PairingOutcome> {
 async function waitForApproval(input: PairHostInput, grant: DeviceCodeGrant): Promise<Answer> {
   const deadline = input.now() + grant.expiresInSeconds * 1000
   let intervalSeconds = grant.intervalSeconds
+  let attempt = 0
 
   while (input.now() < deadline) {
     // oxlint-disable-next-line no-await-in-loop -- Each poll must follow the last by the server's interval.
@@ -82,10 +91,12 @@ async function waitForApproval(input: PairHostInput, grant: DeviceCodeGrant): Pr
 
     // oxlint-disable-next-line no-await-in-loop -- One poll at a time is the grant's contract.
     const answer = await input.authorizer.poll(grant.deviceCode)
+    attempt += 1
     if (answer.status === 'granted') return { status: 'paired', token: answer.token }
     if (answer.status === 'denied') return { status: 'denied' }
     if (answer.status === 'expired') return { status: 'expired' }
     if (answer.status === 'slow-down') intervalSeconds += answer.intervalSeconds
+    input.onPoll?.({ attempt, intervalSeconds })
   }
 
   // The local deadline passed, which means the same thing the server would say.

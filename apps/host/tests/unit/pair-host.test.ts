@@ -62,6 +62,7 @@ function pair(
   authorizer: DeviceAuthorizer,
   credentials: CredentialStore,
   onPrompt: Parameters<typeof pairHost>[0]['onPrompt'] = () => {},
+  onPoll?: Parameters<typeof pairHost>[0]['onPoll'],
 ) {
   const clock = fakeClock()
   return pairHost({
@@ -70,12 +71,31 @@ function pair(
     baseUrl: 'https://useporte.dev',
     host: { name: 'a-mac', platform: 'darwin' },
     onPrompt,
+    onPoll,
     sleep: clock.sleep,
     now: clock.now,
   })
 }
 
 describe('pairHost', () => {
+  it('reports each unanswered poll, not the one that answers', async () => {
+    const polls: number[] = []
+    const authorizer = authorizerReturning([
+      { status: 'pending' },
+      { status: 'pending' },
+      { status: 'granted', token: 'session-token' },
+    ])
+
+    await pair(
+      authorizer,
+      credentialSpy(),
+      () => {},
+      (poll) => polls.push(poll.attempt),
+    )
+
+    expect(polls).toEqual([1, 2])
+  })
+
   it('stores the token once the person approves', async () => {
     const credentials = credentialSpy()
     const authorizer = authorizerReturning([
