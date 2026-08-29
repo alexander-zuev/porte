@@ -134,8 +134,8 @@ export function ChatFrame({
             </PromptInputTools>
             <PromptInputSubmit
               className="ml-auto"
-              disabled={!canSend}
-              status={stopping ? 'submitted' : status}
+              disabled={!canSend || stopping}
+              status={status}
               onStop={onStop}
             />
           </PromptInputFooter>

@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@web/ui/components/ui/select.tsx'
-import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@web/ui/components/ui/tooltip.tsx'
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from 'ai'
 import { nanoid } from 'nanoid'
@@ -1244,16 +1243,15 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   // Only a streaming turn can be stopped. A sent one has nothing to stop yet.
   const isGenerating = status === 'streaming'
-  // A sent prompt cannot be sent again and cannot be stopped, so nothing is pressable.
+  // A sent prompt cannot be sent again and cannot be stopped yet: the control
+  // keeps its icon and only goes inert. No spinner on this button, ever.
   const isDisabled = disabled === true || status === 'submitted'
 
-  let Icon = <ArrowUpIcon className="size-4" weight="bold" />
-
-  if (status === 'submitted') {
-    Icon = <Spinner />
-  } else if (status === 'streaming') {
-    Icon = <SquareIcon className="size-4" weight="fill" />
-  }
+  const Icon = isGenerating ? (
+    <SquareIcon className="size-4" weight="fill" />
+  ) : (
+    <ArrowUpIcon className="size-4" weight="bold" />
+  )
 
   const handleClick = useCallback(
     (e: Parameters<NonNullable<ComponentProps<typeof InputGroupButton>['onClick']>>[0]) => {

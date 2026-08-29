@@ -58,7 +58,7 @@ export function ConversationChat({
   const commands = useConversationCommands(agent, menuOpen)
   const canType = canSend && agent.identified
   const canSubmit = canType && !running
-  const status = submitStatus(chat.status, running, stop.stopping)
+  const status = submitStatus(chat.status, running)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -89,7 +89,7 @@ export function ConversationChat({
           <PromptInputAttachments />
           <PromptInputTextarea
             disabled={!canType}
-            placeholder={promptPlaceholder(canSend, agent.identified, stop.stopping)}
+            placeholder={promptPlaceholder(canSend, agent.identified)}
           />
           <PromptInputFooter>
             <PromptInputTools>
@@ -124,9 +124,10 @@ export function ConversationChat({
                 </Context>
               )}
             </PromptInputTools>
+            {/* Stopping keeps the Stop icon and goes inert until the Host finishes the turn. */}
             <PromptInputSubmit
               className="ml-auto"
-              disabled={!canType}
+              disabled={!canType || stop.stopping}
               status={status}
               onStop={stop.onStop}
             />
@@ -148,20 +149,19 @@ function configurationValue(
 }
 
 /**
- * What the submit control shows. `submitted` is the SDK's spinner before the
- * Host answers `turn.started`; from then on the Host's running turn is the fact.
+ * What the submit control shows. `submitted` is the SDK's "sent, no
+ * `turn.started` yet"; from then on the Host's running turn is the fact.
  * A reload mid-turn shows Stop even though the SDK holds no stream.
  */
-function submitStatus(chatStatus: ChatStatus, running: boolean, stopping: boolean): ChatStatus {
-  if (stopping || chatStatus === 'submitted') return 'submitted'
+function submitStatus(chatStatus: ChatStatus, running: boolean): ChatStatus {
+  if (chatStatus === 'submitted') return 'submitted'
   if (running) return 'streaming'
   return 'ready'
 }
 
-function promptPlaceholder(canSend: boolean, identified: boolean, stopping: boolean): string {
+function promptPlaceholder(canSend: boolean, identified: boolean): string {
   if (!canSend) return 'Your Mac is offline'
   if (!identified) return 'Reconnecting…'
-  if (stopping) return 'Stopping…'
   // The agent is addressed, not the machine it runs on.
   return 'Message Grok…'
 }
