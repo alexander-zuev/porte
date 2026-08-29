@@ -57,11 +57,10 @@ export function SocialSignInButtons({
             )}
             {label}
           </Button>
-          {/* Inside the right end, centred on the button: overhanging the border
-              puts half the badge past a 320px screen. */}
+          {/* Astride the top-right corner: half the badge sits outside the button. */}
           {lastMethod === provider && (
             <Badge
-              className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 animate-in duration-200 fade-in"
+              className="pointer-events-none absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 animate-in duration-200 fade-in"
               variant="neutral"
             >
               Last used
