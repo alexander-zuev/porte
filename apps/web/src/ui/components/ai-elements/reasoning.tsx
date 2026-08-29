@@ -6,17 +6,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@web/ui/components/ui/collapsible.tsx'
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
+import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import type { ComponentProps, ReactNode } from 'react'
-import {
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { createContext, memo, useContext, useEffect, useMemo, useRef } from 'react'
+
 import { MessageResponse } from './message.tsx'
 import { Shimmer } from './shimmer'
 
@@ -25,6 +19,8 @@ interface ReasoningContextValue {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
   duration: number | undefined
+  /** Below `md` the text opens in a sheet; above, it unfolds in place. */
+  phone: boolean
 }
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null)
@@ -45,26 +41,30 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   duration?: number
 }
 
-const AUTO_CLOSE_DELAY = 1000
 const MS_IN_S = 1000
 
+/**
+ * What the agent thought, folded under one row.
+ *
+ * Closed until the reader opens it, streaming or not: a block that springs
+ * open and snaps shut on its own moves the transcript twice per thought, and
+ * on a phone it pushes the answer off the screen. The row itself says it is
+ * thinking.
+ */
 export const Reasoning = memo(
   ({
     className,
     isStreaming = false,
     open,
-    defaultOpen,
+    defaultOpen = false,
     onOpenChange,
     duration: durationProp,
     children,
     ...props
   }: ReasoningProps) => {
-    const resolvedDefaultOpen = defaultOpen ?? isStreaming
-    // Track if defaultOpen was explicitly set to false (to prevent auto-open)
-    const isExplicitlyClosed = defaultOpen === false
-
+    const phone = usePhone()
     const [isOpen, setIsOpen] = useControllableState<boolean>({
-      defaultProp: resolvedDefaultOpen,
+      defaultProp: defaultOpen,
       onChange: onOpenChange,
       prop: open,
     })
@@ -73,14 +73,11 @@ export const Reasoning = memo(
       prop: durationProp,
     })
 
-    const hasEverStreamedRef = useRef(isStreaming)
-    const [hasAutoClosed, setHasAutoClosed] = useState(false)
     const startTimeRef = useRef<number | null>(null)
 
-    // Track when streaming starts and compute duration
+    // How long it thought, from the first streaming render to the last.
     useEffect(() => {
       if (isStreaming) {
-        hasEverStreamedRef.current = true
         if (startTimeRef.current === null) {
           startTimeRef.current = Date.now()
         }
@@ -90,42 +87,26 @@ export const Reasoning = memo(
       }
     }, [isStreaming, setDuration])
 
-    // Auto-open when streaming starts (unless explicitly closed)
-    useEffect(() => {
-      if (isStreaming && !isOpen && !isExplicitlyClosed) {
-        setIsOpen(true)
-      }
-    }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed])
-
-    // Auto-close when streaming ends (once only, and only if it ever streamed)
-    useEffect(() => {
-      if (hasEverStreamedRef.current && !isStreaming && isOpen && !hasAutoClosed) {
-        const timer = setTimeout(() => {
-          setIsOpen(false)
-          setHasAutoClosed(true)
-        }, AUTO_CLOSE_DELAY)
-
-        return () => clearTimeout(timer)
-      }
-    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed])
-
-    const handleOpenChange = useCallback(
-      (newOpen: boolean) => {
-        setIsOpen(newOpen)
-      },
-      [setIsOpen],
-    )
-
     const contextValue = useMemo(
-      () => ({ duration, isOpen, isStreaming, setIsOpen }),
-      [duration, isOpen, isStreaming, setIsOpen],
+      () => ({ duration, isOpen, isStreaming, setIsOpen, phone }),
+      [duration, isOpen, isStreaming, setIsOpen, phone],
     )
+
+    if (phone) {
+      return (
+        <ReasoningContext.Provider value={contextValue}>
+          <Drawer open={isOpen} onOpenChange={setIsOpen}>
+            <div className={cn('not-prose mb-4', className)}>{children}</div>
+          </Drawer>
+        </ReasoningContext.Provider>
+      )
+    }
 
     return (
       <ReasoningContext.Provider value={contextValue}>
         <Collapsible
           className={cn('not-prose mb-4', className)}
-          onOpenChange={handleOpenChange}
+          onOpenChange={setIsOpen}
           open={isOpen}
           {...props}
         >
@@ -150,6 +131,9 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   return <p>Thought for {duration} seconds</p>
 }
 
+const TRIGGER =
+  'group flex min-h-11 w-full items-center gap-2 text-left text-muted-foreground text-sm transition-colors hover:text-foreground'
+
 export const ReasoningTrigger = memo(
   ({
     className,
@@ -157,27 +141,26 @@ export const ReasoningTrigger = memo(
     getThinkingMessage = defaultGetThinkingMessage,
     ...props
   }: ReasoningTriggerProps) => {
-    const { isStreaming, duration } = useReasoning()
+    const { isStreaming, duration, phone } = useReasoning()
+    const label = children ?? (
+      <>
+        <BrainIcon className="size-4" />
+        {getThinkingMessage(isStreaming, duration)}
+        {/* Same caret and timing as a project row, so one gesture is learnt once. */}
+        <CaretRightIcon
+          aria-hidden
+          className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+        />
+      </>
+    )
 
+    // The collapsible's own props have no meaning on a sheet trigger.
+    if (phone) {
+      return <DrawerTrigger className={cn(TRIGGER, className)}>{label}</DrawerTrigger>
+    }
     return (
-      <CollapsibleTrigger
-        className={cn(
-          'group flex min-h-11 w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
-          className,
-        )}
-        {...props}
-      >
-        {children ?? (
-          <>
-            <BrainIcon className="size-4" />
-            {getThinkingMessage(isStreaming, duration)}
-            {/* Same caret and timing as a project row, so one gesture is learnt once. */}
-            <CaretRightIcon
-              aria-hidden
-              className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
-            />
-          </>
-        )}
+      <CollapsibleTrigger className={cn(TRIGGER, className)} {...props}>
+        {label}
       </CollapsibleTrigger>
     )
   },
@@ -187,14 +170,27 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
   children: string
 }
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
-    {...props}
-  >
-    <MessageResponse>{children}</MessageResponse>
-  </CollapsibleContent>
-))
+export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
+  const { phone } = useReasoning()
+  if (phone) {
+    return (
+      <DrawerContent>
+        <DrawerTitle className="px-4" render={<h3>Thoughts</h3>} />
+        <div className={cn('flex flex-col px-4 text-sm text-muted-foreground', className)}>
+          <MessageResponse>{children}</MessageResponse>
+        </div>
+      </DrawerContent>
+    )
+  }
+  return (
+    <CollapsibleContent
+      className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
+      {...props}
+    >
+      <MessageResponse>{children}</MessageResponse>
+    </CollapsibleContent>
+  )
+})
 
 Reasoning.displayName = 'Reasoning'
 ReasoningTrigger.displayName = 'ReasoningTrigger'
