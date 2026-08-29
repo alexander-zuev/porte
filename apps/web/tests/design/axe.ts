@@ -36,8 +36,11 @@ export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
   await page.locator(`html.${theme}`).waitFor()
   // That swap changes every token at once, and `transition-all` animates it.
   // Freeze motion so a check samples settled colors instead of intermediate ones.
+  // Code blocks opt out of off-screen painting; a full-page capture would show
+  // every one below the fold as an empty box.
   await page.addStyleTag({
-    content: '*, *::before, *::after { transition: none !important; animation: none !important }',
+    content:
+      '*, *::before, *::after { transition: none !important; animation: none !important; content-visibility: visible !important }',
   })
   await page.evaluate(async () => {
     await document.fonts.ready

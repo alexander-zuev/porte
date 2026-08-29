@@ -1,389 +1,452 @@
 import {
   PendingPermissionSchema,
-  type ConversationPlan,
+  type ConversationCommand,
   type ConversationLiveState,
+  type ConversationPlan,
   type ConversationUsage,
   type PlanEntry,
 } from '@porte/core/client'
-import type { UIMessage } from 'ai'
+import type { ConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
+import type { SpanDiff } from '@web/features/conversation/models/span-diff.ts'
+import type { DynamicToolUIPart, UIMessage } from 'ai'
 
 /**
- * One transcript, in every shape the chat can hold.
+ * One Grok session in the porte repo, cut into the slices a story needs.
  *
- * Parts are written as the AI SDK stores them, so a story renders the same
- * objects the socket would deliver. Nothing here is generated: a fixed
- * transcript keeps every screenshot comparable between runs.
+ * Every part is written the way the socket delivers it: Grok's own tool names,
+ * its titles (`Execute \`…\``, `Edit \`/abs/path\``, a search titled by its
+ * pattern), `1→` line-numbered read results, span diffs with `old_line`, and
+ * the exact wording of a failed edit. The shapes were copied from
+ * `~/.grok/sessions` captures, so what a story shows is what the screen gets.
+ *
+ * The session: the reader asks for Stop to be wired to the Host's cancel
+ * command, Grok reads and edits its way there, then is asked to run the tests
+ * and commit. Nothing is generated at render time, so screenshots compare.
  */
 
-/** A short answer with nothing else attached. */
-export const plainAnswer: UIMessage = {
-  id: 'msg-plain',
-  role: 'assistant',
+const REPO = '/Users/az/projects/porte'
+const STOP_HOOK = `${REPO}/apps/web/src/features/conversation/hooks/use-stop-turn.ts`
+const AGENT = `${REPO}/apps/web/src/server/infrastructure/durable-objects/conversation-agent.ts`
+const CHAT = `${REPO}/apps/web/src/features/conversation/components/conversation-chat.tsx`
+
+/** A read that answered, the way Grok reports one: the lines it read, numbered. */
+function readFile(id: string, path: string, lines: readonly string[], from = 1): DynamicToolUIPart {
+  const name = path.slice(path.lastIndexOf('/') + 1)
+  return {
+    type: 'dynamic-tool',
+    toolCallId: id,
+    toolName: 'read_file',
+    title: `Read \`${name}\``,
+    toolMetadata: { kind: 'read', locations: [{ path, line: from }] },
+    state: 'output-available',
+    input: { target_file: path, ...(from === 1 ? {} : { offset: from }), limit: 120 },
+    output: {
+      content: [
+        {
+          type: 'content',
+          content: {
+            type: 'text',
+            text: lines.map((line, index) => `${String(from + index)}→${line}`).join('\n'),
+          },
+        },
+      ],
+      rawOutput: null,
+    },
+  }
+}
+
+/** A search. Grok titles it with the pattern itself. */
+function grep(
+  id: string,
+  pattern: string,
+  glob: string,
+  hits: readonly string[],
+): DynamicToolUIPart {
+  return {
+    type: 'dynamic-tool',
+    toolCallId: id,
+    toolName: 'grep',
+    title: pattern,
+    toolMetadata: { kind: 'search', locations: [] },
+    state: 'output-available',
+    input: { pattern, glob },
+    output: {
+      content: [{ type: 'content', content: { type: 'text', text: hits.join('\n') } }],
+      rawOutput: null,
+    },
+  }
+}
+
+/** The replaced span, as Grok reports an edit. */
+function span(path: string, oldText: string, newText: string, line: number): SpanDiff {
+  return { type: 'diff', path, oldText, newText, _meta: { old_line: line, new_line: line } }
+}
+
+/** An edit that landed. */
+function edit(id: string, diff: SpanDiff): DynamicToolUIPart {
+  return {
+    type: 'dynamic-tool',
+    toolCallId: id,
+    toolName: 'search_replace',
+    title: `Edit \`${diff.path}\``,
+    toolMetadata: { kind: 'edit', locations: [{ path: diff.path }] },
+    state: 'output-available',
+    input: { file_path: diff.path, old_string: diff.oldText, new_string: diff.newText },
+    output: { content: [diff], rawOutput: null },
+  }
+}
+
+/** A command that ran to the end. */
+function run(id: string, command: string, description: string, output: string): DynamicToolUIPart {
+  return {
+    type: 'dynamic-tool',
+    toolCallId: id,
+    toolName: 'run_terminal_command',
+    title: `Execute \`${command}\``,
+    toolMetadata: { kind: 'execute', locations: [] },
+    state: 'output-available',
+    input: { command, description },
+    output: {
+      content: [{ type: 'content', content: { type: 'text', text: output } }],
+      rawOutput: null,
+    },
+  }
+}
+
+const SVG_PHOTO = (fill: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3"><rect width="4" height="3" fill="${fill}"/></svg>`,
+  )}`
+
+// ---------------------------------------------------------------------------
+// Turn 1: wire Stop to the Host
+
+/** The prompt that opens the session, with two screenshots and a log from the phone. */
+export const askStop: UIMessage = {
+  id: 'msg-ask-stop',
+  role: 'user',
   parts: [
     {
+      type: 'file',
+      mediaType: 'image/svg+xml',
+      filename: 'IMG_4821.png',
+      url: SVG_PHOTO('#2f6f9f'),
+    },
+    {
+      type: 'file',
+      mediaType: 'image/svg+xml',
+      filename: 'IMG_4822.png',
+      url: SVG_PHOTO('#8f5f2f'),
+    },
+    {
+      type: 'file',
+      mediaType: 'text/plain',
+      filename: 'wrangler-tail.log',
+      url: 'data:text/plain;base64,dHVybi5zdGFydGVkIDAxYTA0YjJhCg==',
+    },
+    {
       type: 'text',
-      text: 'The relay reconnects, but the frames queued during the deploy are never replayed.',
-      state: 'done',
+      text: 'Stop still calls `chat.stop()` after the turn redesign, so the Mac keeps running. Wire it to the Host cancel command, and make sure a reload mid-turn still shows Stop.',
     },
   ],
 }
 
-export const askRelay: UIMessage = {
-  id: 'msg-ask-relay',
-  role: 'user',
-  parts: [{ type: 'text', text: 'The relay drops frames after every deploy. Find out why.' }],
-}
+const STOP_HOOK_LINES = [
+  "import { useMutation } from '@tanstack/react-query'",
+  '',
+  '/** Stop the running turn. */',
+  'export function useStopTurn(chat: { stop: () => void }) {',
+  '  return { onStop: () => chat.stop(), stopping: false }',
+  '}',
+]
 
-/** Reasoning, one tool call, then the written answer. */
-export const answerRelay: UIMessage = {
-  id: 'msg-answer-relay',
+const OLD_STOP = `export function useStopTurn(chat: { stop: () => void }) {
+  return { onStop: () => chat.stop(), stopping: false }
+}`
+
+const NEW_STOP = `export function useStopTurn(stub: ConversationAgentStub, turnId: TurnId | undefined) {
+  const cancel = useMutation({ mutationFn: (id: TurnId) => stub.cancelTurn({ turnId: id }) })
+  return {
+    onStop: () => {
+      if (turnId !== undefined) cancel.mutate(turnId)
+    },
+    stopping: cancel.isPending,
+  }
+}`
+
+/** The edit the first turn is about. Exported so the parts board can show the diff alone. */
+export const stopHookDiff = span(STOP_HOOK, OLD_STOP, NEW_STOP, 4)
+
+/** The first answer: a thought with its reads inside, a failed edit, then the edit that landed. */
+export const answerStop: UIMessage = {
+  id: 'msg-answer-stop',
   role: 'assistant',
   parts: [
     {
       type: 'reasoning',
-      text: 'The socket closes on deploy, so the queue lives in the Durable Object. Check whether the queue is read before the first frame of the new turn.',
+      text: 'Stop goes through the AI SDK, which only closes the browser stream. The Host owns the turn, so the button has to send the cancel command over the stub and read `runningTurnId` from live state. Let me see what calls `chat.stop()` today and what the stub exposes.',
+      state: 'done',
+    },
+    grep('call-grep-stop', 'chat\\.stop|cancelTurn', '*.{ts,tsx}', [
+      `${STOP_HOOK}:5:  return { onStop: () => chat.stop(), stopping: false }`,
+      `${AGENT}:212:  async cancelTurn(input: { turnId: TurnId }): Promise<void> {`,
+      `${CHAT}:58:  const stop = useStopTurn(chat)`,
+    ]),
+    readFile('call-read-stop', STOP_HOOK, STOP_HOOK_LINES),
+    readFile(
+      'call-read-agent',
+      AGENT,
+      [
+        '  /** Ask the Host to stop the running turn. Idempotent: a finished turn is a no-op. */',
+        '  async cancelTurn(input: { turnId: TurnId }): Promise<void> {',
+        "    await this.host.send({ type: 'cancel-turn', turnId: input.turnId })",
+        '  }',
+      ],
+      211,
+    ),
+    {
+      type: 'text',
+      text: 'The stub already has `cancelTurn`, so the hook only needs the stub and the running turn id instead of the SDK chat. Editing the hook.',
       state: 'done',
     },
     {
       type: 'dynamic-tool',
-      toolCallId: 'call-read-relay',
-      toolName: 'read_file',
-      title: 'Read `conversation-relay-state.ts`',
-      toolMetadata: {
-        kind: 'read',
-        locations: [
-          { path: '/Users/az/projects/porte/packages/core/src/relay/conversation-relay-state.ts' },
-        ],
+      toolCallId: 'call-edit-stop-stale',
+      toolName: 'search_replace',
+      title: `Edit \`${STOP_HOOK}\``,
+      toolMetadata: { kind: 'edit', locations: [{ path: STOP_HOOK }] },
+      state: 'output-error',
+      input: {
+        file_path: STOP_HOOK,
+        old_string: 'return { onStop: () => chat.stop() }',
+        new_string: NEW_STOP,
       },
-      state: 'output-available',
-      input: { path: 'packages/core/src/relay/conversation-relay-state.ts', limit: 120 },
-      output: {
-        content: [
-          {
-            type: 'content',
-            content: {
-              type: 'text',
-              text: 'Read 120 lines from `conversation-relay-state.ts`.',
-            },
-          },
-        ],
-        rawOutput: null,
-      },
+      errorText:
+        'The string to replace was not found in the file, use the read_file tool to see the correct string. The user may have changed the file since you last read it.\n\nNearest match: line 5:   return { onStop: () => chat.stop(), stopping: false }',
+    },
+    {
+      type: 'text',
+      text: 'The file has a `stopping` flag I missed. Matching the whole function this time.',
+      state: 'done',
+    },
+    edit('call-edit-stop', stopHookDiff),
+    edit(
+      'call-edit-chat',
+      span(
+        CHAT,
+        '  const stop = useStopTurn(chat)',
+        '  const stop = useStopTurn(agent.stub, state.runningTurnId)',
+        58,
+      ),
+    ),
+    run(
+      'call-typecheck',
+      'pnpm --filter @porte/web typecheck',
+      'Check the web app types after the hook change',
+      '> @porte/web@0.1.0 typecheck\n> tsc --noEmit\n',
+    ),
+    {
+      type: 'source-url',
+      sourceId: 'src-acp-cancel',
+      url: 'https://agentclientprotocol.com/protocol/prompt-turn#cancellation',
+      title: 'ACP: cancelling a prompt turn',
     },
     {
       type: 'text',
       text: [
-        'The queue is drained **before** the new socket is registered, so the first frames go nowhere.',
+        'Stop now sends the Host cancel command instead of closing the browser stream.',
+        '',
+        '**What changed**',
+        '',
+        '- `useStopTurn` takes the agent stub and `state.runningTurnId`, and calls `stub.cancelTurn` through a mutation.',
+        '- `stopping` is the mutation\'s pending flag, so the placeholder reads "Stopping…" until the Host confirms.',
+        '- A reload mid-turn still shows Stop, because `runningTurnId` comes from live state, not from the SDK stream.',
         '',
         '```ts',
-        'relay.register(socket)',
-        'relay.drain()',
+        'const stop = useStopTurn(agent.stub, state.runningTurnId)',
+        '// …',
+        '<PromptInputSubmit status={status} onStop={stop.onStop} />',
         '```',
         '',
-        'Swapping the two lines fixes the gap.',
+        'Per the ACP spec the agent answers a cancelled turn with `stopReason: "cancelled"`, and `turn-policy.ts` already maps that to a settled turn. Typecheck is clean.',
       ].join('\n'),
       state: 'done',
     },
   ],
 }
 
-/** The prompt that starts the next turn. */
-export const askFollowUp: UIMessage = {
-  id: 'msg-ask-follow-up',
+// ---------------------------------------------------------------------------
+// Turn 2: run the tests and commit, at every point between sent and done
+
+export const askTests: UIMessage = {
+  id: 'msg-ask-tests',
   role: 'user',
-  parts: [{ type: 'text', text: 'Swap the two lines and run the core tests.' }],
+  parts: [{ type: 'text', text: 'Run the web integration tests and commit if they pass.' }],
 }
 
-/** A turn still being written: reasoning open, text half-finished. */
-export const answerStreaming: UIMessage = {
-  id: 'msg-streaming',
+const TESTS_THOUGHT =
+  'The integration project needs the Host running; `pnpm dev up` is already listening on 4100, so the suite can go straight away. Commit only the two files this turn touched.'
+
+const TEST_COMMAND = 'pnpm --filter @porte/web test:integration'
+
+/** The prompt is on the Mac and the first token has not come back. */
+export const answerTestsThinking: UIMessage = {
+  id: 'msg-answer-tests',
   role: 'assistant',
-  parts: [
-    {
-      type: 'reasoning',
-      text: 'Both call sites register the socket after the drain. Checking whether the test covers the ordering',
-      state: 'streaming',
-    },
-    {
-      type: 'text',
-      text: 'The ordering is the whole bug. The test only asserts the queue empties, so it passes either',
-      state: 'streaming',
-    },
-  ],
+  parts: [{ type: 'reasoning', text: TESTS_THOUGHT.slice(0, 96), state: 'streaming' }],
 }
 
-/** A tool call that has not answered yet. */
-export const toolRunning: UIMessage = {
-  id: 'msg-tool-running',
+/** The thought is done and the tests are running. */
+export const answerTestsRunning: UIMessage = {
+  id: 'msg-answer-tests',
   role: 'assistant',
   parts: [
+    { type: 'reasoning', text: TESTS_THOUGHT, state: 'done' },
     {
       type: 'dynamic-tool',
-      toolCallId: 'call-run-tests',
-      toolName: 'run_command',
-      title: 'Run `pnpm test --filter @porte/core`',
+      toolCallId: 'call-test-run',
+      toolName: 'run_terminal_command',
+      title: `Execute \`${TEST_COMMAND}\``,
       toolMetadata: { kind: 'execute', locations: [] },
       state: 'input-available',
-      input: { command: 'pnpm test --filter @porte/core', cwd: '/Users/az/projects/porte' },
+      input: { command: TEST_COMMAND, description: 'Run the web integration suite' },
     },
   ],
 }
 
-/** A tool call that failed, with the error the Mac reported. */
-export const toolFailed: UIMessage = {
-  id: 'msg-tool-failed',
+const TEST_OUTPUT = [
+  ' ✓ tests/integration/conversation-agent.test.ts (9 tests) 4218ms',
+  ' ✓ tests/integration/host-relay.test.ts (6 tests) 1902ms',
+  '',
+  ' Test Files  2 passed (2)',
+  '      Tests  15 passed (15)',
+].join('\n')
+
+/** The tests passed and the answer is being written. */
+export const answerTestsStreaming: UIMessage = {
+  id: 'msg-answer-tests',
   role: 'assistant',
   parts: [
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'call-failed',
-      toolName: 'run_command',
-      title: 'Run `pnpm typecheck`',
-      toolMetadata: { kind: 'execute', locations: [] },
-      state: 'output-error',
-      input: { command: 'pnpm typecheck', cwd: '/Users/az/projects/porte' },
-      errorText: 'Command failed with exit code 2: 4 type errors in apps/web.',
-    },
-  ],
-}
-
-/** A tool call that edited a file. The diff is the replaced span, as Grok sends it. */
-export const toolDiff: UIMessage = {
-  id: 'msg-tool-diff',
-  role: 'assistant',
-  parts: [
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'call-edit',
-      toolName: 'search_replace',
-      title: 'Edit `relay.ts`',
-      toolMetadata: {
-        kind: 'edit',
-        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
-      },
-      state: 'output-available',
-      input: {
-        path: 'packages/core/src/relay/relay.ts',
-        old_string: 'relay.drain()\nrelay.register(socket)',
-        new_string: 'relay.register(socket)\nrelay.drain()',
-      },
-      output: {
-        content: [
-          {
-            type: 'diff',
-            path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts',
-            oldText: 'relay.drain()\nrelay.register(socket)',
-            newText: 'relay.register(socket)\nrelay.drain()',
-            _meta: { old_line: 41, new_line: 41 },
-          },
-        ],
-        rawOutput: null,
-      },
-    },
-  ],
-}
-
-/** A user turn that carries a file. */
-export const askWithFile: UIMessage = {
-  id: 'msg-ask-file',
-  role: 'user',
-  parts: [
-    { type: 'text', text: 'Here is the log from the deploy that dropped them.' },
-    {
-      type: 'file',
-      mediaType: 'text/plain',
-      filename: 'relay-deploy.log',
-      url: 'data:text/plain;base64,cmVsYXk6IHNvY2tldCBjbG9zZWQ=',
-    },
-    {
-      type: 'file',
-      mediaType: 'image/svg+xml',
-      filename: 'dashboard.svg',
-      url: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3"><rect width="4" height="3" fill="#2f6f9f"/></svg>')}`,
-    },
-    {
-      type: 'file',
-      mediaType: 'image/svg+xml',
-      filename: 'logs.svg',
-      url: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3"><rect width="4" height="3" fill="#8f5f2f"/></svg>')}`,
-    },
-  ],
-}
-
-/** An answer that cites what it read. */
-export const answerWithSources: UIMessage = {
-  id: 'msg-sources',
-  role: 'assistant',
-  parts: [
-    {
-      type: 'source-url',
-      sourceId: 'src-do',
-      url: 'https://developers.cloudflare.com/durable-objects/',
-      title: 'Durable Objects',
-    },
-    {
-      type: 'source-url',
-      sourceId: 'src-ws',
-      url: 'https://developers.cloudflare.com/durable-objects/best-practices/websockets/',
-      title: 'WebSockets in Durable Objects',
-    },
+    { type: 'reasoning', text: TESTS_THOUGHT, state: 'done' },
+    run('call-test-run', TEST_COMMAND, 'Run the web integration suite', TEST_OUTPUT),
     {
       type: 'text',
-      text: 'Hibernation drops the in-memory queue, which is why the frames only survive in storage.',
+      text: '15 tests pass, including the two that cover a reload mid-turn. Committing the hook and the chat component as',
+      state: 'streaming',
+    },
+  ],
+}
+
+/** The turn is over: tests, commit, and the line that says so. */
+export const answerTestsDone: UIMessage = {
+  id: 'msg-answer-tests',
+  role: 'assistant',
+  parts: [
+    { type: 'reasoning', text: TESTS_THOUGHT, state: 'done' },
+    run('call-test-run', TEST_COMMAND, 'Run the web integration suite', TEST_OUTPUT),
+    run(
+      'call-commit',
+      'git add apps/web/src/features/conversation/hooks/use-stop-turn.ts apps/web/src/features/conversation/components/conversation-chat.tsx && git commit -m "fix: stop sends the host cancel command"',
+      'Commit the two files from this turn',
+      '[main 9c1e4f2] fix: stop sends the host cancel command\n 2 files changed, 11 insertions(+), 3 deletions(-)',
+    ),
+    {
+      type: 'text',
+      text: '15 tests pass, including the two that cover a reload mid-turn. Committed as `9c1e4f2` — `fix: stop sends the host cancel command`.',
       state: 'done',
     },
   ],
 }
 
-/** A finished turn that read, edited, and ran: the calls fold to one line, the answer stays. */
-export const toolRunDone: UIMessage = {
-  id: 'msg-tool-run-done',
+/** The Mac closed the socket while the answer was being written. */
+export const answerTestsInterrupted: UIMessage = {
+  id: 'msg-answer-tests',
   role: 'assistant',
   parts: [
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'run-read-relay',
-      toolName: 'read_file',
-      title: 'Read `relay.ts`',
-      toolMetadata: {
-        kind: 'read',
-        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
-      },
-      state: 'output-available',
-      input: { path: 'packages/core/src/relay/relay.ts' },
-      output: {
-        content: [
-          {
-            type: 'content',
-            content: { type: 'text', text: 'Read 88 lines from `relay.ts`.' },
-          },
-        ],
-        rawOutput: null,
-      },
-    },
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'run-read-test',
-      toolName: 'read_file',
-      title: 'Read `relay.test.ts`',
-      toolMetadata: {
-        kind: 'read',
-        locations: [{ path: '/Users/az/projects/porte/packages/core/tests/relay.test.ts' }],
-      },
-      state: 'output-available',
-      input: { path: 'packages/core/tests/relay.test.ts' },
-      output: {
-        content: [
-          {
-            type: 'content',
-            content: { type: 'text', text: 'Read 40 lines from `relay.test.ts`.' },
-          },
-        ],
-        rawOutput: null,
-      },
-    },
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'run-edit-relay',
-      toolName: 'search_replace',
-      title: 'Edit `relay.ts`',
-      toolMetadata: {
-        kind: 'edit',
-        locations: [{ path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts' }],
-      },
-      state: 'output-available',
-      input: {
-        path: 'packages/core/src/relay/relay.ts',
-        old_string: 'relay.drain()\nrelay.register(socket)',
-        new_string: 'relay.register(socket)\nrelay.drain()',
-      },
-      output: {
-        content: [
-          {
-            type: 'diff',
-            path: '/Users/az/projects/porte/packages/core/src/relay/relay.ts',
-            oldText: 'relay.drain()\nrelay.register(socket)',
-            newText: 'relay.register(socket)\nrelay.drain()',
-            _meta: { old_line: 41, new_line: 41 },
-          },
-        ],
-        rawOutput: null,
-      },
-    },
-    {
-      type: 'dynamic-tool',
-      toolCallId: 'run-test',
-      toolName: 'run_command',
-      title: 'Run `pnpm test --filter @porte/core`',
-      toolMetadata: { kind: 'execute', locations: [] },
-      state: 'output-available',
-      input: { command: 'pnpm test --filter @porte/core', cwd: '/Users/az/projects/porte' },
-      output: {
-        content: [
-          {
-            type: 'content',
-            content: { type: 'text', text: 'Test Files  3 passed (3)\nTests  12 passed (12)' },
-          },
-        ],
-        rawOutput: null,
-      },
-    },
+    { type: 'reasoning', text: TESTS_THOUGHT, state: 'done' },
+    run('call-test-run', TEST_COMMAND, 'Run the web integration suite', TEST_OUTPUT),
     {
       type: 'text',
-      text: 'Swapped the two lines in `relay.ts` and ran `pnpm test --filter @porte/core`. The relay tests pass.',
-      state: 'done',
+      text: '15 tests pass, including the two that cover a reload',
+      state: 'streaming',
     },
   ],
 }
 
-/** The transcript a returning reader opens. */
-export const transcript: readonly UIMessage[] = [
-  askRelay,
-  answerRelay,
-  askWithFile,
-  answerWithSources,
+// ---------------------------------------------------------------------------
+// Earlier in the session, read back on request
+
+/** The turn before `askStop`, fetched when the reader asks for earlier messages. */
+export const olderTurns: readonly UIMessage[] = [
+  {
+    id: 'msg-ask-older',
+    role: 'user',
+    parts: [{ type: 'text', text: 'What is left of the turn redesign after step 3?' }],
+  },
+  {
+    id: 'msg-answer-older',
+    role: 'assistant',
+    parts: [
+      readFile('older-read-doc', `${REPO}/docs/turn-stream-interrupt-review.md`, [
+        '# Turn, stream, interrupt: first-principles review',
+        '',
+        'Scope: send a message → see the stream → reload → see the stream; interrupt a turn.',
+      ]),
+      run(
+        'older-git',
+        'git log --oneline origin/main..HEAD',
+        'List unpushed commits',
+        '9b2b97a feat(relay): ordered projection with host-wins reconcile\nb397892 fix: green design suite',
+      ),
+      {
+        type: 'text',
+        text: 'Steps 0–2 are on `main`. Step 3 (relay `seq`, snapshot reconcile) is in the working tree. Step 4 is still skeletons: Stop calls `chat.stop()`, and the composer reads `state.commands`, which live state no longer carries.',
+        state: 'done',
+      },
+    ],
+  },
 ]
 
-/** Long enough to scroll, so the scroll-to-bottom control has something to do. */
-export const longTranscript: readonly UIMessage[] = [
-  ...transcript,
-  ...transcript.map((message, index) => ({
-    ...message,
-    id: `${message.id}-again-${String(index)}`,
-  })),
-  toolDiff,
-  toolFailed,
-]
+// ---------------------------------------------------------------------------
+// Transcripts
+
+/** The session as a returning reader opens it: two finished turns. */
+export const session: readonly UIMessage[] = [askStop, answerStop, askTests, answerTestsDone]
+
+// ---------------------------------------------------------------------------
+// Live state
 
 const PLAN_ENTRIES: readonly PlanEntry[] = [
-  { content: 'Read the relay state reducer', status: 'completed', priority: 'high' },
-  { content: 'Find where the queue is drained', status: 'in_progress', priority: 'high' },
-  { content: 'Cover the ordering with a test', status: 'pending', priority: 'medium' },
+  { content: 'Read the stop hook and the agent stub', status: 'completed', priority: 'high' },
+  { content: 'Send cancel-turn through the stub', status: 'completed', priority: 'high' },
+  { content: 'Run the web integration suite', status: 'in_progress', priority: 'medium' },
+  { content: 'Commit the two files', status: 'pending', priority: 'medium' },
 ]
 
 export const itemsPlan: ConversationPlan = {
   type: 'items',
-  planId: 'plan-relay',
+  planId: 'plan-stop',
   entries: [...PLAN_ENTRIES],
 }
 
-/** The same three steps, all behind it. */
+/** The same steps, all behind it. */
 export const donePlan: ConversationPlan = {
   type: 'items',
-  planId: 'plan-done',
+  planId: 'plan-stop-done',
   entries: PLAN_ENTRIES.map((entry) => ({ ...entry, status: 'completed' })),
 }
 
 export const markdownPlan: ConversationPlan = {
   type: 'markdown',
   planId: 'plan-markdown',
-  content: '1. Register the socket\n2. Drain the queue\n3. Assert the order in a test',
+  content:
+    '1. Read `use-stop-turn.ts` and the agent stub\n2. Replace `chat.stop()` with `stub.cancelTurn`\n3. Run the integration suite\n4. Commit',
 }
 
 export const filePlan: ConversationPlan = {
   type: 'file',
   planId: 'plan-file',
-  uri: 'file:///Users/az/projects/porte/docs/relay-plan.md',
+  uri: `file://${REPO}/docs/turn-stream-interrupt-review.md`,
 }
 
 export const usage: ConversationUsage = {
@@ -392,12 +455,12 @@ export const usage: ConversationUsage = {
   cost: { amount: 1.84, currency: 'USD' },
 }
 
-/** The command the agent is stopped on. */
-export const runTestsPermission = PendingPermissionSchema.parse({
-  turnId: '01a01e5d-e64c-76e2-9c93-ca6958000200',
-  permissionId: '01a01e5d-e64c-76e2-9c93-ca6958000201',
-  toolCallId: 'call-run-tests',
-  title: 'Run `pnpm test --filter @porte/core` in porte',
+/** The command Grok is stopped on: the commit needs a yes. */
+export const commitPermission = PendingPermissionSchema.parse({
+  turnId: '01a04b2a-ca04-74e2-9cae-188cb64987cf',
+  permissionId: '01a04b2a-ca04-74e2-9cae-188cb6498701',
+  toolCallId: 'call-commit',
+  title: 'Run `git commit -m "fix: stop sends the host cancel command"` in porte',
   options: [
     { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
     { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
@@ -405,19 +468,19 @@ export const runTestsPermission = PendingPermissionSchema.parse({
   ],
 })
 
-/** A second request, to show two blocking questions at once. */
+/** A second question in the same turn, so two can block at once. */
 export const writeFilePermission = PendingPermissionSchema.parse({
-  turnId: '01a01e5d-e64c-76e2-9c93-ca6958000200',
-  permissionId: '01a01e5d-e64c-76e2-9c93-ca6958000202',
-  toolCallId: 'call-edit',
-  title: 'Write `packages/core/src/relay/relay.ts`',
+  turnId: '01a04b2a-ca04-74e2-9cae-188cb64987cf',
+  permissionId: '01a04b2a-ca04-74e2-9cae-188cb6498702',
+  toolCallId: 'call-edit-chat',
+  title: 'Write `apps/web/src/features/conversation/components/conversation-chat.tsx`',
   options: [
     { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
 })
 
-/** The relay state of a conversation that has reported everything it can. */
+/** A conversation that has reported everything it can. */
 export const relayState: ConversationLiveState = {
   plans: [itemsPlan],
   pending: { permissions: [], elicitations: [] },
@@ -427,24 +490,31 @@ export const relayState: ConversationLiveState = {
       type: 'select',
       id: 'model',
       name: 'Model',
-      currentValue: 'grok-code',
+      currentValue: 'grok-4.6',
       options: [
+        { type: 'option', value: 'grok-4.6', name: 'Grok 4.6' },
         { type: 'option', value: 'grok-code', name: 'Grok Code' },
-        { type: 'option', value: 'grok-4', name: 'Grok 4' },
       ],
     },
   ],
-  modeId: 'code',
+  modeId: 'auto',
 }
-
-/** The Host's command list, served by `listCommands`; never part of the live state. */
-export const commands = [
-  { name: 'review', description: 'Review the current changes' },
-  { name: 'test', description: 'Run the test suite' },
-]
 
 /** A conversation that has reported nothing yet. */
 export const emptyRelayState: ConversationLiveState = {
   plans: [],
   pending: { permissions: [], elicitations: [] },
 }
+
+/** The Host's command list, read once when the `+` menu opens. Grok's real list is ~100 KB. */
+const COMMAND_LIST: readonly ConversationCommand[] = [
+  { name: 'review', description: 'Review the current changes' },
+  { name: 'test', description: 'Run the test suite' },
+  { name: 'commit', description: 'Commit staged changes' },
+  { name: 'compact', description: 'Compact the conversation' },
+  { name: 'resume-claude', description: 'Continue from a recent Claude Code session' },
+]
+
+export const commandsReady: ConversationCommands = { status: 'ready', commands: COMMAND_LIST }
+export const commandsPending: ConversationCommands = { status: 'pending' }
+export const commandsFailed: ConversationCommands = { status: 'failed', onRetry: () => undefined }

@@ -1,27 +1,40 @@
 import { FileTextIcon, ImageIcon } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { ComposerAddMenu } from '@web/features/conversation/components/composer-add-menu.tsx'
 import {
-  PromptInput,
-  PromptInputAttachments,
-  PromptInputBody,
-  PromptInputFooter,
   PromptInputProvider,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
   usePromptInputAttachments,
   type PromptInputMessage,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
+import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
+import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { useState } from 'react'
 import { INITIAL_VIEWPORTS } from 'storybook/viewport'
 
-const COMMANDS = [
-  { name: 'review', description: 'Review the current changes' },
-  { name: 'test', description: 'Run the test suite' },
-  { name: 'commit', description: 'Commit staged changes' },
-]
+import {
+  commandsFailed,
+  commandsPending,
+  commandsReady,
+  emptyRelayState,
+  relayState,
+} from '../fixtures/transcript.ts'
+import { ChatFrame } from '../harnesses/chat-frame.tsx'
+
+/*
+ * The composer, with real files in it and every list the `+` menu can show.
+ *
+ * - textarea with the placeholder; Enter sends, an empty send is a no-op
+ * - attachment row above the words: photo thumbnails, named files, remove
+ * - `+`: a menu from md up, a sheet on a phone (Camera, Photos, Add files,
+ *   commands with their descriptions); the list is pending, failed, or ready
+ * - Model and Mode from live state (md up); context ring with the cost
+ * - the submit control; the send lands in the line under the seed buttons
+ *
+ * Width comes from the viewport toolbar; the phone sheet needs a phone.
+ */
+
+const COMMAND_LISTS = { ready: commandsReady, pending: commandsPending, failed: commandsFailed }
+type CommandList = keyof typeof COMMAND_LISTS
 
 const meta = {
   title: 'Design System/AI/Composer',
@@ -29,55 +42,57 @@ const meta = {
 } satisfies Meta
 
 export default meta
-type Story = StoryObj<typeof meta>
 
 /**
- * The composer with real files in it.
- *
- * The seed buttons make a file in the browser, so the row fills without a file
- * dialog. `+` opens the real menu, X takes a file out, Enter sends and clears.
+ * The seed buttons make a file in the browser, so the row fills without a
+ * file dialog. `+` opens the real menu or sheet, X takes a file out, Enter
+ * sends and clears. `commands` picks what the menu finds when it opens.
  */
-export const Interactive: Story = {
-  render: () => <Composer />,
+export const Interactive: StoryObj<{ commands: CommandList; usage: boolean }> = {
+  args: { commands: 'ready', usage: true },
+  argTypes: { commands: { control: 'select', options: Object.keys(COMMAND_LISTS) } },
+  render: (args) => <Composer commands={args.commands} usage={args.usage} />,
 }
 
-/** The same composer at phone width: `+` opens the sheet, not the menu. */
-export const Phone: Story = {
-  globals: { viewport: { value: 'iphone14', isRotated: false } },
-  render: () => <Composer />,
-}
-
-function Composer() {
+function Composer({
+  commands,
+  usage,
+}: {
+  readonly commands: CommandList
+  readonly usage: boolean
+}) {
   const [sent, setSent] = useState<PromptInputMessage | null>(null)
   const [command, setCommand] = useState<string | null>(null)
 
   return (
     <PromptInputProvider>
-      <main className="container-column shell-x flex min-h-svh flex-col justify-end gap-4 py-6">
-        <Seed />
-        <output aria-live="polite" className="flex flex-col text-muted-foreground">
-          {sent === null ? (
-            <small>Nothing sent yet.</small>
-          ) : (
-            <small>
-              Sent “{sent.text}” with {sent.files.length} file{sent.files.length === 1 ? '' : 's'}.
-            </small>
-          )}
-          {command === null ? null : <small>Command /{command}.</small>}
-        </output>
-        <PromptInput onSubmit={(message) => setSent(message)}>
-          <PromptInputBody>
-            <PromptInputAttachments />
-            <PromptInputTextarea placeholder="Message Grok…" />
-            <PromptInputFooter>
-              <PromptInputTools>
-                <ComposerAddMenu commands={COMMANDS} disabled={false} onCommand={setCommand} />
-              </PromptInputTools>
-              <PromptInputSubmit className="ml-auto" status="ready" />
-            </PromptInputFooter>
-          </PromptInputBody>
-        </PromptInput>
-      </main>
+      <AppShell header={<AppHeader />} variant="fill">
+        <div className="flex flex-col gap-2 px-3">
+          <Seed />
+          <output aria-live="polite" className="flex flex-col text-muted-foreground">
+            {sent === null ? (
+              <small>Nothing sent yet.</small>
+            ) : (
+              <small>
+                Sent “{sent.text}” with {sent.files.length} file
+                {sent.files.length === 1 ? '' : 's'}.
+              </small>
+            )}
+            {command === null ? null : <small>Command /{command}.</small>}
+          </output>
+        </div>
+        <ChatFrame
+          messages={[]}
+          state={usage ? { ...relayState, plans: [] } : emptyRelayState}
+          commands={COMMAND_LISTS[commands]}
+          permissions={[]}
+          status="ready"
+          canSend
+          placeholder="Message Grok…"
+          onSend={setSent}
+          onCommand={setCommand}
+        />
+      </AppShell>
     </PromptInputProvider>
   )
 }

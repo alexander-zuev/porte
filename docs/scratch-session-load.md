@@ -1,5 +1,7 @@
 # Scratch: `session/load` for this chat
 
+Harness check: 2026-08-29.
+
 Live spike: `grok --no-auto-update agent stdio`, 2026-08-27.
 
 This is conversation `01a03ffe-f02b-7660-b33d-3b662ad3df28` (this Host/Grok session).

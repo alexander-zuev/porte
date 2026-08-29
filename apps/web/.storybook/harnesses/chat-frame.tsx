@@ -7,7 +7,6 @@ import {
   ConversationPlans,
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
-import { ConversationTurnFailed } from '@web/features/conversation/components/conversation-states.tsx'
 import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
 import type { ConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
 import { lastTurnChanges } from '@web/features/conversation/models/tool-runs.ts'
@@ -77,6 +76,7 @@ export function ChatFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <ConversationMessages
+        error={error}
         messages={messages}
         pending={status === 'submitted'}
         readingOlder={readingOlder}
@@ -86,8 +86,6 @@ export function ChatFrame({
       <ConversationChanges changes={lastTurnChanges(messages)} />
 
       <ConversationPlans plans={state.plans} running={running} />
-
-      {error === undefined ? null : <ConversationTurnFailed error={error} />}
 
       <ConversationPermissions onAnswer={onAnswer} waiting={permissions} />
 

@@ -122,10 +122,14 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & 
 }
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
-  if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>
-  }
   // A span, not a p: the base `p` rule would lift this row to 16px above the tool rows.
+  if (isStreaming || duration === 0) {
+    return (
+      <Shimmer as="span" duration={1}>
+        Thinking...
+      </Shimmer>
+    )
+  }
   if (duration === undefined) {
     return <span>Thought for a few seconds</span>
   }
@@ -188,8 +192,12 @@ export const ReasoningContent = memo(
       )
     }
     return (
+      // The same rule a call hangs its result from, so a thought and the calls it made read as one family.
       <CollapsibleContent
-        className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
+        className={cn(
+          'ml-2 flex flex-col border-l pt-1 pb-2 pl-4 text-sm text-muted-foreground outline-none',
+          className,
+        )}
         {...props}
       >
         <MessageResponse>{children}</MessageResponse>

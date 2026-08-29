@@ -29,7 +29,6 @@ import {
   ConversationPlans,
   conversationCost,
 } from './conversation-progress.tsx'
-import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
   readonly agent: ConversationAgentConnection
@@ -63,6 +62,7 @@ export function ConversationChat({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <ConversationMessages
+        error={chat.error}
         messages={chat.messages}
         pending={chat.status === 'submitted'}
         readingOlder={false}
@@ -72,8 +72,6 @@ export function ConversationChat({
       <ConversationChanges changes={lastTurnChanges(chat.messages)} />
 
       <ConversationPlans plans={state.plans} running={running} />
-
-      {chat.error === undefined ? null : <ConversationTurnFailed error={chat.error} />}
 
       <ConversationPermissions onAnswer={actions.onAnswerPermission} waiting={permissions} />
 

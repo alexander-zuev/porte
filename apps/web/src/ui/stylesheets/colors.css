@@ -8,6 +8,8 @@
 @import '@radix-ui/colors/green-dark.css';
 @import '@radix-ui/colors/amber.css';
 @import '@radix-ui/colors/amber-dark.css';
+@import '@radix-ui/colors/orange.css';
+@import '@radix-ui/colors/orange-dark.css';
 @import '@radix-ui/colors/red.css';
 @import '@radix-ui/colors/red-dark.css';
 @import '@radix-ui/colors/black-alpha.css';
@@ -52,7 +54,7 @@
   --destructive-muted: var(--red-3);
   --overlay: var(--black-a9);
   /* Inline code in a sentence: one warm step 11, so a path or a command stands out from the words. */
-  --inline-code-foreground: var(--amber-11);
+  --inline-code-foreground: var(--orange-11);
 
   --card: var(--surface);
   --card-foreground: var(--foreground);

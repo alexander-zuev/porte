@@ -15,14 +15,20 @@ import type { FileUIPart } from 'ai'
 export function MessageFiles({ files }: { readonly files: readonly FileUIPart[] }) {
   return (
     // Focusable, so the keyboard can scroll a row that overflows on a phone.
-    <Attachments aria-label="Attached files" className="flex-nowrap overflow-x-auto" tabIndex={0}>
+    // One row, one height, sideways only. No scrollbar is drawn: a bar inside
+    // the row would take its own height off the tiles and cut them.
+    <Attachments
+      aria-label="Attached files"
+      className="shrink-0 flex-nowrap overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
+      tabIndex={0}
+    >
       {files.map((file) => {
         const data = { ...file, id: file.url }
         if (file.mediaType.startsWith('image/')) {
           return (
             <Attachment
               key={file.url}
-              className="size-20 shrink-0 overflow-hidden rounded-lg p-0"
+              className="size-16 shrink-0 overflow-hidden rounded-lg p-0"
               data={data}
             >
               <AttachmentPreview className="size-full rounded-none" />
@@ -30,7 +36,7 @@ export function MessageFiles({ files }: { readonly files: readonly FileUIPart[] 
           )
         }
         return (
-          <Attachment key={file.url} className="max-w-64 shrink-0" data={data}>
+          <Attachment key={file.url} className="h-16 max-w-64 shrink-0 rounded-lg" data={data}>
             <AttachmentPreview />
             <AttachmentInfo />
           </Attachment>

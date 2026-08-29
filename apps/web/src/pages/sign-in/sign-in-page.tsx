@@ -24,6 +24,8 @@ export function SignInPage({
   return (
     <>
       <LogoLink />
+      <div>HEYYYYYYY</div>
+      <div>SSDADS</div>
       {/* Why you are here comes before what to do about it. Wide enough for the
           pairing notice to read as sentences, not a column. */}
       {/* Capped from md only: on a phone the shell padding sets the edge, the same on every page. */}

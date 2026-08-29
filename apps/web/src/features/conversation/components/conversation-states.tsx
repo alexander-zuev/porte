@@ -4,7 +4,6 @@ import { StartPorteOnMac } from '@web/features/host/components/start-porte-on-ma
 import { readErrorPayload } from '@web/lib/errors/error-payload.ts'
 import { Shimmer } from '@web/ui/components/ai-elements/shimmer.tsx'
 import { EmptyState } from '@web/ui/components/empty-state.tsx'
-import { Alert, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
 /** The read failed. The tag decides what to say about it. */
@@ -78,15 +77,21 @@ export function TurnPending() {
 /**
  * The turn stopped on its own.
  *
- * Beside the transcript rather than instead of it: whatever the agent already
- * said is still worth reading, and the next prompt still works.
+ * One line under the cut-off text, where "Thinking…" sat a moment before: it
+ * explains that text, so it stays with it and scrolls away with it. Grok's
+ * own words for the case; the cause follows when the error names one.
  */
 export function ConversationTurnFailed({ error }: { readonly error: Error }) {
   return (
-    <Alert variant="destructive">
-      <WarningCircleIcon aria-hidden />
-      <AlertTitle>The answer stopped</AlertTitle>
-      <AlertDescription>{error.message}</AlertDescription>
-    </Alert>
+    <output className="flex items-center gap-2 text-muted-foreground">
+      <WarningCircleIcon
+        aria-hidden
+        className="size-4 shrink-0 text-destructive-muted-foreground"
+      />
+      <small>
+        Grok was unable to finish
+        {error.message === '' ? null : <> · {error.message}</>}
+      </small>
+    </output>
   )
 }

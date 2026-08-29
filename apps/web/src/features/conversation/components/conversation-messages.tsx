@@ -26,7 +26,7 @@ import { Fragment, type ReactNode } from 'react'
 
 import { groupParts, messageSettled, messageText } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
-import { NoMessagesYet, TurnPending } from './conversation-states.tsx'
+import { ConversationTurnFailed, NoMessagesYet, TurnPending } from './conversation-states.tsx'
 import { MessageCopy } from './message-copy.tsx'
 import { MessageFiles } from './message-files.tsx'
 import { ToolRun } from './tool-run.tsx'
@@ -35,6 +35,8 @@ export type ConversationMessagesProps = {
   readonly messages: readonly UIMessage[]
   /** A prompt is sent and no part of the answer has arrived. */
   readonly pending: boolean
+  /** The last turn stopped on its own. Shown under what it managed to say. */
+  readonly error?: Error
   /** Older turns exist. Absent once the whole transcript has been read. */
   readonly onReadOlder: (() => void) | null
   readonly readingOlder: boolean
@@ -49,6 +51,7 @@ export type ConversationMessagesProps = {
 export function ConversationMessages({
   messages,
   pending,
+  error,
   onReadOlder,
   readingOlder,
 }: ConversationMessagesProps) {
@@ -91,6 +94,12 @@ export function ConversationMessages({
             </MessageContent>
           </Message>
         ) : null}
+
+        {error === undefined ? null : (
+          <Message className="-mt-4" from="assistant">
+            <ConversationTurnFailed error={error} />
+          </Message>
+        )}
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>
