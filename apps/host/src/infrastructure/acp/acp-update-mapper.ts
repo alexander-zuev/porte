@@ -308,18 +308,32 @@ export class AcpUpdateMapper {
     if (update.name !== undefined && update.name !== null) next.name = update.name
     if (update.kind !== undefined && update.kind !== null) next.kind = update.kind
     if (update.status !== undefined && update.status !== null) next.status = update.status
-    if (update.content !== undefined && update.content !== null) {
+    // An update names only what changed. `null` and an empty content list say
+    // nothing, so they never erase the diff or the input an earlier update carried.
+    if (update.content !== undefined && update.content !== null && update.content.length > 0) {
       next.content = update.content.map(mapToolContent)
     }
     if (update.locations !== undefined && update.locations !== null) {
       next.locations = update.locations.map(mapLocation)
     }
-    if (update.rawInput !== undefined) next.rawInput = mapJson(update.rawInput)
-    if (update.rawOutput !== undefined) next.rawOutput = mapJson(update.rawOutput)
+    if (update.rawInput !== undefined && update.rawInput !== null) {
+      next.rawInput = mapJson(update.rawInput)
+    }
+    if (update.rawOutput !== undefined && update.rawOutput !== null) {
+      next.rawOutput = mapJson(update.rawOutput)
+    }
     if (update._meta !== undefined && update._meta !== null) next._meta = mapMeta(update._meta)
     const parsed = ToolViewSchema.safeParse(next)
     if (!parsed.success) throw new AcpUpdateValueError('ACP tool update is invalid')
     this.tools.set(update.toolCallId, parsed.data)
+    logger.debug('acp_tool_updated', {
+      details: {
+        toolCallId: update.toolCallId,
+        status: parsed.data.status,
+        content: parsed.data.content.length,
+        rawInput: parsed.data.rawInput === undefined ? 'absent' : 'present',
+      },
+    })
     return [{ type: 'tool.updated', turnId, tool: parsed.data }]
   }
 

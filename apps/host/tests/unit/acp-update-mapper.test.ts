@@ -73,6 +73,38 @@ describe('AcpUpdateMapper', () => {
     expect(types(mapper.endTurn())).toEqual(['reasoning.completed', 'message.completed'])
   })
 
+  it('keeps the input and the diff when a later update carries null or nothing', () => {
+    const mapper = new AcpUpdateMapper(conversationId)
+    mapper.beginTurn(turnId, 0)
+    const diff = { type: 'diff', path: '/repo/README.md', oldText: 'a', newText: 'b' } as const
+    mapper.map({
+      sessionId: conversationId,
+      update: {
+        sessionUpdate: 'tool_call',
+        toolCallId: 'call-1',
+        title: 'Write README.md',
+        kind: 'edit',
+        status: 'pending',
+        rawInput: { path: '/repo/README.md' },
+        content: [diff],
+      },
+    })
+    const [event] = mapper.map({
+      sessionId: conversationId,
+      update: {
+        sessionUpdate: 'tool_call_update',
+        toolCallId: 'call-1',
+        status: 'completed',
+        rawInput: null,
+        content: [],
+      },
+    })
+    expect(event).toMatchObject({
+      type: 'tool.updated',
+      tool: { status: 'completed', rawInput: { path: '/repo/README.md' }, content: [diff] },
+    })
+  })
+
   it('rejects updates outside a turn, a second live turn, and another session', () => {
     const mapper = new AcpUpdateMapper(conversationId)
     expect(() => mapper.map(live[2]!)).toThrow(AcpUpdateSequenceError)
