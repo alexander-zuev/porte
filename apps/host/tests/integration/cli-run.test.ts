@@ -17,10 +17,12 @@ function runCli(args: readonly string[], env: NodeJS.ProcessEnv = {}) {
 const UNPAIRED = join(import.meta.dirname, 'no-such-directory')
 
 describe('porte process', () => {
-  it('prints version and exits 0', () => {
-    const result = runCli(['--version'])
+  it('prints the version report and exits 0', () => {
+    const result = runCli(['--version'], { PORTE_DATA_DIRECTORY: UNPAIRED })
     expect(result.status).toBe(0)
-    expect(result.stdout.trim()).toBe(VERSION)
+    expect(result.stdout).toBe(
+      `porte ${VERSION} · node ${process.versions.node} · ${process.platform} ${process.arch}\nnot paired\n`,
+    )
     expect(result.stderr).toBe('')
   })
 
