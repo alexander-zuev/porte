@@ -30,6 +30,9 @@
   },
   "scripts": {
     "dev": "tsx src/main.ts",
+    "dev:pair": "PORTE_URL=https://tunnel.useporte.dev PORTE_DATA_DIRECTORY=$HOME/.porte-dev tsx src/main.ts pair",
+    "dev:up": "PORTE_URL=https://tunnel.useporte.dev PORTE_DATA_DIRECTORY=$HOME/.porte-dev tsx src/main.ts up",
+    "dev:unpair": "PORTE_URL=https://tunnel.useporte.dev PORTE_DATA_DIRECTORY=$HOME/.porte-dev tsx src/main.ts unpair",
     "build": "tsdown",
     "prepack": "cp ../../README.md README.md",
     "postpack": "rm -f README.md",
