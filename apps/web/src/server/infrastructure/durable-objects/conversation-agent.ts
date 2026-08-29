@@ -15,7 +15,6 @@ import {
   createAttemptId,
   createLogger,
   liveStateFromConversation,
-  notYetImplemented,
   reduceLiveState,
   type AttemptId,
   type CanonicalContent,
@@ -36,7 +35,9 @@ import {
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
 import {
+  attemptIdOfRow,
   conversationStateToMessages,
+  turnIdOfRow,
   turnToMessages,
 } from '@web/lib/conversation/conversation-state-messages.ts'
 import {
@@ -57,6 +58,7 @@ import {
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
 import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
+import { hostSequenceStorage } from './relay/host-sequence-storage.ts'
 import { admitHostSocket, hasSubprotocol, openHostConnection } from './relay/host-subprotocol.ts'
 import { RELAY_HOST_ID_HEADER } from './relay/relay-headers.ts'
 import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
@@ -83,12 +85,14 @@ type ActiveStream =
   | {
       readonly binding: 'waiting'
       readonly attemptId: AttemptId
+      readonly userMessageId: MessageId
       readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
       readonly projection: ConversationEventProjectionState
     }
   | {
       readonly binding: 'bound'
       readonly attemptId: AttemptId
+      readonly userMessageId: MessageId
       readonly turnId: TurnId
       readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
       readonly projection: ConversationEventProjectionState
@@ -119,10 +123,12 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
       notificationHandlers: {
         'conversation.event': (params) => this.acceptEvent(params.event),
       },
-      // TODO(step 3): persist the last applied `seq` per Host connection in DO storage.
-      sequence: {
-        load: () => notYetImplemented('step 3'),
-        save: () => notYetImplemented('step 3'),
+      sequence: hostSequenceStorage(ctx),
+      // A facet's bridged connection cannot send after its invocation ends (F13);
+      // the parent holds the real socket, so every outbound frame goes through it.
+      transmit: async (frame) => {
+        const parent = await this.parentAgent(HostRelayAgent)
+        return parent.sendConversationFrame(this.conversationId, frame)
       },
     })
   }
@@ -135,7 +141,10 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   override onStart(): void {
     const host = this.hostConnection()
     if (host !== undefined) this.hostSocket.attach(host)
-    // TODO(step 3): if `state.runningTurnId` is set and the SDK reports an active stream, clear the buffer.
+    if (this.state.runningTurnId !== undefined && this._resumableStream.hasActiveStream()) {
+      // A resume ack would merge the dead stream's partial into the reconciled row (plan §5.5).
+      this._resumableStream.clearAll()
+    }
   }
 
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
@@ -237,22 +246,40 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     const active: ActiveStream = {
       binding: 'waiting',
       attemptId: createAttemptId(),
+      userMessageId: userMessage.id,
       writer: stream.writable.getWriter(),
       projection: createConversationEventProjectionState(),
     }
     this.activeStream = active
+    // The row carries its attempt from the start, so a lost `turn.started` cannot
+    // orphan it: snapshots and reconciles match the Host's turn record by attempt.
+    await this.persistMessages(
+      this.messages.map((row) =>
+        row.id === userMessage.id ? { ...row, metadata: { attemptId: active.attemptId } } : row,
+      ),
+    )
     void this.startTurn(active, userMessage)
     return createUIMessageStreamResponse({ stream: stream.readable })
   }
+
+  /** The turn whose stream just closed; `onChatResponse` reconciles it after the SDK persisted. */
+  private reconcileAfterReply: { turnId: TurnId; userMessageId: MessageId } | undefined
 
   /**
    * After the SDK persisted the assistant row: replace the turn with the Host's
    * version, so Stop, gaps, and reorders all end in the same rows (plan §5.2).
    */
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
-    // TODO(step 3): find the turn this request streamed and `reconcileTurn` it.
     void result
-    notYetImplemented('step 3')
+    const finished = this.reconcileAfterReply
+    if (finished === undefined) return
+    this.reconcileAfterReply = undefined
+    await this.reconcileTurn(finished.turnId, finished.userMessageId).catch((error) => {
+      logger.warn('turn_reconcile_failed', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId, turnId: finished.turnId },
+      })
+    })
   }
 
   @callable()
@@ -290,9 +317,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   /** The Host's command list, read once by the composer menu; never part of `state`. */
   @callable()
   async listCommands(): Promise<readonly ConversationCommand[]> {
-    // TODO(step 3): `this.ctx.storage.get(COMMANDS_KEY)` with an empty default.
-    void COMMANDS_KEY
-    return notYetImplemented('step 3')
+    return (await this.ctx.storage.get<readonly ConversationCommand[]>(COMMANDS_KEY)) ?? []
   }
 
   // `onConnect` asks once per Host socket; one snapshot per socket is enough.
@@ -326,26 +351,41 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     state: HostConversationMethodMap['conversation.get']['result'],
   ): Promise<void> {
     this.setLiveState(liveStateFromConversation(state))
-    // TODO(step 3): keep the streaming turn's rows from `this.messages`; store `state.commands` under COMMANDS_KEY.
-    await this.persistMessages(await conversationStateToMessages(state, this.messages), [], {
-      _deleteStaleRows: true,
-    })
+    if (state.commands !== undefined) {
+      await this.ctx.storage.put(COMMANDS_KEY, state.commands)
+    }
+    let rows = await conversationStateToMessages(state, this.messages)
+    const active = this.activeStream
+    if (active?.binding === 'bound') {
+      // The stream owns its turn: re-supply the current rows unchanged, never omit them (codex item 2).
+      rows = [
+        ...rows.filter((row) => !rowBelongsToTurn(row, active.turnId)),
+        ...this.messages.filter((row) => rowBelongsToTurn(row, active.turnId)),
+      ]
+    }
+    await this.persistMessages(rows, [], { _deleteStaleRows: true })
     this.publishCurrentActivity()
   }
 
   /** Replace one finished turn with the Host's version of it. */
-  private async reconcileTurn(turnId: TurnId): Promise<void> {
+  private async reconcileTurn(turnId: TurnId, userMessageId?: MessageId): Promise<void> {
     const turn = await this.hostSocket.request('turn.get', { turnId })
-    const rows = await turnToMessages(turn, this.messages)
-    // TODO(step 3): splice `rows` over the turn's current rows and persist with `_deleteStaleRows`.
-    void rows
-    notYetImplemented('step 3')
+    const rows = await turnToMessages(turn, this.messages, userMessageId)
+    const index = this.messages.findIndex((row) => rowBelongsToTurn(row, turnId))
+    const kept = this.messages.filter((row) => !rowBelongsToTurn(row, turnId))
+    const at = index === -1 ? kept.length : index
+    await this.persistMessages([...kept.slice(0, at), ...rows, ...kept.slice(at)], [], {
+      _deleteStaleRows: true,
+    })
   }
 
   private async acceptEvent(event: ConversationEvent): Promise<void> {
     this.setLiveState(reduceLiveState(this.state, event))
     this.publishActivity(event)
-    if (event.type === 'turn.started') this.bindStream(event)
+    if (event.type === 'conversation.commands.updated') {
+      await this.ctx.storage.put(COMMANDS_KEY, event.commands)
+    }
+    if (event.type === 'turn.started') await this.bindStream(event)
     const active = this.activeStream
     if (active?.binding !== 'bound' || !eventBelongsToTurn(event, active.turnId)) {
       if (isTerminalEvent(event) && 'turnId' in event) this.reconcileInBackground(event.turnId)
@@ -364,17 +404,29 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         return
       }
       if (!isTerminalEvent(event)) return
+      // `onChatResponse` reconciles after `_reply` has persisted the streamed row.
+      this.reconcileAfterReply = { turnId: active.turnId, userMessageId: active.userMessageId }
       this.activeStream = undefined
       await active.writer.close().catch(() => undefined)
     })
   }
 
-  /** `turn.started` names the turn the waiting stream asked for. */
-  private bindStream(event: Extract<ConversationEvent, { type: 'turn.started' }>): void {
+  /** `turn.started` names the turn an attempt asked for; the stream may already be gone. */
+  private async bindStream(
+    event: Extract<ConversationEvent, { type: 'turn.started' }>,
+  ): Promise<void> {
     const active = this.activeStream
-    if (active?.binding !== 'waiting' || active.attemptId !== event.attemptId) return
-    this.activeStream = { ...active, binding: 'bound', turnId: event.turnId }
-    // TODO(step 3): stamp `metadata.turnId` on the user row this attempt sent.
+    if (active?.binding === 'waiting' && active.attemptId === event.attemptId) {
+      this.activeStream = { ...active, binding: 'bound', turnId: event.turnId }
+    }
+    // Upgrade the attempt stamp to the turn link (plan §5.1). The relay owns this metadata.
+    await this.persistMessages(
+      this.messages.map((row) =>
+        attemptIdOfRow(row) === event.attemptId
+          ? { ...row, metadata: { turnId: event.turnId, attemptId: event.attemptId } }
+          : row,
+      ),
+    )
   }
 
   /** `setState` writes and broadcasts the whole value; call it only for a new reference. */
@@ -567,6 +619,11 @@ async function closeWriterWithError(
 
 function eventBelongsToTurn(event: ConversationEvent, turnId: TurnId): boolean {
   return event.type === 'conversation.failed' || ('turnId' in event && event.turnId === turnId)
+}
+
+/** A row is the turn's assistant row (`id = turnId`) or carries the turn in its metadata. */
+function rowBelongsToTurn(row: UIMessage, turnId: TurnId): boolean {
+  return row.id === turnId || turnIdOfRow(row) === turnId
 }
 
 function isTerminalEvent(event: ConversationEvent): boolean {

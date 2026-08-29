@@ -5,6 +5,7 @@ import {
   InternalServerError,
   JSON_RPC_METHOD_KINDS,
   JsonRpcReadError,
+  JsonRpcSendError,
   JsonRpcTextSchema,
   RequestTimeoutError,
   SequenceNumberSchema,
@@ -13,7 +14,6 @@ import {
   errorFromHostPayload,
   jsonRpcRequest,
   jsonRpcResponseSchema,
-  notYetImplemented,
   readJsonRpcIncoming,
   readJsonRpcTextFrame,
   sendJsonRpcFrame,
@@ -41,6 +41,7 @@ const SequencedSchema = z.object({ seq: SequenceNumberSchema })
 export type HostJsonRpcClose =
   | JsonRpcTextFrameClose
   | { readonly code: 1007; readonly reason: string }
+  | { readonly code: 1008; readonly reason: string }
 
 const UNEXPECTED_DOCUMENT: HostJsonRpcClose = {
   code: 1007,
@@ -100,12 +101,25 @@ export type HostJsonRpcSocketInput<Registry extends JsonRpcMethodRegistry> = {
   readonly notificationHandlers: HostJsonRpcNotificationHandlers<Registry>
   /** Durable home of the `seq` expectation. */
   readonly sequence: SequencePersistence
+  /**
+   * How outbound frames reach the socket, when the attached `Connection` cannot
+   * carry them. A facet's bridged connection is an RPC stub that dies with the
+   * invocation that delivered it (plan F13), so a facet transmits through its
+   * parent, which holds the real socket. Return false when no socket is open.
+   */
+  readonly transmit?: (frame: string) => Promise<boolean>
 }
 
 /** JSON-RPC client for one Mac Host WebSocket the Agent already admitted. */
 export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   private readonly pending = new Map<HostRequestId, PendingCall>()
   private peer: Connection | undefined
+  /** The last applied notification `seq`; `undefined` until loaded for this peer. */
+  private lastSeq: number | undefined
+  /** Early frames parked until the gap before them closes. */
+  private readonly parked = new Map<number, () => Promise<void>>()
+  /** Serializes ordering decisions so two crossing frames cannot both load or drain. */
+  private ordering: Promise<unknown> = Promise.resolve()
 
   /**
    * Create one Host JSON-RPC client.
@@ -121,7 +135,12 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
    * @param connection - The Host connection this client may send on.
    */
   attach(connection: Connection): void {
-    if (this.peer !== undefined && this.peer.id !== connection.id) this.clearWaiters()
+    if (this.peer !== undefined && this.peer.id !== connection.id) {
+      this.clearWaiters()
+      // A new Host connection starts a new sequence; the old expectation is void.
+      this.lastSeq = undefined
+      this.parked.clear()
+    }
     this.peer = connection
   }
 
@@ -178,8 +197,14 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
     })
     try {
       await this.send(JSON.stringify(jsonRpcRequest(id, method, params)))
-    } catch {
-      this.fail(id, new HostOfflineError())
+    } catch (cause) {
+      // Offline only when the frame never left (plan F13): a send that may have
+      // reached the Host keeps its waiter, and the response or the timeout decides.
+      if (!(cause instanceof JsonRpcSendError) || cause.neverLeft) {
+        this.fail(id, new HostOfflineError())
+      } else {
+        logger.warn('host_send_unconfirmed', { details: { method } })
+      }
     }
     return settled.promise
   }
@@ -191,7 +216,7 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
       if (incoming.kind === 'response') {
         // Waiters live in memory: a response can outlive its request across a
         // timeout or an Agent restart. Late is not malformed, so the socket stays.
-        if (!this.complete(incoming.data)) logger.warn('host_response_unmatched')
+        if (!this.complete(incoming.data)) logger.debug('host_response_unmatched')
         return undefined
       }
       if (incoming.kind === 'notification') {
@@ -217,15 +242,45 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
    * frame. A buffer past `SEQUENCE_BUFFER_LIMIT` closes the socket with 1008;
    * the reconnect snapshot repairs the gap.
    */
-  private async applyInOrder(
+  private applyInOrder(
     seq: SequenceNumber,
     apply: () => Promise<void>,
   ): Promise<HostJsonRpcClose | undefined> {
-    // TODO(step 3): load `lastSeq`, apply `seq === lastSeq + 1` and drain the buffer, park the rest, save.
-    void seq
-    void apply
-    void SEQUENCE_BUFFER_LIMIT
-    return notYetImplemented('step 3')
+    const peer = this.peer
+    if (peer === undefined) return Promise.resolve(undefined)
+    const decision = this.ordering.then(
+      () => this.place(peer.id, seq, apply),
+      () => this.place(peer.id, seq, apply),
+    )
+    this.ordering = decision
+    return decision
+  }
+
+  /** Runs inside the ordering chain; nothing else touches `lastSeq` or the park. */
+  private async place(
+    connectionId: string,
+    seq: SequenceNumber,
+    apply: () => Promise<void>,
+  ): Promise<HostJsonRpcClose | undefined> {
+    if (this.lastSeq === undefined) this.lastSeq = await this.input.sequence.load(connectionId)
+    if (seq <= this.lastSeq) return undefined
+    if (seq > this.lastSeq + 1) {
+      this.parked.set(seq, apply)
+      if (this.parked.size <= SEQUENCE_BUFFER_LIMIT) return undefined
+      this.parked.clear()
+      return { code: 1008, reason: 'notification sequence gap' }
+    }
+    await apply()
+    this.lastSeq = seq
+    for (let next = this.parked.get(this.lastSeq + 1); next !== undefined;) {
+      this.parked.delete(this.lastSeq + 1)
+      // oxlint-disable-next-line no-await-in-loop -- Parked frames must apply in sequence order.
+      await next()
+      this.lastSeq += 1
+      next = this.parked.get(this.lastSeq + 1)
+    }
+    await this.input.sequence.save(connectionId, this.lastSeq)
+    return undefined
   }
 
   private complete(document: JsonRpcDocument): boolean {
@@ -256,6 +311,11 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   private async send(frame: string): Promise<void> {
     const host = this.peer
     if (host === undefined || !isOpenConnection(host)) throw new HostOfflineError()
+    const transmit = this.input.transmit
+    if (transmit !== undefined) {
+      if (!(await transmit(frame))) throw new HostOfflineError()
+      return
+    }
     await sendJsonRpcFrame(() => {
       if (!isOpenConnection(host)) return false
       host.send(frame)

@@ -65,6 +65,7 @@ describe('HostRelayAgent control connection', () => {
     host.socket.send(
       JSON.stringify(
         jsonRpcNotification('conversation.updated', {
+          seq: 1,
           conversationId: conversation.id,
           update: { title: 'Updated title' },
         }),

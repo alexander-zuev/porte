@@ -174,7 +174,7 @@ export class Conversation extends Entity<ConversationData> {
     const messageId = userMessageId(turnId)
     this.data = {
       ...this.data,
-      state: { ...this.data.state, turn: { state: 'running', turnId } },
+      state: { ...this.data.state, turn: { state: 'running', turnId, attemptId } },
       lastAttempt: { attemptId, turnId, promptIndex },
     }
     this.raise({ type: 'turn.started', turnId, attemptId })
@@ -272,7 +272,12 @@ export class Conversation extends Entity<ConversationData> {
       items.flatMap((item) => (item.type === 'tool' ? [item.toolCallId] : [])),
     )
     const tools = this.data.state.tools.filter((tool) => toolCallIds.has(tool.toolCallId))
-    return structuredClone({ turnId, items, tools })
+    const last = this.data.lastAttempt
+    const slice: ConversationTurn =
+      last?.turnId === turnId
+        ? { turnId, attemptId: last.attemptId, items, tools }
+        : { turnId, items, tools }
+    return structuredClone(slice)
   }
 
   /** End the turn. A turn that already ended is a no-op. */

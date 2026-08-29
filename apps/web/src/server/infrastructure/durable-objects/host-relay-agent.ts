@@ -8,7 +8,6 @@ import {
   HostOfflineError,
   HostRelayStateSchema,
   createLogger,
-  notYetImplemented,
   type ConversationSummary,
   type ConversationId,
   type HostControlMethodMap,
@@ -38,12 +37,18 @@ import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { ConversationAgent } from './conversation-agent.ts'
 import { createHostRelayResources, type HostRelayResources } from './host-relay-resources.ts'
 import { HostJsonRpcSocket } from './relay/host-json-rpc-socket.ts'
+import { hostSequenceStorage } from './relay/host-sequence-storage.ts'
 import { admitHostSocket, hasSubprotocol, openHostConnection } from './relay/host-subprotocol.ts'
 import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 
 const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
+
+/** The parent-side tag that names which conversation a Host data socket carries. */
+function conversationSocketTag(conversationId: string): string {
+  return `${HOST_CONVERSATION_TAG}:${conversationId}`
+}
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
@@ -73,11 +78,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
         'conversation.updated': (params) => this.handleConversationUpdated(params),
         'conversation.removed': (params) => this.handleConversationRemoved(params),
       },
-      // TODO(step 3): persist the last applied `seq` per Host connection in DO storage.
-      sequence: {
-        load: () => notYetImplemented('step 3'),
-        save: () => notYetImplemented('step 3'),
-      },
+      sequence: hostSequenceStorage(ctx),
     })
   }
 
@@ -90,17 +91,38 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     this.setHostStatus(host !== undefined ? 'online' : 'offline')
   }
 
-  /** Tag only the Host control socket on this parent object. */
+  /** Tag the Host control socket, and each Host conversation socket by its conversation. */
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
     const child = parseSubAgentPath(context.request.url, {
       knownClasses: [ConversationAgent.name],
     })
     if (child !== null) {
       return hasSubprotocol(context.request, HOST_CONVERSATION_SUBPROTOCOL)
-        ? [HOST_CONVERSATION_TAG]
+        ? [HOST_CONVERSATION_TAG, conversationSocketTag(child.childName)]
         : []
     }
     return hasSubprotocol(context.request, HOST_CONTROL_SUBPROTOCOL) ? [HOST_CONNECTION_TAG] : []
+  }
+
+  /**
+   * Send one frame on the Host conversation socket this parent holds.
+   *
+   * The child cannot send itself: its bridged connection is an RPC stub that
+   * dies with the invocation that delivered it (plan F13). The parent owns the
+   * real WebSocket, so the child transmits through this method.
+   *
+   * @param conversationId - The conversation whose Host socket carries the frame.
+   * @param frame - One JSON-RPC document.
+   * @returns False when no open socket exists for that conversation.
+   */
+  sendConversationFrame(conversationId: ConversationId, frame: string): boolean {
+    // `getConnections` hides sockets forwarded to a child, so read the runtime's own registry.
+    const socket = this.ctx
+      .getWebSockets(conversationSocketTag(conversationId))
+      .find((candidate) => candidate.readyState === WebSocket.OPEN)
+    if (socket === undefined) return false
+    socket.send(frame)
+    return true
   }
 
   override shouldConnectionBeReadonly(

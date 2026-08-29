@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { MessageIdSchema, ToolCallIdSchema, TurnIdSchema } from '../identity/identity.ts'
+import {
+  AttemptIdSchema,
+  MessageIdSchema,
+  ToolCallIdSchema,
+  TurnIdSchema,
+} from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
 import {
   ConversationCommandSchema,
@@ -14,7 +19,12 @@ import { ToolViewSchema } from './conversation-tool-event.ts'
 /** Whether one conversation has an active turn. */
 export const ConversationTurnStateSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('idle') }),
-  z.strictObject({ state: z.literal('running'), turnId: TurnIdSchema }),
+  z.strictObject({
+    state: z.literal('running'),
+    turnId: TurnIdSchema,
+    // The relay's key for this turn, so its stored user row can be matched race-free.
+    attemptId: AttemptIdSchema.optional(),
+  }),
 ])
 
 /** Whether one conversation has an active turn. */
@@ -56,6 +66,8 @@ export type ConversationItem = z.infer<typeof ConversationItemSchema>
 /** One turn's slice of the transcript: what `turn.get` returns and the relay reconciles. */
 export const ConversationTurnSchema = z.strictObject({
   turnId: TurnIdSchema,
+  /** The attempt that started it, when this Host process still remembers. */
+  attemptId: AttemptIdSchema.optional(),
   items: z.array(ConversationItemSchema),
   tools: z.array(ToolViewSchema),
 })

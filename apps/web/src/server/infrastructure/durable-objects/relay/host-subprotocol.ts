@@ -52,7 +52,12 @@ export function admitHostSocket(input: AdmitHostSocketInput): boolean {
     return false
   }
   for (const previous of input.previous) {
-    if (previous.id !== input.connection.id) previous.close(1008, 'host connection replaced')
+    if (previous.id === input.connection.id) continue
+    try {
+      previous.close(1008, 'host connection replaced')
+    } catch {
+      // A facet's bridge to the old socket may already be gone; the socket is dead either way.
+    }
   }
   return true
 }
