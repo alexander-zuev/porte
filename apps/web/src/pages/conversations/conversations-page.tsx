@@ -69,7 +69,7 @@ function body({ host, connection, conversationList, create }: ConversationsPageP
           variant="ghost"
           onClick={conversationList.onLoadMore}
         >
-          {conversationList.isLoadingMore ? <Spinner /> : 'Load older conversations'}
+          {conversationList.isLoadingMore ? <Spinner /> : 'Show more'}
         </Button>
       ) : null}
     </>
