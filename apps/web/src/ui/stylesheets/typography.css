@@ -116,10 +116,8 @@
   --quote-font-weight: inherit;
   --quote-letter-spacing: -0.01em;
 
-  /* text-xs is an alias of text-sm: the 14px floor leaves no room below it.
-     Its line height follows, or Tailwind's own 1.333 ratio lands off the grid. */
+  /* text-xs is an alias of text-sm: the 14px floor leaves no room below it. */
   --text-xs: var(--text-14);
-  --text-xs--line-height: var(--leading-20);
   --text-sm: var(--text-14);
   --text-base: var(--text-16);
   --text-lg: var(--text-18);
@@ -128,6 +126,17 @@
   --text-3xl: var(--text-32);
   --text-4xl: var(--text-40);
   --text-5xl: var(--text-64);
+
+  /* Each size carries its own line height, or Tailwind's ratios land off the 4px grid. */
+  --text-xs--line-height: var(--leading-20);
+  --text-sm--line-height: var(--leading-20);
+  --text-base--line-height: var(--leading-24);
+  --text-lg--line-height: var(--leading-28);
+  --text-xl--line-height: var(--leading-28);
+  --text-2xl--line-height: var(--leading-32);
+  --text-3xl--line-height: var(--leading-40);
+  --text-4xl--line-height: var(--leading-40);
+  --text-5xl--line-height: var(--leading-64);
 
   --leading-none: 1;
   --leading-tight: var(--leading-24);

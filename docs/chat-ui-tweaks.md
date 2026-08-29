@@ -17,6 +17,31 @@ Reference stories (Storybook on http://localhost:6006):
 - Streamdown 2 highlights only through `@streamdown/code`; the plugin owns the one shiki copy, and `CodeBlock` reads from it.
 - Base UI menu items fire `onClick`; Radix-style `onSelect` typechecks (it is React's text-selection event) and never runs.
 
+## In flight (on disk, not committed, not yet seen in a story)
+
+- Image row inside a user bubble (`message-files.tsx`); fixture `askWithFile` carries two SVG photos.
+- Composer: `rounded-2xl`, `+` as an outline circle, round send button (`prompt-input.tsx`, `composer-add-menu.tsx`, skeleton).
+- Header names the conversation from the list cache; "Remote" on the list (`app-header.tsx`). No blur: in the `fill` shell nothing scrolls under the bar.
+- Full-screen code viewer: expand button on every titled block → `Dialog` on desktop, `Drawer` on phone, line numbers, wrapped (`code-block.tsx`).
+- Every `--text-*--line-height` pinned to a `--leading-*` token; `shiki` removed from the catalog.
+
+## Agreed, not started (batch 1–8)
+
+1. One inset for transcript and composer: `px-3` on both, text edges line up.
+2. Thin track-less scrollbar on the transcript scroller (`scrollbar-thin` utility).
+3. Send icon → `ArrowUpIcon`; stop stays the square.
+4. `gap-2` between the `+` circle and the model label.
+5. Placeholder "Ask your Mac…" → "Message Grok…".
+6. Reasoning row label as `<span>` so it is 14px like a tool row; drop its `mb-4`.
+7. Fixture `answerRelay` tool part gets `title`/`kind` (real Grok shape).
+8. Vertical scale: 32px between turns, 16px between blocks in an answer, 0 between rows in a run.
+
+## Blocked on other work
+
+- Types: the other session's `ConversationLiveState` rename removed `commands`; `conversation-chat.tsx`, `chat-frame.tsx`, `conversation.stories.tsx` fail until it lands.
+- Mode picker (item 8 below): no host method to set a mode.
+- `test:design` rerun and new baselines after the rename lands.
+
 ## Remaining
 
 ### Transcript
@@ -33,7 +58,7 @@ Reference stories (Storybook on http://localhost:6006):
 
 ### Sheets on phone
 
-8. **Mode and configuration pickers.** Claude: `Select mode` sheet with title, description, and a check on the current row. Ours: `Mode: code` as static text hidden below `md`. A tappable pill that opens the same sheet as the `+` menu.
+8. **Mode and configuration pickers.** Claude: `Select mode` sheet with a check on the current row. Blocked: the host has no method to set a mode or a configuration option (`packages/core` has no `set_mode`), so a picker would be display-only. Do it with the host change.
 
 ### Composer and header
 

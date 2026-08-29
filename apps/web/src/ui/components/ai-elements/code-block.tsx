@@ -1,6 +1,20 @@
-import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import { ArrowsOutSimpleIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import {
+  createCodePlugin,
+  type HighlightOptions,
+  type HighlightResult,
+  type ThemeInput,
+} from '@streamdown/code'
 import { cn } from '@web/lib/utils.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@web/ui/components/ui/dialog.tsx'
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
 import {
   Select,
   SelectContent,
@@ -8,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@web/ui/components/ui/select.tsx'
+import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import type { ComponentProps, CSSProperties, HTMLAttributes } from 'react'
 import {
   createContext,
@@ -19,12 +34,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  createCodePlugin,
-  type HighlightOptions,
-  type HighlightResult,
-  type ThemeInput,
-} from '@streamdown/code'
 
 /**
  * The one code theme, for every block on the page.
@@ -134,11 +143,13 @@ interface TokenizedCode {
 
 interface CodeBlockContextType {
   code: string
+  language: BundledLanguage
 }
 
 // Context
 const CodeBlockContext = createContext<CodeBlockContextType>({
   code: '',
+  language: 'json',
 })
 
 // Create raw tokens for immediate display while highlighting loads
@@ -173,12 +184,10 @@ export const highlightCode = (
   // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null => {
+  // A language shiki has no grammar for is shown as it is, in the block's own colours.
+  if (!codePlugin.supportsLanguage(language)) return createRawTokens(code)
   const result = codePlugin.highlight(
-    {
-      code,
-      language: codePlugin.supportsLanguage(language) ? language : 'text',
-      themes: codePlugin.getThemes(),
-    },
+    { code, language, themes: codePlugin.getThemes() },
     callback === undefined ? undefined : (highlighted) => callback(toTokenized(highlighted)),
   )
   return result === null ? null : toTokenized(result)
@@ -298,10 +307,12 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
+  className,
 }: {
   code: string
   language: BundledLanguage
   showLineNumbers?: boolean
+  className?: string
 }) => {
   // Memoized raw tokens for immediate display
   const rawTokens = useMemo(() => createRawTokens(code), [code])
@@ -340,7 +351,11 @@ export const CodeBlockContent = ({
 
   return (
     <div className="relative overflow-auto" tabIndex={0}>
-      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+      <CodeBlockBody
+        className={className}
+        showLineNumbers={showLineNumbers}
+        tokenized={tokenized}
+      />
     </div>
   )
 }
@@ -353,7 +368,7 @@ export const CodeBlock = ({
   children,
   ...props
 }: CodeBlockProps) => {
-  const contextValue = useMemo(() => ({ code }), [code])
+  const contextValue = useMemo(() => ({ code, language }), [code, language])
 
   return (
     <CodeBlockContext.Provider value={contextValue}>
@@ -365,7 +380,7 @@ export const CodeBlock = ({
   )
 }
 
-/** A block with its name and a copy button: what every code on the page looks like. */
+/** A block with its name, a copy button, and a way to read it full screen. */
 export const TitledCodeBlock = ({ title, ...props }: CodeBlockProps & { title: string }) => (
   <CodeBlock {...props}>
     <CodeBlockHeader>
@@ -374,10 +389,59 @@ export const TitledCodeBlock = ({ title, ...props }: CodeBlockProps & { title: s
       </CodeBlockTitle>
       <CodeBlockActions>
         <CodeBlockCopyButton />
+        <CodeBlockExpandButton title={title} />
       </CodeBlockActions>
     </CodeBlockHeader>
   </CodeBlock>
 )
+
+/**
+ * The same code, given the whole screen: numbered lines, wrapped, scrolling.
+ *
+ * A sheet on a phone and a dialog on a desktop, so a long file is read where
+ * there is room for it rather than through a slot in the transcript.
+ */
+export const CodeBlockExpandButton = ({ title }: { readonly title: string }) => {
+  const { code, language } = useContext(CodeBlockContext)
+  const phone = usePhone()
+  const trigger = (
+    <Button aria-label={`Open ${title} full screen`} size="icon" variant="ghost">
+      <ArrowsOutSimpleIcon size={14} />
+    </Button>
+  )
+  const body = (
+    <CodeBlockContent
+      className="whitespace-pre-wrap break-words"
+      code={code}
+      language={language}
+      showLineNumbers
+    />
+  )
+
+  if (phone) {
+    return (
+      <Drawer>
+        <DrawerTrigger render={trigger} />
+        <DrawerContent>
+          <DrawerTitle className="px-4" render={<h3 className="truncate">{title}</h3>} />
+          <div className="rounded-xl border bg-background mx-4">{body}</div>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger render={trigger} />
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-0 p-0 sm:max-w-4xl">
+        <DialogHeader className="border-b px-4 py-3">
+          <DialogTitle className="truncate">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-auto">{body}</div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void

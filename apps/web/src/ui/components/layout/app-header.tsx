@@ -1,6 +1,7 @@
 import { LaptopIcon } from '@phosphor-icons/react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, useChildMatches } from '@tanstack/react-router'
+import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
@@ -37,22 +38,45 @@ export function AppHeader() {
   )
 }
 
+const CONVERSATION_ROUTE = '/_auth/conversations/$conversationId'
+
 /**
- * Which Mac this is, and whether it is there.
+ * What this screen is about, and the Mac behind it.
  *
- * Only on the screens that control it. Settings and pairing can read the same
- * Mac — settings names it in full — but neither is remote-controlling one, and
- * a bar that said so would be describing the wrong thing.
+ * Inside a conversation the bar names the conversation, the way a chat app
+ * does; on the list it names the job. Only on the screens that control the
+ * Mac: settings and pairing can read the same Mac, but neither is remote-
+ * controlling one, and a bar that said so would be describing the wrong thing.
  */
 function RemoteHost() {
   const owned = useQuery(hostQueries.forAccount())
   const connection = useHostConnection()
+  const conversationId = useChildMatches({
+    select: (matches) =>
+      matches.find((match) => match.routeId === CONVERSATION_ROUTE)?.params.conversationId,
+  })
+  // From the list already in the cache: the page never fetches a title on its own.
+  const title = useInfiniteQuery({
+    ...conversationQueries.list(),
+    enabled: conversationId !== undefined,
+    select: (data) =>
+      data.pages
+        .flatMap((page) => page.conversations)
+        .find((conversation) => conversation.id === conversationId)?.title,
+  })
 
   if (owned.data?.state !== 'paired') return null
 
+  const heading =
+    conversationId === undefined
+      ? 'Remote'
+      : title.data === undefined || title.data === ''
+        ? 'Conversation'
+        : title.data
+
   return (
     <div className="flex min-w-0 flex-col items-center">
-      <strong>Remote</strong>
+      <strong className="max-w-full truncate">{heading}</strong>
       <small className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
         <HostStatus connection={connection.status} />
         <LaptopIcon aria-hidden className="size-3.5 shrink-0" />

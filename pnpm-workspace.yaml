@@ -80,7 +80,6 @@ catalog:
   nanoid: ^6.0.1
   cmdk: ^1.1.1
   motion: ^13.1.1
-  shiki: ^4.4.3
   '@radix-ui/react-use-controllable-state': ^1.2.6
   '@streamdown/cjk': ^1.0.3
   '@streamdown/code': ^1.1.1
