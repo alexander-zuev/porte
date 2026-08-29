@@ -5,7 +5,6 @@ import type {
   ConversationUsage,
 } from '../conversation/conversation-progress-event.ts'
 import type { ConversationState, PendingInteractions } from '../conversation/conversation-view.ts'
-import { notYetImplemented } from '../errors/defects.ts'
 import type { TurnId } from '../identity/identity.ts'
 
 /**
@@ -26,10 +25,12 @@ export type ConversationLiveState = {
   readonly modeId?: string
 }
 
+const NO_PENDING: PendingInteractions = { permissions: [], elicitations: [] }
+
 /** The state before the Host has said anything. */
 export const INITIAL_CONVERSATION_LIVE_STATE: ConversationLiveState = {
   plans: [],
-  pending: { permissions: [], elicitations: [] },
+  pending: NO_PENDING,
 }
 
 /**
@@ -47,20 +48,106 @@ export function reduceLiveState(
   current: ConversationLiveState,
   event: ConversationEvent,
 ): ConversationLiveState {
-  // TODO(step 1): fold turn, pending, plans, usage, configuration, mode; return `current` on a no-op.
-  void event
-  void current
-  return notYetImplemented('step 1')
+  switch (event.type) {
+    case 'turn.started':
+      return { ...current, runningTurnId: event.turnId }
+    case 'turn.finished':
+    case 'conversation.failed': {
+      const { runningTurnId: _ended, ...rest } = current
+      return { ...rest, pending: NO_PENDING }
+    }
+    case 'permission.requested':
+      return {
+        ...current,
+        pending: {
+          ...current.pending,
+          permissions: [
+            ...current.pending.permissions.filter(
+              (permission) => permission.permissionId !== event.permissionId,
+            ),
+            event,
+          ],
+        },
+      }
+    case 'permission.resolved':
+      return {
+        ...current,
+        pending: {
+          ...current.pending,
+          permissions: current.pending.permissions.filter(
+            (permission) => permission.permissionId !== event.permissionId,
+          ),
+        },
+      }
+    case 'elicitation.requested':
+      return {
+        ...current,
+        pending: {
+          ...current.pending,
+          elicitations: [
+            ...current.pending.elicitations.filter(
+              (elicitation) => elicitation.elicitationId !== event.elicitationId,
+            ),
+            event,
+          ],
+        },
+      }
+    case 'elicitation.resolved':
+    case 'elicitation.completed':
+      return {
+        ...current,
+        pending: {
+          ...current.pending,
+          elicitations: current.pending.elicitations.filter(
+            (elicitation) => elicitation.elicitationId !== event.elicitationId,
+          ),
+        },
+      }
+    case 'plan.updated':
+      return {
+        ...current,
+        plans: [...current.plans.filter((plan) => plan.planId !== event.plan.planId), event.plan],
+      }
+    case 'plan.removed':
+      return { ...current, plans: current.plans.filter((plan) => plan.planId !== event.planId) }
+    case 'conversation.usage.updated':
+      return { ...current, usage: event.usage }
+    case 'conversation.configuration.updated':
+      return { ...current, configuration: event.options }
+    case 'conversation.mode.updated':
+      return { ...current, modeId: event.modeId }
+    // The transcript belongs to AIChatAgent and the command list to DO storage.
+    case 'conversation.commands.updated':
+    case 'message.started':
+    case 'message.delta':
+    case 'message.completed':
+    case 'reasoning.started':
+    case 'reasoning.delta':
+    case 'reasoning.completed':
+    case 'tool.updated':
+    case 'conversation.metadata.updated':
+      return current
+  }
+  const exhaustive: never = event
+  return exhaustive
 }
 
 /**
  * The live state one complete Host state implies.
  *
  * @param state - The Host's `conversation.get` result.
- * @returns The live facts, without commands.
+ * @returns The live facts, without the transcript or commands.
  */
 export function liveStateFromConversation(state: ConversationState): ConversationLiveState {
-  // TODO(step 1): select plans, pending, running turn, usage, configuration, mode.
-  void state
-  return notYetImplemented('step 1')
+  const facts = { plans: state.plans, pending: state.pending }
+  const running =
+    state.turn.state === 'running' ? { ...facts, runningTurnId: state.turn.turnId } : facts
+  const withUsage = state.usage === undefined ? running : { ...running, usage: state.usage }
+  const withConfiguration =
+    state.configuration === undefined
+      ? withUsage
+      : { ...withUsage, configuration: state.configuration }
+  return state.modeId === undefined
+    ? withConfiguration
+    : { ...withConfiguration, modeId: state.modeId }
 }
