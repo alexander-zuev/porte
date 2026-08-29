@@ -56,13 +56,7 @@ describe('ConversationAgent through its facet', () => {
     const viewer = await flow.viewer()
     viewer.socket.send(chatRequest('req-1', 'browser-1', 'hi'))
 
-    // DEBUG(step 3): dump both inboxes if turn.start never arrives.
-    const debugTimer = setTimeout(() => {
-      console.log('viewer saw:', viewer.inbox.seen())
-      console.log('data saw:', flow.data.inbox.seen())
-    }, 3500)
     const start = await flow.nextDataRequest('turn.start')
-    clearTimeout(debugTimer)
     const params = TurnStartParamsSchema.parse(start.params)
     expect(params.userMessage.id).toBe('browser-1')
     const turnId = turnIdFor(conversation.id, 0)
@@ -328,16 +322,10 @@ async function nextRequest<Result>(
 
 class SocketInbox {
   private readonly frames: string[] = []
-  private readonly all: string[] = []
   private readonly readers: Array<(frame: string) => void> = []
 
   constructor(socket: WebSocket) {
     socket.addEventListener('message', (event) => this.push(String(event.data)))
-  }
-
-  /** Every frame this socket ever received, for debugging. */
-  seen(): readonly string[] {
-    return this.all.map((frame) => frame.slice(0, 160))
   }
 
   next(): Promise<string> {
@@ -348,7 +336,6 @@ class SocketInbox {
   }
 
   private push(frame: string): void {
-    this.all.push(frame)
     const reader = this.readers.shift()
     if (reader === undefined) this.frames.push(frame)
     else reader(frame)
