@@ -11,7 +11,7 @@ export function notifyHostOffline(): void {
     description: `Run ${UP_COMMAND} on the Mac to reconnect.`,
     duration: Number.POSITIVE_INFINITY,
     action: {
-      label: 'Copy command',
+      label: 'Copy',
       onClick: () => {
         void navigator.clipboard.writeText(UP_COMMAND)
       },
