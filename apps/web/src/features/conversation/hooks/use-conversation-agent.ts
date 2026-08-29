@@ -7,9 +7,21 @@ export type ConversationAgentClient = ReturnType<
   typeof useAgent<ConversationAgent, ConversationLiveState>
 >
 
-/** The ConversationAgent fields that the chat component uses. */
+/** The callables the composer uses; a story fakes exactly these two. */
+export type ConversationAgentStub = Pick<
+  ConversationAgentClient['stub'],
+  'cancelTurn' | 'listCommands'
+>
+
+/**
+ * The ConversationAgent fields that the chat component uses.
+ *
+ * `identified` is the SDK's handshake fact: the sub-agent has answered, so
+ * callables and `sendMessage` reach it. The socket's `readyState` says nothing
+ * about the sub-agent behind the relay.
+ */
 export type ConversationAgentConnection = UseAgentChatOptions<ConversationLiveState>['agent'] &
-  Pick<ConversationAgentClient, 'OPEN' | 'readyState'>
+  Pick<ConversationAgentClient, 'identified' | 'name'> & { readonly stub: ConversationAgentStub }
 
 /** The browser's socket to one ConversationAgent, reached through the account's relay. */
 export function useConversationAgent(conversationId: ConversationId): ConversationAgentClient {

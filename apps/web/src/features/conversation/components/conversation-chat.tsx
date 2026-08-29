@@ -5,6 +5,8 @@ import type {
   ConversationPermission,
 } from '@web/features/conversation/hooks/use-answer-permission.ts'
 import type { ConversationAgentConnection } from '@web/features/conversation/hooks/use-conversation-agent.ts'
+import { useConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
+import { useStopTurn } from '@web/features/conversation/hooks/use-stop-turn.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
@@ -15,13 +17,18 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
-import type { UIMessage } from 'ai'
+import type { ChatStatus, UIMessage } from 'ai'
+import { useState } from 'react'
 
+import { lastTurnChanges } from '../models/tool-runs.ts'
 import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
-import { lastTurnChanges } from '../models/tool-runs.ts'
-import { ConversationChanges, ConversationPlans, conversationCost } from './conversation-progress.tsx'
+import {
+  ConversationChanges,
+  ConversationPlans,
+  conversationCost,
+} from './conversation-progress.tsx'
 import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
@@ -44,8 +51,14 @@ export function ConversationChat({
 }: ConversationChatProps) {
   // `null` turns off the SDK's own fetch: the route loader already read the transcript.
   const chat = useAgentChat({ agent, getInitialMessages: null, messages })
-  const childReady = agent.readyState === agent.OPEN
-  const canSubmit = canSend && childReady
+  // The Host owns "a turn runs"; the SDK's stream status only adds the local `submitted` spinner.
+  const running = state.runningTurnId !== undefined
+  const stop = useStopTurn(agent.stub, state.runningTurnId)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const commands = useConversationCommands(agent, menuOpen)
+  const canType = canSend && agent.identified
+  const canSubmit = canType && !running
+  const status = submitStatus(chat.status, running, stop.stopping)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -58,7 +71,7 @@ export function ConversationChat({
 
       <ConversationChanges changes={lastTurnChanges(chat.messages)} />
 
-      <ConversationPlans plans={state.plans} running={chat.isServerStreaming} />
+      <ConversationPlans plans={state.plans} running={running} />
 
       {chat.error === undefined ? null : <ConversationTurnFailed error={chat.error} />}
 
@@ -75,17 +88,18 @@ export function ConversationChat({
         <PromptInputBody>
           <PromptInputAttachments />
           <PromptInputTextarea
-            disabled={!canSubmit}
-            placeholder={promptPlaceholder(canSend, childReady)}
+            disabled={!canType}
+            placeholder={promptPlaceholder(canSend, agent.identified, stop.stopping)}
           />
           <PromptInputFooter>
             <PromptInputTools>
               <ComposerAddMenu
-                commands={state.commands}
+                commands={commands}
                 disabled={!canSubmit}
                 onCommand={(name) => {
                   void chat.sendMessage({ text: `/${name}` })
                 }}
+                onOpenChange={setMenuOpen}
               />
               {state.configuration?.map((option) => (
                 <small key={option.id} className="hidden text-muted-foreground md:inline">
@@ -112,11 +126,9 @@ export function ConversationChat({
             </PromptInputTools>
             <PromptInputSubmit
               className="ml-auto"
-              disabled={!canSubmit}
-              status={chat.status}
-              onStop={() => {
-                void chat.stop()
-              }}
+              disabled={!canType}
+              status={status}
+              onStop={stop.onStop}
             />
           </PromptInputFooter>
         </PromptInputBody>
@@ -135,9 +147,21 @@ function configurationValue(
   return values.find((value) => value.value === option.currentValue)?.name ?? option.currentValue
 }
 
-function promptPlaceholder(canSend: boolean, childReady: boolean): string {
+/**
+ * What the submit control shows. `submitted` is the SDK's spinner before the
+ * Host answers `turn.started`; from then on the Host's running turn is the fact.
+ * A reload mid-turn shows Stop even though the SDK holds no stream.
+ */
+function submitStatus(chatStatus: ChatStatus, running: boolean, stopping: boolean): ChatStatus {
+  if (stopping || chatStatus === 'submitted') return 'submitted'
+  if (running) return 'streaming'
+  return 'ready'
+}
+
+function promptPlaceholder(canSend: boolean, identified: boolean, stopping: boolean): string {
   if (!canSend) return 'Your Mac is offline'
-  if (!childReady) return 'Reconnecting…'
+  if (!identified) return 'Reconnecting…'
+  if (stopping) return 'Stopping…'
   // The agent is addressed, not the machine it runs on.
   return 'Message Grok…'
 }

@@ -52,8 +52,12 @@ const PERMISSION = PendingPermissionSchema.parse({
 const agent = {
   agent: 'ConversationAgent',
   name: SUMMARY.id,
-  OPEN: 1,
-  readyState: 1,
+  identified: true,
+  stub: {
+    cancelTurn: () => Promise.resolve(null),
+    listCommands: () =>
+      Promise.resolve([{ name: 'review', description: 'Review the current changes' }]),
+  },
   connectionError: null,
   send: () => undefined,
   addEventListener: () => undefined,
@@ -92,7 +96,6 @@ const open: OpenConversation = {
         options: [{ type: 'option', value: 'grok-code', name: 'Grok Code' }],
       },
     ],
-    commands: [{ name: 'review', description: 'Review the current changes' }],
     modeId: 'code',
     pending: { permissions: [], elicitations: [] },
   },
@@ -142,6 +145,11 @@ export const Opening: Story = {
 }
 
 export const Ready: Story = { args: view(open) }
+
+/** The Mac runs a turn. Stop is a command to the Host; the composer waits for `turn.finished`. */
+export const Streaming: Story = {
+  args: view({ ...open, state: { ...open.state, runningTurnId: PERMISSION.turnId } }),
+}
 
 /** The agent stopped to ask. Until this is answered the turn goes nowhere. */
 export const AwaitingPermission: Story = {

@@ -9,6 +9,7 @@ import {
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import { ConversationTurnFailed } from '@web/features/conversation/components/conversation-states.tsx'
 import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
+import type { ConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
 import { lastTurnChanges } from '@web/features/conversation/models/tool-runs.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
@@ -19,21 +20,31 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  type PromptInputMessage,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import type { ChatStatus, UIMessage } from 'ai'
 
 export type ChatFrameProps = {
   readonly messages: readonly UIMessage[]
   readonly state: ConversationLiveState
+  /** The Host's command list, as the `+` menu reads it. */
+  readonly commands: ConversationCommands
   readonly permissions: readonly ConversationPermission[]
+  readonly onAnswer?: (waiting: ConversationPermission, optionId: string) => void
   /** The turn stopped on its own. Shown beside the transcript, not instead of it. */
   readonly error?: Error
   readonly status: ChatStatus
+  /** Stop was pressed and the Host has not yet finished the turn. */
+  readonly stopping?: boolean
+  readonly onStop?: () => void
   /** The Mac is reachable and the child socket is open. */
   readonly canSend: boolean
   readonly placeholder: string
   readonly onReadOlder?: (() => void) | null
   readonly readingOlder?: boolean
+  /** Where a send lands. The real screen has a Mac; a story has a line of text. */
+  readonly onSend?: (message: PromptInputMessage) => void
+  readonly onCommand?: (name: string) => void
 }
 
 /**
@@ -47,13 +58,19 @@ export type ChatFrameProps = {
 export function ChatFrame({
   messages,
   state,
+  commands,
   permissions,
+  onAnswer = () => undefined,
   error,
   status,
+  stopping = false,
+  onStop = () => undefined,
   canSend,
   placeholder,
   onReadOlder = null,
   readingOlder = false,
+  onSend = () => undefined,
+  onCommand = () => undefined,
 }: ChatFrameProps) {
   const running = status === 'streaming' || status === 'submitted'
 
@@ -72,12 +89,13 @@ export function ChatFrame({
 
       {error === undefined ? null : <ConversationTurnFailed error={error} />}
 
-      <ConversationPermissions onAnswer={() => undefined} waiting={permissions} />
+      <ConversationPermissions onAnswer={onAnswer} waiting={permissions} />
 
       <PromptInput
         className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"
-        onSubmit={() => {
-          // Nothing to send into: the story has no Mac behind it.
+        onSubmit={(message) => {
+          if (message.text.trim() === '' && message.files.length === 0) return
+          onSend(message)
         }}
       >
         <PromptInputBody>
@@ -86,9 +104,10 @@ export function ChatFrame({
           <PromptInputFooter>
             <PromptInputTools>
               <ComposerAddMenu
-                commands={state.commands}
-                disabled={!canSend}
-                onCommand={() => undefined}
+                commands={commands}
+                disabled={!canSend || running}
+                onCommand={onCommand}
+                onOpenChange={() => undefined}
               />
               {state.configuration?.map((option) => (
                 <small key={option.id} className="hidden text-muted-foreground md:inline">
@@ -116,8 +135,8 @@ export function ChatFrame({
             <PromptInputSubmit
               className="ml-auto"
               disabled={!canSend}
-              status={status}
-              onStop={() => undefined}
+              status={stopping ? 'submitted' : status}
+              onStop={onStop}
             />
           </PromptInputFooter>
         </PromptInputBody>

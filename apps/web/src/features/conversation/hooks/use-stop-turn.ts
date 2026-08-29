@@ -1,6 +1,7 @@
-import { notYetImplemented, type TurnId } from '@porte/core/client'
+import type { TurnId } from '@porte/core/client'
+import { useMutation } from '@tanstack/react-query'
 
-import type { ConversationAgentClient } from './use-conversation-agent.ts'
+import type { ConversationAgentStub } from './use-conversation-agent.ts'
 
 /** What Stop looks like to the composer: a command in flight, not an aborted stream. */
 export type StopTurn = {
@@ -14,15 +15,19 @@ export type StopTurn = {
  * Stop as a command: `cancelTurn` on the Host; the stream ends when the Host
  * sends `turn.finished`, never by aborting the SDK stream (plan §5.3).
  *
- * @param agent - The conversation socket.
+ * @param stub - The conversation callables.
  * @param runningTurnId - The Mac's running turn from the live state, if any.
  */
 export function useStopTurn(
-  agent: ConversationAgentClient,
+  stub: ConversationAgentStub,
   runningTurnId: TurnId | undefined,
 ): StopTurn {
-  // TODO(step 4): useMutation over `agent.stub.cancelTurn`; `stopping` until `runningTurnId` clears.
-  void agent
-  void runningTurnId
-  return notYetImplemented('step 4')
+  const cancel = useMutation({ mutationFn: (turnId: TurnId) => stub.cancelTurn({ turnId }) })
+  return {
+    onStop: () => {
+      if (runningTurnId !== undefined) cancel.mutate(runningTurnId)
+    },
+    // Derived, not stored: `turn.finished` clears `runningTurnId` and with it this flag.
+    stopping: runningTurnId !== undefined && cancel.variables === runningTurnId && !cancel.isError,
+  }
 }
