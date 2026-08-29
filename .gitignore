@@ -63,6 +63,9 @@ Thumbs.db
 *.swo
 *~
 
+# Copied from the repo README at pack time, so the npm page and GitHub say the same thing
+apps/host/README.md
+
 # Agent local
 .claude/settings.local.json
 .mcp.local.json

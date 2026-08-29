@@ -31,6 +31,8 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "build": "tsdown",
+    "prepack": "cp ../../README.md README.md",
+    "postpack": "rm -f README.md",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
