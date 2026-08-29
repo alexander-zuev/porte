@@ -4,20 +4,15 @@ import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
 import { scheduledHandler } from './server/entrypoints/scheduled/scheduled-handler.ts'
-import { ConversationAgent as ConversationAgentBase } from './server/infrastructure/durable-objects/conversation-agent'
-import { HostRelayAgent as HostRelayAgentBase } from './server/infrastructure/durable-objects/host-relay-agent'
 import { createSentryOptions } from './server/infrastructure/observability/sentry-options.ts'
 import { createPorteWorkerResources } from './server/infrastructure/porte-worker-resources'
 import type { RuntimeEnv } from './server/infrastructure/runtime-env.ts'
 
-export const ConversationAgent = Sentry.instrumentAgentWithSentry(
-  createSentryOptions,
-  ConversationAgentBase,
-)
-export const HostRelayAgent = Sentry.instrumentAgentWithSentry(
-  createSentryOptions,
-  HostRelayAgentBase,
-)
+// Not wrapped with `instrumentAgentWithSentry`: agents 0.22.0 installs the DO handlers as
+// non-writable instance properties and Sentry 10.70 assigns over them, which throws in the
+// constructor. Errors still reach Sentry through the logger hook below.
+export { ConversationAgent } from './server/infrastructure/durable-objects/conversation-agent'
+export { HostRelayAgent } from './server/infrastructure/durable-objects/host-relay-agent'
 
 setLoggerErrorHook(({ error, distinctId, context }) => {
   Sentry.captureException(error, {
