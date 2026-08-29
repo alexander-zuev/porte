@@ -107,7 +107,7 @@ function PartsBoard() {
 
         <Specimen
           label="Answer"
-          note="Markdown: bold, a list, inline code, a fence. Copy under it once settled."
+          note="Markdown: bold, a list, a table, inline code, a fence. Copy under it once settled."
           stack
           wide
         >

@@ -38,6 +38,14 @@ import { ScrollArea } from '@web/ui/components/ui/scroll-area.tsx'
 import { Separator } from '@web/ui/components/ui/separator.tsx'
 import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
 import { Toaster, toast } from '@web/ui/components/ui/sonner.tsx'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@web/ui/components/ui/table.tsx'
 import { useEffect } from 'react'
 
 import { Board, Section, Specimen } from './board.tsx'
@@ -211,6 +219,55 @@ function SurfacesBoard() {
               ))}
             </div>
           </ScrollArea>
+        </Specimen>
+      </Section>
+
+      <Section
+        title="Table"
+        note="Rules, not boxes: one line under the header, hairlines between rows."
+      >
+        <Specimen
+          label="Three columns"
+          note="First and last cells sit on the text edge."
+          stack
+          wide
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Step</TableHead>
+                <TableHead>Where</TableHead>
+                <TableHead>What they do</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>1</TableCell>
+                <TableCell>
+                  <code>/</code>
+                </TableCell>
+                <TableCell>
+                  Read the landing line, see <code>porte pair</code>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>2</TableCell>
+                <TableCell>
+                  <code>/sign-in</code>
+                </TableCell>
+                <TableCell>Sign in</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>3</TableCell>
+                <TableCell>
+                  <code>/pair</code>
+                </TableCell>
+                <TableCell>
+                  Install Porte, run <code>porte pair</code> on the Mac
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </Specimen>
       </Section>
 

@@ -4,13 +4,21 @@ import { codePlugin, TitledCodeBlock } from '@web/ui/components/ai-elements/code
 import { ButtonGroup, ButtonGroupText } from '@web/ui/components/ui/button-group.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@web/ui/components/ui/table.tsx'
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@web/ui/components/ui/tooltip.tsx'
 import type { UIMessage } from 'ai'
-import type { ComponentProps, HTMLAttributes, ReactElement, ReactNode } from 'react'
+import type { ComponentProps, ComponentType, HTMLAttributes, ReactElement, ReactNode } from 'react'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Streamdown, type ExtraProps } from 'streamdown'
 
@@ -314,8 +322,37 @@ const MarkdownInlineCode = ({
   <code className={cn(className, 'text-inline-code-foreground')} {...props} />
 )
 
+/** Drops the `node` Streamdown adds, which is not a DOM attribute. */
+function markdown<Props extends object>(Component: ComponentType<Props>) {
+  return ({ node: _node, ...props }: Props & ExtraProps) => <Component {...(props as Props)} />
+}
+
+/**
+ * The design system's table, in place of Streamdown's boxed one with its
+ * toolbar and 300px cap: a three-row table must not scroll inside an answer.
+ * `my-4` is the block rhythm every other markdown block keeps.
+ */
+const MarkdownTable = ({
+  className,
+  node: _node,
+  ...props
+}: ComponentProps<'table'> & ExtraProps) => (
+  <div className="my-4">
+    <Table className={className} {...props} />
+  </div>
+)
+
 // Only markdown gets these: a `code` elsewhere on the site keeps the base rule.
-const STREAMDOWN_COMPONENTS = { code: MarkdownCodeBlock, inlineCode: MarkdownInlineCode }
+const STREAMDOWN_COMPONENTS = {
+  code: MarkdownCodeBlock,
+  inlineCode: MarkdownInlineCode,
+  table: MarkdownTable,
+  thead: markdown(TableHeader),
+  tbody: markdown(TableBody),
+  tr: markdown(TableRow),
+  th: markdown(TableHead),
+  td: markdown(TableCell),
+}
 
 /** Every markdown on the page: answers, reasoning, plans, tool text. One highlighter, one theme. */
 export const MessageResponse = memo(

@@ -35,7 +35,7 @@ import { ChatFrame, type ChatFrameProps } from '../harnesses/chat-frame.tsx'
  * Transcript
  * - empty state; skeleton while loading; "Earlier messages" → "Reading…"  Empty, Loading, Conversation
  * - prompt bubble; photo tiles and named files above it                     Conversation
- * - answer markdown: bold, lists, links, inline code, fence with copy        Conversation
+ * - answer markdown: bold, lists, a table, inline code, fence with copy     Conversation
  *   and expand (dialog on desktop, sheet on phone)
  * - reasoning: "Thinking" while streaming, "Thought for Ns" after;          Turn, Conversation
  *   on a phone the sheet holds the calls made inside it
