@@ -133,15 +133,14 @@ function PartsBoard() {
 
         <Specimen
           label="Done"
-          note="Open it: the words, and on a phone the calls made inside it."
+          note="Open it: the words. The calls it made follow it as their own rows, on every screen."
           stack
         >
           <Reasoning duration={4}>
             <ReasoningTrigger />
-            <ReasoningContent steps={<ToolRun calls={[SEARCH, READ]} settled />}>
-              {THOUGHT}
-            </ReasoningContent>
+            <ReasoningContent>{THOUGHT}</ReasoningContent>
           </Reasoning>
+          <ToolRun calls={[SEARCH, READ]} settled />
         </Specimen>
       </Section>
 

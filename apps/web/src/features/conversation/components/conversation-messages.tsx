@@ -20,9 +20,8 @@ import {
   SourcesTrigger,
 } from '@web/ui/components/ai-elements/sources.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
-import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import { isFileUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment } from 'react'
 
 import { groupParts, messageSettled, messageText } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
@@ -107,7 +106,6 @@ export function ConversationMessages({
 }
 
 function MessageParts({ message }: { readonly message: UIMessage }) {
-  const phone = usePhone()
   const sources = message.parts.filter((part) => part.type === 'source-url')
   const files = message.parts.filter(isFileUIPart)
   return (
@@ -130,13 +128,12 @@ function MessageParts({ message }: { readonly message: UIMessage }) {
         if (stretch.type === 'run') {
           return <ToolRun key={key} calls={stretch.calls} settled={stretch.settled} />
         }
-        // On a phone the calls live in the thought's sheet; on a desktop they follow it.
+        // The calls a thought made follow it, on every screen: the transcript reads the same anywhere.
         if (stretch.type === 'thought') {
-          const run = <ToolRun calls={stretch.calls} settled={stretch.settled} />
           return (
             <Fragment key={key}>
-              <ReasoningPart part={stretch.part} steps={run} />
-              {phone ? null : run}
+              <ReasoningPart part={stretch.part} />
+              <ToolRun calls={stretch.calls} settled={stretch.settled} />
             </Fragment>
           )
         }
@@ -150,15 +147,13 @@ function MessageParts({ message }: { readonly message: UIMessage }) {
 /** Per part, not per turn: one global flag would re-time every stored block when a prompt is sent. */
 function ReasoningPart({
   part,
-  steps,
 }: {
   readonly part: Extract<UIMessage['parts'][number], { type: 'reasoning' }>
-  readonly steps?: ReactNode
 }) {
   return (
     <Reasoning isStreaming={part.state === 'streaming'}>
       <ReasoningTrigger />
-      <ReasoningContent steps={steps}>{part.text}</ReasoningContent>
+      <ReasoningContent>{part.text}</ReasoningContent>
     </Reasoning>
   )
 }
