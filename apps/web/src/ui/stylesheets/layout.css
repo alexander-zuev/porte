@@ -53,7 +53,10 @@
  * gesture path: nothing above or below the inner scroller may move.
  */
 @utility shell-frame-fill {
-  @apply h-svh;
+  /* `dvh`, not `svh`: on the home screen WebKit reports `svh` as if Safari's
+     toolbar were present, and the frame stops short of the screen. The document
+     cannot scroll here, so the bars never move and `dvh` stays still in Safari. */
+  @apply h-dvh;
 }
 
 html:has(.shell-frame-fill),
