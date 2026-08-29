@@ -29,7 +29,7 @@ import { z } from 'zod'
 import { applyDatabaseTestMigrations } from './database-test-migrations.ts'
 
 /**
- * The seams the spikes could not settle by reading (plan §10), driven through
+ * The seams reading alone could not settle, driven through
  * the public boundary: the viewer WebSocket, the Host sockets, and get-messages.
  */
 const conversation: ConversationSummary = {
@@ -108,7 +108,7 @@ describe('ConversationAgent through its facet', () => {
     flow.data.socket.send(JSON.stringify({ jsonrpc: '2.0', id: start.id, result: null }))
 
     // The Host socket reconnects mid-stream; the fresh snapshot carries the running partial.
-    // The store must not gain a second version of the streaming turn (plan §5.2).
+    // The store must not gain a second version of the streaming turn: one writer per turn.
     const reconnected = await flow.reconnectData()
     const get = await flow.nextDataRequest('conversation.get')
     reconnected.socket.send(

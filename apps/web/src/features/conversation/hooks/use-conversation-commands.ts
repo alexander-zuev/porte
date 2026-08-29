@@ -11,7 +11,7 @@ export type ConversationCommands =
 
 /**
  * Read the command list once through the `listCommands` callable. It is about
- * 100 KB, so it never rides on the live state (plan §5.8).
+ * 100 KB, so it never rides on the live state.
  *
  * @param agent - The conversation socket; its `name` is the conversation id.
  * @param enabled - False until the menu opens, so the page never pays for it.

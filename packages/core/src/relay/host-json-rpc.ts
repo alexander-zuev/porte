@@ -73,7 +73,7 @@ export type SequenceNumber = z.infer<typeof SequenceNumberSchema>
 /**
  * Params of a Host notification, with the `seq` the relay orders by.
  *
- * The relay's sub-agent bridge can deliver two frames out of order (plan §5.7),
+ * The relay's sub-agent bridge can deliver two frames out of order,
  * so every notification carries its position on the connection.
  *
  * @param fields - The method's own params.

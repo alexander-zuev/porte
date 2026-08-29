@@ -13,7 +13,7 @@ type StoredSequence = {
 /**
  * The `seq` expectation in DO storage, under one key that a new Host
  * connection overwrites. A DO wake builds a new socket client while the Host's
- * counter continues, so this must not live in memory (plan §5.7).
+ * counter continues, so this must not live in memory.
  *
  * @param ctx - The Agent's Durable Object context.
  * @returns The persistence the `HostJsonRpcSocket` orders by.

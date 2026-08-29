@@ -13,7 +13,7 @@ export type StopTurn = {
 
 /**
  * Stop as a command: `cancelTurn` on the Host; the stream ends when the Host
- * sends `turn.finished`, never by aborting the SDK stream (plan §5.3).
+ * sends `turn.finished`, never by aborting the SDK stream.
  *
  * @param stub - The conversation callables.
  * @param runningTurnId - The Mac's running turn from the live state, if any.

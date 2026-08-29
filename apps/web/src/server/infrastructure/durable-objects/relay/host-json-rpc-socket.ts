@@ -80,7 +80,7 @@ export type HostJsonRpcNotificationHandlers<Registry extends JsonRpcMethodRegist
  * Where the last applied `seq` lives between DO wakes.
  *
  * A wake builds a new client while the Host connection and its counter go on,
- * so the expectation must outlive this object (plan §5.7).
+ * so the expectation must outlive this object.
  */
 export type SequencePersistence = {
   /** The last applied `seq` for a Host connection, or 0 when none. */
@@ -224,7 +224,7 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
   /**
    * Apply one notification at its `seq`, or hold it until the gap before it closes.
    *
-   * Frames can cross in the sub-agent bridge (plan F11). The expected `seq`
+   * Frames can cross in the sub-agent bridge. The expected `seq`
    * comes from `sequence.load` on first use and is saved after every applied
    * frame. A buffer past `SEQUENCE_BUFFER_LIMIT` closes the socket with 1008;
    * the reconnect snapshot repairs the gap.

@@ -68,7 +68,7 @@ const logger = createLogger('conversation-agent')
 /** Holds no state of its own: every call takes the projection it works on. */
 const eventProjector = new ConversationEventProjector()
 const HOST_CONNECTION_TAG = 'host-conversation'
-/** DO storage key for the Host's command list; too big for `state` (plan §5.8). */
+/** DO storage key for the Host's command list; too big for `state`. */
 const COMMANDS_KEY = 'commands'
 
 type HostConnectionState = {
@@ -104,7 +104,7 @@ type ActiveStream =
  *
  * Owns a projection, never the truth: the Mac runs the turn and keeps the
  * transcript. The stream writes the running turn; snapshots and the per-turn
- * reconcile write finished turns under the Host's ids (plan §5.2).
+ * reconcile write finished turns under the Host's ids.
  */
 export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveState> {
   initialState: ConversationLiveState = INITIAL_CONVERSATION_LIVE_STATE
@@ -127,7 +127,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
 
   /**
    * A restart is not a reason to call anything again: the Mac runs the turn
-   * and its `turn.finished` reconciles the rows (plan §5.5). The SDK's own
+   * and its `turn.finished` reconciles the rows. The SDK's own
    * partial row would be a second writer, so it neither persists nor continues.
    */
   protected override async onChatRecovery(): Promise<ChatRecoveryOptions> {
@@ -143,7 +143,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     const host = this.hostConnection()
     if (host !== undefined) this.hostSocket.attach(host)
     if (this.state.runningTurnId !== undefined && this._resumableStream.hasActiveStream()) {
-      // A resume ack would merge the dead stream's partial into the reconciled row (plan §5.5).
+      // A resume ack would merge the dead stream's partial into the reconciled row.
       this._resumableStream.clearAll()
     }
   }
@@ -268,7 +268,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
 
   /**
    * After the SDK persisted the assistant row: replace the turn with the Host's
-   * version, so Stop, gaps, and reorders all end in the same rows (plan §5.2).
+   * version, so Stop, gaps, and reorders all end in the same rows.
    */
   override async onChatResponse(result: ChatResponseResult): Promise<void> {
     void result
@@ -358,7 +358,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     let rows = await conversationStateToMessages(state, this.messages)
     const active = this.activeStream
     if (active?.binding === 'bound') {
-      // The stream owns its turn: re-supply the current rows unchanged, never omit them (codex item 2).
+      // The stream owns its turn: re-supply the current rows unchanged, never omit them: `persistMessages` deletes what the supplied set lacks.
       rows = [
         ...rows.filter((row) => !rowBelongsToTurn(row, active.turnId)),
         ...this.messages.filter((row) => rowBelongsToTurn(row, active.turnId)),
@@ -420,7 +420,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     if (active?.binding === 'waiting' && active.attemptId === event.attemptId) {
       this.activeStream = { ...active, binding: 'bound', turnId: event.turnId }
     }
-    // Upgrade the attempt stamp to the turn link (plan §5.1). The relay owns this metadata.
+    // Upgrade the attempt stamp to the turn link. The relay owns this metadata.
     await this.persistMessages(
       this.messages.map((row) =>
         attemptIdOfRow(row) === event.attemptId
