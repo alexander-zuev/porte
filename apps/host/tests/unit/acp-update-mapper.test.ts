@@ -32,7 +32,7 @@ function types(events: readonly ConversationEvent[]): string[] {
 
 describe('AcpUpdateMapper', () => {
   it('replays a 2-turn load with deterministic ids and one tool.updated per call', () => {
-    const mapper = new AcpUpdateMapper(conversationId)
+    const mapper = new AcpUpdateMapper(conversationId, () => undefined)
     const events = replay.flatMap((notification) => mapper.map(notification))
     const turnIds = new Set(events.flatMap((event) => ('turnId' in event ? [event.turnId] : [])))
     expect([...turnIds]).toEqual([`${conversationId}:turn:0`, `${conversationId}:turn:1`])
@@ -44,7 +44,7 @@ describe('AcpUpdateMapper', () => {
   })
 
   it('replay folds into a restored conversation without raising', () => {
-    const mapper = new AcpUpdateMapper(conversationId)
+    const mapper = new AcpUpdateMapper(conversationId, () => undefined)
     const conversation = Conversation.restore({
       id: conversationId,
       cwd: '/repo',
@@ -62,8 +62,8 @@ describe('AcpUpdateMapper', () => {
   })
 
   it('maps a live turn: user chunk skipped, commands once, streams closed at the end', () => {
-    const mapper = new AcpUpdateMapper(conversationId)
-    mapper.beginTurn(turnId)
+    const mapper = new AcpUpdateMapper(conversationId, () => undefined)
+    mapper.beginTurn(turnId, 0)
     const events = live.flatMap((notification) => mapper.map(notification))
     const counts = Map.groupBy(types(events), (type) => type)
     expect(events.some((event) => 'role' in event && event.role === 'user')).toBe(false)
@@ -74,11 +74,11 @@ describe('AcpUpdateMapper', () => {
   })
 
   it('rejects updates outside a turn, a second live turn, and another session', () => {
-    const mapper = new AcpUpdateMapper(conversationId)
+    const mapper = new AcpUpdateMapper(conversationId, () => undefined)
     expect(() => mapper.map(live[2]!)).toThrow(AcpUpdateSequenceError)
-    mapper.beginTurn(turnId)
+    mapper.beginTurn(turnId, 0)
     expect(() => {
-      mapper.beginTurn(turnId)
+      mapper.beginTurn(turnId, 0)
     }).toThrow(AcpUpdateSequenceError)
     expect(() => mapper.map({ ...live[2]!, sessionId: 'other' })).toThrow(AcpSessionMismatchError)
   })

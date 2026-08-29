@@ -34,6 +34,7 @@ describe('Host JSON-RPC methods', () => {
       'conversation.close',
       'conversation.get',
       'turn.start',
+      'turn.get',
       'turn.cancel',
       'conversation.configuration.set',
       'permission.answer',
@@ -79,7 +80,8 @@ describe('Host JSON-RPC methods', () => {
   it('derives payload types from each registry', () => {
     expectTypeOf<HostControlMethodMap['conversation.attach']['result']>().toEqualTypeOf<null>()
     expectTypeOf<HostConversationMethodMap['conversation.get']['kind']>().toEqualTypeOf<'request'>()
-    expectTypeOf<HostConversationMethodMap['turn.start']['params']['turnId']>().toBeString()
+    expectTypeOf<HostConversationMethodMap['turn.start']['params']['attemptId']>().toBeString()
+    expectTypeOf<HostConversationMethodMap['conversation.event']['params']['seq']>().toBeNumber()
     expectTypeOf<
       HostConversationMethodMap['conversation.event']['kind']
     >().toEqualTypeOf<'notification'>()

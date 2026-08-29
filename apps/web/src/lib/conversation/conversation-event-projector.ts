@@ -21,18 +21,15 @@ export type ConversationEventProjectionState = {
 /**
  * Creates isolated state for one assistant stream.
  *
- * Seeded from the messages AIChatAgent already stored, so a user message the
- * Mac echoes back is not projected a second time. Tool signatures start empty:
- * the Mac only updates tools belonging to the turn being projected.
+ * The Host names the user message itself and echoes it on `message.started`
+ * with `role: 'user'`; the projector records that id and skips its deltas, so
+ * no stored-ids seed is needed. Tool signatures start empty: the Mac only
+ * updates tools belonging to the turn being projected.
  */
-export function createConversationEventProjectionState(
-  stored: readonly UIMessage[] = [],
-): ConversationEventProjectionState {
+export function createConversationEventProjectionState(): ConversationEventProjectionState {
   return {
     toolInputSignatures: new Map(),
-    ownMessages: new Set(
-      stored.flatMap((message) => (message.role === 'user' ? [message.id] : [])),
-    ),
+    ownMessages: new Set(),
     openText: new Set(),
     openReasoning: new Set(),
   }

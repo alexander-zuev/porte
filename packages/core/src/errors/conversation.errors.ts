@@ -29,6 +29,18 @@ export class ConversationBusyError extends TaggedError(CONVERSATION_BUSY_ERROR)<
   }
 }
 
+export const AGENT_UNRESPONSIVE_ERROR = 'AgentUnresponsiveError'
+
+/** The coding agent did not settle a cancelled prompt before the deadline; its session was closed. */
+export class AgentUnresponsiveError extends TaggedError(AGENT_UNRESPONSIVE_ERROR)<{
+  message: string
+  classification: FailureClassification
+}> {
+  constructor() {
+    super({ message: 'The agent did not stop in time.', classification: 'transient' })
+  }
+}
+
 /** The turn named has already ended, or never started. */
 export class TurnNotFoundError extends TaggedError(TURN_NOT_FOUND_ERROR)<{
   message: string

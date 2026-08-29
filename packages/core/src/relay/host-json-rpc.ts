@@ -63,3 +63,22 @@ export function errorFromHostPayload(payload: PorteErrorPayload): Error {
       return new InternalServerError()
   }
 }
+
+/** Position of one notification on its connection, from 1. The receiver applies them in this order. */
+export const SequenceNumberSchema = z.int().positive().brand<'SequenceNumber'>()
+
+/** Position of one notification on its connection. */
+export type SequenceNumber = z.infer<typeof SequenceNumberSchema>
+
+/**
+ * Params of a Host notification, with the `seq` the relay orders by.
+ *
+ * The relay's sub-agent bridge can deliver two frames out of order (plan §5.7),
+ * so every notification carries its position on the connection.
+ *
+ * @param fields - The method's own params.
+ * @returns A strict params schema with `seq` first.
+ */
+export function sequencedParams<Fields extends Record<string, z.ZodType>>(fields: Fields) {
+  return z.strictObject({ seq: SequenceNumberSchema, ...fields })
+}

@@ -4,7 +4,7 @@ import {
   ConversationIdSchema,
   IsoDateTimeSchema,
   createHostId,
-  createTurnId,
+  turnIdFor,
   hostControlRequestSchema,
   hostConversationRequestSchema,
   jsonRpcNotification,
@@ -103,7 +103,7 @@ describe('HostRelayAgent control connection', () => {
       expect((await host.stub.readConversations({ limit: 50 })).conversations).toHaveLength(1)
     })
     const data = await connectConversation(host.stub, hostId, conversation.id)
-    const turnId = createTurnId()
+    const turnId = turnIdFor(conversation.id, 0)
     // The child asks the Host for its snapshot as soon as the Host socket is up.
     const get = await nextConversationRequest(data.inbox, 'conversation.get')
     data.socket.send(

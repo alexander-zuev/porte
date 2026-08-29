@@ -104,8 +104,8 @@ describe('Host WebSocket connections', () => {
     await test.conversations[0]?.connect()
     await test.conversations[0]?.receive(
       request('turn.start', {
-        turnId: 'turn-1',
-        userMessage: { id: 'turn-1:user', content: [{ type: 'text', text: 'hi' }] },
+        attemptId: '0199f97b-9cf1-7f05-9e9d-df1647d7a821',
+        userMessage: { id: 'browser-1', content: [{ type: 'text', text: 'hi' }] },
       }),
     )
     const methods = jsonFrames(test.conversations[0]).map((frame) =>

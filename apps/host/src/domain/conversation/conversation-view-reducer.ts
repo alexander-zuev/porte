@@ -30,13 +30,19 @@ export function applyConversationEvent(view: ConversationView, event: Conversati
     case 'message.started':
       addItem(view, {
         type: 'message',
+        turnId: event.turnId,
         messageId: event.messageId,
         role: event.role,
         content: [],
       })
       return
     case 'reasoning.started':
-      addItem(view, { type: 'reasoning', messageId: event.messageId, content: [] })
+      addItem(view, {
+        type: 'reasoning',
+        turnId: event.turnId,
+        messageId: event.messageId,
+        content: [],
+      })
       return
     case 'message.delta':
       appendContent(view, event.messageId, 'message', event.content)
@@ -48,7 +54,7 @@ export function applyConversationEvent(view: ConversationView, event: Conversati
       const index = view.tools.findIndex((tool) => tool.toolCallId === event.tool.toolCallId)
       if (index === -1) {
         view.tools.push(event.tool)
-        view.items.push({ type: 'tool', toolCallId: event.tool.toolCallId })
+        view.items.push({ type: 'tool', turnId: event.turnId, toolCallId: event.tool.toolCallId })
       } else {
         view.tools[index] = event.tool
       }

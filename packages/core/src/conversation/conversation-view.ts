@@ -23,6 +23,7 @@ export type ConversationTurnState = z.infer<typeof ConversationTurnStateSchema>
 /** Complete rendered user or assistant message in a conversation. */
 export const MessageViewSchema = z.object({
   type: z.literal('message'),
+  turnId: TurnIdSchema,
   messageId: MessageIdSchema,
   role: z.enum(['user', 'assistant']),
   content: z.array(CanonicalContentSchema),
@@ -34,6 +35,7 @@ export type MessageView = z.infer<typeof MessageViewSchema>
 /** Complete reasoning item in a conversation. */
 export const ReasoningViewSchema = z.object({
   type: z.literal('reasoning'),
+  turnId: TurnIdSchema,
   messageId: MessageIdSchema,
   content: z.array(CanonicalContentSchema),
 })
@@ -41,15 +43,25 @@ export const ReasoningViewSchema = z.object({
 /** Complete reasoning item in a conversation. */
 export type ReasoningView = z.infer<typeof ReasoningViewSchema>
 
-/** One ordered item in a conversation. */
+/** One ordered item in a conversation. Every item knows its turn, so a snapshot can group by it. */
 export const ConversationItemSchema = z.discriminatedUnion('type', [
   MessageViewSchema,
   ReasoningViewSchema,
-  z.object({ type: z.literal('tool'), toolCallId: ToolCallIdSchema }),
+  z.object({ type: z.literal('tool'), turnId: TurnIdSchema, toolCallId: ToolCallIdSchema }),
 ])
 
 /** One ordered item in a conversation. */
 export type ConversationItem = z.infer<typeof ConversationItemSchema>
+
+/** One turn's slice of the transcript: what `turn.get` returns and the relay reconciles. */
+export const ConversationTurnSchema = z.strictObject({
+  turnId: TurnIdSchema,
+  items: z.array(ConversationItemSchema),
+  tools: z.array(ToolViewSchema),
+})
+
+/** One turn's slice of the transcript. */
+export type ConversationTurn = z.infer<typeof ConversationTurnSchema>
 
 /** Pending user interactions for one active conversation. */
 export const PendingInteractionsSchema = z.object({

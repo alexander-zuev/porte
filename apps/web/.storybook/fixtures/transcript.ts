@@ -1,7 +1,7 @@
 import {
   PendingPermissionSchema,
   type ConversationPlan,
-  type ConversationRelayState,
+  type ConversationLiveState,
   type ConversationUsage,
   type PlanEntry,
 } from '@porte/core/client'
@@ -285,7 +285,7 @@ export const writeFilePermission = PendingPermissionSchema.parse({
 })
 
 /** The relay state of a conversation that has reported everything it can. */
-export const relayState: ConversationRelayState = {
+export const relayState: ConversationLiveState = {
   plans: [itemsPlan],
   pending: { permissions: [], elicitations: [] },
   usage,
@@ -301,15 +301,17 @@ export const relayState: ConversationRelayState = {
       ],
     },
   ],
-  commands: [
-    { name: 'review', description: 'Review the current changes' },
-    { name: 'test', description: 'Run the test suite' },
-  ],
   modeId: 'code',
 }
 
+/** The Host's command list, served by `listCommands`; never part of the live state. */
+export const commands = [
+  { name: 'review', description: 'Review the current changes' },
+  { name: 'test', description: 'Run the test suite' },
+]
+
 /** A conversation that has reported nothing yet. */
-export const emptyRelayState: ConversationRelayState = {
+export const emptyRelayState: ConversationLiveState = {
   plans: [],
   pending: { permissions: [], elicitations: [] },
 }

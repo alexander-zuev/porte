@@ -4,11 +4,13 @@ import { applyAgentUpdate } from './apply-agent-update.ts'
 import { cancelTurn } from './cancel-turn.ts'
 import { closeAllConversations } from './close-all-conversations.ts'
 import { closeConversation } from './close-conversation.ts'
+import { closeIdleConversation } from './close-idle-conversation.ts'
 import { completeElicitation } from './complete-elicitation.ts'
 import { createConversation } from './create-conversation.ts'
 import { dropConversationSocket } from './drop-conversation-socket.ts'
 import { finishTurn } from './finish-turn.ts'
 import { getConversation } from './get-conversation.ts'
+import { getTurn } from './get-turn.ts'
 import { listConversations } from './list-conversations.ts'
 import { openConversation } from './open-conversation.ts'
 import { publishConversationEvent } from './publish-conversation-event.ts'
@@ -28,6 +30,7 @@ export const COMMAND_HANDLERS = {
   OpenConversation: openConversation,
   CloseConversation: closeConversation,
   CloseAllConversations: closeAllConversations,
+  CloseIdleConversation: closeIdleConversation,
 
   // Turn
   StartTurn: startTurn,
@@ -59,6 +62,7 @@ export const EVENT_HANDLERS = {
 export const QUERY_HANDLERS = {
   ListConversations: listConversations,
   GetConversation: getConversation,
+  GetTurn: getTurn,
 } satisfies QueryRegistry
 
 export const DEFAULT_REGISTRY: MessageRegistry = {

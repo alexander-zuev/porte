@@ -230,9 +230,37 @@ Keep `activeStream`. The turn is still running on the Mac. When the Host reconne
 
 No backward compatibility. Old paths are deleted before their replacements exist; intermediate commits may not build. Order is bottom-up so the type checker drives every downstream change: core contracts, then Host, then relay, then browser. Each step ends with its own tests green; the whole chain is green again at step 5.
 
-### Step 0 — delete first
+### Step 0 — the shape
 
-Relay `conversation-agent.ts`: remove `chatRecovery = true`, the `continuation` branch, the abort → `cancelTurn` listener, the `onStart` snapshot, `hasAssistantMessage`, `createTurnId`, and the `SPIKE_*` traces. Host: remove the `SPIKE_EVENT` trace. Core: delete `ConversationRelayState`, `INITIAL_CONVERSATION_RELAY_STATE`, `reduceConversationRelayState`, `conversationRelayStateFromState` (replaced in step 1). Spike test files stay until step 5.
+One commit that does not type-check on purpose. It deletes what goes, renames and moves what stays, adds every new symbol as a skeleton (signature, one-line `TODO(step N)`, body throws `InternalServerError`), and adds the important tests as failing tests. Afterwards `pnpm typecheck` and `pnpm test:unit` list exactly the work of steps 1–4.
+
+Delete:
+
+- Relay `conversation-agent.ts`: `chatRecovery = true`, the `continuation` branch, the abort → `cancelTurn` listener, the `onStart` snapshot, `hasAssistantMessage`, `createTurnId`, the `SPIKE_*` traces.
+- Host `websocket-notifications.ts`: the `SPIKE_EVENT` trace.
+- Core `relay/conversation-relay-state.ts` and its exports.
+- Projector: the stored-ids seed argument of `createConversationEventProjectionState`.
+
+Rename and move:
+
+- Host `replayTurnId` → core `identity.ts` `turnIdFor(conversationId, promptIndex)`.
+- `ConversationRelayState` → `ConversationLiveState` everywhere it is imported (hooks, components, agent client type).
+
+Skeletons:
+
+- Core: `AttemptIdSchema`, `createAttemptId`; `turnId` on every `ConversationItem` variant; `turn.started { turnId, attemptId }`; `turn.start { attemptId, userMessage }`; `turn.get`; `sequencedParams` and `seq` on the three notifications; `relay/conversation-live-state.ts` (`ConversationLiveState`, `INITIAL_CONVERSATION_LIVE_STATE`, `reduceLiveState`, `liveStateFromConversation`); `AgentUnresponsiveError`.
+- Host: `Conversation.beginTurn(attemptId, userMessage): TurnId`; `AcpUpdateMapper.beginTurn(turnId, expectedPromptIndex)` and a `findTool` constructor input; `GetTurn` query + handler; `CloseIdleConversation` command + handler; `seq` counter in `createConversationNotifications`.
+- Relay: `HostJsonRpcSocket` input `sequence: { load, save }` and `applyInOrder`; `ConversationAgent.listCommands`, `bindStream`, `reconcileTurn`, `onChatResponse`; `turnToMessages(turn, existing)` in `conversation-state-messages.ts`.
+- Browser: `use-stop-turn.ts`, `use-conversation-commands.ts`.
+
+Failing tests written now:
+
+- Core: `reduceLiveState` returns the same reference on a no-op event; `turnIdFor` format.
+- Host: attempt dedupe; cancel after finish is a no-op; replay items carry `turnId`; `session-prompt-live.json` and `session-load-replay.json` give equal ids.
+- Relay unit: `conversation-state-messages` assistant `id = turnId` and user row reuse by `metadata.turnId`; socket frames 1,3,2 apply as 1,2,3.
+- Relay integration, as `it.todo` with final names: user row present after a turn (F12); requests survive a facet hibernation (F13); snapshot during a stream leaves one assistant row; restart mid-turn then `turn.finished` leaves one full row.
+
+The spike tests are deleted here: their findings live in §10 and their bodies would only add signature noise to the red list.
 
 ### Step 1 — core contracts (`packages/core`)
 

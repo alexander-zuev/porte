@@ -35,6 +35,9 @@ export const CONVERSATION_METHOD_HANDLERS = {
     return null
   },
 
+  'turn.get': (params, { bus, conversationId }) =>
+    bus.handle(createQuery('GetTurn', { conversationId, turnId: params.turnId })),
+
   'turn.cancel': async (params, { bus, conversationId }) => {
     await bus.handle(createCommand('CancelTurn', { conversationId, turnId: params.turnId }))
     return null

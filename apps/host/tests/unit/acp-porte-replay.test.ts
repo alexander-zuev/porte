@@ -26,7 +26,7 @@ const listed = fixture<ListSessionsResponse>('porte-session-list')
 const conversationId = ConversationIdSchema.parse(replay[0]!.sessionId)
 
 function replayed(): Conversation {
-  const mapper = new AcpUpdateMapper(conversationId)
+  const mapper = new AcpUpdateMapper(conversationId, () => undefined)
   const conversation = Conversation.restore({
     id: conversationId,
     cwd: '/Users/az/projects/porte',
@@ -49,6 +49,14 @@ describe('real /porte conversation', () => {
     )
     // Turn 72 carried two user chunks with the same promptIndex: one message, two deltas.
     expect(users.at(-1)).toMatchObject({ content: [{ type: 'text' }, { type: 'text' }] })
+  })
+
+  it('stamps every item with the turn it belongs to', () => {
+    const state = replayed().snapshot()
+    const turnIds = new Set(state.items.map((item) => item.turnId))
+    expect([...turnIds]).toEqual(
+      [0, 1, 2, 6, 72].map((index) => `${conversationId}:turn:${String(index)}`),
+    )
   })
 
   it('folds tool calls, legacy plans, and commands into the view', () => {

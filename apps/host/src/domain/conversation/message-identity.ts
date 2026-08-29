@@ -1,24 +1,19 @@
 import {
-  type ConversationId,
   ElicitationIdSchema,
   type ElicitationId,
   MessageIdSchema,
   type MessageId,
   PermissionIdSchema,
   type PermissionId,
-  TurnIdSchema,
   type TurnId,
 } from '@porte/core/client'
 
 /**
  * Deterministic ids for what the coding agent does not name (§1: no `messageId`
  * on any chunk). The same transcript maps to the same ids on every load, so the
- * relay can replace its copy without a diff.
+ * relay can replace its copy without a diff. The turn id itself is `turnIdFor`
+ * in `@porte/core`, shared with the relay.
  */
-export function replayTurnId(conversationId: ConversationId, promptIndex: number): TurnId {
-  return TurnIdSchema.parse(`${conversationId}:turn:${String(promptIndex)}`)
-}
-
 export function userMessageId(turnId: TurnId): MessageId {
   return MessageIdSchema.parse(`${turnId}:user`)
 }

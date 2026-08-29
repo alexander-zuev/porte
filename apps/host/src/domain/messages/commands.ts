@@ -1,5 +1,6 @@
 import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import type {
+  AttemptId,
   CanonicalContent,
   ConversationEvent,
   ConversationId,
@@ -23,10 +24,13 @@ export type CommandDataMap = {
   OpenConversation: InConversation & { cwd: string }
   CloseConversation: InConversation
   CloseAllConversations: Record<never, never>
+  /** Close a conversation with no running turn inside the idle window; a viewer re-attaches later. */
+  CloseIdleConversation: InConversation
 
   // Turn
+  /** The Host mints the turn id; `attemptId` makes a repeated request a no-op. */
   StartTurn: InConversation & {
-    turnId: TurnId
+    attemptId: AttemptId
     userMessage: { id: MessageId; content: readonly CanonicalContent[] }
   }
   FinishTurn: InConversation & { turnId: TurnId; outcome: TurnOutcome; usage?: ConversationUsage }

@@ -1,7 +1,9 @@
 import {
+  AttemptIdSchema,
+  ConversationIdSchema,
   createMessageId,
-  createTurnId,
   ToolCallIdSchema,
+  turnIdFor,
   type ConversationEvent,
   type ToolView,
 } from '@porte/core/client'
@@ -12,7 +14,8 @@ import {
 } from '@web/lib/conversation/conversation-event-projector.ts'
 import { describe, expect, it } from 'vitest'
 
-const turnId = createTurnId()
+const turnId = turnIdFor(ConversationIdSchema.parse('c1'), 0)
+const attemptId = AttemptIdSchema.parse('0199f97b-9cf1-7f05-9e9d-df1647d7a821')
 
 function chunks(...events: ConversationEvent[]) {
   const projector = new ConversationEventProjector()
@@ -36,7 +39,7 @@ describe('porteEventToChunks', () => {
   it('opens and closes a turn', () => {
     expect(
       chunks(
-        { type: 'turn.started', turnId },
+        { type: 'turn.started', turnId, attemptId },
         {
           type: 'turn.finished',
           turnId,

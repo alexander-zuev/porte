@@ -13,11 +13,12 @@ import {
  * `FinishTurn` when the agent answers. The relay sees `turn.started` before this returns.
  */
 export const startTurn: CommandHandler<CommandMap['StartTurn'], void> = async (command, deps) => {
+  // TODO(step 2): load the session when it is not open (deadline close, idle eviction) before beginning.
   const conversation = deps.conversations.get(command.conversationId)
-  conversation.beginTurn(command.turnId, command.userMessage)
+  const turnId = conversation.beginTurn(command.attemptId, command.userMessage)
   deps.conversations.save(conversation)
 
-  const { conversationId, turnId } = command
+  const { conversationId } = command
   deps.background.run(
     deps.codingAgent.prompt(conversationId, turnId, command.userMessage.content).then(
       (result) => {

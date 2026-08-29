@@ -1,4 +1,8 @@
-import { AIChatAgent, type OnChatMessageOptions } from '@cloudflare/ai-chat'
+import {
+  AIChatAgent,
+  type ChatResponseResult,
+  type OnChatMessageOptions,
+} from '@cloudflare/ai-chat'
 import {
   ConversationBusyError,
   ConversationIdSchema,
@@ -6,16 +10,19 @@ import {
   HostConversationMethods,
   HostIdSchema,
   HostOfflineError,
-  INITIAL_CONVERSATION_RELAY_STATE,
+  INITIAL_CONVERSATION_LIVE_STATE,
   MessageIdSchema,
-  conversationRelayStateFromState,
+  createAttemptId,
   createLogger,
-  createTurnId,
-  reduceConversationRelayState,
+  liveStateFromConversation,
+  notYetImplemented,
+  reduceLiveState,
+  type AttemptId,
   type CanonicalContent,
+  type ConversationCommand,
   type ConversationEvent,
   type ConversationId,
-  type ConversationRelayState,
+  type ConversationLiveState,
   type HostConversationMethodMap,
   type HostId,
   type MessageId,
@@ -28,7 +35,10 @@ import {
   createConversationEventProjectionState,
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
-import { conversationStateToMessages } from '@web/lib/conversation/conversation-state-messages.ts'
+import {
+  conversationStateToMessages,
+  turnToMessages,
+} from '@web/lib/conversation/conversation-state-messages.ts'
 import {
   type AgentContext,
   type Connection,
@@ -55,6 +65,8 @@ const logger = createLogger('conversation-agent')
 /** Holds no state of its own: every call takes the projection it works on. */
 const eventProjector = new ConversationEventProjector()
 const HOST_CONNECTION_TAG = 'host-conversation'
+/** DO storage key for the Host's command list; too big for `state` (plan §5.8). */
+const COMMANDS_KEY = 'commands'
 
 type HostConnectionState = {
   readonly role: 'host-conversation'
@@ -62,22 +74,42 @@ type HostConnectionState = {
   readonly connectedAt: number
 }
 
-type ActiveStream = {
-  readonly turnId: TurnId
-  readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
-  readonly projection: ConversationEventProjectionState
-}
+/**
+ * The stream one `onChatMessage` opened. Unbound until the Host answers the
+ * attempt with `turn.started { turnId, attemptId }`; then every event of that
+ * turn is projected into it.
+ */
+type ActiveStream =
+  | {
+      readonly binding: 'waiting'
+      readonly attemptId: AttemptId
+      readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
+      readonly projection: ConversationEventProjectionState
+    }
+  | {
+      readonly binding: 'bound'
+      readonly attemptId: AttemptId
+      readonly turnId: TurnId
+      readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
+      readonly projection: ConversationEventProjectionState
+    }
 
-/** Child chat Agent for one conversation data connection. */
-export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelayState> {
-  initialState: ConversationRelayState = INITIAL_CONVERSATION_RELAY_STATE
-  chatRecovery = true
+/**
+ * Child chat Agent for one conversation data connection.
+ *
+ * Owns a projection, never the truth: the Mac runs the turn and keeps the
+ * transcript. The stream writes the running turn; snapshots and the per-turn
+ * reconcile write finished turns under the Host's ids (plan §5.2).
+ */
+export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveState> {
+  initialState: ConversationLiveState = INITIAL_CONVERSATION_LIVE_STATE
+  /** The SDK's "call the model again" recovery is wrong here: the Mac runs the turn (plan §5.5). */
+  chatRecovery = false
 
   private readonly conversationId: ConversationId
   private readonly hostSocket: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
-  private hasAssistantMessage = false
 
   constructor(ctx: AgentContext, env: RuntimeEnv) {
     super(ctx, env)
@@ -85,16 +117,25 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     this.hostSocket = new HostJsonRpcSocket({
       methods: HostConversationMethods,
       notificationHandlers: {
-        'conversation.event': (params) => this.handleConversationEvent(params),
+        'conversation.event': (params) => this.acceptEvent(params.event),
+      },
+      // TODO(step 3): persist the last applied `seq` per Host connection in DO storage.
+      sequence: {
+        load: () => notYetImplemented('step 3'),
+        save: () => notYetImplemented('step 3'),
       },
     })
   }
 
+  /**
+   * Attach the hibernated Host socket. No snapshot: a wake is not a reason to
+   * rewrite the store. If a turn may still run, drop the SDK's orphaned stream
+   * buffer so a later resume ack cannot merge it into the reconciled row.
+   */
   override onStart(): void {
     const host = this.hostConnection()
-    if (host === undefined) return
-    this.hostSocket.attach(host)
-    this.requestSnapshotInBackground()
+    if (host !== undefined) this.hostSocket.attach(host)
+    // TODO(step 3): if `state.runningTurnId` is set and the SDK reports an active stream, clear the buffer.
   }
 
   override getConnectionTags(_connection: Connection, context: ConnectionContext): string[] {
@@ -181,49 +222,37 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     })
   }
 
-  /** Start a Host turn and stream its ordered events to AIChatAgent. */
+  /**
+   * Ask the Host to start a turn and hand the SDK a stream that the Host's
+   * events fill. The stream binds to its turn on `turn.started`.
+   */
   override async onChatMessage(
     _onEnd: GenerateTextOnEndCallback,
-    options?: OnChatMessageOptions,
+    _options?: OnChatMessageOptions,
   ): Promise<Response> {
     const userMessage = latestUserMessage(this.messages)
-    // SPIKE: temporary trace of what AIChatAgent holds when a turn starts.
-    console.error(
-      'SPIKE_CHAT',
-      JSON.stringify({
-        continuation: options?.continuation,
-        stored: this.messages.map((m) => `${m.role}:${m.id}`),
-        user: userMessage?.id,
-      }),
-    )
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
 
-    let turnId: TurnId
-    if (options?.continuation) {
-      if (this.state.runningTurnId === undefined) {
-        return errorStreamResponse('The turn is no longer available for recovery.')
-      }
-      turnId = this.state.runningTurnId
-    } else {
-      // The Host's `turn.started` sets `runningTurnId`; this viewer context is readonly.
-      turnId = createTurnId()
-    }
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
-    const active = {
-      turnId,
+    const active: ActiveStream = {
+      binding: 'waiting',
+      attemptId: createAttemptId(),
       writer: stream.writable.getWriter(),
-      projection: createConversationEventProjectionState(this.messages),
-    } satisfies ActiveStream
-    this.activeStream = active
-    const abort = (): void => {
-      if (this.activeStream === active) this.activeStream = undefined
-      void active.writer.close().catch(() => undefined)
-      this.cancelTurnInBackground(turnId)
+      projection: createConversationEventProjectionState(),
     }
-    if (options?.abortSignal?.aborted) abort()
-    else options?.abortSignal?.addEventListener('abort', abort, { once: true })
+    this.activeStream = active
     void this.startTurn(active, userMessage)
     return createUIMessageStreamResponse({ stream: stream.readable })
+  }
+
+  /**
+   * After the SDK persisted the assistant row: replace the turn with the Host's
+   * version, so Stop, gaps, and reorders all end in the same rows (plan §5.2).
+   */
+  override async onChatResponse(result: ChatResponseResult): Promise<void> {
+    // TODO(step 3): find the turn this request streamed and `reconcileTurn` it.
+    void result
+    notYetImplemented('step 3')
   }
 
   @callable()
@@ -231,6 +260,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     return await this.hostSocket.request('conversation.close', {})
   }
 
+  /** Stop is a command to the Mac; the stream ends when the Host sends `turn.finished`. */
   @callable()
   async cancelTurn(params: HostConversationMethodMap['turn.cancel']['params']): Promise<null> {
     return await this.hostSocket.request('turn.cancel', params)
@@ -257,7 +287,15 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     return await this.hostSocket.request('elicitation.answer', params)
   }
 
-  // `onStart` and `onConnect` both ask; one snapshot per socket is enough.
+  /** The Host's command list, read once by the composer menu; never part of `state`. */
+  @callable()
+  async listCommands(): Promise<readonly ConversationCommand[]> {
+    // TODO(step 3): `this.ctx.storage.get(COMMANDS_KEY)` with an empty default.
+    void COMMANDS_KEY
+    return notYetImplemented('step 3')
+  }
+
+  // `onConnect` asks once per Host socket; one snapshot per socket is enough.
   private snapshotInFlight: Promise<void> | undefined
 
   private requestSnapshotInBackground(): void {
@@ -279,33 +317,40 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     await this.applySnapshot(await this.hostSocket.request('conversation.get', {}))
   }
 
+  /**
+   * Write every finished turn under the Host's ids. A turn with an open stream
+   * keeps its current rows: they are re-supplied unchanged, never omitted,
+   * because `persistMessages` deletes what the supplied set lacks.
+   */
   private async applySnapshot(
     state: HostConversationMethodMap['conversation.get']['result'],
   ): Promise<void> {
-    this.setState(conversationRelayStateFromState(state))
-    await this.persistMessages(await conversationStateToMessages(state), [], {
+    this.setLiveState(liveStateFromConversation(state))
+    // TODO(step 3): keep the streaming turn's rows from `this.messages`; store `state.commands` under COMMANDS_KEY.
+    await this.persistMessages(await conversationStateToMessages(state, this.messages), [], {
       _deleteStaleRows: true,
     })
     this.publishCurrentActivity()
   }
 
-  private async handleConversationEvent(
-    params: HostConversationMethodMap['conversation.event']['params'],
-  ): Promise<void> {
-    await this.acceptEvent(params.event)
+  /** Replace one finished turn with the Host's version of it. */
+  private async reconcileTurn(turnId: TurnId): Promise<void> {
+    const turn = await this.hostSocket.request('turn.get', { turnId })
+    const rows = await turnToMessages(turn, this.messages)
+    // TODO(step 3): splice `rows` over the turn's current rows and persist with `_deleteStaleRows`.
+    void rows
+    notYetImplemented('step 3')
   }
 
   private async acceptEvent(event: ConversationEvent): Promise<void> {
-    // SPIKE: temporary order trace on the relay side.
-    console.error(
-      'SPIKE_RELAY',
-      event.type,
-      'content' in event && event.content.type === 'text' ? JSON.stringify(event.content.text) : '',
-    )
-    this.setState(reduceConversationRelayState(this.state, event))
+    this.setLiveState(reduceLiveState(this.state, event))
     this.publishActivity(event)
+    if (event.type === 'turn.started') this.bindStream(event)
     const active = this.activeStream
-    if (active === undefined || !eventBelongsToTurn(event, active.turnId)) return
+    if (active?.binding !== 'bound' || !eventBelongsToTurn(event, active.turnId)) {
+      if (isTerminalEvent(event) && 'turnId' in event) this.reconcileInBackground(event.turnId)
+      return
+    }
     await this.serializeStream(async () => {
       if (this.activeStream !== active) return
       try {
@@ -324,30 +369,43 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
     })
   }
 
+  /** `turn.started` names the turn the waiting stream asked for. */
+  private bindStream(event: Extract<ConversationEvent, { type: 'turn.started' }>): void {
+    const active = this.activeStream
+    if (active?.binding !== 'waiting' || active.attemptId !== event.attemptId) return
+    this.activeStream = { ...active, binding: 'bound', turnId: event.turnId }
+    // TODO(step 3): stamp `metadata.turnId` on the user row this attempt sent.
+  }
+
+  /** `setState` writes and broadcasts the whole value; call it only for a new reference. */
+  private setLiveState(next: ConversationLiveState): void {
+    if (next !== this.state) this.setState(next)
+  }
+
+  private reconcileInBackground(turnId: TurnId): void {
+    void this.reconcileTurn(turnId).catch((error) => {
+      logger.warn('turn_reconcile_failed', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId, turnId },
+      })
+    })
+  }
+
   private async startTurn(
     active: ActiveStream,
     userMessage: { readonly id: MessageId; readonly content: CanonicalContent[] },
   ): Promise<void> {
     try {
-      await this.hostSocket.request('turn.start', { turnId: active.turnId, userMessage })
+      await this.hostSocket.request('turn.start', { attemptId: active.attemptId, userMessage })
     } catch (error) {
       logger.error('turn_start_failed', {
         error,
-        details: { conversationId: this.conversationId, turnId: active.turnId },
+        details: { conversationId: this.conversationId, attemptId: active.attemptId },
       })
       if (this.activeStream !== active) return
       this.activeStream = undefined
       await closeWriterWithError(active.writer, hostErrorMessage(error))
     }
-  }
-
-  private cancelTurnInBackground(turnId: TurnId): void {
-    void this.cancelTurn({ turnId }).catch((error) => {
-      logger.error('turn_cancel_failed', {
-        error,
-        details: { conversationId: this.conversationId, turnId },
-      })
-    })
   }
 
   private serializeStream<Result>(work: () => Promise<Result>): Promise<Result> {
@@ -369,12 +427,10 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
 
   private publishActivity(event: ConversationEvent): void {
     if (event.type === 'turn.started') {
-      this.hasAssistantMessage = false
       this.publishActivityRecord(event.turnId)
       return
     }
     if (event.type === 'message.started' && event.role === 'assistant') {
-      this.hasAssistantMessage = true
       this.publishActivityRecord(event.turnId)
       return
     }
@@ -415,7 +471,9 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationRelay
         parent.setConversationActivity({
           conversationId: this.conversationId,
           turnId,
-          hasAssistantMessage: this.hasAssistantMessage,
+          hasAssistantMessage: this.messages.some(
+            (message) => message.role === 'assistant' && message.id === turnId,
+          ),
         }),
       )
       .catch((error) => {

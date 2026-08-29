@@ -1,5 +1,5 @@
-import type { ConversationId, ConversationRelayState } from '@porte/core/client'
-import { INITIAL_CONVERSATION_RELAY_STATE } from '@porte/core/client'
+import type { ConversationId, ConversationLiveState } from '@porte/core/client'
+import { INITIAL_CONVERSATION_LIVE_STATE } from '@porte/core/client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import type { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import {
@@ -22,7 +22,7 @@ export type OpenConversation = {
   readonly agent: ConversationAgentConnection
   readonly messages: UIMessage[]
   readonly permissions: readonly ConversationPermission[]
-  readonly state: ConversationRelayState
+  readonly state: ConversationLiveState
   readonly actions: ConversationActions
 }
 
@@ -40,7 +40,7 @@ export function useConversation(
   const agent = useConversationAgent(conversationId)
   const { actions, answeringId } = useAnswerPermission(agent)
   // Until the first sync the Agent has reported nothing, which is what the initial state means.
-  const state = agent.state ?? INITIAL_CONVERSATION_RELAY_STATE
+  const state = agent.state ?? INITIAL_CONVERSATION_LIVE_STATE
   const permissions = useMemo<ConversationPermission[]>(
     () =>
       state.pending.permissions.map((permission) => ({

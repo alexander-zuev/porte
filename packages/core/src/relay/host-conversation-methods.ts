@@ -3,8 +3,12 @@ import { z } from 'zod'
 import { CanonicalContentSchema } from '../conversation/canonical-content.ts'
 import { ElicitationAnswerSchema } from '../conversation/conversation-elicitation-event.ts'
 import { ConversationEventSchema } from '../conversation/conversation-event.ts'
-import { ConversationStateSchema } from '../conversation/conversation-view.ts'
 import {
+  ConversationStateSchema,
+  ConversationTurnSchema,
+} from '../conversation/conversation-view.ts'
+import {
+  AttemptIdSchema,
   ElicitationIdSchema,
   MessageIdSchema,
   PermissionIdSchema,
@@ -21,7 +25,11 @@ import {
   jsonRpcRequestSchema,
   jsonRpcResponseSchema,
 } from '../websocket/json-rpc.ts'
-import { HostApplicationErrorSchema, HostRequestIdSchema } from './host-json-rpc.ts'
+import {
+  HostApplicationErrorSchema,
+  HostRequestIdSchema,
+  sequencedParams,
+} from './host-json-rpc.ts'
 
 const EmptyResultSchema = z.null()
 
@@ -46,16 +54,22 @@ export const HostConversationMethods = {
     params: z.strictObject({}),
     result: ConversationStateSchema,
   },
+  // The Host mints the turn id; `turn.started { turnId, attemptId }` tells the relay which one.
   'turn.start': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({
-      turnId: TurnIdSchema,
+      attemptId: AttemptIdSchema,
       userMessage: z.strictObject({
         id: MessageIdSchema,
         content: z.array(CanonicalContentSchema).min(1),
       }),
     }),
     result: EmptyResultSchema,
+  },
+  'turn.get': {
+    kind: JSON_RPC_METHOD_KINDS.request,
+    params: z.strictObject({ turnId: TurnIdSchema }),
+    result: ConversationTurnSchema,
   },
   'turn.cancel': {
     kind: JSON_RPC_METHOD_KINDS.request,
@@ -90,7 +104,7 @@ export const HostConversationMethods = {
   },
   'conversation.event': {
     kind: JSON_RPC_METHOD_KINDS.notification,
-    params: z.strictObject({ event: ConversationEventSchema }),
+    params: sequencedParams({ event: ConversationEventSchema }),
   },
 } as const satisfies Record<string, JsonRpcMethodDefinition>
 

@@ -2,7 +2,6 @@
 import {
   assistantMessageId,
   reasoningMessageId,
-  replayTurnId,
   userMessageId,
 } from '@host/domain/conversation/message-identity.ts'
 import {
@@ -28,6 +27,7 @@ import {
   type MessageId,
   type ToolView,
   type TurnId,
+  turnIdFor,
 } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 import { z } from 'zod'
@@ -90,15 +90,33 @@ export class AcpUpdateMapper {
   private readonly tools = new Map<string, ToolView>()
   private commandsKey: string | undefined
 
-  constructor(private readonly conversationId: ConversationId) {}
+  /**
+   * @param conversationId - The session every update must belong to.
+   * @param findTool - The aggregate's current view of a tool call, for partial `tool_call_update`s.
+   */
+  constructor(
+    private readonly conversationId: ConversationId,
+    private readonly findTool: (toolCallId: string) => ToolView | undefined,
+  ) {
+    // TODO(step 2): read tool state through `findTool` and drop the private `tools` map.
+    void this.findTool
+  }
 
   /** The relay turn in flight, if any. Replay turns are not live. */
   get liveTurnId(): TurnId | undefined {
     return this.turn?.live === true ? this.turn.turnId : undefined
   }
 
-  /** A relay turn starts; its user message is raised by the aggregate, not mapped. */
-  beginTurn(turnId: TurnId): void {
+  /**
+   * A relay turn starts; its user message is raised by the aggregate, not mapped.
+   *
+   * `expectedPromptIndex` is the aggregate's prediction behind `turnId`. The first
+   * live `user_message_chunk` carries Grok's `_meta.promptIndex`; a mismatch is an
+   * invariant error, logged once by the caller.
+   */
+  beginTurn(turnId: TurnId, expectedPromptIndex: number): void {
+    // TODO(step 2): keep `expectedPromptIndex` and compare it on the first live user chunk.
+    void expectedPromptIndex
     if (this.turn?.live === true) {
       throw new AcpUpdateSequenceError('A live turn is already active')
     }
@@ -184,7 +202,7 @@ export class AcpUpdateMapper {
     if (!promptIndex.success) {
       throw new AcpUpdateValueError('ACP replay user message has no promptIndex')
     }
-    const turnId = replayTurnId(this.conversationId, promptIndex.data)
+    const turnId = turnIdFor(this.conversationId, promptIndex.data)
     // Real replays repeat a promptIndex when one turn carried several user chunks; same turn.
     if (this.turn?.live === false && this.turn.turnId === turnId) return []
     const closed = this.closeStreams()

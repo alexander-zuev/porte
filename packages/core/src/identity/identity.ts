@@ -21,10 +21,34 @@ export const ConnectionIdSchema = z.uuidv7().brand<'ConnectionId'>()
 export type ConnectionId = z.infer<typeof ConnectionIdSchema>
 export const createConnectionId = (): ConnectionId => ConnectionIdSchema.parse(uuidv7())
 
-/** Identifier supplied by the client that owns one conversation turn. */
+export const ConversationIdSchema = z.string().min(1).brand<'ConversationId'>()
+export type ConversationId = z.infer<typeof ConversationIdSchema>
+
+/**
+ * Identifier of one turn, derived from the conversation and Grok's `promptIndex`.
+ * Only the Host mints it, through `turnIdFor`, so live and replayed turns agree.
+ */
 export const TurnIdSchema = z.string().min(1).max(512).brand<'TurnId'>()
 export type TurnId = z.infer<typeof TurnIdSchema>
-export const createTurnId = (): TurnId => TurnIdSchema.parse(uuidv7())
+
+/**
+ * The one turn identity for a prompt position in a conversation.
+ *
+ * @param conversationId - Grok's session id.
+ * @param promptIndex - Grok's per-prompt counter, zero-based.
+ * @returns The stable turn id both the live path and the replay path use.
+ */
+export function turnIdFor(conversationId: ConversationId, promptIndex: number): TurnId {
+  return TurnIdSchema.parse(`${conversationId}:turn:${String(promptIndex)}`)
+}
+
+/**
+ * The relay's key for one `turn.start` request. It correlates `turn.started`
+ * with the stream that asked for it and makes a repeated request a no-op.
+ */
+export const AttemptIdSchema = z.uuidv7().brand<'AttemptId'>()
+export type AttemptId = z.infer<typeof AttemptIdSchema>
+export const createAttemptId = (): AttemptId => AttemptIdSchema.parse(uuidv7())
 
 export const PermissionIdSchema = z.string().min(1).max(1024).brand<'PermissionId'>()
 export type PermissionId = z.infer<typeof PermissionIdSchema>
@@ -38,9 +62,6 @@ export type ElicitationId = z.infer<typeof ElicitationIdSchema>
 
 /** Create one time-ordered elicitation identifier. */
 export const createElicitationId = (): ElicitationId => ElicitationIdSchema.parse(uuidv7())
-
-export const ConversationIdSchema = z.string().min(1).brand<'ConversationId'>()
-export type ConversationId = z.infer<typeof ConversationIdSchema>
 
 export const MessageIdSchema = z.string().min(1).brand<'MessageId'>()
 export type MessageId = z.infer<typeof MessageIdSchema>

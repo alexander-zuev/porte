@@ -18,7 +18,11 @@ import {
   jsonRpcRequestSchema,
   jsonRpcResponseSchema,
 } from '../websocket/json-rpc.ts'
-import { HostApplicationErrorSchema, HostRequestIdSchema } from './host-json-rpc.ts'
+import {
+  HostApplicationErrorSchema,
+  HostRequestIdSchema,
+  sequencedParams,
+} from './host-json-rpc.ts'
 
 const EmptyResultSchema = z.null()
 
@@ -45,14 +49,14 @@ export const HostControlMethods = {
   },
   'conversation.updated': {
     kind: JSON_RPC_METHOD_KINDS.notification,
-    params: z.strictObject({
+    params: sequencedParams({
       conversationId: ConversationIdSchema,
       update: ConversationMetadataPatchSchema,
     }),
   },
   'conversation.removed': {
     kind: JSON_RPC_METHOD_KINDS.notification,
-    params: z.strictObject({ conversationId: ConversationIdSchema }),
+    params: sequencedParams({ conversationId: ConversationIdSchema }),
   },
 } as const satisfies Record<string, JsonRpcMethodDefinition>
 

@@ -1,5 +1,5 @@
 import { CameraIcon, FileArrowUpIcon, ImagesIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
-import type { ConversationRelayState } from '@porte/core/client'
+import type { ConversationCommand as ConversationCommandFromCore } from '@porte/core/client'
 import { cn } from '@web/lib/utils.ts'
 import {
   PromptInputActionAddAttachments,
@@ -21,7 +21,7 @@ import {
 import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import { useRef, useState, type ComponentProps, type ReactNode } from 'react'
 
-type ConversationCommand = NonNullable<ConversationRelayState['commands']>[number]
+type ConversationCommand = ConversationCommandFromCore
 
 export type ComposerAddMenuProps = {
   readonly commands: readonly ConversationCommand[] | undefined

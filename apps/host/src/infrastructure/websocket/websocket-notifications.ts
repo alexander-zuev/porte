@@ -1,15 +1,27 @@
 import type { ControlNotifications } from '@host/application/ports/control-notifications.ts'
 import type { ConversationNotifications } from '@host/application/ports/conversation-notifications.ts'
-import { jsonRpcNotification } from '@porte/core/client'
+import { SequenceNumberSchema, jsonRpcNotification, type SequenceNumber } from '@porte/core/client'
 
 type SendFrame = (frame: string) => void | Promise<void>
 
+/** Numbers every notification on one connection, from 1; the relay applies them in this order. */
+function sequence(): () => SequenceNumber {
+  let last = 0
+  return () => {
+    last += 1
+    return SequenceNumberSchema.parse(last)
+  }
+}
+
 /** Send application notifications through the control connection. */
 export function createControlNotifications(send: SendFrame): ControlNotifications {
+  const next = sequence()
   return {
     conversationUpdated: (conversationId, update) => {
       void send(
-        JSON.stringify(jsonRpcNotification('conversation.updated', { conversationId, update })),
+        JSON.stringify(
+          jsonRpcNotification('conversation.updated', { seq: next(), conversationId, update }),
+        ),
       )
     },
   }
@@ -17,17 +29,10 @@ export function createControlNotifications(send: SendFrame): ControlNotification
 
 /** Send application notifications through one conversation connection. */
 export function createConversationNotifications(send: SendFrame): ConversationNotifications {
+  const next = sequence()
   return {
     sendEvent: (event) => {
-      // SPIKE: temporary order trace.
-      console.error(
-        'SPIKE_EVENT',
-        event.type,
-        'content' in event && event.content.type === 'text'
-          ? JSON.stringify(event.content.text)
-          : '',
-      )
-      void send(JSON.stringify(jsonRpcNotification('conversation.event', { event })))
+      void send(JSON.stringify(jsonRpcNotification('conversation.event', { seq: next(), event })))
     },
   }
 }

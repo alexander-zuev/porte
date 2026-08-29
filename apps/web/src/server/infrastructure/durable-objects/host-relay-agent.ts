@@ -8,6 +8,7 @@ import {
   HostOfflineError,
   HostRelayStateSchema,
   createLogger,
+  notYetImplemented,
   type ConversationSummary,
   type ConversationId,
   type HostControlMethodMap,
@@ -71,6 +72,11 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       notificationHandlers: {
         'conversation.updated': (params) => this.handleConversationUpdated(params),
         'conversation.removed': (params) => this.handleConversationRemoved(params),
+      },
+      // TODO(step 3): persist the last applied `seq` per Host connection in DO storage.
+      sequence: {
+        load: () => notYetImplemented('step 3'),
+        save: () => notYetImplemented('step 3'),
       },
     })
   }

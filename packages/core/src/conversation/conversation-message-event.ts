@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { MessageIdSchema, TurnIdSchema } from '../identity/identity.ts'
+import { AttemptIdSchema, MessageIdSchema, TurnIdSchema } from '../identity/identity.ts'
 import { CanonicalContentSchema } from './canonical-content.ts'
 import { ConversationFailurePayloadSchema } from './conversation-failure-payload.ts'
 
@@ -14,7 +14,8 @@ const turnOutcomeSchema = z.discriminatedUnion('type', [
 ])
 
 const conversationEventDataSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('turn.started'), turnId: TurnIdSchema }),
+  // `attemptId` binds the relay's waiting stream to the turn the Host minted.
+  z.object({ type: z.literal('turn.started'), turnId: TurnIdSchema, attemptId: AttemptIdSchema }),
   z.object({ type: z.literal('turn.finished'), turnId: TurnIdSchema, outcome: turnOutcomeSchema }),
   z.object({
     type: z.literal('message.started'),

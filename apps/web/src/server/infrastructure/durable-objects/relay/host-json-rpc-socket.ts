@@ -7,11 +7,13 @@ import {
   JsonRpcReadError,
   JsonRpcTextSchema,
   RequestTimeoutError,
+  SequenceNumberSchema,
   createHostRequestId,
   createLogger,
   errorFromHostPayload,
   jsonRpcRequest,
   jsonRpcResponseSchema,
+  notYetImplemented,
   readJsonRpcIncoming,
   readJsonRpcTextFrame,
   sendJsonRpcFrame,
@@ -23,14 +25,17 @@ import {
   type JsonRpcRegistryNotificationMethod,
   type JsonRpcRegistryRequestMethod,
   type JsonRpcTextFrameClose,
+  type SequenceNumber,
 } from '@porte/core'
 import type { Connection, WSMessage } from 'agents'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import { isOpenConnection } from './host-subprotocol.ts'
 
 const logger = createLogger('host-json-rpc-socket')
 const REQUEST_TIMEOUT_MS = 60_000
+/** Every Host notification carries its position; the registry schema already parsed it. */
+const SequencedSchema = z.object({ seq: SequenceNumberSchema })
 
 /** Close the Agent should send after one inbound Host frame. */
 export type HostJsonRpcClose =
@@ -71,12 +76,30 @@ export type HostJsonRpcNotificationHandlers<Registry extends JsonRpcMethodRegist
   ) => Promise<void>
 }>
 
+/**
+ * Where the last applied `seq` lives between DO wakes.
+ *
+ * A wake builds a new client while the Host connection and its counter go on,
+ * so the expectation must outlive this object (plan §5.7).
+ */
+export type SequencePersistence = {
+  /** The last applied `seq` for a Host connection, or 0 when none. */
+  readonly load: (connectionId: string) => Promise<number>
+  /** Record the last applied `seq` for a Host connection. */
+  readonly save: (connectionId: string, seq: number) => Promise<void>
+}
+
+/** Early frames the client holds until the gap before them closes. */
+export const SEQUENCE_BUFFER_LIMIT = 256
+
 /** Construction input for one Host JSON-RPC client. */
 export type HostJsonRpcSocketInput<Registry extends JsonRpcMethodRegistry> = {
   /** Method table for inbound Host frames. */
   readonly methods: Registry
   /** Exhaustive handlers for inbound Host notifications. */
   readonly notificationHandlers: HostJsonRpcNotificationHandlers<Registry>
+  /** Durable home of the `seq` expectation. */
+  readonly sequence: SequencePersistence
 }
 
 /** JSON-RPC client for one Mac Host WebSocket the Agent already admitted. */
@@ -174,8 +197,8 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
       if (incoming.kind === 'notification') {
         const handler = this.input.notificationHandlers[incoming.data.method]
         if (handler === undefined) return UNEXPECTED_DOCUMENT
-        await handler(incoming.data.params)
-        return undefined
+        const { seq } = SequencedSchema.parse(incoming.data.params)
+        return await this.applyInOrder(seq, () => handler(incoming.data.params))
       }
       return UNEXPECTED_DOCUMENT
     } catch (cause) {
@@ -184,6 +207,25 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
       }
       throw cause
     }
+  }
+
+  /**
+   * Apply one notification at its `seq`, or hold it until the gap before it closes.
+   *
+   * Frames can cross in the sub-agent bridge (plan F11). The expected `seq`
+   * comes from `sequence.load` on first use and is saved after every applied
+   * frame. A buffer past `SEQUENCE_BUFFER_LIMIT` closes the socket with 1008;
+   * the reconnect snapshot repairs the gap.
+   */
+  private async applyInOrder(
+    seq: SequenceNumber,
+    apply: () => Promise<void>,
+  ): Promise<HostJsonRpcClose | undefined> {
+    // TODO(step 3): load `lastSeq`, apply `seq === lastSeq + 1` and drain the buffer, park the rest, save.
+    void seq
+    void apply
+    void SEQUENCE_BUFFER_LIMIT
+    return notYetImplemented('step 3')
   }
 
   private complete(document: JsonRpcDocument): boolean {

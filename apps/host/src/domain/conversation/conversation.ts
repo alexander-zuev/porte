@@ -6,12 +6,15 @@ import { Entity } from '@host/domain/entity.ts'
 import { createEvent } from '@host/domain/messages/types.ts'
 import { normaliseGitRoot } from '@host/infrastructure/grok/git-root.ts'
 import {
+  type AttemptId,
   ConversationBusyError,
+  notYetImplemented,
   type CanonicalContent,
   type ConversationEvent,
   type ConversationId,
   type ConversationMetadataPatch,
   type ConversationState,
+  type ConversationTurn,
   type ConversationTurnState,
   type ElicitationAnswer,
   type ElicitationId,
@@ -36,6 +39,8 @@ export type ConversationData = {
   readonly updatedAt: IsoDateTime
   /** Live turn plus the transcript, exactly what `conversation.get` returns. */
   readonly state: ConversationState
+  /** The relay's key for the latest turn, so a repeated `turn.start` is a no-op. Host-only. */
+  readonly lastAttempt?: { readonly attemptId: AttemptId; readonly turnId: TurnId }
 }
 
 /** Input to start one conversation in a git workspace. */
@@ -137,20 +142,19 @@ export class Conversation extends Entity<ConversationData> {
     for (const event of events) this.fold(event)
   }
 
-  /** Start a turn with the user's message. Repeating the same turn is a no-op. */
-  beginTurn(turnId: TurnId, userMessage: UserMessage): void {
-    const turn = this.data.state.turn
-    if (turn.state === 'running') {
-      if (turn.turnId === turnId) return
-      throw new ConversationBusyError()
-    }
-    this.data.state.turn = { state: 'running', turnId }
-    this.raise({ type: 'turn.started', turnId })
-    this.raise({ type: 'message.started', turnId, messageId: userMessage.id, role: 'user' })
-    for (const content of userMessage.content) {
-      this.raise({ type: 'message.delta', turnId, messageId: userMessage.id, content })
-    }
-    this.raise({ type: 'message.completed', turnId, messageId: userMessage.id })
+  /**
+   * Start a turn with the user's message and return the turn id this aggregate minted.
+   *
+   * The id is `turnIdFor(id, promptIndex)`, with `promptIndex` predicted as the
+   * count of user messages so far; the mapper checks it against Grok's own. A
+   * repeated `attemptId`, running or the last finished one, returns the same
+   * turn and starts nothing. Another turn running is `ConversationBusyError`.
+   */
+  beginTurn(attemptId: AttemptId, userMessage: UserMessage): TurnId {
+    // TODO(step 2): dedupe on `lastAttempt`, mint the id, raise turn.started with attemptId and the user message as `${turnId}:user`.
+    void attemptId
+    void userMessage
+    return notYetImplemented('step 2')
   }
 
   /** Park a permission request on the running turn. */
@@ -201,11 +205,20 @@ export class Conversation extends Entity<ConversationData> {
 
   /**
    * Resolve every pending interaction as cancelled. The turn stays running until
-   * the agent answers the prompt with `cancelled`.
+   * the agent answers the prompt with `cancelled`. A turn that is not running is
+   * a no-op: cancel and the natural end may race, and both outcomes are final.
    */
   cancelTurn(turnId: TurnId): void {
+    // TODO(step 2): return when `turn` is idle or names another turn; keep `cancelPending` for the running one.
     this.requireTurn(turnId)
     this.cancelPending(turnId)
+  }
+
+  /** One turn's slice of the transcript, for `turn.get`. */
+  turnTranscript(turnId: TurnId): ConversationTurn {
+    // TODO(step 2): items and tools whose `turnId` matches; `TurnNotFoundError` when none.
+    void turnId
+    return notYetImplemented('step 2')
   }
 
   /** End the turn. A turn that already ended is a no-op. */

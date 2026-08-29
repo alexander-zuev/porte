@@ -6,7 +6,7 @@ import {
   ConversationIdSchema,
   ConversationNotFoundError,
   MessageIdSchema,
-  TurnIdSchema,
+  AttemptIdSchema,
 } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
@@ -22,7 +22,10 @@ describe('InMemoryConversationRepository', () => {
     const repo = new InMemoryConversationRepository(outbox)
     const open = conversation()
     repo.insert(open)
-    open.beginTurn(TurnIdSchema.parse('turn-1'), { id: MessageIdSchema.parse('m'), content: [] })
+    open.beginTurn(AttemptIdSchema.parse('0199f97b-9cf1-7f05-9e9d-df1647d7a821'), {
+      id: MessageIdSchema.parse('m'),
+      content: [],
+    })
     repo.save(open)
     expect(outbox.drain().map((event) => event.name)).toEqual(
       Array(3).fill('ConversationEventRaised'),
