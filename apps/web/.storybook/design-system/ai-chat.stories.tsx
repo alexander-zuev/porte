@@ -146,6 +146,15 @@ export const Reconnecting: Story = {
   render: chat({ canSend: false, placeholder: 'Reconnecting…' }),
 }
 
+/**
+ * Two finished answers, end to end: a thought with the call it made (a sheet
+ * on a phone), a fence in the same block a tool uses, inline code in colour,
+ * a folded run, the changes line above the composer, and copy under each.
+ */
+export const Answered: Story = {
+  render: chat({ messages: [askRelay, answerRelay, toolRunDone] }),
+}
+
 /** A finished run folded to a line; then one call running, one failed, one that edited. */
 export const ToolCalls: Story = {
   render: chat({ messages: [askRelay, toolRunDone, toolRunning, toolFailed, toolDiff] }),

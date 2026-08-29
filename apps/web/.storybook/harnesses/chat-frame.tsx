@@ -1,13 +1,15 @@
-import type { ConversationRelayState } from '@porte/core/client'
+import type { ConversationLiveState } from '@porte/core/client'
 import { ComposerAddMenu } from '@web/features/conversation/components/composer-add-menu.tsx'
 import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
 import {
+  ConversationChanges,
   ConversationPlans,
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import { ConversationTurnFailed } from '@web/features/conversation/components/conversation-states.tsx'
 import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
+import { lastTurnChanges } from '@web/features/conversation/models/tool-runs.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
@@ -22,7 +24,7 @@ import type { ChatStatus, UIMessage } from 'ai'
 
 export type ChatFrameProps = {
   readonly messages: readonly UIMessage[]
-  readonly state: ConversationRelayState
+  readonly state: ConversationLiveState
   readonly permissions: readonly ConversationPermission[]
   /** The turn stopped on its own. Shown beside the transcript, not instead of it. */
   readonly error?: Error
@@ -63,6 +65,8 @@ export function ChatFrame({
         readingOlder={readingOlder}
         onReadOlder={onReadOlder}
       />
+
+      <ConversationChanges changes={lastTurnChanges(messages)} />
 
       <ConversationPlans plans={state.plans} running={running} />
 
@@ -123,7 +127,7 @@ export function ChatFrame({
 }
 
 function configurationValue(
-  option: NonNullable<ConversationRelayState['configuration']>[number],
+  option: NonNullable<ConversationLiveState['configuration']>[number],
 ): string {
   if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
   const values = option.options.flatMap((value) =>

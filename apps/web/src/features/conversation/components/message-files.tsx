@@ -14,7 +14,8 @@ import type { FileUIPart } from 'ai'
  */
 export function MessageFiles({ files }: { readonly files: readonly FileUIPart[] }) {
   return (
-    <Attachments className="flex-nowrap overflow-x-auto">
+    // Focusable, so the keyboard can scroll a row that overflows on a phone.
+    <Attachments aria-label="Attached files" className="flex-nowrap overflow-x-auto" tabIndex={0}>
       {files.map((file) => {
         const data = { ...file, id: file.url }
         if (file.mediaType.startsWith('image/')) {

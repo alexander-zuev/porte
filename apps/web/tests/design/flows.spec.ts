@@ -34,8 +34,8 @@ test('cancelling a pairing issue lands on the conversation list', async ({ page 
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()
   // The Mac in this harness is paired and has never connected, so the list
-  // asks for the daemon rather than reporting an empty list.
-  await expect(page.getByRole('heading', { name: 'Start Porte on your Mac' })).toBeVisible()
+  // names the Mac and asks for the daemon rather than reporting an empty list.
+  await expect(page.getByRole('heading', { name: "Alex's MacBook Pro" })).toBeVisible()
 })
 
 test('refusing a pairing ends the attempt', async ({ page }) => {

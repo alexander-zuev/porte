@@ -5,7 +5,7 @@ import { PublicShell } from '@web/ui/components/layout/public-shell.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { toast } from '@web/ui/components/ui/sonner.tsx'
 
-import { PairingPlay } from '../harnesses/pairing-play.tsx'
+import { PairingPlay, SignInPlay } from '../harnesses/pairing-play.tsx'
 
 const meta = {
   title: 'Pages/SignIn',
@@ -23,8 +23,14 @@ type Story = StoryObj<typeof meta>
 // The harness owns its own state, so the args exist only to satisfy the props.
 const UNUSED = { pendingProvider: undefined, onSocial: () => undefined }
 
+/** Playable: a provider click continues to the conversation list, as the flow test walks it. */
 export const Ready: Story = {
   args: UNUSED,
+  render: () => (
+    <PublicShell variant="card">
+      <SignInPlay />
+    </PublicShell>
+  ),
 }
 
 export const PairingRedirect: Story = {

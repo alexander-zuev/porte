@@ -354,7 +354,7 @@ function TranscriptBoard() {
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockLanguageSelector defaultValue="typescript" items={LANGUAGES}>
-                  <CodeBlockLanguageSelectorTrigger>
+                  <CodeBlockLanguageSelectorTrigger aria-label="Language">
                     <CodeBlockLanguageSelectorValue />
                   </CodeBlockLanguageSelectorTrigger>
                   <CodeBlockLanguageSelectorContent>

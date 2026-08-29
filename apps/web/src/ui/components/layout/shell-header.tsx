@@ -41,7 +41,8 @@ export function ShellHeader({
             `pointer-events-none` keeps it from covering either of them. */}
         {center === undefined ? null : (
           <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-            <div className="pointer-events-auto min-w-0 px-16">{center}</div>
+            {/* Clear of the wordmark and the menu: on a phone those sit inside 96px, on a desktop 64px. */}
+            <div className="pointer-events-auto min-w-0 px-24 md:px-16">{center}</div>
           </div>
         )}
         {action}

@@ -330,7 +330,7 @@ export const toolRunDone: UIMessage = {
     },
     {
       type: 'text',
-      text: 'Swapped the two lines. The relay tests pass.',
+      text: 'Swapped the two lines in `relay.ts` and ran `pnpm test --filter @porte/core`. The relay tests pass.',
       state: 'done',
     },
   ],

@@ -1,10 +1,4 @@
-import {
-  ArrowUpIcon,
-  ImageIcon,
-  MonitorIcon,
-  PlusIcon,
-  SquareIcon,
-} from '@phosphor-icons/react'
+import { ArrowUpIcon, ImageIcon, MonitorIcon, PlusIcon, SquareIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import {
   Attachment,
@@ -862,8 +856,12 @@ export const PromptInput = ({
         type="file"
       />
       <form className={cn('w-full', className)} onSubmit={handleSubmit} ref={formRef} {...props}>
-        {/* Rounder than a form field: this is where a message is written, not a value entered. */}
-        <InputGroup className="overflow-hidden rounded-2xl">{children}</InputGroup>
+        {/* Rounder than a form field: this is where a message is written, not a
+            value entered. On `surface` (gray 2), one step under a menu (gray 3),
+            so what opens over it has an edge. */}
+        <InputGroup className="overflow-hidden rounded-2xl bg-surface dark:bg-surface">
+          {children}
+        </InputGroup>
       </form>
     </>
   )
@@ -1031,7 +1029,13 @@ export const PromptInputAttachments = ({ className, ...props }: PromptInputHeade
   if (attachments.files.length === 0) return null
 
   return (
-    <PromptInputHeader className={cn('flex-nowrap gap-2 overflow-x-auto', className)} {...props}>
+    <PromptInputHeader
+      aria-label="Files to send"
+      className={cn('flex-nowrap gap-2 overflow-x-auto', className)}
+      // Focusable, so the keyboard can scroll a row that overflows on a phone.
+      tabIndex={0}
+      {...props}
+    >
       <Attachments className="flex-nowrap">
         {attachments.files.map((file) => (
           <PromptInputAttachment key={file.id} data={file} />

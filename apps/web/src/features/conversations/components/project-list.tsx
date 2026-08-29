@@ -33,9 +33,11 @@ type ProjectListProps = {
 export function ProjectList({ conversations, selectedConversationId }: ProjectListProps) {
   return (
     <nav aria-label="Projects" className="flex flex-col">
-      {/* `h5` is the design system's 16px heading. A larger one would make the
-          label louder than the folders it names. */}
-      <h5 className="pb-1">Projects</h5>
+      {/* A label, not a heading: the page's only heading is its `h1`, and a `h5`
+          under it skips levels. `strong` is the same 16px medium as `h5`. */}
+      <p className="pb-1">
+        <strong>Projects</strong>
+      </p>
       {groupConversationsByRepo(conversations).map((project) => (
         <ProjectRow
           key={project.gitRoot}

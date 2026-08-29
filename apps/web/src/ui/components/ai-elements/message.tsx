@@ -12,7 +12,7 @@ import {
 import type { UIMessage } from 'ai'
 import type { ComponentProps, HTMLAttributes, ReactElement, ReactNode } from 'react'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Streamdown } from 'streamdown'
+import { Streamdown, type ExtraProps } from 'streamdown'
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']
@@ -93,7 +93,8 @@ export const MessageAction = ({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger>{button}</TooltipTrigger>
+          {/* Base UI's trigger is itself a button; rendering ours through it avoids one inside the other. */}
+          <TooltipTrigger render={button} />
           <TooltipContent>
             <p>{tooltip}</p>
           </TooltipContent>
@@ -290,7 +291,11 @@ const STREAMDOWN_PLUGINS = { code: codePlugin }
 const MarkdownCodeBlock = ({ className, children }: ComponentProps<'code'>) => {
   const language = /language-([\w-]+)/.exec(className ?? '')?.[1] ?? 'text'
   return (
-    <TitledCodeBlock code={codeText(children).replace(/\n$/, '')} language={language} title={language} />
+    <TitledCodeBlock
+      code={codeText(children).replace(/\n$/, '')}
+      language={language}
+      title={language}
+    />
   )
 }
 
@@ -300,8 +305,17 @@ function codeText(children: ReactNode): string {
   return ''
 }
 
-// `inlineCode` stays Streamdown's own; only fences come here.
-const STREAMDOWN_COMPONENTS = { code: MarkdownCodeBlock }
+/** A path or a command inside a sentence, in the accent, so it stands out from the words. */
+const MarkdownInlineCode = ({
+  className,
+  node: _node,
+  ...props
+}: ComponentProps<'code'> & ExtraProps) => (
+  <code className={cn(className, 'text-inline-code-foreground')} {...props} />
+)
+
+// Only markdown gets these: a `code` elsewhere on the site keeps the base rule.
+const STREAMDOWN_COMPONENTS = { code: MarkdownCodeBlock, inlineCode: MarkdownInlineCode }
 
 /** Every markdown on the page: answers, reasoning, plans, tool text. One highlighter, one theme. */
 export const MessageResponse = memo(

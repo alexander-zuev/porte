@@ -74,7 +74,10 @@ export function ConversationMessages({
             <MessageContent>
               <MessageParts message={message} />
             </MessageContent>
-            {message.role === 'assistant' && messageSettled(message) ? (
+            {/* Only once there are words to take: an answer still arriving, or one with no text, gets none. */}
+            {message.role === 'assistant' &&
+            messageSettled(message) &&
+            messageText(message) !== '' ? (
               <MessageCopy text={messageText(message)} />
             ) : null}
           </Message>

@@ -45,8 +45,10 @@ function AddMenu({ commands, disabled, onCommand }: ComposerAddMenuProps) {
   return (
     <PromptInputActionMenu>
       <PromptInputActionMenuTrigger aria-label="Add attachment" disabled={disabled} />
-      {/* Grok lists hundreds of commands; names only, in a list that scrolls, not a column that wraps. */}
-      <PromptInputActionMenuContent className="max-h-[60svh] min-w-56 overflow-y-auto sm:min-w-72">
+      {/* As wide as its longest row and no wider; the anchor is a 32px circle,
+          so without `w-max` the menu takes the circle's width and wraps. Grok
+          lists hundreds of commands: a list that scrolls. */}
+      <PromptInputActionMenuContent className="max-h-[60svh] w-max min-w-48 max-w-80 overflow-y-auto">
         <PromptInputActionAddAttachments />
         {commands?.map((command) => (
           <PromptInputActionMenuItem
