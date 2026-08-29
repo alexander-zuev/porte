@@ -4,7 +4,10 @@
 /** `svh` is the smallest phone viewport, so a URL bar never covers the footer. */
 @utility shell-frame {
   @apply flex min-h-svh flex-col;
-  /* Non-zero only on a phone with a home indicator. */
+  /* The frame owns the safe area, so no header or composer mentions it. Both
+     are 0 in a browser; on the home screen the page runs under the status bar
+     and above the home indicator, and these clear them. */
+  padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -41,4 +44,20 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-interactive) transparent;
   scrollbar-gutter: auto !important;
+  /* A gesture that reaches the end stops here; it never bounces the page. */
+  overscroll-behavior: contain;
+}
+
+/**
+ * `fill` bounds the frame to the viewport and takes the document out of the
+ * gesture path: nothing above or below the inner scroller may move.
+ */
+@utility shell-frame-fill {
+  @apply h-svh;
+}
+
+html:has(.shell-frame-fill),
+html:has(.shell-frame-fill) body {
+  overflow: hidden;
+  overscroll-behavior: none;
 }

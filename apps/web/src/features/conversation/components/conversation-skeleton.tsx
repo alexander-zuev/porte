@@ -62,7 +62,7 @@ export function ConversationSkeleton() {
       </output>
 
       <PromptInput
-        className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="mb-2"
         onSubmit={() => {
           // Nothing to send into: the transcript is still being read.
         }}

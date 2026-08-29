@@ -76,7 +76,7 @@ export function ConversationChat({
       <ConversationPermissions onAnswer={actions.onAnswerPermission} waiting={permissions} />
 
       <PromptInput
-        className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="mb-2"
         onSubmit={(message) => {
           if (!canSubmit) return
           if (message.text.trim() === '' && message.files.length === 0) return

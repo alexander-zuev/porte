@@ -19,7 +19,7 @@ export type AppShellProps = {
 /** The frame every signed-in page renders in. */
 export function AppShell({ variant, header, children }: AppShellProps) {
   return (
-    <div className={cn('shell-frame', variant === 'fill' && 'h-svh')}>
+    <div className={cn('shell-frame', variant === 'fill' && 'shell-frame-fill')}>
       {header}
       {/* Its own vertical rhythm rather than `shell-y`: that measure is for a
           marketing page opening on a headline, and the app opens on a list. */}

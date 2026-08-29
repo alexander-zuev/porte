@@ -49,7 +49,7 @@ export type HostManagementProps =
 export function HostManagement(props: HostManagementProps) {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
-      <header className="border-b border-border pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="border-b border-border pt-3">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 px-4 py-3">
           <Button variant="ghost" onClick={props.onBack}>
             <ArrowLeftIcon data-icon="inline-start" />
