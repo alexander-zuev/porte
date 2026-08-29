@@ -8,37 +8,40 @@ export function PrivacyPage() {
     <LegalPage title="Privacy" updated={LEGAL_UPDATED}>
       <LegalSection heading="The short version">
         <p>
-          Your repositories, your files, and your Grok account stay on your Mac. Porte holds the
-          account you sign in with, the record of which machines you paired, and enough about each
-          conversation to list it.
+          Your repositories, your files, and your Grok account stay on your Mac. Porte stores your
+          sign-in identity, your pairing, and the transcript of every conversation you run through
+          it.
         </p>
       </LegalSection>
 
       <LegalSection heading="What we store">
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>
-            Account identity from your sign-in provider: your name, email address, and avatar.
+            Account: your name, email address, and avatar from Google, Apple, GitHub, or X. A
+            sign-in session lasts 7 days.
           </li>
-          <li>Pairing records: which machines your account controls, and when they connected.</li>
           <li>
-            Conversation metadata: the conversation id, its working directory, and when it last
-            changed.
+            Pairing: the Mac's name and platform, and when it last connected. While a pairing code
+            is open, the IP address and approximate location of the machine that asked for it.
+            Deleted when the code is approved, refused, or expires.
           </li>
-          <li>Product analytics through PostHog, and error reports through Sentry.</li>
+          <li>
+            Conversations: the id, working directory, repository path, title, and the transcript.
+            The transcript holds your prompts and attached files, the answers, the reasoning, and
+            every tool call with its output, as the Mac reports them. It is stored so your phone can
+            read a conversation while the Mac is offline.
+          </li>
+          <li>
+            Product analytics through PostHog and error reports through Sentry. Neither receives
+            transcripts.
+          </li>
         </ul>
-      </LegalSection>
-
-      <LegalSection heading="What passes through">
-        <p>
-          Prompts, approvals, and conversation output travel through the relay so your phone and
-          your Mac can talk. They move through it in transit rather than being kept as a stored
-          transcript.
-        </p>
+        <p>Everything above is stored on Cloudflare.</p>
       </LegalSection>
 
       <LegalSection heading="What never reaches us">
         <ul className="flex list-disc flex-col gap-2 pl-5">
-          <li>Your repositories and files.</li>
+          <li>Your repositories and files, except what a transcript quotes.</li>
           <li>Your grok.com credentials and spend.</li>
           <li>Anything the coding agent reads or writes on disk.</li>
         </ul>
@@ -46,12 +49,12 @@ export function PrivacyPage() {
 
       <LegalSection heading="Deleting your data">
         <p>
-          Unpair a machine to remove its pairing record. Delete your account to remove your identity
-          and conversation metadata. Ask through an issue at{' '}
+          Unpair a Mac to revoke its pairing. Account deletion is not built yet: to delete your
+          transcripts or your account, open an issue at{' '}
           <a href={REPOSITORY_URL} rel="noreferrer" target="_blank">
             the Porte repository
           </a>{' '}
-          if you want a manual deletion.
+          and we delete them by hand.
         </p>
       </LegalSection>
 

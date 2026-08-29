@@ -22,4 +22,4 @@ export const AGENT_PROMPT_URL = 'https://useporte.dev/agent-setup/prompt.md'
 export const AGENT_PROMPT = `Fetch and execute the instructions from ${AGENT_PROMPT_URL} to set up Porte on this Mac.`
 
 /** Date the Terms and Privacy pages last changed. */
-export const LEGAL_UPDATED = '19 August 2026'
+export const LEGAL_UPDATED = '29 August 2026'
