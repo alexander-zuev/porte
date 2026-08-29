@@ -1,4 +1,5 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Navigate, redirect } from '@tanstack/react-router'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
@@ -32,11 +33,18 @@ export const Route = createFileRoute('/_auth/conversations/')({
 })
 
 function ConversationsRoute() {
-  const { host } = Route.useRouteContext()
+  // The live row, not route context: the relay re-reads it on every connect and disconnect.
+  const owned = useSuspenseQuery(hostQueries.forAccount()).data
   const connection = useHostConnection()
   const conversationList = useConversationList()
 
+  // Unpaired mid-visit (the account page): `beforeLoad` only guards the navigation.
+  if (owned.state !== 'paired') return <Navigate to="/pair" />
   return (
-    <ConversationsPage connection={connection} conversationList={conversationList} host={host} />
+    <ConversationsPage
+      connection={connection}
+      conversationList={conversationList}
+      host={owned.host}
+    />
   )
 }

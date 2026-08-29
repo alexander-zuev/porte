@@ -7,7 +7,7 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { notifyHostOffline, notifyHostOnline } from '@web/features/relay/host-connection-toasts.ts'
+import { notifyHostOffline, notifyHostOnline } from '@web/features/relay/host-connection-toasts.tsx'
 import { CopyPrompt } from '@web/ui/components/copy-prompt.tsx'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'

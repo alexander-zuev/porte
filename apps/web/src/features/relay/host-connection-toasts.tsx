@@ -1,3 +1,4 @@
+import { CopyIcon } from '@phosphor-icons/react'
 import { UP_COMMAND } from '@web/lib/product.ts'
 import { toast } from '@web/ui/components/ui/sonner.tsx'
 
@@ -11,7 +12,13 @@ export function notifyHostOffline(): void {
     description: `Run ${UP_COMMAND} on the machine to reconnect.`,
     duration: Number.POSITIVE_INFINITY,
     action: {
-      label: 'Copy',
+      // An icon: the word wraps inside a phone-width toast.
+      label: (
+        <>
+          <CopyIcon aria-hidden />
+          <span className="sr-only">Copy {UP_COMMAND}</span>
+        </>
+      ),
       onClick: () => {
         void navigator.clipboard.writeText(UP_COMMAND)
       },
@@ -21,5 +28,11 @@ export function notifyHostOffline(): void {
 
 /** The machine is back after an offline toast. */
 export function notifyHostOnline(): void {
-  toast.success('Your machine is back online', { id: HOST_TOAST_ID, duration: 4000 })
+  // Same id updates the offline toast in place, so its description and action must be cleared here.
+  toast.success('Your machine is back online', {
+    id: HOST_TOAST_ID,
+    description: undefined,
+    action: undefined,
+    duration: 4000,
+  })
 }

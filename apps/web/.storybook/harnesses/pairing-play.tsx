@@ -1,4 +1,9 @@
-import { PairingOriginSchema, type PairedHost, type PairingOrigin } from '@porte/core/client'
+import {
+  HostIdSchema,
+  PairingOriginSchema,
+  type PairedHost,
+  type PairingOrigin,
+} from '@porte/core/client'
 import { PairingSignInNotice } from '@web/features/auth/components/pairing-sign-in-notice.tsx'
 import type { PairingIssue } from '@web/features/pair/components/pairing-flow.tsx'
 import type { SocialProvider } from '@web/lib/auth/social-provider.ts'
@@ -22,6 +27,7 @@ const SAME_DEVICE: PairingOrigin = PairingOriginSchema.parse({
 })
 
 const HOST = {
+  id: HostIdSchema.parse('01990000-0000-7000-8000-000000000001'),
   name: "Alex's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: null,
@@ -55,6 +61,7 @@ export type PairingPlayStart =
   | 'expired-code'
   | 'confirm'
   | 'approved'
+  | 'connected'
   | 'denied'
   | PairingIssue
 
@@ -67,7 +74,7 @@ type Screen =
       readonly pending: boolean
     }
   | { readonly kind: 'confirm'; readonly pending: boolean }
-  | { readonly kind: 'approved' }
+  | { readonly kind: 'approved'; readonly connected: boolean }
   | { readonly kind: 'denied' }
   | { readonly kind: 'issue'; readonly issue: PairingIssue }
   | { readonly kind: 'home'; readonly paired: boolean }
@@ -90,7 +97,9 @@ function initialScreen(start: PairingPlayStart): Screen {
     case 'confirm':
       return { kind: 'confirm', pending: false }
     case 'approved':
-      return { kind: 'approved' }
+      return { kind: 'approved', connected: false }
+    case 'connected':
+      return { kind: 'approved', connected: true }
     case 'denied':
       return { kind: 'denied' }
     default:
@@ -119,12 +128,12 @@ export function PairingPlay({
     }
   }, [])
 
-  // The daemon only learns of the approval on its next poll, so the approved
-  // screen holds before the dashboard has a machine to show.
+  // The daemon only learns of the approval on its next poll, so the card holds
+  // on the command before `porte up` "connects" the machine.
   useEffect(() => {
-    if (!simulateRemote || screen.kind !== 'approved') return
+    if (!simulateRemote || screen.kind !== 'approved' || screen.connected) return
     const timer = window.setTimeout(() => {
-      setScreen({ kind: 'home', paired: true })
+      setScreen({ kind: 'approved', connected: true })
     }, 1400)
     return () => {
       window.clearTimeout(timer)
@@ -160,7 +169,7 @@ export function PairingPlay({
         onApprove={() => {
           setScreen({ kind: 'confirm', pending: true })
           later(() => {
-            setScreen({ kind: 'approved' })
+            setScreen({ kind: 'approved', connected: false })
           }, 600)
         }}
         onDeny={() => {
@@ -170,7 +179,9 @@ export function PairingPlay({
     )
   }
 
-  if (screen.kind === 'approved') return <PairPage view="approved" />
+  if (screen.kind === 'approved') {
+    return <PairPage connected={screen.connected} view="approved" />
+  }
   if (screen.kind === 'denied') return <PairPage view="denied" />
 
   if (screen.kind === 'issue') {

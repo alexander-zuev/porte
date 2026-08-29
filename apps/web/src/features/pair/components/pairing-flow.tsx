@@ -1,5 +1,6 @@
 import { CheckCircleIcon, ProhibitIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { PairingOrigin } from '@porte/core/client'
+import { Link } from '@tanstack/react-router'
 import { PairForm, type PairFormProps } from '@web/features/pair/components/pair-form.tsx'
 import {
   PairingAccount,
@@ -11,6 +12,7 @@ import {
   type PairingTone,
 } from '@web/features/pair/components/pairing-layout.tsx'
 import { UP_COMMAND } from '@web/lib/product.ts'
+import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -62,7 +64,11 @@ export type PairingFlowProps =
       readonly onApprove: () => void
       readonly onDeny: () => void
     }
-  | { readonly view: 'approved' }
+  | {
+      readonly view: 'approved'
+      /** True once the relay reports the machine online, which `porte up` does. */
+      readonly connected: boolean
+    }
   | { readonly view: 'denied' }
   | {
       readonly view: 'issue'
@@ -74,7 +80,7 @@ export type PairingFlowProps =
 /** Render one pairing state without routing or server effects. */
 export function PairingFlow(props: PairingFlowProps) {
   if (props.view === 'confirm') return <ConfirmPairing {...props} />
-  if (props.view === 'approved') return <ApprovedPairing />
+  if (props.view === 'approved') return <ApprovedPairing {...props} />
   if (props.view === 'denied') return <DeniedPairing />
   if (props.view === 'issue') return <PairingIssueState {...props} />
   return <CodePairing {...props} />
@@ -134,25 +140,47 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
 }
 
 /**
- * No action to offer.
- *
- * What happens next happens in the terminal, and the dashboard still reads
- * unpaired until the daemon connects, so a button here would lead nowhere good.
+ * Paired, then connected, on one card: the relay reports the machine the moment
+ * `porte up` runs, so the command gives way to the door without a reload.
  */
-/** Paired, not yet connected: nothing reaches this machine until the daemon runs. */
-function ApprovedPairing() {
+function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>) {
+  const icon = (
+    <PairingStatusIcon tone="success">
+      <CheckCircleIcon aria-hidden className="size-6" />
+    </PairingStatusIcon>
+  )
+  if (props.connected) {
+    return (
+      <PairingLayout
+        icon={icon}
+        title="Machine connected"
+        actions={
+          <Button className="w-full" nativeButton={false} render={<Link to="/conversations" />}>
+            Open conversations
+          </Button>
+        }
+      >
+        <p className="text-muted-foreground">Your phone can reach it now.</p>
+      </PairingLayout>
+    )
+  }
   return (
     <PairingLayout
+      icon={icon}
       title="Machine paired"
-      icon={
-        <PairingStatusIcon tone="success">
-          <CheckCircleIcon aria-hidden className="size-6" />
-        </PairingStatusIcon>
+      actions={
+        <Button
+          className="w-full"
+          nativeButton={false}
+          render={<Link to="/conversations" />}
+          variant="ghost"
+        >
+          Go to conversations
+        </Button>
       }
     >
-      <p className="text-muted-foreground">
-        Back in your terminal, run <code>{UP_COMMAND}</code> to connect this machine.
-      </p>
+      <p className="text-muted-foreground">Back in your terminal, run:</p>
+      <TerminalCommand command={UP_COMMAND} />
     </PairingLayout>
   )
 }

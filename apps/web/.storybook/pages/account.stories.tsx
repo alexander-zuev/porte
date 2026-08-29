@@ -1,4 +1,4 @@
-import type { PairedHost } from '@porte/core/client'
+import { HostIdSchema, type PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AccountPage } from '@web/pages/account/account-page.tsx'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
@@ -7,6 +7,7 @@ import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 const identity = { name: 'Alexander Zuev', email: 'azuevpersonal@gmail.com' }
 
 const neverSeenHost = {
+  id: HostIdSchema.parse('01990000-0000-7000-8000-000000000001'),
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: null,

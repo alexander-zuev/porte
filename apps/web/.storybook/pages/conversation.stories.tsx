@@ -1,6 +1,7 @@
 import {
   ConversationIdSchema,
   ConversationNotFoundError,
+  HostIdSchema,
   IsoDateTimeSchema,
   makeConversationSummary,
   PendingPermissionSchema,
@@ -23,6 +24,7 @@ const CONNECTED = { status: 'connected' } satisfies HostConnection
 const DISCONNECTED = { status: 'offline' } satisfies HostConnection
 
 const HOST = {
+  id: HostIdSchema.parse('01990000-0000-7000-8000-000000000001'),
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: IsoDateTimeSchema.parse('2026-08-20T09:20:14.515Z'),

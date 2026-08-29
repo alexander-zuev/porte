@@ -1,4 +1,6 @@
 import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon } from '@phosphor-icons/react'
+import { cn } from '@web/lib/utils.ts'
+import { buttonVariants } from '@web/ui/components/ui/button.tsx'
 import { Toaster as Sonner } from 'sonner'
 
 /** Toast host. Rendered once at the root so any surface can raise a message. */
@@ -33,8 +35,14 @@ export function Toaster(props: React.ComponentProps<typeof Sonner>) {
             'group toast flex w-full items-start gap-3 rounded-lg bg-popover px-4 py-3 text-popover-foreground ring-1 ring-foreground/10 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-[600px]:w-full!',
           title: 'text-sm font-medium text-foreground',
           description: 'text-sm text-muted-foreground',
-          icon: 'mt-px size-4 shrink-0',
-          content: 'flex min-w-0 flex-col gap-0.5',
+          icon: 'size-4 shrink-0 self-center',
+          content: 'flex min-w-0 flex-1 flex-col gap-0.5',
+          // Unstyled drops Sonner's button too, so the action takes the product's
+          // outline button, centred on the toast and never wrapping.
+          actionButton: cn(
+            buttonVariants({ variant: 'outline', size: 'sm' }),
+            'ml-auto shrink-0 self-center',
+          ),
           error: 'text-destructive-muted-foreground',
           success: 'text-status-success-muted-foreground',
           closeButton: 'rounded-md bg-popover text-muted-foreground ring-1 ring-foreground/10',

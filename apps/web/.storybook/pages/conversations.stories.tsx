@@ -18,6 +18,7 @@ import { conversations } from '../fixtures/conversations.ts'
 const NONE: readonly ConversationSummary[] = []
 
 const HOST = {
+  id: '01990000-0000-7000-8000-000000000001',
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: '2026-08-22T14:02:00.000Z',

@@ -1,4 +1,10 @@
-import { IsoDateTimeSchema, type AccountHost, type PairedHost, type UserId } from '@porte/core'
+import {
+  HostIdSchema,
+  IsoDateTimeSchema,
+  type AccountHost,
+  type PairedHost,
+  type UserId,
+} from '@porte/core'
 import {
   host,
   type DbHost,
@@ -18,6 +24,7 @@ import { eq } from 'drizzle-orm'
  */
 function toPairedHost(row: DbHost): PairedHost {
   return {
+    id: HostIdSchema.parse(row.id),
     name: row.name,
     platform: row.platform,
     // Null until a daemon has announced itself. There is no earlier moment we

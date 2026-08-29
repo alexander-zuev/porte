@@ -35,8 +35,14 @@ export const Confirm: Story = {
   args: { start: 'confirm' },
 }
 
+/** Paired, machine still offline: the command is the next step. */
 export const Approved: Story = {
   args: { start: 'approved' },
+}
+
+/** `porte up` ran: the relay sees the machine and the card opens the door. */
+export const Connected: Story = {
+  args: { start: 'connected' },
 }
 
 export const Denied: Story = {

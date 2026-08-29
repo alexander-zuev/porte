@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { IsoDateTimeSchema } from '../identity/identity.ts'
+import { HostIdSchema, IsoDateTimeSchema } from '../identity/identity.ts'
 import { HostDescriptorSchema } from './host.ts'
 
 /**
@@ -21,6 +21,8 @@ import { HostDescriptorSchema } from './host.ts'
  * itself, because approving a grant is not an observation of one.
  */
 export const PairedHostSchema = HostDescriptorSchema.extend({
+  /** Names the pairing's relay object; a re-pair after unpair gets a new one. */
+  id: HostIdSchema,
   lastSeenAt: IsoDateTimeSchema.nullable(),
 })
 export type PairedHost = z.infer<typeof PairedHostSchema>
