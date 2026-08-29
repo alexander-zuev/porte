@@ -1,6 +1,6 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
-import { codePlugin } from '@web/ui/components/ai-elements/code-block.tsx'
+import { codePlugin, TitledCodeBlock } from '@web/ui/components/ai-elements/code-block.tsx'
 import { ButtonGroup, ButtonGroupText } from '@web/ui/components/ui/button-group.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from '@web/ui/components/ui/tooltip.tsx'
 import type { UIMessage } from 'ai'
-import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
+import type { ComponentProps, HTMLAttributes, ReactElement, ReactNode } from 'react'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Streamdown } from 'streamdown'
 
@@ -286,11 +286,29 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>
 // Only the highlighter. Math, mermaid, and CJK are bundles nothing here has needed.
 const STREAMDOWN_PLUGINS = { code: codePlugin }
 
+/** A fence in markdown, in the same block a tool call uses, so the page has one kind of code. */
+const MarkdownCodeBlock = ({ className, children }: ComponentProps<'code'>) => {
+  const language = /language-([\w-]+)/.exec(className ?? '')?.[1] ?? 'text'
+  return (
+    <TitledCodeBlock code={codeText(children).replace(/\n$/, '')} language={language} title={language} />
+  )
+}
+
+function codeText(children: ReactNode): string {
+  if (typeof children === 'string') return children
+  if (Array.isArray(children)) return children.map(codeText).join('')
+  return ''
+}
+
+// `inlineCode` stays Streamdown's own; only fences come here.
+const STREAMDOWN_COMPONENTS = { code: MarkdownCodeBlock }
+
 /** Every markdown on the page: answers, reasoning, plans, tool text. One highlighter, one theme. */
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+      components={STREAMDOWN_COMPONENTS}
       plugins={STREAMDOWN_PLUGINS}
       shikiTheme={codePlugin.getThemes()}
       {...props}

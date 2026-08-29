@@ -232,15 +232,17 @@
     padding-right: var(--code-padding-right);
     background-color: var(--color-muted);
     border-radius: var(--radius-xs, 3px);
+    color: var(--color-inline-code-foreground);
   }
 
-  /* A block is set by its `pre`; the inline 0.95em shrink would take it under the floor. */
+  /* A block is set by its `pre` and its theme; the inline shrink and tint would fight both. */
   pre code {
     background: none;
     padding: 0;
     border-radius: 0;
     font-size: var(--text-14);
     line-height: var(--leading-20);
+    color: inherit;
   }
 
   strong {

@@ -169,29 +169,34 @@ export const ReasoningTrigger = memo(
 
 export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
   children: string
+  /** What the agent did while thinking this. Shown under the text in the phone sheet only. */
+  steps?: ReactNode
 }
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
-  const { phone } = useReasoning()
-  if (phone) {
+export const ReasoningContent = memo(
+  ({ className, children, steps, ...props }: ReasoningContentProps) => {
+    const { phone } = useReasoning()
+    if (phone) {
+      return (
+        <DrawerContent>
+          <DrawerTitle className="px-4" render={<h3>Thoughts</h3>} />
+          <div className={cn('flex flex-col gap-4 px-4 text-sm text-muted-foreground', className)}>
+            <MessageResponse>{children}</MessageResponse>
+            {steps}
+          </div>
+        </DrawerContent>
+      )
+    }
     return (
-      <DrawerContent>
-        <DrawerTitle className="px-4" render={<h3>Thoughts</h3>} />
-        <div className={cn('flex flex-col px-4 text-sm text-muted-foreground', className)}>
-          <MessageResponse>{children}</MessageResponse>
-        </div>
-      </DrawerContent>
+      <CollapsibleContent
+        className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
+        {...props}
+      >
+        <MessageResponse>{children}</MessageResponse>
+      </CollapsibleContent>
     )
-  }
-  return (
-    <CollapsibleContent
-      className={cn('flex flex-col pt-2 text-sm text-muted-foreground outline-none', className)}
-      {...props}
-    >
-      <MessageResponse>{children}</MessageResponse>
-    </CollapsibleContent>
-  )
-})
+  },
+)
 
 Reasoning.displayName = 'Reasoning'
 ReasoningTrigger.displayName = 'ReasoningTrigger'

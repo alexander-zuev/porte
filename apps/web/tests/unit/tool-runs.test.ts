@@ -1,4 +1,9 @@
-import { describeRun, groupParts, toolCall } from '@web/features/conversation/models/tool-runs.ts'
+import {
+  describeRun,
+  groupParts,
+  toolCall,
+  turnChanges,
+} from '@web/features/conversation/models/tool-runs.ts'
 import type { DynamicToolUIPart, UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
 
@@ -32,6 +37,32 @@ describe('groupParts', () => {
     expect(stretches.map((one) => one.type)).toEqual(['part', 'run', 'part', 'run'])
     expect(stretches[1]).toMatchObject({ settled: true })
     expect(stretches[3]).toMatchObject({ settled: false })
+  })
+})
+
+describe('groupParts with reasoning', () => {
+  it('gives a run to the thought right before it', () => {
+    const thought: Part = { type: 'reasoning', text: 'Check the queue first.', state: 'done' }
+    const stretches = groupParts([thought, call('a', 'read', 'output-available'), text])
+    expect(stretches.map((one) => one.type)).toEqual(['thought', 'part'])
+    expect(stretches[0]).toMatchObject({ settled: true })
+  })
+})
+
+describe('turnChanges', () => {
+  it('sums lines over every edit and counts files once', () => {
+    const edit = (id: string, path: string) =>
+      call(id, 'edit', 'output-available', {
+        toolMetadata: { kind: 'edit', locations: [{ path }] },
+        output: { content: [{ type: 'diff', path, oldText: 'a', newText: 'a\nb', _meta: {} }] },
+      })
+    const message: UIMessage = {
+      id: 'm',
+      role: 'assistant',
+      parts: [edit('x', '/r/x.ts'), edit('y', '/r/x.ts'), edit('z', '/r/z.ts')],
+    }
+    expect(turnChanges(message)).toEqual({ files: 2, added: 6, removed: 3 })
+    expect(turnChanges({ id: 'n', role: 'assistant', parts: [text] })).toBeUndefined()
   })
 })
 

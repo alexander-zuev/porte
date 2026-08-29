@@ -1,5 +1,6 @@
 import { CheckCircleIcon, CircleIcon, PencilSimpleIcon } from '@phosphor-icons/react'
 import type { ConversationPlan, ConversationUsage, PlanEntry } from '@porte/core/client'
+import type { TurnChanges } from '@web/features/conversation/models/tool-runs.ts'
 import { cn } from '@web/lib/utils.ts'
 import { MessageResponse } from '@web/ui/components/ai-elements/message.tsx'
 import {
@@ -97,6 +98,26 @@ function planDescription(plan: ConversationPlan): string {
     return `${String(done)} of ${String(plan.entries.length)} complete`
   }
   return plan.type === 'file' ? 'Plan file' : 'Plan details'
+}
+
+/**
+ * What the last turn did to the files, in one line above the composer.
+ *
+ * `3 files · +29 −4`: the reviewer's number before reading a single row.
+ */
+export function ConversationChanges({ changes }: { readonly changes: TurnChanges | undefined }) {
+  if (changes === undefined) return null
+  return (
+    <small className="flex justify-end gap-2 px-3 text-muted-foreground">
+      <span>
+        {changes.files} {changes.files === 1 ? 'file' : 'files'}
+      </span>
+      <span className="font-mono">
+        <span className="text-status-success-muted-foreground">+{changes.added}</span>{' '}
+        <span className="text-destructive-muted-foreground">−{changes.removed}</span>
+      </span>
+    </small>
+  )
 }
 
 /** Formats the cumulative ACP cost for the context control. */

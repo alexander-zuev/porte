@@ -20,11 +20,14 @@ import {
   SourcesTrigger,
 } from '@web/ui/components/ai-elements/sources.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
+import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import { isFileUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
+import { Fragment, type ReactNode } from 'react'
 
-import { groupParts } from '../models/tool-runs.ts'
+import { groupParts, messageSettled, messageText } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
 import { NoMessagesYet, TurnPending } from './conversation-states.tsx'
+import { MessageCopy } from './message-copy.tsx'
 import { MessageFiles } from './message-files.tsx'
 import { ToolRun } from './tool-run.tsx'
 
@@ -71,6 +74,9 @@ export function ConversationMessages({
             <MessageContent>
               <MessageParts message={message} />
             </MessageContent>
+            {message.role === 'assistant' && messageSettled(message) ? (
+              <MessageCopy text={messageText(message)} />
+            ) : null}
           </Message>
         ))}
 
@@ -89,6 +95,7 @@ export function ConversationMessages({
 }
 
 function MessageParts({ message }: { readonly message: UIMessage }) {
+  const phone = usePhone()
   const sources = message.parts.filter((part) => part.type === 'source-url')
   const files = message.parts.filter(isFileUIPart)
   return (
@@ -106,34 +113,46 @@ function MessageParts({ message }: { readonly message: UIMessage }) {
           </SourcesContent>
         </Sources>
       )}
-      {groupParts(message.parts.filter((part) => !isFileUIPart(part))).map((stretch, index) =>
-        stretch.type === 'run' ? (
-          <ToolRun
-            key={stretch.calls[0]?.part.toolCallId ?? String(index)}
-            calls={stretch.calls}
-            settled={stretch.settled}
-          />
-        ) : stretch.part.type === 'source-url' ? null : (
-          <MessagePart key={`${message.id}-${String(index)}`} part={stretch.part} />
-        ),
-      )}
+      {groupParts(message.parts.filter((part) => !isFileUIPart(part))).map((stretch, index) => {
+        const key = `${message.id}-${String(index)}`
+        if (stretch.type === 'run') {
+          return <ToolRun key={key} calls={stretch.calls} settled={stretch.settled} />
+        }
+        // On a phone the calls live in the thought's sheet; on a desktop they follow it.
+        if (stretch.type === 'thought') {
+          const run = <ToolRun calls={stretch.calls} settled={stretch.settled} />
+          return (
+            <Fragment key={key}>
+              <ReasoningPart part={stretch.part} steps={run} />
+              {phone ? null : run}
+            </Fragment>
+          )
+        }
+        if (stretch.part.type === 'source-url') return null
+        return <MessagePart key={key} part={stretch.part} />
+      })}
     </>
+  )
+}
+
+/** Per part, not per turn: one global flag would re-time every stored block when a prompt is sent. */
+function ReasoningPart({
+  part,
+  steps,
+}: {
+  readonly part: Extract<UIMessage['parts'][number], { type: 'reasoning' }>
+  readonly steps?: ReactNode
+}) {
+  return (
+    <Reasoning isStreaming={part.state === 'streaming'}>
+      <ReasoningTrigger />
+      <ReasoningContent steps={steps}>{part.text}</ReasoningContent>
+    </Reasoning>
   )
 }
 
 function MessagePart({ part }: { readonly part: UIMessage['parts'][number] }) {
   if (isTextUIPart(part)) return <MessageResponse>{part.text}</MessageResponse>
-
-  // Per part, not per turn: one global flag re-opens and re-times every stored
-  // block on the screen the moment any prompt is sent.
-  if (isReasoningUIPart(part)) {
-    return (
-      <Reasoning isStreaming={part.state === 'streaming'}>
-        <ReasoningTrigger />
-        <ReasoningContent>{part.text}</ReasoningContent>
-      </Reasoning>
-    )
-  }
-
+  if (isReasoningUIPart(part)) return <ReasoningPart part={part} />
   return <ConversationContentPart part={part} />
 }

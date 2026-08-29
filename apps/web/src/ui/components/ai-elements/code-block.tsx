@@ -53,6 +53,10 @@ export const codePlugin = createCodePlugin({ themes: [CODE_THEME, CODE_THEME] })
 type BundledLanguage = HighlightOptions['language']
 type ThemedToken = HighlightResult['tokens'][number][number]
 
+/** A fence can name any language; only the ones shiki has a grammar for get colour. */
+const isBundledLanguage = (language: string): language is BundledLanguage =>
+  codePlugin.getSupportedLanguages().some((one) => one === language)
+
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
 const isItalic = (fontStyle: number | undefined) => fontStyle && fontStyle & 1
@@ -131,7 +135,7 @@ const LineSpan = ({
 // Types
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string
-  language: BundledLanguage
+  language: string
   showLineNumbers?: boolean
 }
 
@@ -143,7 +147,7 @@ interface TokenizedCode {
 
 interface CodeBlockContextType {
   code: string
-  language: BundledLanguage
+  language: string
 }
 
 // Context
@@ -180,12 +184,12 @@ const toTokenized = (result: HighlightResult): TokenizedCode => ({
  */
 export const highlightCode = (
   code: string,
-  language: BundledLanguage,
+  language: string,
   // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null => {
   // A language shiki has no grammar for is shown as it is, in the block's own colours.
-  if (!codePlugin.supportsLanguage(language)) return createRawTokens(code)
+  if (!isBundledLanguage(language)) return createRawTokens(code)
   const result = codePlugin.highlight(
     { code, language, themes: codePlugin.getThemes() },
     callback === undefined ? undefined : (highlighted) => callback(toTokenized(highlighted)),
@@ -310,7 +314,7 @@ export const CodeBlockContent = ({
   className,
 }: {
   code: string
-  language: BundledLanguage
+  language: string
   showLineNumbers?: boolean
   className?: string
 }) => {

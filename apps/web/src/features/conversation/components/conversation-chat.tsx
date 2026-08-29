@@ -20,7 +20,8 @@ import type { UIMessage } from 'ai'
 import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
-import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
+import { lastTurnChanges } from '../models/tool-runs.ts'
+import { ConversationChanges, ConversationPlans, conversationCost } from './conversation-progress.tsx'
 import { ConversationTurnFailed } from './conversation-states.tsx'
 
 export type ConversationChatProps = {
@@ -54,6 +55,8 @@ export function ConversationChat({
         readingOlder={false}
         onReadOlder={null}
       />
+
+      <ConversationChanges changes={lastTurnChanges(chat.messages)} />
 
       <ConversationPlans plans={state.plans} running={chat.isServerStreaming} />
 

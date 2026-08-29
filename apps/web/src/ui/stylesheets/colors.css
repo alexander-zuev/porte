@@ -51,6 +51,8 @@
   --status-success-muted: var(--green-3);
   --destructive-muted: var(--red-3);
   --overlay: var(--black-a9);
+  /* Inline code in a sentence: one warm step 11, so a path or a command stands out from the words. */
+  --inline-code-foreground: var(--amber-11);
 
   --card: var(--surface);
   --card-foreground: var(--foreground);
@@ -102,6 +104,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
+  --color-inline-code-foreground: var(--inline-code-foreground);
   --color-status-info: var(--status-info);
   --color-status-warning: var(--status-warning);
   --color-status-success: var(--status-success);
