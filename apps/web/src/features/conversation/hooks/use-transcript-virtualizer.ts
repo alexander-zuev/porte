@@ -1,5 +1,5 @@
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
-import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 /** A row the transcript lays out. Keys are stable across reconcile, so measurements survive it. */
 export type TranscriptRow = { readonly key: string }
@@ -8,13 +8,15 @@ export type TranscriptRow = { readonly key: string }
 const ESTIMATED_ROW_PX = 160
 /** Rows rendered beyond the viewport on each side. */
 const OVERSCAN = 6
-/** A scroll that ends this close to the end means the reader wants the end again. */
+/** A scroll toward the end that lands this close to it means the reader wants the end again. */
 const NEAR_END_PX = 80
-/** A finger that moves down by more than this scrolls up; less is a tap. */
+/** A finger that moves down the screen by more than this scrolls up; less is a tap. */
 const TOUCH_SLOP_PX = 4
 
 export type TranscriptVirtualizer = {
   readonly virtualizer: Virtualizer<HTMLDivElement, Element>
+  /** The runway inside the scroller; the library sizes it and places rows in it. */
+  readonly runwayRef: (node: HTMLDivElement | null) => void
   /** True while the view follows the answer; false once the reader scrolls up. */
   readonly following: boolean
   readonly jumpToLatest: () => void
@@ -23,18 +25,25 @@ export type TranscriptVirtualizer = {
 /**
  * Windows the transcript: only the rows near the viewport exist in the DOM.
  *
- * The library owns the offset (`anchorTo: 'end'`) and holds the view by key
- * when older rows are prepended. Following the answer is ours: the library
- * follows by distance only, and on iOS it defers its corrections while a
- * scroll is in progress, which a stream never lets end.
+ * The library owns the offset (`anchorTo: 'end'`), writes row offsets and the
+ * runway height itself, and holds the view by key when older rows are
+ * prepended. Following the answer is ours: the library follows by distance
+ * only, and on iOS it defers its corrections while a scroll is in progress,
+ * which a stream never lets end.
  */
 export function useTranscriptVirtualizer(
   rows: readonly TranscriptRow[],
   scrollerRef: RefObject<HTMLDivElement | null>,
 ): TranscriptVirtualizer {
-  const [following, setFollowing] = useState(true)
+  // The ref is the fact, read synchronously by DOM callbacks; the state paints the button.
+  const followingRef = useRef(true)
+  const [following, setFollowingState] = useState(true)
+  const setFollowing = (next: boolean) => {
+    followingRef.current = next
+    setFollowingState(next)
+  }
 
-  // oxlint-disable-next-line react/incompatible-library -- the compiler skips memoizing this hook, which is what the virtualizer needs: its methods read live state.
+  // oxlint-disable-next-line react/incompatible-library -- the compiler skips this hook: it returns one mutable instance whose methods read live state.
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollerRef.current,
@@ -42,80 +51,121 @@ export function useTranscriptVirtualizer(
     estimateSize: () => ESTIMATED_ROW_PX,
     overscan: OVERSCAN,
     anchorTo: 'end',
+    // Positions land in the DOM with the scroll correction, never a render later.
+    directDomUpdates: true,
     // A row's first measure runs in the ref commit; React 19 refuses flushSync there and warns.
     useFlushSync: false,
   })
-  const totalSize = virtualizer.getTotalSize()
   const { isScrolling } = virtualizer
 
-  // Opens at the end, and stays there while the answer grows.
+  const runwayRef = useRef<HTMLDivElement | null>(null)
+  const setRunway = (node: HTMLDivElement | null) => {
+    runwayRef.current = node
+    virtualizer.containerRef(node)
+  }
+
+  // Opens at the end, and returns to it on tap.
   useLayoutEffect(() => {
     if (following) virtualizer.scrollToEnd()
-  }, [virtualizer, following, totalSize])
+  }, [virtualizer, following])
 
   // On iOS the library applies its corrections late, in one move; land at the end after it.
   useEffect(() => {
     if (following && !isScrolling) virtualizer.scrollToEnd()
   }, [virtualizer, following, isScrolling])
 
-  // The keyboard shrinks the scroller; a following reader stays at the end.
+  // The runway grows with the answer; the keyboard shrinks the scroller. A following reader stays at the end.
   useEffect(() => {
     const scroller = scrollerRef.current
-    if (scroller === null || !following) return undefined
+    const runway = runwayRef.current
+    if (scroller === null || runway === null) return undefined
     const observer = new ResizeObserver(() => {
-      virtualizer.scrollToEnd()
+      if (followingRef.current) virtualizer.scrollToEnd()
     })
     observer.observe(scroller)
+    observer.observe(runway)
     return () => {
       observer.disconnect()
     }
-  }, [scrollerRef, virtualizer, following])
+  }, [scrollerRef, virtualizer])
 
-  // Intent comes from input, not from scroll events: the library's corrections also scroll.
+  // Intent comes from input, not from scroll events alone: the library's corrections also scroll.
   useEffect(() => {
     const scroller = scrollerRef.current
     if (scroller === null) return undefined
     const stop = () => {
-      setFollowing(false)
+      followingRef.current = false
+      setFollowingState(false)
     }
-    let touchStartY = 0
+    let pointerHeld = false
     let lastTop = scroller.scrollTop
+    let touchY = 0
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY < 0) stop()
     }
     const onTouchStart = (event: TouchEvent) => {
-      touchStartY = event.touches[0]?.clientY ?? 0
+      touchY = event.touches[0]?.clientY ?? 0
     }
     const onTouchMove = (event: TouchEvent) => {
-      const y = event.touches[0]?.clientY ?? touchStartY
-      if (y > touchStartY + TOUCH_SLOP_PX) stop()
+      const y = event.touches[0]?.clientY ?? touchY
+      // Anchored to the finger's highest point, so a slow drag adds up and a reversal counts afresh.
+      if (y > touchY + TOUCH_SLOP_PX) {
+        stop()
+        touchY = y
+      } else if (y < touchY) {
+        touchY = y
+      }
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Home') stop()
+      const up =
+        event.key === 'ArrowUp' ||
+        event.key === 'PageUp' ||
+        event.key === 'Home' ||
+        (event.key === ' ' && event.shiftKey)
+      if (up) stop()
     }
-    // A scroll toward the end that lands near it means the reader wants the end again.
+    // A held pointer is a scrollbar drag or a selection; a backward scroll under it is the reader's.
+    const onPointerDown = () => {
+      pointerHeld = true
+    }
+    const onPointerUp = () => {
+      pointerHeld = false
+    }
     const onScroll = () => {
-      const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
-      if (scroller.scrollTop >= lastTop && distance <= NEAR_END_PX) setFollowing(true)
-      lastTop = scroller.scrollTop
+      const top = scroller.scrollTop
+      const backward = top < lastTop
+      lastTop = top
+      if (backward) {
+        if (pointerHeld) stop()
+      } else if (!followingRef.current && virtualizer.isAtEnd(NEAR_END_PX)) {
+        followingRef.current = true
+        setFollowingState(true)
+      }
     }
     const passive = { passive: true } as const
     scroller.addEventListener('wheel', onWheel, passive)
     scroller.addEventListener('touchstart', onTouchStart, passive)
     scroller.addEventListener('touchmove', onTouchMove, passive)
     scroller.addEventListener('keydown', onKeyDown)
+    scroller.addEventListener('pointerdown', onPointerDown, passive)
+    window.addEventListener('pointerup', onPointerUp, passive)
+    window.addEventListener('pointercancel', onPointerUp, passive)
     scroller.addEventListener('scroll', onScroll, passive)
     return () => {
       scroller.removeEventListener('wheel', onWheel)
       scroller.removeEventListener('touchstart', onTouchStart)
       scroller.removeEventListener('touchmove', onTouchMove)
       scroller.removeEventListener('keydown', onKeyDown)
+      scroller.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
       scroller.removeEventListener('scroll', onScroll)
     }
-  }, [scrollerRef])
+  }, [scrollerRef, virtualizer])
 
   return {
     virtualizer,
+    runwayRef: setRunway,
     following,
     jumpToLatest: () => {
       setFollowing(true)

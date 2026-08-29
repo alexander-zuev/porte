@@ -5,8 +5,8 @@ import type { ComponentProps, ReactNode, RefObject } from 'react'
 
 export type ConversationProps = {
   readonly scrollerRef: RefObject<HTMLDivElement | null>
-  /** Total height of every row, measured or estimated; the scroller's runway. */
-  readonly totalSize: number
+  /** The runway: the virtualizer sets its height and places rows inside it. */
+  readonly runwayRef: (node: HTMLDivElement | null) => void
   readonly className?: string
   readonly children: ReactNode
   /** The way back to the end, shown while the reader is above it. */
@@ -16,10 +16,12 @@ export type ConversationProps = {
 /**
  * The transcript's scroller. Rows position themselves inside the runway, so
  * only what is near the viewport exists; the button floats over the frame.
+ * Not a live region: rows mount again as the reader scrolls, and a reader
+ * would hear old messages as new ones.
  */
 export const Conversation = ({
   scrollerRef,
-  totalSize,
+  runwayRef,
   className,
   children,
   scrollButton,
@@ -27,11 +29,12 @@ export const Conversation = ({
   <div className={cn('relative flex min-h-0 flex-1 flex-col', className)}>
     <div
       ref={scrollerRef}
+      aria-label="Conversation"
       className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
-      role="log"
+      role="region"
       tabIndex={0}
     >
-      <div className="relative w-full" style={{ height: totalSize }}>
+      <div ref={runwayRef} className="relative w-full">
         {children}
       </div>
     </div>
@@ -41,26 +44,25 @@ export const Conversation = ({
 
 export type ConversationRowProps = ComponentProps<'div'> & {
   readonly index: number
-  /** Pixel offset of the row's top inside the runway. */
-  readonly start: number
   /** The virtualizer's measurer; it reads `data-index` back from the element. */
   readonly measureRef: (element: HTMLDivElement | null) => void
 }
 
-/** One positioned row. Vertical padding is the gap between turns, measured with the row. */
+/**
+ * One row. The virtualizer writes its vertical offset; the row only anchors
+ * at the runway's top. Vertical padding is the gap between turns, measured
+ * with the row.
+ */
 export const ConversationRow = ({
   index,
-  start,
   measureRef,
   className,
-  style,
   ...props
 }: ConversationRowProps) => (
   <div
     ref={measureRef}
     data-index={index}
     className={cn('absolute top-0 left-0 w-full px-3 py-4', className)}
-    style={{ ...style, transform: `translateY(${String(start)}px)` }}
     {...props}
   />
 )

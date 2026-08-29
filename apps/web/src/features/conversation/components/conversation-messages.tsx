@@ -79,14 +79,17 @@ function transcriptRows({
 export function ConversationMessages(props: ConversationMessagesProps) {
   const rows = transcriptRows(props)
   const scrollerRef = useRef<HTMLDivElement>(null)
-  const { virtualizer, following, jumpToLatest } = useTranscriptVirtualizer(rows, scrollerRef)
+  const { virtualizer, runwayRef, following, jumpToLatest } = useTranscriptVirtualizer(
+    rows,
+    scrollerRef,
+  )
 
   return (
     <Conversation
       className="min-h-0 flex-1"
+      runwayRef={runwayRef}
       scrollButton={following ? null : <ConversationScrollButton onClick={jumpToLatest} />}
       scrollerRef={scrollerRef}
-      totalSize={virtualizer.getTotalSize()}
     >
       {virtualizer.getVirtualItems().map((item) => {
         const row = rows[item.index]
@@ -96,7 +99,6 @@ export function ConversationMessages(props: ConversationMessagesProps) {
             key={item.key}
             index={item.index}
             measureRef={virtualizer.measureElement}
-            start={item.start}
           >
             <TranscriptRowContent
               readingOlder={props.readingOlder}
