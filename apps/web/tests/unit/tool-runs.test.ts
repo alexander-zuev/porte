@@ -82,7 +82,13 @@ describe('toolCall', () => {
   })
 
   it('falls back to the raw name and "other" without metadata', () => {
-    const part = { type: 'dynamic-tool', toolCallId: 'x', toolName: 'mystery', state: 'input-available', input: {} }
+    const part = {
+      type: 'dynamic-tool',
+      toolCallId: 'x',
+      toolName: 'mystery',
+      state: 'input-available',
+      input: {},
+    }
     expect(toolCall(part as DynamicToolUIPart)).toMatchObject({ kind: 'other', title: 'mystery' })
   })
 })

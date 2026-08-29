@@ -25,11 +25,9 @@ export function spanDiff(diff: SpanDiff): string {
         `@@ -${String(position.data.old_line)},${String(removed.length)} +${String(position.data.new_line)},${String(added.length)} @@`,
       ]
     : []
-  return [
-    ...hunk,
-    ...removed.map((line) => `-${line}`),
-    ...added.map((line) => `+${line}`),
-  ].join('\n')
+  return [...hunk, ...removed.map((line) => `-${line}`), ...added.map((line) => `+${line}`)].join(
+    '\n',
+  )
 }
 
 export type LineChange = { readonly added: number; readonly removed: number }

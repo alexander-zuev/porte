@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Publish CLI
+
+# A release is a version bump in apps/host/package.json landing on main. A
+# merge that leaves the version alone publishes nothing, so people's `porte`
+# does not churn with every commit. npm trusts this workflow through OIDC
+# (Package settings → Trusted publisher), so there is no token and no 2FA
+# prompt; every release carries a provenance attestation.
+on:
+  push:
+    branches: [main]
+    paths: [apps/host/package.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @porte/cli
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@c9883cc79df532ad1a7b81bf9ab944ceb090d65c # v2.0.0
+        with:
+          cache: true
+
+      # Trusted publishing needs npm 11.5+, which the pinned Node carries.
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Is this version already on npm?
+        id: version
+        run: |
+          version=$(node -p "require('./apps/host/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "@porte/cli@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # main was green at this commit; the tarball still proves itself before it ships.
+      - if: steps.version.outputs.published == 'false'
+        run: pnpm --filter @porte/cli lint
+
+      - if: steps.version.outputs.published == 'false'
+        run: pnpm --filter @porte/cli typecheck
+
+      - if: steps.version.outputs.published == 'false'
+        run: pnpm --filter @porte/cli test:unit
+
+      - if: steps.version.outputs.published == 'false'
+        run: pnpm --filter @porte/cli build
+
+      - if: steps.version.outputs.published == 'false'
+        run: pnpm --filter @porte/cli publish --provenance --access public --no-git-checks
+
+      - if: steps.version.outputs.published == 'true'
+        run: echo "@porte/cli@${{ steps.version.outputs.version }} is already on npm; nothing to publish."

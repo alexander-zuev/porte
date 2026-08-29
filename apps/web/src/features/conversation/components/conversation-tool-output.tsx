@@ -15,9 +15,7 @@ const outputSchema = z.object({
 export function ConversationToolOutput({ output }: { readonly output: unknown }) {
   const parsed = outputSchema.safeParse(output)
   if (!parsed.success) {
-    return (
-      <TitledCodeBlock code={JSON.stringify(output, null, 2)} language="json" title="Result" />
-    )
+    return <TitledCodeBlock code={JSON.stringify(output, null, 2)} language="json" title="Result" />
   }
   return (
     <div className="space-y-3">

@@ -14,11 +14,18 @@ export type TerminalCommandProps = {
   readonly command: string
   /** Type the command out on first paint instead of showing it at once. */
   readonly typed?: boolean
+  /** Off when another control beside the box is the one that copies. */
+  readonly copy?: boolean
   readonly className?: string
 }
 
 /** Show one shell command and copy it to the clipboard on request. */
-export function TerminalCommand({ command, typed = false, className }: TerminalCommandProps) {
+export function TerminalCommand({
+  command,
+  typed = false,
+  copy: withCopy = true,
+  className,
+}: TerminalCommandProps) {
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef(0)
 
@@ -59,16 +66,18 @@ export function TerminalCommand({ command, typed = false, className }: TerminalC
         </span>
         {typed ? <TextType text={command} /> : command}
       </code>
-      <Button
-        aria-label={copied ? 'Command copied' : `Copy ${command}`}
-        size="icon-sm"
-        variant="ghost"
-        onClick={() => {
-          void copy()
-        }}
-      >
-        {copied ? <CheckIcon className="text-status-success-muted-foreground" /> : <CopyIcon />}
-      </Button>
+      {withCopy ? (
+        <Button
+          aria-label={copied ? 'Command copied' : `Copy ${command}`}
+          size="icon-sm"
+          variant="ghost"
+          onClick={() => {
+            void copy()
+          }}
+        >
+          {copied ? <CheckIcon className="text-status-success-muted-foreground" /> : <CopyIcon />}
+        </Button>
+      ) : null}
     </div>
   )
 }

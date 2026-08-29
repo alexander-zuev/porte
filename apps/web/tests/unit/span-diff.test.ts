@@ -15,9 +15,9 @@ describe('spanDiff', () => {
   })
 
   it('has no old lines for a created file, and no hunk without a position', () => {
-    expect(spanDiff({ type: 'diff', path: '/repo/notes.md', oldText: '', newText: 'spike\n' })).toBe(
-      '+spike',
-    )
+    expect(
+      spanDiff({ type: 'diff', path: '/repo/notes.md', oldText: '', newText: 'spike\n' }),
+    ).toBe('+spike')
   })
 
   it('treats a null old text like an empty one', () => {

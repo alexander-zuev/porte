@@ -4,6 +4,15 @@ Porte - means door in French - is a secure remote interface for your local Grok 
 
 Manage the same Grok threads and repos from your phone while they continue to run on your laptop. Porte does not replace the TUI, and each account can access only its own machines.
 
+## Install
+
+```sh
+npm i -g @porte/cli
+porte pair
+```
+
+Or hand it to your agent: `Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this Mac.`
+
 ## How it works
 
 1. Run the daemon on the machine where you already use Grok.

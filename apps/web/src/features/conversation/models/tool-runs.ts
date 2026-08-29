@@ -86,15 +86,14 @@ export function toolCall(part: DynamicToolUIPart): ToolCall {
   const kind = metadata.success ? (metadata.data.kind ?? 'other') : 'other'
   const output = part.state === 'output-available' ? outputSchema.safeParse(part.output) : undefined
   const diffs =
-    output?.success === true
-      ? output.data.content.filter((item) => item.type === 'diff')
-      : []
+    output?.success === true ? output.data.content.filter((item) => item.type === 'diff') : []
   const change =
     diffs.length === 0
       ? undefined
-      : diffs
-          .map(spanDiffCounts)
-          .reduce((sum, one) => ({ added: sum.added + one.added, removed: sum.removed + one.removed }))
+      : diffs.map(spanDiffCounts).reduce((sum, one) => ({
+          added: sum.added + one.added,
+          removed: sum.removed + one.removed,
+        }))
   const location = metadata.success ? metadata.data.locations?.[0]?.path : undefined
   return {
     part,
@@ -151,8 +150,9 @@ export function lastTurnChanges(messages: readonly UIMessage[]): TurnChanges | u
 /** One line for a folded run: `Edited 2 files, read 3 files, ran 1 command`. */
 export function describeRun(calls: readonly ToolCall[]): string {
   const files = (kind: ToolKind) =>
-    new Set(calls.filter((call) => call.kind === kind).map((call) => call.path ?? call.part.toolCallId))
-      .size
+    new Set(
+      calls.filter((call) => call.kind === kind).map((call) => call.path ?? call.part.toolCallId),
+    ).size
   const count = (kind: ToolKind) => calls.filter((call) => call.kind === kind).length
   const known = new Set<ToolKind>(['edit', 'delete', 'move', 'read', 'search', 'fetch', 'execute'])
   const rest = calls.filter((call) => !known.has(call.kind)).length

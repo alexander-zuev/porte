@@ -1,6 +1,7 @@
 import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { RiGrokAiFill } from '@remixicon/react'
-import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { AGENT_PROMPT, PAIR_COMMAND } from '@web/lib/product.ts'
+import { CopyPrompt } from '@web/ui/components/copy-prompt.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import type { ReactNode } from 'react'
 
@@ -28,7 +29,12 @@ export function LandingPage() {
       </h1>
 
       <div className="flex flex-col gap-4">
-        <TerminalCommand typed className="max-w-md" command={PAIR_COMMAND} />
+        {/* One control: the box is the command to type, the button is the path
+            for a person who hands setup to Claude Code, Codex, or Grok. */}
+        <div className="flex max-w-2xl flex-wrap items-center gap-3">
+          <TerminalCommand typed className="max-w-md flex-1" command={PAIR_COMMAND} copy={false} />
+          <CopyPrompt prompt={AGENT_PROMPT} />
+        </div>
         <p className="max-w-[46ch] text-muted-foreground">
           Pair your Mac. Then run Grok from your phone.
         </p>
