@@ -1,32 +1,66 @@
-import { ArrowDownIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
+import { ArrowDownIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
-import type { UIMessage } from 'ai'
-import type { ComponentProps } from 'react'
-import { useCallback } from 'react'
-import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
+import type { ComponentProps, ReactNode, RefObject } from 'react'
 
-export type ConversationProps = ComponentProps<typeof StickToBottom>
+export type ConversationProps = {
+  readonly scrollerRef: RefObject<HTMLDivElement | null>
+  /** Total height of every row, measured or estimated; the scroller's runway. */
+  readonly totalSize: number
+  readonly className?: string
+  readonly children: ReactNode
+  /** The way back to the end, shown while the reader is above it. */
+  readonly scrollButton?: ReactNode
+}
 
-export const Conversation = ({ className, ...props }: ConversationProps) => (
-  <StickToBottom
-    className={cn('relative flex-1 overflow-y-hidden', className)}
-    initial="smooth"
-    resize="smooth"
-    role="log"
-    {...props}
-  />
+/**
+ * The transcript's scroller. Rows position themselves inside the runway, so
+ * only what is near the viewport exists; the button floats over the frame.
+ */
+export const Conversation = ({
+  scrollerRef,
+  totalSize,
+  className,
+  children,
+  scrollButton,
+}: ConversationProps) => (
+  <div className={cn('relative flex min-h-0 flex-1 flex-col', className)}>
+    <div
+      ref={scrollerRef}
+      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
+      role="log"
+      tabIndex={0}
+    >
+      <div className="relative w-full" style={{ height: totalSize }}>
+        {children}
+      </div>
+    </div>
+    {scrollButton}
+  </div>
 )
 
-export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>
+export type ConversationRowProps = ComponentProps<'div'> & {
+  readonly index: number
+  /** Pixel offset of the row's top inside the runway. */
+  readonly start: number
+  /** The virtualizer's measurer; it reads `data-index` back from the element. */
+  readonly measureRef: (element: HTMLDivElement | null) => void
+}
 
-export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
-  // Focusable so the keyboard can scroll a transcript that has no control in it.
-  <StickToBottom.Content
-    className={cn('flex flex-col gap-8 p-4', className)}
-    // The library's scroller; its bar must not take a slice off the column.
-    scrollClassName="scrollbar-thin"
-    tabIndex={0}
+/** One positioned row. Vertical padding is the gap between turns, measured with the row. */
+export const ConversationRow = ({
+  index,
+  start,
+  measureRef,
+  className,
+  style,
+  ...props
+}: ConversationRowProps) => (
+  <div
+    ref={measureRef}
+    data-index={index}
+    className={cn('absolute top-0 left-0 w-full px-3 py-4', className)}
+    style={{ ...style, transform: `translateY(${String(start)}px)` }}
     {...props}
   />
 )
@@ -34,7 +68,7 @@ export const ConversationContent = ({ className, ...props }: ConversationContent
 export type ConversationEmptyStateProps = ComponentProps<'div'> & {
   title?: string
   description?: string
-  icon?: React.ReactNode
+  icon?: ReactNode
 }
 
 export const ConversationEmptyState = ({
@@ -64,92 +98,28 @@ export const ConversationEmptyState = ({
   </div>
 )
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>
+export type ConversationScrollButtonProps = Omit<ComponentProps<typeof Button>, 'onClick'> & {
+  readonly onClick: () => void
+}
 
+/** Back to the latest message. Render it only while the reader is above the end. */
 export const ConversationScrollButton = ({
   className,
+  onClick,
   ...props
-}: ConversationScrollButtonProps) => {
-  const { isAtBottom, scrollToBottom } = useStickToBottomContext()
-
-  const handleScrollToBottom = useCallback(() => {
-    scrollToBottom()
-  }, [scrollToBottom])
-
-  return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
-          className,
-        )}
-        aria-label="Scroll to bottom"
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        <ArrowDownIcon className="size-4" />
-      </Button>
-    )
-  )
-}
-
-const getMessageText = (message: UIMessage): string =>
-  message.parts
-    .filter((part) => part.type === 'text')
-    .map((part) => part.text)
-    .join('')
-
-export type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, 'onClick'> & {
-  messages: UIMessage[]
-  filename?: string
-  formatMessage?: (message: UIMessage, index: number) => string
-}
-
-const defaultFormatMessage = (message: UIMessage): string => {
-  const roleLabel = message.role.charAt(0).toUpperCase() + message.role.slice(1)
-  return `**${roleLabel}:** ${getMessageText(message)}`
-}
-
-export const messagesToMarkdown = (
-  messages: UIMessage[],
-  formatMessage: (message: UIMessage, index: number) => string = defaultFormatMessage,
-): string => messages.map((msg, i) => formatMessage(msg, i)).join('\n\n')
-
-export const ConversationDownload = ({
-  messages,
-  filename = 'conversation.md',
-  formatMessage = defaultFormatMessage,
-  className,
-  children,
-  ...props
-}: ConversationDownloadProps) => {
-  const handleDownload = useCallback(() => {
-    const markdown = messagesToMarkdown(messages, formatMessage)
-    const blob = new Blob([markdown], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    link.click()
-    URL.revokeObjectURL(url)
-  }, [messages, filename, formatMessage])
-
-  return (
-    <Button
-      className={cn(
-        'absolute top-4 right-4 rounded-full dark:bg-background dark:hover:bg-muted',
-        className,
-      )}
-      onClick={handleDownload}
-      size="icon"
-      type="button"
-      variant="outline"
-      {...props}
-    >
-      {children ?? <DownloadSimpleIcon className="size-4" />}
-    </Button>
-  )
-}
+}: ConversationScrollButtonProps) => (
+  <Button
+    className={cn(
+      'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
+      className,
+    )}
+    aria-label="Scroll to bottom"
+    onClick={onClick}
+    size="icon"
+    type="button"
+    variant="outline"
+    {...props}
+  >
+    <ArrowDownIcon className="size-4" />
+  </Button>
+)

@@ -35,15 +35,11 @@
   @apply mx-auto w-full;
 }
 
-/**
- * A thumb at the edge and no track, so a scrolling column keeps its full width.
- * `!important` beats use-stick-to-bottom's inline `stable both-edges`, which
- * reserves a dead strip on both sides of the transcript.
- */
+/** A thumb at the edge and no track, so a scrolling column keeps its full width. */
 @utility scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-interactive) transparent;
-  scrollbar-gutter: auto !important;
+  scrollbar-gutter: auto;
   /* A gesture that reaches the end stops here; it never bounces the page. */
   overscroll-behavior: contain;
 }

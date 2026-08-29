@@ -1,6 +1,6 @@
 import {
   Conversation,
-  ConversationContent,
+  ConversationRow,
   ConversationScrollButton,
 } from '@web/ui/components/ai-elements/conversation.tsx'
 import {
@@ -21,8 +21,12 @@ import {
 } from '@web/ui/components/ai-elements/sources.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { isFileUIPart, isReasoningUIPart, isTextUIPart, type UIMessage } from 'ai'
-import { Fragment } from 'react'
+import { Fragment, useRef } from 'react'
 
+import {
+  useTranscriptVirtualizer,
+  type TranscriptRow,
+} from '../hooks/use-transcript-virtualizer.ts'
 import { groupParts, messageSettled, messageText } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
 import { ConversationTurnFailed, NoMessagesYet, TurnPending } from './conversation-states.tsx'
@@ -41,71 +45,125 @@ export type ConversationMessagesProps = {
   readonly readingOlder: boolean
 }
 
-/**
- * The transcript, rendered by AI Elements.
- *
- * Every part type is theirs. Porte decides only which part a canonical event
- * became, which happened before this component saw anything.
- */
-export function ConversationMessages({
+/** Everything the transcript lays out, in order: one row each, keyed for the virtualizer. */
+type Row =
+  | (TranscriptRow & { readonly kind: 'empty' })
+  | (TranscriptRow & { readonly kind: 'older' })
+  | (TranscriptRow & { readonly kind: 'message'; readonly message: UIMessage })
+  | (TranscriptRow & { readonly kind: 'pending' })
+  | (TranscriptRow & { readonly kind: 'failed'; readonly error: Error })
+
+function transcriptRows({
   messages,
   pending,
   error,
   onReadOlder,
-  readingOlder,
-}: ConversationMessagesProps) {
+}: ConversationMessagesProps): Row[] {
+  const rows: Row[] = []
+  if (messages.length === 0) rows.push({ kind: 'empty', key: 'empty' })
+  if (onReadOlder !== null) rows.push({ kind: 'older', key: 'older' })
+  for (const message of messages) rows.push({ kind: 'message', key: message.id, message })
+  // The answer's slot, held until the answer takes it.
+  if (pending) rows.push({ kind: 'pending', key: 'pending' })
+  if (error !== undefined) rows.push({ kind: 'failed', key: 'failed', error })
+  return rows
+}
+
+/**
+ * The transcript, rendered by AI Elements and windowed by row.
+ *
+ * Every part type is theirs. Porte decides only which part a canonical event
+ * became, which happened before this component saw anything. Only rows near
+ * the viewport are in the DOM; the rest is a measured runway.
+ */
+export function ConversationMessages(props: ConversationMessagesProps) {
+  const rows = transcriptRows(props)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const { virtualizer, following, jumpToLatest } = useTranscriptVirtualizer(rows, scrollerRef)
+
   return (
-    <Conversation className="min-h-0 flex-1">
-      {/* 32px between turns; the composer below uses the same 12px inset, so text edges line up. */}
-      <ConversationContent className="gap-8 px-3 py-4">
-        {messages.length === 0 ? <NoMessagesYet /> : null}
-
-        {onReadOlder === null ? null : (
-          <Button
-            className="mx-auto min-h-11"
-            disabled={readingOlder}
-            variant="ghost"
-            onClick={onReadOlder}
+    <Conversation
+      className="min-h-0 flex-1"
+      scrollButton={following ? null : <ConversationScrollButton onClick={jumpToLatest} />}
+      scrollerRef={scrollerRef}
+      totalSize={virtualizer.getTotalSize()}
+    >
+      {virtualizer.getVirtualItems().map((item) => {
+        const row = rows[item.index]
+        if (row === undefined) return null
+        return (
+          <ConversationRow
+            key={item.key}
+            index={item.index}
+            measureRef={virtualizer.measureElement}
+            start={item.start}
           >
-            {readingOlder ? 'Reading…' : 'Earlier messages'}
-          </Button>
-        )}
-
-        {messages.map((message) => (
-          <Message key={message.id} from={message.role}>
-            <MessageContent>
-              <MessageParts message={message} />
-            </MessageContent>
-            {/* Only once there are words to take: an answer still arriving, or one with no text, gets none. */}
-            {message.role === 'assistant' &&
-            messageSettled(message) &&
-            messageText(message) !== '' ? (
-              <MessageCopy text={messageText(message)} />
-            ) : null}
-          </Message>
-        ))}
-
-        {/* The answer's slot, held until the answer takes it. */}
-        {pending ? (
-          <Message from="assistant">
-            <MessageContent>
-              <TurnPending />
-            </MessageContent>
-          </Message>
-        ) : null}
-
-        {error === undefined ? null : (
-          <Message className="-mt-4" from="assistant">
-            <ConversationTurnFailed error={error} />
-          </Message>
-        )}
-      </ConversationContent>
-      <ConversationScrollButton />
+            <TranscriptRowContent
+              readingOlder={props.readingOlder}
+              row={row}
+              onReadOlder={props.onReadOlder}
+            />
+          </ConversationRow>
+        )
+      })}
     </Conversation>
   )
 }
 
-function MessageParts({ message }: { readonly message: UIMessage }) {
+function TranscriptRowContent({
+  row,
+  onReadOlder,
+  readingOlder,
+}: {
+  readonly row: Row
+  readonly onReadOlder: (() => void) | null
+  readonly readingOlder: boolean
+}) {
+  if (row.kind === 'empty') return <NoMessagesYet />
+  if (row.kind === 'older') {
+    return (
+      <Button
+        className="mx-auto flex min-h-11"
+        disabled={readingOlder}
+        variant="ghost"
+        onClick={onReadOlder ?? undefined}
+      >
+        {readingOlder ? 'Reading…' : 'Earlier messages'}
+      </Button>
+    )
+  }
+  if (row.kind === 'pending') {
+    return (
+      <Message from="assistant">
+        <MessageContent>
+          <TurnPending />
+        </MessageContent>
+      </Message>
+    )
+  }
+  if (row.kind === 'failed') {
+    return (
+      <Message from="assistant">
+        <ConversationTurnFailed error={row.error} />
+      </Message>
+    )
+  }
+  const { message } = row
+  return (
+    <Message from={message.role}>
+      <MessageContent>
+        <MessageParts message={message} />
+      </MessageContent>
+      {/* Only once there are words to take: an answer still arriving, or one with no text, gets none. */}
+      {message.role === 'assistant' && messageSettled(message) && messageText(message) !== '' ? (
+        <MessageCopy text={messageText(message)} />
+      ) : null}
+    </Message>
+  )
+}
+
+/** One message's parts, grouped as the transcript shows them. */
+export function MessageParts({ message }: { readonly message: UIMessage }) {
   const sources = message.parts.filter((part) => part.type === 'source-url')
   const files = message.parts.filter(isFileUIPart)
   return (

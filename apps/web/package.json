@@ -54,6 +54,7 @@
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-router-ssr-query": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "agents": "catalog:",
     "ai": "catalog:",
     "better-auth": "catalog:",
@@ -76,7 +77,6 @@
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
-    "use-stick-to-bottom": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"
   },
