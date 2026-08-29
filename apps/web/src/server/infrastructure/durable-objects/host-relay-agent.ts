@@ -250,7 +250,13 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     }
   }
 
-  /** Close connections and delete all parent and child state after unpairing. */
+  /**
+   * Close connections and delete all parent and child state after unpairing.
+   *
+   * Storage is wiped in place, never through `destroy()`: that aborts the isolate
+   * and takes the caller's RPC down with it. A re-pair names a new object, so this
+   * one is never addressed again and can idle out empty.
+   */
   async disconnectAll(): Promise<void> {
     this.hostSocket.clear()
     for (const connection of this.getConnections()) {
@@ -261,7 +267,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
         this.deleteSubAgent(ConversationAgent, child.name),
       ),
     )
-    await this.destroy()
+    await this.ctx.storage.deleteAll()
   }
 
   private async handleConversationUpdated(

@@ -3,6 +3,7 @@ import {
   HOST_CONVERSATION_SUBPROTOCOL,
   ConversationIdSchema,
   IsoDateTimeSchema,
+  PAIRING_ENDED_CLOSE,
   createHostId,
   turnIdFor,
   hostControlRequestSchema,
@@ -52,6 +53,22 @@ describe('HostRelayAgent control connection', () => {
     await vi.waitFor(async () =>
       expect(await host.stub.readStatus()).toEqual({ status: 'offline' }),
     )
+  })
+
+  it('ends the pairing and still answers the caller', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
+    const closed = new Promise<CloseEvent>((resolve) => {
+      host.socket.addEventListener('close', resolve, { once: true })
+    })
+
+    await expect(host.stub.disconnectAll()).resolves.toBeUndefined()
+
+    const event = await closed
+    expect([event.code, event.reason]).toEqual([
+      PAIRING_ENDED_CLOSE.code,
+      PAIRING_ENDED_CLOSE.reason,
+    ])
   })
 
   it('applies one Host metadata patch to the conversation cache', async () => {
