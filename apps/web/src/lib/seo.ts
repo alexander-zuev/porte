@@ -5,7 +5,8 @@ export const SITE_NAME = 'Porte'
 
 /** 1200x630 share card. Absolute, because crawlers do not resolve relative image URLs. */
 const OG_IMAGE = `${CANONICAL_ORIGIN}/og.png`
-const OG_IMAGE_ALT = 'Porte wordmark with a terminal caret, above the command porte pair'
+const OG_IMAGE_ALT =
+  'Porte wordmark. Grok stays on your machine. You do not have to. The command porte pair.'
 
 /** SERP truncates meta descriptions near 160 chars; cap at 155 to keep a safety margin. */
 export const META_DESCRIPTION_MAX = 155

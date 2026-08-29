@@ -47,11 +47,13 @@ class FakeAgent {
 
 const fake = new FakeAgent()
 const sockets = vi.fn()
+let socketOptions: { onConnectionError?: (error: unknown) => void } = {}
 
 vi.mock('agents/react', () => ({
-  useAgent: () => {
+  useAgent: (options: { onConnectionError?: (error: unknown) => void }) => {
     const [, tick] = useState(0)
     sockets()
+    socketOptions = options
     fake.rerender = () => {
       tick((n) => n + 1)
     }
@@ -136,6 +138,13 @@ describe('RelayProvider → useHostConnection', () => {
     act(() => fake.receiveState(online))
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['host'] })
     act(() => fake.receiveState(offline))
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['host'] })
+  })
+
+  it('re-reads the host row when the relay ends the socket for good', () => {
+    const { invalidate } = mountDot()
+    act(() => fake.identify())
+    act(() => socketOptions.onConnectionError?.(new Error('pairing ended')))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['host'] })
   })
 

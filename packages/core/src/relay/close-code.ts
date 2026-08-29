@@ -16,6 +16,14 @@ const PRIVATE = { from: 4000, to: 4999 } as const
 const DEFINED = { from: 1000, to: 1014 } as const
 
 /**
+ * The relay ending a pairing, sent to every socket it holds.
+ *
+ * Private range on purpose: the Agents client only stops reconnecting on 1008
+ * or 4000–4999, and a socket whose pairing is gone must not come back on its own.
+ */
+export const PAIRING_ENDED_CLOSE = { code: 4001, reason: 'pairing ended' } as const
+
+/**
  * The nearest code that may actually be sent.
  *
  * Anything reserved or outside the permitted ranges becomes a normal closure,

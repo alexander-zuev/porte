@@ -7,7 +7,8 @@ import { runPairCommand } from '@host/entrypoints/cli/pair-command.ts'
 import { VERSION, parseCommand } from '@host/entrypoints/cli/parse-command.ts'
 import { runUpCommand } from '@host/entrypoints/cli/run-up-command.ts'
 import { runUnpairCommand } from '@host/entrypoints/cli/unpair-command.ts'
-import { loadConfig } from '@host/infrastructure/config/host-config.ts'
+import { createPairingResources } from '@host/infrastructure/bootstrap/pairing-resources.ts'
+import { loadConfig, type HostConfig } from '@host/infrastructure/config/host-config.ts'
 
 /** Process streams and environment used by one CLI invocation. */
 export type CliIo = {
@@ -27,18 +28,28 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
   }
 }
 
+/** What a bug report needs: version, runtime, platform, and which relay this machine is paired with. */
+async function versionReport(config: HostConfig): Promise<string> {
+  const stored = await createPairingResources(config).credentials.read()
+  const pairing = stored === null ? 'not paired' : `paired with ${new URL(stored.baseUrl).host}`
+  return [
+    `porte ${VERSION} · node ${process.versions.node} · ${process.platform} ${process.arch}`,
+    pairing,
+  ].join('\n')
+}
+
 async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   const command = parseCommand(argv)
   if (command.kind === 'help') {
     io.stdout.write(`${command.text}\n`)
     return 0
   }
+  const config = loadConfig(io.env)
   if (command.kind === 'version') {
-    io.stdout.write(`${VERSION}\n`)
+    io.stdout.write(`${await versionReport(config)}\n`)
     return 0
   }
 
-  const config = loadConfig(io.env)
   if (command.kind === 'up') {
     await runUpCommand({ config, stderr: io.stderr })
     return 0

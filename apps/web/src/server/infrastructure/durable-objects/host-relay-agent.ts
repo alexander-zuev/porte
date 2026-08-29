@@ -7,6 +7,7 @@ import {
   HostIdSchema,
   HostOfflineError,
   HostRelayStateSchema,
+  PAIRING_ENDED_CLOSE,
   createLogger,
   type ConversationSummary,
   type ConversationId,
@@ -252,7 +253,9 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   /** Close connections and delete all parent and child state after unpairing. */
   async disconnectAll(): Promise<void> {
     this.hostSocket.clear()
-    for (const connection of this.getConnections()) connection.close(1000, 'pairing ended')
+    for (const connection of this.getConnections()) {
+      connection.close(PAIRING_ENDED_CLOSE.code, PAIRING_ENDED_CLOSE.reason)
+    }
     await Promise.all(
       this.listSubAgents(ConversationAgent).map((child) =>
         this.deleteSubAgent(ConversationAgent, child.name),

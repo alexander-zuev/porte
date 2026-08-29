@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_public/')({
     createSeoHead({
       title: 'Porte: remote control for local Grok sessions',
       description:
-        'Porte pairs your phone with the machine that already runs Grok. Pick up a session, start a new one, and approve every action from anywhere. Open source, Apache-2.0.',
+        'Pair your phone with the machine that runs Grok. Pick up a session, start a new one, and approve every action from anywhere.',
       path: '/',
     }),
   staticData: { publicShell: 'hero' },

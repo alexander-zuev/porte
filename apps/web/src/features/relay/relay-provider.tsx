@@ -3,7 +3,7 @@ import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostConnectionFrom, type RelayConnection } from '@web/entities/host/host-connection.ts'
-import { hostQueries } from '@web/entities/host/host-queries.ts'
+import { hostQueries, hostQueryKeys } from '@web/entities/host/host-queries.ts'
 import { useHostConnectionNotice } from '@web/features/relay/use-host-connection-notice.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
@@ -40,9 +40,15 @@ export function useRelay(): RelayConnection {
 
 /** One socket for one pairing; the server resolves the relay object from the session. */
 function RelaySocket({ children }: { readonly children: ReactNode }) {
+  const queryClient = useQueryClient()
   const agent = useAgent<HostRelayAgent, HostRelayState>({
     agent: 'HostRelayAgent',
     basePath: RELAY_PATH,
+    // A terminal close (the relay ended the pairing) is the server's word that this
+    // socket is done. Re-read the host row rather than guess: it answers unpaired, or the new id.
+    onConnectionError: () => {
+      void queryClient.invalidateQueries({ queryKey: hostQueryKeys.all })
+    },
   })
   // Read off the mutable socket here: `agent` itself never changes identity.
   const { identified, state } = agent
