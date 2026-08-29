@@ -38,9 +38,15 @@ export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
   // Freeze motion so a check samples settled colors instead of intermediate ones.
   // Code blocks opt out of off-screen painting; a full-page capture would show
   // every one below the fold as an empty box.
+  // macOS draws classic scrollbars with a mouse plugged in and overlay bars
+  // without one; headless Chromium follows it, and `scrollbar-gutter: stable`
+  // then reserves 15px or nothing. No document scrollbar at all, so a picture
+  // does not depend on the USB port.
   await page.addStyleTag({
-    content:
+    content: [
       '*, *::before, *::after { transition: none !important; animation: none !important; content-visibility: visible !important }',
+      'html { scrollbar-width: none !important }',
+    ].join('\n'),
   })
   await page.evaluate(async () => {
     await document.fonts.ready
