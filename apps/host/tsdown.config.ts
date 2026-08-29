@@ -9,6 +9,7 @@ export default defineConfig({
   dts: false,
   clean: true,
   deps: {
-    alwaysBundle: ['better-result', 'zod', '@porte/core'],
+    // Bundled, so the published package needs neither the workspace nor these two on install.
+    alwaysBundle: ['better-result', 'zod', /^@porte\/core(\/|$)/],
   },
 })

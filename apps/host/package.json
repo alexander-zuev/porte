@@ -1,8 +1,23 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "@porte/host",
+  "name": "@porte/cli",
   "version": "0.1.0",
-  "private": true,
+  "description": "Run your local Grok sessions from your phone. The daemon that pairs a Mac with useporte.dev.",
+  "keywords": [
+    "acp",
+    "agent",
+    "cli",
+    "grok",
+    "remote"
+  ],
+  "homepage": "https://useporte.dev",
+  "bugs": "https://github.com/alexander-zuev/porte/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexander-zuev/porte.git",
+    "directory": "apps/host"
+  },
   "bin": {
     "porte": "./dist/main.js"
   },
@@ -10,6 +25,9 @@
     "dist"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/main.ts",
     "build": "tsdown",
@@ -24,20 +42,20 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "catalog:",
     "@better-fetch/fetch": "catalog:",
-    "@porte/core": "workspace:*",
-    "better-result": "catalog:",
     "partysocket": "catalog:",
     "picocolors": "catalog:",
-    "ws": "catalog:",
-    "zod": "catalog:"
+    "ws": "catalog:"
   },
   "devDependencies": {
+    "@porte/core": "workspace:*",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "better-result": "catalog:",
     "tsdown": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   },
   "engines": {
     "node": ">=22"

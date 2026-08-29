@@ -12,7 +12,7 @@ import { z } from 'zod'
  * whole turns, the turn with a repeated `promptIndex`, one `plan`, and the last
  * commands update with three commands. Text longer than TEXT_LIMIT is cut.
  *
- *   pnpm --filter @porte/host exec tsx scripts/clean-acp-fixtures.ts <captureDir> <sessionId>
+ *   pnpm --filter @porte/cli exec tsx scripts/clean-acp-fixtures.ts <captureDir> <sessionId>
  */
 const [captureDir, sessionId] = process.argv.slice(2)
 if (captureDir === undefined || sessionId === undefined) {

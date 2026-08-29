@@ -7,7 +7,7 @@ export const REPOSITORY_URL = 'https://github.com/alexander-zuev/porte'
  * Installed rather than run through `npx`: this is a daemon someone starts most
  * days, and every other command we print assumes `porte` is on the path.
  */
-export const INSTALL_COMMAND = 'npm i -g porte'
+export const INSTALL_COMMAND = 'npm i -g @porte/cli'
 
 /** Command that starts pairing on the machine that runs Grok. */
 export const PAIR_COMMAND = 'porte pair'

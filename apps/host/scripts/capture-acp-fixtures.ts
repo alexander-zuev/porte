@@ -13,7 +13,7 @@ import { ConversationIdSchema, IsoDateTimeSchema } from '@porte/core/client'
  * Inspect real ACP traffic for the `/porte` conversations: list rows, each load
  * replay (stats + mapper/aggregate check), written raw to OUT for review.
  *
- *   pnpm --filter @porte/host exec tsx scripts/capture-acp-fixtures.ts <outDir> [repo]
+ *   pnpm --filter @porte/cli exec tsx scripts/capture-acp-fixtures.ts <outDir> [repo]
  */
 const OUT = process.argv[2] ?? '/tmp/acp-capture'
 const PROJECT_CWD = process.argv[3] ?? '/Users/az/projects/porte'
