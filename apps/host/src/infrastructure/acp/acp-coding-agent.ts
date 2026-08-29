@@ -33,7 +33,6 @@ import {
   ConversationIdSchema,
   ConversationNotFoundError,
   ElicitationIdSchema,
-  notYetImplemented,
   type CanonicalContent,
   type ConversationCursor,
   type ConversationEvent,
@@ -149,14 +148,18 @@ export class AcpCodingAgent implements CodingAgent {
     }
   }
 
+  isOpen(id: ConversationId): boolean {
+    return this.sessions.has(id)
+  }
+
   async prompt(
     id: ConversationId,
     turnId: TurnId,
+    promptIndex: number,
     content: readonly CanonicalContent[],
   ): Promise<PromptResult> {
     const session = this.requireSession(id)
-    // TODO(step 2): pass the aggregate's predicted prompt index through `prompt`.
-    session.mapper.beginTurn(turnId, notYetImplemented('step 2'))
+    session.mapper.beginTurn(turnId, promptIndex)
     try {
       const response = await this.agent.process.request({
         method: 'session/prompt',
@@ -228,8 +231,7 @@ export class AcpCodingAgent implements CodingAgent {
   private open(id: ConversationId, cwd: string, models: AcpSessionModels | undefined): OpenSession {
     const session: OpenSession = {
       cwd,
-      // TODO(step 2): give the mapper the aggregate's tool lookup instead of its own map.
-      mapper: new AcpUpdateMapper(id, () => undefined),
+      mapper: new AcpUpdateMapper(id),
       models,
       contextTokens: this.agent.contextTokens(models),
       replay: undefined,

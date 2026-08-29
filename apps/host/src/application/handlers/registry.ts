@@ -8,6 +8,7 @@ import { closeIdleConversation } from './close-idle-conversation.ts'
 import { completeElicitation } from './complete-elicitation.ts'
 import { createConversation } from './create-conversation.ts'
 import { dropConversationSocket } from './drop-conversation-socket.ts'
+import { expireCancel } from './expire-cancel.ts'
 import { finishTurn } from './finish-turn.ts'
 import { getConversation } from './get-conversation.ts'
 import { getTurn } from './get-turn.ts'
@@ -36,6 +37,7 @@ export const COMMAND_HANDLERS = {
   StartTurn: startTurn,
   FinishTurn: finishTurn,
   CancelTurn: cancelTurn,
+  ExpireCancel: expireCancel,
   ApplyAgentUpdate: applyAgentUpdate,
 
   // Permission

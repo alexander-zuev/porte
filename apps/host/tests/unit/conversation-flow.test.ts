@@ -1,5 +1,6 @@
 import { setImmediate } from 'node:timers/promises'
 
+import { CANCEL_DEADLINE_MS } from '@host/application/turn-policy.ts'
 import { createCommand, createQuery } from '@host/domain/messages/types.ts'
 import {
   AttemptIdSchema,
@@ -148,12 +149,14 @@ describe('conversation flows through the bus', () => {
     })
     vi.spyOn(deps.codingAgent, 'cancel').mockImplementation(async () => {
       order.push('cancel')
+      deps.codingAgent.settle(conversationId, { outcome: { type: 'cancelled' } })
     })
     await deps.bus.handle(createCommand('CancelTurn', { conversationId, turnId }))
     await deps.background.drain()
 
     // ACP: the client answers pending permission requests as cancelled; do it before `session/cancel`.
-    expect(order).toEqual(['release', 'cancel'])
+    // The outbox subscriber releases again after the drain; that repeat is an idempotent no-op.
+    expect(order.slice(0, 2)).toEqual(['release', 'cancel'])
     const state = await deps.bus.handle(createQuery('GetConversation', { conversationId }))
     expect(state.turn).toEqual({ state: 'idle' })
     expect(sentTypes(flow).at(-1)).toBe('turn.finished')
@@ -172,8 +175,12 @@ describe('conversation flows through the bus', () => {
   it('cancel deadline: an agent that never settles has its session closed and the turn ends cancelled', async () => {
     const flow = await running()
     const { deps, conversationId, turnId } = flow
+    // The fake agent's `cancel` settles the prompt; an unresponsive one does not.
+    vi.spyOn(deps.codingAgent, 'cancel').mockImplementation(async () => undefined)
     await deps.bus.handle(createCommand('CancelTurn', { conversationId, turnId }))
-    // TODO(step 2): drive the deadline with the injected clock instead of the real timer.
+    deps.scheduler.fire(CANCEL_DEADLINE_MS)
+    // The agent answers long after the deadline; FinishTurn finds nothing to end.
+    deps.codingAgent.settle(conversationId, { outcome: { type: 'cancelled' } })
     await deps.background.drain()
     expect(deps.codingAgent.closeSession).toHaveBeenCalledWith(conversationId)
     const state = await deps.bus.handle(createQuery('GetConversation', { conversationId }))

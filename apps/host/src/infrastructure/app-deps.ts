@@ -2,6 +2,7 @@ import { type IMessageBus, MessageBus } from '@host/application/message-bus.ts'
 import type { BackgroundTasks } from '@host/application/ports/background-tasks.ts'
 import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
+import type { Scheduler } from '@host/application/ports/scheduler.ts'
 import type { ConversationRepository } from '@host/domain/repositories/conversation-repository.ts'
 import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
@@ -10,6 +11,7 @@ import { HostConnectionManager } from '@host/entrypoints/websocket/host-connecti
 import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
 import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
+import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
 import { createPartySocketTransport } from '@host/infrastructure/websocket/party-socket-transport.ts'
@@ -21,6 +23,7 @@ export type AppDeps = {
   readonly codingAgent: CodingAgent
   readonly connections: HostConnections
   readonly background: BackgroundTasks
+  readonly scheduler: Scheduler
   readonly bus: IMessageBus
   readonly now: () => Date
 }
@@ -43,6 +46,7 @@ export async function createAppDeps(input: CreateAppDepsInput): Promise<AppDeps>
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
     background: new NodeBackgroundTasks(),
+    scheduler: new NodeScheduler(),
     now: () => new Date(),
     get bus() {
       return bus

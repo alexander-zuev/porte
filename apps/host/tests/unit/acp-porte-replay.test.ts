@@ -26,7 +26,7 @@ const listed = fixture<ListSessionsResponse>('porte-session-list')
 const conversationId = ConversationIdSchema.parse(replay[0]!.sessionId)
 
 function replayed(): Conversation {
-  const mapper = new AcpUpdateMapper(conversationId, () => undefined)
+  const mapper = new AcpUpdateMapper(conversationId)
   const conversation = Conversation.restore({
     id: conversationId,
     cwd: '/Users/az/projects/porte',

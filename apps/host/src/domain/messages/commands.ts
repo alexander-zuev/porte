@@ -35,6 +35,8 @@ export type CommandDataMap = {
   }
   FinishTurn: InConversation & { turnId: TurnId; outcome: TurnOutcome; usage?: ConversationUsage }
   CancelTurn: InConversation & { turnId: TurnId }
+  /** The cancel deadline fired; close the session and finish the turn if it still runs. */
+  ExpireCancel: InConversation & { turnId: TurnId }
   /** Apply the canonical events the ACP adapter mapped from one `session/update`. */
   ApplyAgentUpdate: InConversation & { events: readonly ConversationEvent[] }
 

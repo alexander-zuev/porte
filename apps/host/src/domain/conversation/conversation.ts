@@ -2,13 +2,14 @@ import {
   applyConversationEvent,
   emptyConversationView,
 } from '@host/domain/conversation/conversation-view-reducer.ts'
+import { userMessageId } from '@host/domain/conversation/message-identity.ts'
 import { Entity } from '@host/domain/entity.ts'
 import { createEvent } from '@host/domain/messages/types.ts'
 import { normaliseGitRoot } from '@host/infrastructure/grok/git-root.ts'
 import {
   type AttemptId,
   ConversationBusyError,
-  notYetImplemented,
+  turnIdFor,
   type CanonicalContent,
   type ConversationEvent,
   type ConversationId,
@@ -25,6 +26,7 @@ import {
   type PendingPermission,
   type PermissionId,
   PermissionNotFoundError,
+  type ToolView,
   type TurnId,
   TurnNotFoundError,
 } from '@porte/core/client'
@@ -40,7 +42,14 @@ export type ConversationData = {
   /** Live turn plus the transcript, exactly what `conversation.get` returns. */
   readonly state: ConversationState
   /** The relay's key for the latest turn, so a repeated `turn.start` is a no-op. Host-only. */
-  readonly lastAttempt?: { readonly attemptId: AttemptId; readonly turnId: TurnId }
+  readonly lastAttempt?: {
+    readonly attemptId: AttemptId
+    readonly turnId: TurnId
+    /** The prompt index the id was minted from; the mapper checks it against Grok's. */
+    readonly promptIndex: number
+  }
+  /** When a turn last started or ended here; idle eviction reads it. Host-only. */
+  readonly lastActivityAt: IsoDateTime
 }
 
 /** Input to start one conversation in a git workspace. */
@@ -88,6 +97,8 @@ export class Conversation extends Entity<ConversationData> {
       // SAFETY: Date#toISOString is RFC 3339 UTC, which IsoDateTime requires.
       updatedAt: input.now.toISOString() as IsoDateTime,
       state: { turn: { state: 'idle' }, ...emptyConversationView() },
+      // SAFETY: same RFC 3339 UTC string as `updatedAt`.
+      lastActivityAt: input.now.toISOString() as IsoDateTime,
     })
   }
 
@@ -100,6 +111,7 @@ export class Conversation extends Entity<ConversationData> {
       title: input.title,
       updatedAt: input.updatedAt,
       state: { turn: { state: 'idle' }, ...emptyConversationView() },
+      lastActivityAt: input.updatedAt,
     })
   }
 
@@ -151,10 +163,48 @@ export class Conversation extends Entity<ConversationData> {
    * turn and starts nothing. Another turn running is `ConversationBusyError`.
    */
   beginTurn(attemptId: AttemptId, userMessage: UserMessage): TurnId {
-    // TODO(step 2): dedupe on `lastAttempt`, mint the id, raise turn.started with attemptId and the user message as `${turnId}:user`.
-    void attemptId
-    void userMessage
-    return notYetImplemented('step 2')
+    const last = this.data.lastAttempt
+    if (last?.attemptId === attemptId) return last.turnId
+    if (this.data.state.turn.state === 'running') throw new ConversationBusyError()
+
+    const promptIndex = this.data.state.items.filter(
+      (item) => item.type === 'message' && item.role === 'user',
+    ).length
+    const turnId = turnIdFor(this.data.id, promptIndex)
+    const messageId = userMessageId(turnId)
+    this.data = {
+      ...this.data,
+      state: { ...this.data.state, turn: { state: 'running', turnId } },
+      lastAttempt: { attemptId, turnId, promptIndex },
+    }
+    this.raise({ type: 'turn.started', turnId, attemptId })
+    this.raise({ type: 'message.started', turnId, messageId, role: 'user' })
+    for (const content of userMessage.content) {
+      this.raise({ type: 'message.delta', turnId, messageId, content })
+    }
+    this.raise({ type: 'message.completed', turnId, messageId })
+    return turnId
+  }
+
+  /** The prompt index behind the running or last turn, for the mapper's check. */
+  promptIndexOf(turnId: TurnId): number {
+    const last = this.data.lastAttempt
+    if (last === undefined || last.turnId !== turnId) throw new TurnNotFoundError()
+    return last.promptIndex
+  }
+
+  /** The aggregate's current view of one tool call, for partial ACP updates. */
+  findTool(toolCallId: string): ToolView | undefined {
+    return this.data.state.tools.find((tool) => tool.toolCallId === toolCallId)
+  }
+
+  /** Record activity for idle eviction. */
+  touch(now: IsoDateTime): void {
+    this.data = { ...this.data, lastActivityAt: now }
+  }
+
+  get lastActivityAt(): IsoDateTime {
+    return this.data.lastActivityAt
   }
 
   /** Park a permission request on the running turn. */
@@ -209,16 +259,20 @@ export class Conversation extends Entity<ConversationData> {
    * a no-op: cancel and the natural end may race, and both outcomes are final.
    */
   cancelTurn(turnId: TurnId): void {
-    // TODO(step 2): return when `turn` is idle or names another turn; keep `cancelPending` for the running one.
-    this.requireTurn(turnId)
+    const turn = this.data.state.turn
+    if (turn.state !== 'running' || turn.turnId !== turnId) return
     this.cancelPending(turnId)
   }
 
   /** One turn's slice of the transcript, for `turn.get`. */
   turnTranscript(turnId: TurnId): ConversationTurn {
-    // TODO(step 2): items and tools whose `turnId` matches; `TurnNotFoundError` when none.
-    void turnId
-    return notYetImplemented('step 2')
+    const items = this.data.state.items.filter((item) => item.turnId === turnId)
+    if (items.length === 0) throw new TurnNotFoundError()
+    const toolCallIds = new Set(
+      items.flatMap((item) => (item.type === 'tool' ? [item.toolCallId] : [])),
+    )
+    const tools = this.data.state.tools.filter((tool) => toolCallIds.has(tool.toolCallId))
+    return structuredClone({ turnId, items, tools })
   }
 
   /** End the turn. A turn that already ended is a no-op. */

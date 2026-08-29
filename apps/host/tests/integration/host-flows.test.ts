@@ -5,9 +5,15 @@ import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
 import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
+import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
-import { MessageIdSchema, createTurnId, type ConversationId } from '@porte/core/client'
+import {
+  MessageIdSchema,
+  createAttemptId,
+  turnIdFor,
+  type ConversationId,
+} from '@porte/core/client'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import { FakeConnections } from '../support/test-deps.ts'
@@ -30,6 +36,7 @@ async function withHost(body: (deps: Harness) => Promise<void>): Promise<void> {
     conversations: new InMemoryConversationRepository(outbox),
     connections: new FakeConnections(),
     background: new NodeBackgroundTasks(),
+    scheduler: new NodeScheduler(),
     now: () => new Date(),
     get bus() {
       return bus
@@ -91,7 +98,7 @@ describe.skipIf(!grokOnPath())('host flows against real Grok', () => {
         await deps.bus.handle(
           createCommand('StartTurn', {
             conversationId: id,
-            turnId: createTurnId(),
+            attemptId: createAttemptId(),
             userMessage: userMessage('Reply with exactly: ping'),
           }),
         )
@@ -117,7 +124,7 @@ describe.skipIf(!grokOnPath())('host flows against real Grok', () => {
         await deps.bus.handle(
           createCommand('StartTurn', {
             conversationId: id,
-            turnId: createTurnId(),
+            attemptId: createAttemptId(),
             userMessage: userMessage('Reply with exactly: pong'),
           }),
         )
@@ -143,11 +150,11 @@ describe.skipIf(!grokOnPath())('host flows against real Grok', () => {
         const cwd = await createGitWorkspace()
         const { id } = await deps.bus.handle(createCommand('CreateConversation', { cwd }))
         deps.connections.connectConversation(id, cwd)
-        const turnId = createTurnId()
+        const turnId = turnIdFor(id, 0)
         await deps.bus.handle(
           createCommand('StartTurn', {
             conversationId: id,
-            turnId,
+            attemptId: createAttemptId(),
             userMessage: userMessage('Write a long essay about git rebase.'),
           }),
         )

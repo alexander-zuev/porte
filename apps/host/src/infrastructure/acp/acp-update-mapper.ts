@@ -19,6 +19,7 @@ import {
   ConversationEventSchema,
   MessageIdSchema,
   ToolViewSchema,
+  createLogger,
   type ConversationCommand,
   type ConversationEvent,
   type ConversationId,
@@ -31,6 +32,8 @@ import {
 } from '@porte/core/client'
 import { TaggedError } from 'better-result'
 import { z } from 'zod'
+
+const logger = createLogger('acp-update-mapper')
 
 /** Grok's per-turn key on `user_message_chunk._meta`; the only stable turn id in a replay. */
 const promptIndexSchema = z.number().int().nonnegative()
@@ -89,18 +92,17 @@ export class AcpUpdateMapper {
   private readonly open = new Map<MessageStream, MessageId>()
   private readonly tools = new Map<string, ToolView>()
   private commandsKey: string | undefined
+  private expectedPromptIndex: number | undefined
+  private promptIndexChecked = false
 
   /**
    * @param conversationId - The session every update must belong to.
-   * @param findTool - The aggregate's current view of a tool call, for partial `tool_call_update`s.
+   *
+   * The mapper keeps its own tool views: the aggregate applies events through
+   * the bus asynchronously, so a `tool_call_update` can arrive before the
+   * aggregate has folded the `tool_call` it patches.
    */
-  constructor(
-    private readonly conversationId: ConversationId,
-    private readonly findTool: (toolCallId: string) => ToolView | undefined,
-  ) {
-    // TODO(step 2): read tool state through `findTool` and drop the private `tools` map.
-    void this.findTool
-  }
+  constructor(private readonly conversationId: ConversationId) {}
 
   /** The relay turn in flight, if any. Replay turns are not live. */
   get liveTurnId(): TurnId | undefined {
@@ -115,12 +117,12 @@ export class AcpUpdateMapper {
    * invariant error, logged once by the caller.
    */
   beginTurn(turnId: TurnId, expectedPromptIndex: number): void {
-    // TODO(step 2): keep `expectedPromptIndex` and compare it on the first live user chunk.
-    void expectedPromptIndex
     if (this.turn?.live === true) {
       throw new AcpUpdateSequenceError('A live turn is already active')
     }
     this.turn = { turnId, live: true }
+    this.expectedPromptIndex = expectedPromptIndex
+    this.promptIndexChecked = false
     this.ordinal = 0
     this.open.clear()
   }
@@ -141,7 +143,10 @@ export class AcpUpdateMapper {
   private mapUpdate(update: AcpSessionUpdate): EventData[] {
     switch (update.sessionUpdate) {
       case 'user_message_chunk':
-        if (this.turn?.live === true) return []
+        if (this.turn?.live === true) {
+          this.checkPromptIndex(update)
+          return []
+        }
         return [...this.startReplayTurn(update), ...this.mapContent('user', update)]
       case 'agent_message_chunk':
         return this.mapContent('assistant', update)
@@ -187,6 +192,25 @@ export class AcpUpdateMapper {
     }
     const exhaustive: never = update
     return exhaustive
+  }
+
+  /**
+   * The aggregate predicted the prompt index behind the live turn id; Grok's
+   * `_meta.promptIndex` on the echo is the truth. A mismatch means the ids of
+   * this turn flip on the next replay, so it is logged loudly, once.
+   */
+  private checkPromptIndex(update: ContentUpdate): void {
+    if (this.promptIndexChecked) return
+    this.promptIndexChecked = true
+    const actual = promptIndexSchema.safeParse(update._meta?.promptIndex)
+    if (!actual.success || actual.data === this.expectedPromptIndex) return
+    logger.warn('prompt_index_mismatch', {
+      details: {
+        conversationId: this.conversationId,
+        expected: this.expectedPromptIndex,
+        actual: actual.data,
+      },
+    })
   }
 
   /** Grok fires the same ~100 KB command list after every tool call; emit it once. */

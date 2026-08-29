@@ -25,5 +25,7 @@ export const openConversation: CommandHandler<CommandMap['OpenConversation'], vo
     updatedAt: IsoDateTimeSchema.parse(deps.now().toISOString()),
   })
   conversation.replay(loaded.events)
+  // A viewer just asked for it; the idle clock starts now, not at the last Grok activity.
+  conversation.touch(IsoDateTimeSchema.parse(deps.now().toISOString()))
   deps.conversations.insert(conversation)
 }

@@ -30,7 +30,7 @@ function messageIds(events: readonly ConversationEvent[]): string[] {
 
 describe('identity across live and replay', () => {
   it('mints the same turn and message ids for the first turn seen live and replayed', () => {
-    const liveMapper = new AcpUpdateMapper(conversationId, () => undefined)
+    const liveMapper = new AcpUpdateMapper(conversationId)
     const turnId = turnIdFor(conversationId, 0)
     liveMapper.beginTurn(turnId, 0)
     const liveEvents = [
@@ -38,7 +38,7 @@ describe('identity across live and replay', () => {
       ...liveMapper.endTurn(),
     ]
 
-    const replayMapper = new AcpUpdateMapper(conversationId, () => undefined)
+    const replayMapper = new AcpUpdateMapper(conversationId)
     const replayEvents = replay.flatMap((notification) => replayMapper.map(notification))
     const firstTurn = replayEvents.filter((event) => 'turnId' in event && event.turnId === turnId)
 

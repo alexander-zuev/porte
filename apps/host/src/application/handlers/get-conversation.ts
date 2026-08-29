@@ -4,6 +4,7 @@ import type {
   CanonicalContent,
   ConversationItem,
   ConversationState,
+  ConversationTurn,
   ToolView,
 } from '@porte/core/client'
 
@@ -19,6 +20,15 @@ export function omitUnpersistableContent(state: ConversationState): Conversation
     ...state,
     items: state.items.map(omitUnpersistableItem),
     tools: state.tools.map(omitUnpersistableTool),
+  }
+}
+
+/** Drop tool bodies and media bytes from one turn slice, as `conversation.get` does. */
+export function omitUnpersistableTurn(turn: ConversationTurn): ConversationTurn {
+  return {
+    turnId: turn.turnId,
+    items: turn.items.map(omitUnpersistableItem),
+    tools: turn.tools.map(omitUnpersistableTool),
   }
 }
 

@@ -79,10 +79,17 @@ export interface CodingAgent {
   createSession(input: CreateSession): Promise<CreatedSession>
   /** Replay the session history; the caller folds `events` with `Conversation.replay`. */
   loadSession(id: ConversationId, cwd: string): Promise<LoadedSession>
-  /** Resolves when the turn ends. Rejects only when the agent could not run it. */
+  /** Whether this process holds the session; a closed one must be loaded before `prompt`. */
+  isOpen(id: ConversationId): boolean
+  /**
+   * Resolves when the turn ends. Rejects only when the agent could not run it.
+   * `promptIndex` is the prediction behind `turnId`; the mapper checks it
+   * against the agent's own counter.
+   */
   prompt(
     id: ConversationId,
     turnId: TurnId,
+    promptIndex: number,
     content: readonly CanonicalContent[],
   ): Promise<PromptResult>
   /** Cooperative: the in-flight `prompt` resolves with a `cancelled` outcome. */

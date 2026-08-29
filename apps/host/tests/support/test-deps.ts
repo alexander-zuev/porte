@@ -53,6 +53,10 @@ export class FakeCodingAgent implements CodingAgent {
     return { title: 'Loaded', events: [] }
   }
 
+  isOpen(id: ConversationId): boolean {
+    return this.sessions.has(id)
+  }
+
   prompt(id: ConversationId): Promise<PromptResult> {
     return new Promise((resolve) => {
       this.prompts.set(id, resolve)
@@ -73,6 +77,24 @@ export class FakeCodingAgent implements CodingAgent {
 
   get running(): readonly ConversationId[] {
     return [...this.prompts.keys()]
+  }
+}
+
+/** Timers a test fires by hand. */
+export class FakeScheduler {
+  private readonly pending: { delayMs: number; task: () => void }[] = []
+
+  schedule(delayMs: number, task: () => void): void {
+    this.pending.push({ delayMs, task })
+  }
+
+  /** Run every task scheduled at or under `upToMs`, in schedule order. */
+  fire(upToMs: number): void {
+    const due = this.pending.filter((entry) => entry.delayMs <= upToMs)
+    for (const entry of due) {
+      this.pending.splice(this.pending.indexOf(entry), 1)
+      entry.task()
+    }
   }
 }
 
@@ -116,7 +138,7 @@ export class FakeConnections implements HostConnections {
   }
 }
 
-export type TestDeps = AppDeps & { codingAgent: FakeCodingAgent }
+export type TestDeps = AppDeps & { codingAgent: FakeCodingAgent; scheduler: FakeScheduler }
 
 /**
  * The real bus, repository, outbox, and background tasks over a fake agent.
@@ -132,6 +154,7 @@ export function createTestDeps(
     conversations: new InMemoryConversationRepository(outbox),
     codingAgent,
     background: new NodeBackgroundTasks(),
+    scheduler: new FakeScheduler(),
     now: () => new Date('2026-08-27T12:00:00.000Z'),
     get bus() {
       return bus

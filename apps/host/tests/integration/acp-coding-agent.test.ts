@@ -4,7 +4,7 @@ import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import {
   ConversationIdSchema,
   ConversationNotFoundError,
-  createTurnId,
+  turnIdFor,
   type ConversationEvent,
 } from '@porte/core/client'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -46,7 +46,7 @@ describe.skipIf(!grokOnPath())('AcpCodingAgent', () => {
       await withAgent(async ({ agent, pushed }) => {
         const created = await agent.createSession({ cwd: await createGitWorkspace() })
         expect(created.events[0]).toMatchObject({ type: 'conversation.configuration.updated' })
-        const result = await agent.prompt(created.id, createTurnId(), PING)
+        const result = await agent.prompt(created.id, turnIdFor(created.id, 0), 0, PING)
         expect(result.outcome).toEqual({ type: 'completed', reason: 'completed' })
         expect(result.usage?.sizeTokens).toBeGreaterThan(0)
         expect(pushed.some((event) => event.type === 'message.delta')).toBe(true)
@@ -62,11 +62,11 @@ describe.skipIf(!grokOnPath())('AcpCodingAgent', () => {
       await withAgent(async ({ agent }) => {
         const cwd = await createGitWorkspace()
         const created = await agent.createSession({ cwd })
-        await agent.prompt(created.id, createTurnId(), PING)
+        await agent.prompt(created.id, turnIdFor(created.id, 0), 0, PING)
         await agent.closeSession(created.id)
-        await expect(agent.prompt(created.id, createTurnId(), PING)).rejects.toBeInstanceOf(
-          ConversationNotFoundError,
-        )
+        await expect(
+          agent.prompt(created.id, turnIdFor(created.id, 1), 1, PING),
+        ).rejects.toBeInstanceOf(ConversationNotFoundError)
         const loaded = await agent.loadSession(created.id, cwd)
         expect(loaded.events[0]).toMatchObject({ type: 'message.started', role: 'user' })
         expect(loaded.events.filter((event) => event.type === 'message.started')).toHaveLength(2)
@@ -80,7 +80,7 @@ describe.skipIf(!grokOnPath())('AcpCodingAgent', () => {
     async () => {
       await withAgent(async ({ agent }) => {
         const created = await agent.createSession({ cwd: await createGitWorkspace() })
-        const turn = agent.prompt(created.id, createTurnId(), [
+        const turn = agent.prompt(created.id, turnIdFor(created.id, 0), 0, [
           { type: 'text', text: 'Write a long essay about git rebase.' },
         ])
         await agent.cancel(created.id)
