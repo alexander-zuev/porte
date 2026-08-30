@@ -1,4 +1,4 @@
-import { CaretRightIcon, FolderIcon, NotePencilIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, CircleNotchIcon, FolderIcon, NotePencilIcon } from '@phosphor-icons/react'
 import type { ConversationSummary } from '@porte/core/client'
 import { Link } from '@tanstack/react-router'
 import type {
@@ -162,7 +162,12 @@ function ConversationRowStatus({
   readonly turnStatus: ConversationTurnStatus
 }) {
   if (turnStatus === 'running') {
-    return <Spinner aria-label="Conversation is running" className="text-muted-foreground" />
+    // The arc, not the dotted `Spinner`: Grok is working, the row is not loading.
+    return (
+      <output aria-label="Conversation is running" className="flex">
+        <CircleNotchIcon aria-hidden className="size-4 animate-spin text-muted-foreground" />
+      </output>
+    )
   }
   if (attentionStatus === 'unseen') {
     return <output aria-label="New message" className="size-2 rounded-full bg-status-info" />

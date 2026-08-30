@@ -4,12 +4,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
 import { hostConnectionFrom, type RelayConnection } from '@web/entities/host/host-connection.ts'
 import { hostQueries, hostQueryKeys } from '@web/entities/host/host-queries.ts'
+import { dismissHostNotice } from '@web/features/relay/host-connection-toasts.tsx'
 import { useHostConnectionNotice } from '@web/features/relay/use-host-connection-notice.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 
 const RELAY_PATH = 'api/host/ws'
+
+/** How often a page with no machine re-reads the host row; `porte pair` waits at the same rate. */
+const UNPAIRED_POLL_MS = 5_000
 
 const RelayContext = createContext<RelayConnection | null>(null)
 
@@ -22,9 +26,20 @@ const NO_SOCKET: RelayConnection = { identified: false, state: undefined }
  * The relay object is named by the host id, and a re-pair issues a new id, so
  * the socket is keyed on it: unpairing drops the socket instead of letting it
  * retry into 403s, and re-pairing opens one on the new object at once.
+ *
+ * Nothing pushes the new id to a page that is already open, so while there is
+ * no machine the row is polled. Once paired, the socket carries every change.
  */
 export function RelayProvider({ children }: { readonly children: ReactNode }) {
-  const owned = useQuery(hostQueries.forAccount())
+  const owned = useQuery({
+    ...hostQueries.forAccount(),
+    refetchInterval: (query) => (query.state.data?.state === 'paired' ? false : UNPAIRED_POLL_MS),
+  })
+  const paired = owned.data?.state === 'paired'
+  // The offline toast tells the person to run `porte up` for a machine this account no longer has.
+  useEffect(() => {
+    if (!paired) dismissHostNotice()
+  }, [paired])
   if (owned.data?.state !== 'paired') {
     return <RelayContext value={NO_SOCKET}>{children}</RelayContext>
   }

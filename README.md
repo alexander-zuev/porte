@@ -60,6 +60,7 @@ Transcripts stay on the relay so the phone can read a conversation while the mac
 
 ## Not yet
 
+- Live output of a turn you started in the TUI: the phone shows it once that turn ends
 - Grok's own questions to you (`ask_user_question`): the turn waits until you answer in the TUI
 - Push notification when Grok needs an approval
 - Switching model or mode from the phone

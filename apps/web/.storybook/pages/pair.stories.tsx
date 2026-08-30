@@ -1,8 +1,17 @@
+import { HostIdSchema, IsoDateTimeSchema, type PairedHost } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { AlreadyPaired } from '@web/features/pair/components/already-paired.tsx'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 
 import { PairingPlay } from '../harnesses/pairing-play.tsx'
+
+const pairedHost = {
+  id: HostIdSchema.parse('01990000-0000-7000-8000-000000000001'),
+  name: "Alexander's MacBook Pro",
+  platform: 'darwin',
+  lastSeenAt: IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z'),
+} satisfies PairedHost
 
 const meta = {
   title: 'Pages/Pair',
@@ -64,4 +73,18 @@ export const NotYours: Story = {
 
 export const Unavailable: Story = {
   args: { start: 'unavailable' },
+}
+
+/** `/pair` opened by an account that already has a machine. */
+export const AlreadyPairedMachine: Story = {
+  render: () => (
+    <AppShell header={<AppHeader />} variant="card">
+      <AlreadyPaired
+        connection="connected"
+        host={pairedHost}
+        unpairing={false}
+        onUnpair={() => undefined}
+      />
+    </AppShell>
+  ),
 }

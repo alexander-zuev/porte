@@ -26,6 +26,11 @@ export function notifyHostOffline(): void {
   })
 }
 
+/** The offline toast no longer describes the machine this page is on: unpaired, or a fresh socket that is online. */
+export function dismissHostNotice(): void {
+  toast.dismiss(HOST_TOAST_ID)
+}
+
 /** The machine is back after an offline toast. */
 export function notifyHostOnline(): void {
   // Same id updates the offline toast in place, so its description and action must be cleared here.
