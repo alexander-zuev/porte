@@ -2,23 +2,23 @@
 
 Porte (French for door) is a secure remote interface for your local Grok conversations.
 
-Manage the same Grok threads and repos from your phone while they continue to run on your laptop. Porte does not replace the TUI, and each account can access only its own machines.
+Open the same Grok threads and repos from your phone while they keep running on your laptop. Porte does not replace the TUI. Each account reaches only its own machines.
 
 https://useporte.dev
 
 ## Install
 
-Needs Node 22+ and `grok` on your PATH. Porte does not install Grok.
+Hand it to your agent:
+
+> Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.
+
+Or by hand. Needs Node 22+ and `grok` on your PATH; Porte does not install Grok.
 
 ```sh
 npm i -g @porte/cli
-porte pair
-porte up
+porte pair   # prints a code: sign in on the phone and enter it
+porte up     # keep this running so the phone can reach the machine
 ```
-
-`porte pair` prints a code. Sign in on the phone, enter the code, then leave `porte up` running so the phone can reach this machine.
-
-Or hand it to your agent: `Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.`
 
 Undo: `porte unpair`, then `npm rm -g @porte/cli`.
 
