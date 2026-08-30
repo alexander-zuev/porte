@@ -47,6 +47,8 @@ const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
 /** A conversation cache older than this is re-read from the Host on the next first-page read. */
 export const STALE_AFTER_MS = 10_000
+/** While a browser is attached the cache is re-read this often, so a TUI session shows unasked. */
+const WATCH_INTERVAL_S = 30
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
@@ -83,12 +85,14 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   /** Restore status from hibernating sockets without replaying application requests. */
-  override onStart(): void {
+  override async onStart(): Promise<void> {
     // Stored state predates a schema change: start over rather than compute on missing fields.
     if (!HostRelayStateSchema.safeParse(this.state).success) this.setState(this.initialState)
     const host = this.hostConnection()
     if (host !== undefined) this.hostSocket.attach(host)
     this.setHostStatus(host !== undefined ? 'online' : 'offline')
+    // The schedule survived hibernation; the browsers it was for may not have.
+    if (this.browserConnections().length === 0) await this.unwatchConversations()
   }
 
   /** Tag the Host control socket, and each Host conversation socket by its conversation. */
@@ -129,6 +133,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
         expectedHostId: this.hostId,
       })
     ) {
+      // A refused Host socket is already closed; what remains open here is a browser.
+      if (!this.isHostUpgrade(context.request)) await this.watchConversations()
       return
     }
     this.hostSocket.attach(connection)
@@ -156,7 +162,10 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     reason: string,
     wasClean: boolean,
   ): Promise<void> {
-    if (!connection.tags.includes(HOST_CONNECTION_TAG)) return
+    if (!connection.tags.includes(HOST_CONNECTION_TAG)) {
+      if (this.browserConnections(connection).length === 0) await this.unwatchConversations()
+      return
+    }
     const details = {
       hostId: this.hostId,
       connectionId: connection.id,
@@ -219,7 +228,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   }
 
   /** Re-read the list from the Host unless the cache was read within the freshness window. */
-  private revalidateConversations(): void {
+  revalidateConversations(): void {
     if (this.syncedAt !== undefined && Date.now() - this.syncedAt < STALE_AFTER_MS) return
     this.syncConversationsInBackground()
   }
@@ -353,6 +362,25 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
 
   private hostConnection(): Connection | undefined {
     return openHostConnection(this.getConnections(HOST_CONNECTION_TAG))
+  }
+
+  /** Every untagged socket: a browser. `closing` is the one on its way out. */
+  private browserConnections(closing?: Connection): Connection[] {
+    return [...this.getConnections()].filter(
+      (connection) => connection.tags.length === 0 && connection.id !== closing?.id,
+    )
+  }
+
+  /** Idempotent in the SDK: the same callback and interval return the existing schedule. */
+  private async watchConversations(): Promise<void> {
+    await this.scheduleEvery(WATCH_INTERVAL_S, 'revalidateConversations')
+  }
+
+  private async unwatchConversations(): Promise<void> {
+    for (const schedule of await this.listSchedules({ type: 'interval' })) {
+      // oxlint-disable-next-line no-await-in-loop -- One schedule exists; the loop is for the unexpected.
+      await this.cancelSchedule(schedule.id)
+    }
   }
 
   private isHostUpgrade(request: Request): boolean {

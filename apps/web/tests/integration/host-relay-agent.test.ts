@@ -85,6 +85,46 @@ describe('HostRelayAgent control connection', () => {
     )
   })
 
+  it('polls the Host only while a browser is attached', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
+    expect(await intervals(host.stub)).toEqual([])
+
+    const browser = await connectBrowser(host.stub)
+    expect(await intervals(host.stub)).toHaveLength(1)
+
+    const closed = new Promise<CloseEvent>((resolve) => {
+      browser.addEventListener('close', resolve, { once: true })
+    })
+    browser.close(1000, 'done')
+    await closed
+    await vi.waitFor(async () => {
+      expect(await intervals(host.stub)).toEqual([])
+    })
+  })
+
+  it('re-asks the Host on a poll once the cache is stale', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([])
+    })
+
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + STALE_AFTER_MS + 1)
+    await runInDurableObject(host.stub, (relay: HostRelayAgent) => {
+      relay.revalidateConversations()
+    })
+    host.result((await host.nextRequest('conversations.list')).id, {
+      conversations: [conversation],
+    })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([
+        conversation,
+      ])
+    })
+  })
+
   it('publishes liveness from the control connection', async () => {
     const host = await connect(createHostId())
     host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
@@ -189,6 +229,21 @@ describe('HostRelayAgent control connection', () => {
     })
   })
 })
+
+/** The interval schedules the relay holds; the poll is the only one it ever creates. */
+function intervals(stub: DurableObjectStub<HostRelayAgent>) {
+  return runInDurableObject(stub, (relay: HostRelayAgent) =>
+    relay.listSchedules({ type: 'interval' }),
+  )
+}
+
+/** A phone's socket: no subprotocol, no Host header. */
+async function connectBrowser(stub: DurableObjectStub<HostRelayAgent>) {
+  const response = await stub.fetch('https://relay.test', { headers: { Upgrade: 'websocket' } })
+  if (response.webSocket === null) throw new Error('Expected a browser WebSocket response')
+  response.webSocket.accept()
+  return response.webSocket
+}
 
 function relayStub(hostId: HostId) {
   const relays = env.HOST_RELAY_AGENT
