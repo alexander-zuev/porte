@@ -1,8 +1,8 @@
 # Porte
 
-Porte (French for door) is a secure remote interface for your local Grok conversations.
+Porte (French for door) is a remote control for Grok CLI, from your phone.
 
-Open the same Grok threads and repos from your phone while they keep running on your laptop. Porte does not replace the TUI. Each account reaches only its own machines.
+Your Grok sessions keep running on your laptop; the phone reads, prompts, and approves.
 
 https://useporte.dev
 
