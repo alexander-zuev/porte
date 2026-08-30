@@ -100,10 +100,6 @@ git commit -am "release(cli): x.y.z" && git push
 
 `.github/workflows/publish-cli.yaml` lints, typechecks, runs unit tests, builds, and publishes with provenance through npm trusted publishing (`pnpm publish --provenance`, no token). A push that leaves the version alone publishes nothing.
 
-### Deploying the web app
-
-Cloudflare Workers Builds is connected to this repository: every push to `main` builds and deploys the web app. Nothing is deployed by hand.
-
 ## License
 
 [Apache License 2.0](LICENSE). Hosted service: [Privacy](https://useporte.dev/privacy), [Terms](https://useporte.dev/terms).
