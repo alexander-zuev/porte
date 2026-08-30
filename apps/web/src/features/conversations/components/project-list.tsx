@@ -53,10 +53,18 @@ export function ProjectList({ conversations, selectedConversationId, create }: P
 }
 
 /**
+ * Folders the person opened, by `gitRoot`, kept across page changes.
+ *
+ * Module level on purpose: the list unmounts when a conversation opens, and the
+ * row's own state goes with it. A reload starts closed again, which is wanted.
+ */
+const openedProjects = new Set<string>()
+
+/**
  * One folder, closed until asked.
  *
  * Open by default when it holds the conversation on screen, so arriving from a
- * conversation does not hide where it came from.
+ * conversation does not hide where it came from; or when it was open last time.
  */
 function ProjectRow({
   project,
@@ -73,7 +81,13 @@ function ProjectRow({
   const creatingHere = create.pendingCwd === project.gitRoot
 
   return (
-    <Collapsible defaultOpen={holdsSelected}>
+    <Collapsible
+      defaultOpen={holdsSelected || openedProjects.has(project.gitRoot)}
+      onOpenChange={(open) => {
+        if (open) openedProjects.add(project.gitRoot)
+        else openedProjects.delete(project.gitRoot)
+      }}
+    >
       <div className="flex min-w-0 items-center gap-1">
         {/* The row grows and the compose button does not, so a long folder name
             truncates rather than pushing the action off the screen. */}
