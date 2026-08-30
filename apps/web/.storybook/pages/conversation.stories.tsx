@@ -9,6 +9,7 @@ import {
 } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { HostConnection } from '@web/entities/host/host-connection.ts'
+import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationSkeleton } from '@web/features/conversation/components/conversation-skeleton.tsx'
 import { ConversationFailed } from '@web/features/conversation/components/conversation-states.tsx'
 import {
@@ -18,7 +19,11 @@ import {
 import type { OpenConversation } from '@web/pages/conversation/use-conversation.ts'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
-import type { ReactNode } from 'react'
+import { Button } from '@web/ui/components/ui/button.tsx'
+import type { UIMessage } from 'ai'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+import { olderTurns, session } from '../fixtures/transcript.ts'
 
 const CONNECTED = { status: 'connected' } satisfies HostConnection
 const DISCONNECTED = { status: 'offline' } satisfies HostConnection
@@ -161,6 +166,116 @@ export const AwaitingPermission: Story = {
 /** The machine is away. The composer does not accept work. */
 export const MachineOffline: Story = {
   args: view(open, DISCONNECTED),
+}
+
+/**
+ * Three thousand messages, and a turn that streams on demand. The design suite
+ * drives the buttons: it proves the transcript windows its rows, follows the
+ * answer, and leaves a reader who scrolled up where they are.
+ */
+export const LongTranscript: Story = {
+  args: view(open),
+  render: () => frame(<LongTranscriptHarness />),
+}
+
+/** Story-only controls. Every button is the test's, so each has a stable name. */
+function LongTranscriptHarness() {
+  const [messages, setMessages] = useState<UIMessage[]>(() => cloneTurns(500, 'seed'))
+  const [short, setShort] = useState(false)
+  const timer = useRef(0)
+  const stop = () => {
+    window.clearInterval(timer.current)
+  }
+  useEffect(() => stop, [])
+  const stream = () => {
+    stop()
+    setMessages((current) => [
+      ...current,
+      {
+        id: `ask-${String(current.length)}`,
+        role: 'user',
+        parts: [{ type: 'text', text: 'Go on.' }],
+      },
+      {
+        id: `answer-${String(current.length)}`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: '', state: 'streaming' }],
+      },
+    ])
+    timer.current = window.setInterval(() => {
+      setMessages((current) => {
+        const last = current.at(-1)
+        if (last === undefined) return current
+        const parts = last.parts.map((part) =>
+          part.type === 'text' ? { ...part, text: part.text + CHUNK } : part,
+        )
+        return [...current.slice(0, -1), { ...last, parts }]
+      })
+    }, 50)
+  }
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 p-2">
+        <Button size="sm" variant="outline" onClick={stream}>
+          Stream
+        </Button>
+        <Button size="sm" variant="outline" onClick={stop}>
+          Stop stream
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setMessages((current) => [
+              ...cloneTurns(9, `older-${String(current.length)}`),
+              ...current,
+            ])
+          }}
+        >
+          Prepend
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setShort((value) => !value)
+          }}
+        >
+          Shrink
+        </Button>
+      </div>
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        style={short ? { flex: 'none', height: 300 } : undefined}
+      >
+        <ConversationMessages
+          messages={messages}
+          pending={false}
+          readingOlder={false}
+          onReadOlder={null}
+        />
+      </div>
+    </>
+  )
+}
+
+const CHUNK = ' more of the answer arrives while the reader watches the end of the transcript;'
+
+/** The fixture session repeated, each copy under its own ids. */
+function cloneTurns(turns: number, tag: string): UIMessage[] {
+  const base = [...olderTurns, ...session]
+  const out: UIMessage[] = []
+  for (let index = 0; index < turns; index += 1) {
+    for (const message of base) {
+      const copy = structuredClone(message) as UIMessage
+      copy.id = `${message.id}-${tag}-${String(index)}`
+      for (const part of copy.parts) {
+        if ('toolCallId' in part) part.toolCallId = `${part.toolCallId}-${tag}-${String(index)}`
+      }
+      out.push(copy)
+    }
+  }
+  return out
 }
 
 /** The machine no longer has this conversation: the error boundary's view. */

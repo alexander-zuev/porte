@@ -93,7 +93,10 @@ export function useTranscriptVirtualizer(
   useEffect(() => {
     const scroller = scrollerRef.current
     if (scroller === null) return undefined
+    // The reader's last direction. Only an input sets it: the library's corrections scroll too.
+    let heading: 'up' | 'down' | null = null
     const stop = () => {
+      heading = 'up'
       followingRef.current = false
       setFollowingState(false)
     }
@@ -102,17 +105,19 @@ export function useTranscriptVirtualizer(
     let touchY = 0
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY < 0) stop()
+      else if (event.deltaY > 0) heading = 'down'
     }
     const onTouchStart = (event: TouchEvent) => {
       touchY = event.touches[0]?.clientY ?? 0
     }
     const onTouchMove = (event: TouchEvent) => {
       const y = event.touches[0]?.clientY ?? touchY
-      // Anchored to the finger's highest point, so a slow drag adds up and a reversal counts afresh.
+      // Anchored to the finger's turning point, so a slow drag adds up and a reversal counts afresh.
       if (y > touchY + TOUCH_SLOP_PX) {
         stop()
         touchY = y
-      } else if (y < touchY) {
+      } else if (y < touchY - TOUCH_SLOP_PX) {
+        heading = 'down'
         touchY = y
       }
     }
@@ -122,9 +127,15 @@ export function useTranscriptVirtualizer(
         event.key === 'PageUp' ||
         event.key === 'Home' ||
         (event.key === ' ' && event.shiftKey)
+      const down =
+        event.key === 'ArrowDown' ||
+        event.key === 'PageDown' ||
+        event.key === 'End' ||
+        (event.key === ' ' && !event.shiftKey)
       if (up) stop()
+      else if (down) heading = 'down'
     }
-    // A held pointer is a scrollbar drag or a selection; a backward scroll under it is the reader's.
+    // A held pointer is a scrollbar drag or a selection; the scroll under it is the reader's.
     const onPointerDown = () => {
       pointerHeld = true
     }
@@ -135,9 +146,11 @@ export function useTranscriptVirtualizer(
       const top = scroller.scrollTop
       const backward = top < lastTop
       lastTop = top
-      if (backward) {
-        if (pointerHeld) stop()
-      } else if (!followingRef.current && virtualizer.isAtEnd(NEAR_END_PX)) {
+      if (pointerHeld) {
+        if (backward) stop()
+        else heading = 'down'
+      }
+      if (heading === 'down' && !followingRef.current && virtualizer.isAtEnd(NEAR_END_PX)) {
         followingRef.current = true
         setFollowingState(true)
       }
