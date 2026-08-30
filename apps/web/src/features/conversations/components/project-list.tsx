@@ -167,7 +167,7 @@ function ConversationRowStatus({
       <output aria-label="Conversation is running" className="flex">
         <CircleNotchIcon
           aria-hidden
-          className="size-4 animate-spin text-muted-foreground [animation-duration:1.6s]"
+          className="size-4 animate-spin text-muted-foreground [animation-duration:1.3s]"
         />
       </output>
     )
