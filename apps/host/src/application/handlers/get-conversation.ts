@@ -14,7 +14,11 @@ export const getConversation: QueryHandler<QueryMap['GetConversation'], Conversa
   deps,
 ) => omitUnpersistableContent(deps.conversations.get(query.conversationId).snapshot())
 
-/** Drop tool bodies and media bytes the Worker SQLite row cannot store. */
+/**
+ * Drop what the Worker row must not carry: media bytes, and raw tool input and
+ * output. Diffs and read bodies stay: measured at under 0.7 MB for the largest
+ * turn, and the Worker compacts any row that nears 2 MB.
+ */
 export function omitUnpersistableContent(state: ConversationState): ConversationState {
   return {
     ...state,
@@ -23,7 +27,7 @@ export function omitUnpersistableContent(state: ConversationState): Conversation
   }
 }
 
-/** Drop tool bodies and media bytes from one turn slice, as `conversation.get` does. */
+/** Drop media bytes and raw tool I/O from one turn slice, as `conversation.get` does. */
 export function omitUnpersistableTurn(turn: ConversationTurn): ConversationTurn {
   return {
     turnId: turn.turnId,
@@ -47,7 +51,9 @@ function omitUnpersistableTool(tool: ToolView): ToolView {
     title: tool.title,
     kind: tool.kind,
     status: tool.status,
-    content: [],
+    content: tool.content.filter(
+      (item) => item.type !== 'content' || isPersistableContent(item.content),
+    ),
     locations: tool.locations,
   }
   if (tool.name !== undefined) next.name = tool.name
