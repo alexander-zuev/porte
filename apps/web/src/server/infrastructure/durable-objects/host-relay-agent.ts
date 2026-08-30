@@ -45,6 +45,8 @@ import { rethrowAgentError } from './relay/rethrow-agent-error.ts'
 const logger = createLogger('host-relay-agent')
 const HOST_CONNECTION_TAG = 'host-control'
 const HOST_CONVERSATION_TAG = 'host-conversation'
+/** A conversation cache older than this is re-read from the Host on the next first-page read. */
+export const STALE_AFTER_MS = 10_000
 
 /** Parent Agent for Host lifecycle and the conversation cache. */
 export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
@@ -60,6 +62,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
   private readonly hostId: HostId
   private readonly hostSocket: HostJsonRpcSocket<typeof HostControlMethods>
   private syncing: Promise<void> | undefined
+  // In memory on purpose: a wake from hibernation forgets it, and the cache is old by then.
+  private syncedAt: number | undefined
 
   /** Initialize schema and application dependencies before requests run. */
   constructor(ctx: AgentContext, env: RuntimeEnv) {
@@ -202,9 +206,22 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     }
   }
 
-  /** Return one cached conversation page. */
+  /**
+   * Return one cached conversation page.
+   *
+   * A first-page read is a person opening the list, so it also refreshes the
+   * cache from the Host when stale. The page answers at once from the cache;
+   * the refresh lands as a `conversationsVersion` bump.
+   */
   readConversations(query: ListConversationsParams): ListConversationsResult {
+    if (query.cursor === undefined) this.revalidateConversations()
     return this.resources.conversationRepository.findList(query)
+  }
+
+  /** Re-read the list from the Host unless the cache was read within the freshness window. */
+  private revalidateConversations(): void {
+    if (this.syncedAt !== undefined && Date.now() - this.syncedAt < STALE_AFTER_MS) return
+    this.syncConversationsInBackground()
   }
 
   /** Return the current Host connection status. */
@@ -312,6 +329,7 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       cursor = result.next
     } while (cursor !== undefined)
     this.resources.conversationRepository.replaceAll(conversations)
+    this.syncedAt = Date.now()
     this.publishConversationChange()
   }
 

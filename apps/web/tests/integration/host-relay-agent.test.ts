@@ -14,11 +14,14 @@ import {
   type HostConversationRequestMethod,
   type HostId,
 } from '@porte/core'
-import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
+import {
+  STALE_AFTER_MS,
+  type HostRelayAgent,
+} from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { RELAY_HOST_ID_HEADER } from '@server/infrastructure/durable-objects/relay/relay-headers.ts'
 import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { applyDatabaseTestMigrations } from './database-test-migrations.ts'
 
@@ -31,6 +34,9 @@ const conversation: ConversationSummary = {
 }
 
 beforeAll(applyDatabaseTestMigrations)
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('HostRelayAgent control connection', () => {
   it('syncs the control cache with JSON-RPC', async () => {
@@ -42,6 +48,41 @@ describe('HostRelayAgent control connection', () => {
       const page = await host.stub.readConversations({ limit: 50 })
       expect(page.conversations).toEqual([conversation])
     })
+  })
+
+  it('re-asks the Host on a first-page read once the cache is stale', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([])
+    })
+
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + STALE_AFTER_MS + 1)
+    expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([])
+    host.result((await host.nextRequest('conversations.list')).id, {
+      conversations: [conversation],
+    })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([
+        conversation,
+      ])
+    })
+  })
+
+  it('answers reads inside the freshness window from the cache alone', async () => {
+    const host = await connect(createHostId())
+    host.result((await host.nextRequest('conversations.list')).id, { conversations: [] })
+    await vi.waitFor(async () => {
+      expect((await host.stub.readConversations({ limit: 50 })).conversations).toEqual([])
+    })
+
+    await host.stub.readConversations({ limit: 50 })
+    await host.stub.readConversations({ limit: 50 })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(host.inbox.snapshot().filter((frame) => frame.includes('conversations.list'))).toEqual(
+      [],
+    )
   })
 
   it('publishes liveness from the control connection', async () => {
