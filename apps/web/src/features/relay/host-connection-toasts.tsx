@@ -10,7 +10,6 @@ export function notifyHostOffline(): void {
   toast.warning('Your machine went offline', {
     id: HOST_TOAST_ID,
     description: `Run ${UP_COMMAND} on the machine to reconnect.`,
-    duration: Number.POSITIVE_INFINITY,
     action: {
       // An icon: the word wraps inside a phone-width toast.
       label: (
