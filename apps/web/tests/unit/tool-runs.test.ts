@@ -3,6 +3,7 @@ import {
   groupParts,
   toolCall,
   turnChanges,
+  type ToolPart,
 } from '@web/features/conversation/models/tool-runs.ts'
 import type { DynamicToolUIPart, UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
@@ -37,6 +38,16 @@ describe('groupParts', () => {
     expect(stretches.map((one) => one.type)).toEqual(['part', 'run', 'part', 'run'])
     expect(stretches[1]).toMatchObject({ settled: true })
     expect(stretches[3]).toMatchObject({ settled: false })
+  })
+})
+
+describe('groupParts on a watching client', () => {
+  it('reads a typed `tool-<name>` part as the same call', () => {
+    // The agents library builds this shape for a turn another client sent.
+    const typed = { ...call('a', 'edit', 'input-available'), type: 'tool-edit' } as ToolPart
+    const stretches = groupParts([text, typed])
+    expect(stretches.map((one) => one.type)).toEqual(['part', 'run'])
+    expect(toolCall(typed).title).toBe('Title a')
   })
 })
 

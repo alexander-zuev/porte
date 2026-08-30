@@ -1,10 +1,12 @@
 import { ToolContentSchema, ToolKindSchema, type ToolKind } from '@porte/core/client'
 import {
-  isDynamicToolUIPart,
+  getToolName,
   isReasoningUIPart,
   isTextUIPart,
+  isToolUIPart,
   type DynamicToolUIPart,
   type ReasoningUIPart,
+  type ToolUIPart,
   type UIMessage,
 } from 'ai'
 import { z } from 'zod'
@@ -13,9 +15,16 @@ import { spanDiffCounts, type LineChange } from './span-diff.ts'
 
 export type MessagePart = UIMessage['parts'][number]
 
+/**
+ * A tool call in either shape the SDK builds. The sender's stream makes
+ * `dynamic-tool`; a second client watching the same turn gets `tool-<name>`
+ * from the agents library, which ignores `dynamic`. Same fields, one row.
+ */
+export type ToolPart = DynamicToolUIPart | ToolUIPart
+
 /** One tool call, read the way a row shows it. */
 export type ToolCall = {
-  readonly part: DynamicToolUIPart
+  readonly part: ToolPart
   readonly kind: ToolKind
   /** Grok's own title once it has sent one (`Edit hello.txt`); the raw tool name before that. */
   readonly title: string
@@ -70,7 +79,7 @@ export function groupParts(parts: readonly MessagePart[]): Stretch[] {
     calls = []
   }
   for (const part of parts) {
-    if (isDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       calls.push(toolCall(part))
       continue
     }
@@ -81,7 +90,7 @@ export function groupParts(parts: readonly MessagePart[]): Stretch[] {
   return stretches
 }
 
-export function toolCall(part: DynamicToolUIPart): ToolCall {
+export function toolCall(part: ToolPart): ToolCall {
   const metadata = metadataSchema.safeParse(part.toolMetadata)
   const kind = metadata.success ? (metadata.data.kind ?? 'other') : 'other'
   const output = part.state === 'output-available' ? outputSchema.safeParse(part.output) : undefined
@@ -98,7 +107,7 @@ export function toolCall(part: DynamicToolUIPart): ToolCall {
   return {
     part,
     kind,
-    title: part.title ?? part.toolName,
+    title: part.title ?? getToolName(part),
     path: location ?? diffs[0]?.path,
     change,
   }
@@ -108,7 +117,7 @@ export function toolCall(part: DynamicToolUIPart): ToolCall {
 export function messageSettled(message: UIMessage): boolean {
   return message.parts.every((part) => {
     if (isTextUIPart(part) || isReasoningUIPart(part)) return part.state !== 'streaming'
-    if (isDynamicToolUIPart(part)) return SETTLED.has(part.state)
+    if (isToolUIPart(part)) return SETTLED.has(part.state)
     return true
   })
 }
@@ -126,7 +135,7 @@ export type TurnChanges = LineChange & { readonly files: number }
 /** What one turn did to the files: how many, and lines in and out. Absent when it edited nothing. */
 export function turnChanges(message: UIMessage): TurnChanges | undefined {
   const edits = message.parts
-    .filter(isDynamicToolUIPart)
+    .filter(isToolUIPart)
     .map(toolCall)
     .filter((call) => call.change !== undefined)
   if (edits.length === 0) return undefined

@@ -33,14 +33,10 @@ export type ToolHeaderProps = {
   icon?: ReactNode
   /** Lines in and out, for an edit. */
   change?: { readonly added: number; readonly removed: number }
-} & (
-  | { type: ToolUIPart['type']; state: ToolUIPart['state']; toolName?: never }
-  | {
-      type: DynamicToolUIPart['type']
-      state: DynamicToolUIPart['state']
-      toolName: string
-    }
-)
+  /** The raw tool name; shown when there is no title. */
+  name: string
+  state: ToolPart['state']
+}
 
 const statusLabels: Record<ToolPart['state'], string> = {
   'approval-requested': 'Awaiting approval',
@@ -87,14 +83,12 @@ const MOVING = new Set<ToolPart['state']>([
 export const ToolHeader = ({
   className,
   title,
-  type,
+  name,
   state,
-  toolName,
   icon,
   change,
   ...props
 }: ToolHeaderProps) => {
-  const derivedName = type === 'dynamic-tool' ? toolName : type.split('-').slice(1).join('-')
   const failed = state === 'output-error' || state === 'output-denied'
 
   return (
@@ -118,7 +112,7 @@ export const ToolHeader = ({
           <span className="sr-only">{statusLabels[state]}</span>
         </span>
       )}
-      <span className="min-w-0 truncate">{title ?? derivedName}</span>
+      <span className="min-w-0 truncate">{title ?? name}</span>
       {change === undefined ? null : (
         <small className="shrink-0 font-mono">
           <span className="text-status-success-muted-foreground">+{change.added}</span>{' '}

@@ -26,6 +26,7 @@ import {
 } from '@web/ui/components/ui/collapsible.tsx'
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
 import { usePhone } from '@web/ui/hooks/use-phone.ts'
+import { getToolName } from 'ai'
 
 /** The kinds a reader meets every turn get a glyph; the rest share one. */
 const ICONS = {
@@ -50,10 +51,9 @@ export function ToolCallRow({ call }: { readonly call: ToolCall }) {
       <ToolHeader
         change={call.change}
         icon={<KindIcon aria-hidden />}
+        name={getToolName(part)}
         state={part.state}
         title={call.title}
-        toolName={part.toolName}
-        type={part.type}
       />
       <ToolContent>
         <ToolInput input={part.input} />
