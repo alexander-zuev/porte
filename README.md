@@ -94,11 +94,11 @@ Cloudflare types are generated (`worker-configuration.d.ts`, gitignored). Turbo 
 `apps/host` publishes as `@porte/cli`. A release is a version bump on `main`:
 
 ```sh
-pnpm --filter @porte/cli version patch --no-git-checks   # bumps apps/host/package.json only
+pnpm --filter @porte/cli version patch --no-git-checks
 git commit -am "release(cli): x.y.z" && git push
 ```
 
-`.github/workflows/publish-cli.yaml` lints, typechecks, runs unit tests, builds, and publishes with provenance through npm trusted publishing (`pnpm publish --provenance`, no token). A push that leaves the version alone publishes nothing.
+`publish-cli.yaml` lints, tests, builds, and publishes with provenance through npm trusted publishing (no token). A version already on npm is skipped.
 
 ## License
 
