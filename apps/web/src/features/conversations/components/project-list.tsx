@@ -165,7 +165,10 @@ function ConversationRowStatus({
     // The arc, not the dotted `Spinner`: Grok is working, the row is not loading.
     return (
       <output aria-label="Conversation is running" className="flex">
-        <CircleNotchIcon aria-hidden className="size-4 animate-spin text-muted-foreground" />
+        <CircleNotchIcon
+          aria-hidden
+          className="size-4 animate-spin text-muted-foreground [animation-duration:1.6s]"
+        />
       </output>
     )
   }
