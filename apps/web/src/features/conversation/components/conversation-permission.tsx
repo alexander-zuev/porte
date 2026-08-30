@@ -13,6 +13,22 @@ export type ConversationPermissionProps = {
   readonly onAnswer: (waiting: ConversationPermission, optionId: string) => void
 }
 
+/** Grok's option names are sentences; a word per kind fits two to a row on every screen. */
+const LABELS = {
+  allow_once: 'Allow',
+  allow_always: 'Always allow',
+  reject_once: 'Deny',
+  reject_always: 'Never allow',
+} satisfies Record<PermissionOption['kind'], string>
+
+/** Allow on the first row, deny on the second; once before always inside a row. */
+const ORDER = {
+  allow_once: 0,
+  allow_always: 1,
+  reject_once: 2,
+  reject_always: 3,
+} satisfies Record<PermissionOption['kind'], number>
+
 /**
  * What the agent is waiting to be allowed to do.
  *
@@ -33,18 +49,21 @@ export function ConversationPermissions({ waiting, onAnswer }: ConversationPermi
           <ConfirmationTitle>{one.permission.title}</ConfirmationTitle>
           <ConfirmationRequest>
             <ConfirmationActions>
-              {one.permission.options.map((option) => (
-                <ConfirmationAction
-                  key={option.optionId}
-                  disabled={one.answering}
-                  variant={variantOf(option)}
-                  onClick={() => {
-                    onAnswer(one, option.optionId)
-                  }}
-                >
-                  {option.name}
-                </ConfirmationAction>
-              ))}
+              {one.permission.options
+                .toSorted((a, b) => ORDER[a.kind] - ORDER[b.kind])
+                .map((option) => (
+                  <ConfirmationAction
+                    key={option.optionId}
+                    disabled={one.answering}
+                    title={option.name}
+                    variant={variantOf(option)}
+                    onClick={() => {
+                      onAnswer(one, option.optionId)
+                    }}
+                  >
+                    {LABELS[option.kind]}
+                  </ConfirmationAction>
+                ))}
             </ConfirmationActions>
           </ConfirmationRequest>
         </Confirmation>

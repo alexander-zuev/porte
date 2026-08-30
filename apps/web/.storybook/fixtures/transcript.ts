@@ -466,11 +466,17 @@ export const commitPermission = PendingPermissionSchema.parse({
   turnId: '01a04b2a-ca04-74e2-9cae-188cb64987cf',
   permissionId: '01a04b2a-ca04-74e2-9cae-188cb6498701',
   toolCallId: 'call-commit',
-  title: 'Run `git commit -m "fix: stop sends the host cancel command"` in porte',
+  title: 'Execute `git commit -m "fix: stop sends the host cancel command"`',
+  // Grok's own four, in its order: sentences, which the card shows as one word each.
   options: [
-    { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
-    { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
-    { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+    {
+      optionId: 'always',
+      name: "Yes, and don't ask again for bash commands",
+      kind: 'allow_always',
+    },
+    { optionId: 'allow', name: 'Yes, proceed', kind: 'allow_once' },
+    { optionId: 'reject', name: 'No, and tell Grok what to do differently', kind: 'reject_once' },
+    { optionId: 'never', name: "No, and don't ask again for this command", kind: 'reject_always' },
   ],
 })
 

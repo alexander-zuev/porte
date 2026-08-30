@@ -150,14 +150,12 @@ export const ConfirmationActions = ({ className, ...props }: ConfirmationActions
     return null
   }
 
-  return (
-    <div className={cn('flex items-center justify-end gap-2 self-end', className)} {...props} />
-  )
+  return <div className={cn('grid grid-cols-2 gap-2', className)} {...props} />
 }
 
 export type ConfirmationActionProps = ComponentProps<typeof Button>
 
 /** Neutral by default: a primary fill here would push one answer over the rest. */
 export const ConfirmationAction = ({ variant = 'outline', ...props }: ConfirmationActionProps) => (
-  <Button className="h-8 px-3 text-sm" type="button" variant={variant} {...props} />
+  <Button className="min-h-11 px-3 text-sm" type="button" variant={variant} {...props} />
 )
