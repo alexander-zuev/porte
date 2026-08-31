@@ -7,7 +7,7 @@ import { useState } from 'react'
 /** Why a code did not take, said where the person can act on it: at the field. */
 const CLAIM_MESSAGE = {
   invalid: 'That code is not valid',
-  expired: 'That code expired. Run porte pair again for a new one',
+  expired: 'That code expired. Run /remote-control in Grok again for a new one',
   'already-decided': 'That code was already answered',
 } satisfies Record<Exclude<PairingClaim['state'], 'claimed'>, string>
 

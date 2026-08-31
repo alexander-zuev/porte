@@ -11,7 +11,8 @@ export const Route = createFileRoute('/_auth/pair/')({
   head: () =>
     createSeoHead({
       title: 'Pair your machine | Porte',
-      description: 'Run porte pair on the machine that runs Grok, then enter the code it prints.',
+      description:
+        'Install the Porte plugin on the machine that runs Grok, then enter the code /remote-control prints.',
       path: '/pair/',
       noIndex: true,
     }),

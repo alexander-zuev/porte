@@ -12,7 +12,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode }
 
 const RELAY_PATH = 'api/host/ws'
 
-/** How often a page with no machine re-reads the host row; `porte pair` waits at the same rate. */
+/** How often a page with no machine re-reads the host row; the pairing watcher waits at the same rate. */
 const UNPAIRED_POLL_MS = 5_000
 
 const RelayContext = createContext<RelayConnection | null>(null)
@@ -36,7 +36,7 @@ export function RelayProvider({ children }: { readonly children: ReactNode }) {
     refetchInterval: (query) => (query.state.data?.state === 'paired' ? false : UNPAIRED_POLL_MS),
   })
   const paired = owned.data?.state === 'paired'
-  // The offline toast tells the person to run `porte up` for a machine this account no longer has.
+  // The offline toast tells the person to reconnect a machine this account no longer has.
   useEffect(() => {
     if (!paired) dismissHostNotice()
   }, [paired])

@@ -1,19 +1,11 @@
 /** Public facts about Porte shared by marketing and onboarding surfaces. */
 export const REPOSITORY_URL = 'https://github.com/alexander-zuev/porte'
 
-/**
- * Command that installs Porte on the machine that runs Grok.
- *
- * Installed rather than run through `npx`: this is a daemon someone starts most
- * days, and every other command we print assumes `porte` is on the path.
- */
-export const INSTALL_COMMAND = 'npm i -g @porte/cli'
+/** Installs the Porte plugin from Grok's official marketplace, on the machine that runs Grok. */
+export const PLUGIN_INSTALL_COMMAND = 'grok plugin install porte --trust'
 
-/** Command that starts pairing on the machine that runs Grok. */
-export const PAIR_COMMAND = 'porte pair'
-
-/** Command that connects a paired machine, so the browser can reach it. */
-export const UP_COMMAND = 'porte up'
+/** Typed inside Grok: pairs the machine, then toggles remote control. */
+export const REMOTE_CONTROL_COMMAND = '/remote-control'
 
 /** One page of setup steps written for an AI agent on the machine. Served as a static file. */
 export const AGENT_PROMPT_URL = 'https://useporte.dev/agent-setup/prompt.md'

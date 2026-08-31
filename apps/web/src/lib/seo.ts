@@ -6,7 +6,7 @@ export const SITE_NAME = 'Porte'
 /** 1200x630 share card. Absolute, because crawlers do not resolve relative image URLs. */
 const OG_IMAGE = `${CANONICAL_ORIGIN}/og.png`
 const OG_IMAGE_ALT =
-  'Porte wordmark. Grok stays on your machine. You do not have to. The command porte pair.'
+  'Porte wordmark. Grok stays on your machine. You do not have to. The command grok plugin install porte.'
 
 /** The page background (`--gray-1` dark), for the bars around a home-screen app. */
 // oxlint-disable-next-line design-system/no-raw-colors -- a meta tag cannot read a CSS token.

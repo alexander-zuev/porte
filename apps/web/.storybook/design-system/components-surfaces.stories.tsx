@@ -248,9 +248,7 @@ function SurfacesBoard() {
                 <TableCell>
                   <code>/</code>
                 </TableCell>
-                <TableCell>
-                  Read the landing line, see <code>porte pair</code>
-                </TableCell>
+                <TableCell>Read the landing line, see the install command</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>2</TableCell>
@@ -265,7 +263,7 @@ function SurfacesBoard() {
                   <code>/pair</code>
                 </TableCell>
                 <TableCell>
-                  Install Porte, run <code>porte pair</code> on the machine
+                  Install the plugin, type <code>/remote-control</code> in Grok
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -281,7 +279,7 @@ function SurfacesBoard() {
           <HostStatus connection="offline" />
         </Specimen>
         <Specimen label="Terminal command" stack wide>
-          <TerminalCommand command="porte pair" />
+          <TerminalCommand command="grok plugin install porte --trust" />
           <Separator />
           <TerminalCommand command="curl -fsSL https://porte.dev/install.sh | sh" />
         </Specimen>

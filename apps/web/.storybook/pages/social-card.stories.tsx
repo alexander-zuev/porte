@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
 
 /**
  * The 1200×630 share card behind `og:image`.
@@ -26,7 +26,7 @@ function SocialCard() {
       </p>
       <div className="flex items-end justify-between text-[28px]">
         <code className="rounded-xl border border-border bg-surface px-6 py-3 font-mono">
-          $ {PAIR_COMMAND}
+          $ {PLUGIN_INSTALL_COMMAND}
         </code>
         <span className="font-mono text-muted-foreground">useporte.dev</span>
       </div>

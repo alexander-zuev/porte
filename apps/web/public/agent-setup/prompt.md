@@ -27,11 +27,10 @@ grok --version
 This is the whole install. Grok runs Porte with each session; there is no daemon to manage.
 
 ```sh
-grok plugin marketplace add alexander-zuev/porte
 grok plugin install porte --trust
 ```
 
-If both commands succeed, go to step 3. If `grok plugin` is not available, use the manual install at the end instead.
+If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry. If `grok plugin` is not available at all, stop and tell the person to update Grok.
 
 ## 3. Hand over
 
@@ -39,31 +38,4 @@ Tell the person: open a new Grok session and type `/remote-control`. It prints a
 
 ## Done
 
-Tell the person: open https://useporte.dev on the phone, pick this machine, and open a conversation. `/remote-control` in Grok turns remote control off and on; `/remote-control unpair` undoes the pairing. To remove the plugin: `grok plugin uninstall porte`.
-
-## Manual install (fallback)
-
-Only when the Grok plugin route is not available.
-
-```sh
-npm i -g @porte/cli
-porte --version
-```
-
-If `npm i -g` fails with a permissions error, do not retry with `sudo`. Tell the person, and suggest a Node version manager (fnm, nvm, volta) that owns the global folder.
-
-Pair the machine:
-
-```sh
-porte pair
-```
-
-It prints a short code and a URL, then waits. The code expires in a few minutes. Show the person the code and the URL, then wait. They open the URL on their phone, sign in, and enter the code. `porte pair` reports success on its own when they do. If it reports that the code expired, run `porte pair` again and show the new code.
-
-Connect:
-
-```sh
-porte up
-```
-
-This keeps running. It is what the phone talks to; the person starts it whenever they want the machine reachable. To undo everything: `porte unpair`, then `npm rm -g @porte/cli`.
+Tell the person: remote control is on. Every Grok session on this machine can now be viewed, controlled, and continued from https://useporte.dev. Open it on your phone, pick this machine, and you are in your sessions. `/remote-control` in Grok turns remote control off and on; `/remote-control unpair` undoes the pairing; `grok plugin uninstall porte` removes the plugin.

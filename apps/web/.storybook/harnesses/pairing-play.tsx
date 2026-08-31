@@ -130,7 +130,7 @@ export function PairingPlay({
   }, [])
 
   // The daemon only learns of the approval on its next poll, so the card holds
-  // on the command before `porte up` "connects" the machine.
+  // on the waiting copy before the daemon "connects" the machine.
   useEffect(() => {
     if (!simulateRemote || screen.kind !== 'approved' || screen.connected) return
     const timer = window.setTimeout(() => {

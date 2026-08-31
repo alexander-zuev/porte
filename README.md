@@ -8,12 +8,13 @@ https://useporte.dev
 
 ## Install
 
-As a Grok plugin — no manual install; Grok runs Porte with each session:
+As a Grok plugin — no manual install; Grok runs Porte with each session. Needs Node 22+:
 
 ```sh
-grok plugin marketplace add alexander-zuev/porte
 grok plugin install porte --trust
 ```
+
+If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry.
 
 Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli rc disable-hook` first; plugin uninstall does not remove it.
 
@@ -31,16 +32,6 @@ refresh_interval = 30
 Or hand it to your agent:
 
 > Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.
-
-Or by hand. Needs Node 22+ and `grok` on your PATH; Porte does not install Grok.
-
-```sh
-npm i -g @porte/cli
-porte pair   # prints a code: sign in on the phone and enter it
-porte up     # keep this running so the phone can reach the machine
-```
-
-Undo: `porte unpair`, then `npm rm -g @porte/cli`.
 
 ## What it does
 
@@ -79,6 +70,8 @@ Porte stores your account, pairing, and the transcript of conversations you run 
 ## Development
 
 For people working in this repository. npm copies this README onto `@porte/cli` at pack time.
+
+The CLI keeps `porte pair` and `porte up` as internal commands for development and debugging; the user path is the Grok plugin above.
 
 ```sh
 pnpm install

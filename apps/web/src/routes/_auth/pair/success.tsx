@@ -15,7 +15,7 @@ export const Route = createFileRoute('/_auth/pair/success')({
   component: PairSuccess,
 })
 
-/** The card flips to "connected" when the relay sees the machine, so `porte up` is the last step. */
+/** The card flips to "connected" when the relay sees the machine; the plugin daemon connects on its own. */
 function PairSuccess() {
   const connected = hostConnectionFrom(useRelay()).status === 'connected'
   return <PairPage connected={connected} view="approved" />

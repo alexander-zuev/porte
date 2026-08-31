@@ -152,12 +152,11 @@ plugins/grok/
 The hook file content is embedded in the CLI (the daemon writes `~/.grok/hooks/porte.json`), so the plugin ships no hooks directory.
 
 1. Validate: `grok plugin validate plugins/grok`; tag: `grok plugin tag --push`.
-2. User install:
+2. User install (the only documented flow, via the official xAI marketplace):
    ```
-   grok plugin marketplace add alexander-zuev/porte
    grok plugin install porte --trust
    ```
-   Uninstall removes the skill and the MCP entry but not the opt-in global hook — `npx -y @porte/cli rc disable-hook` first, then `grok plugin uninstall porte`.
+   Until the official listing merges, `grok plugin marketplace add alexander-zuev/porte` first. Uninstall removes the skill and the MCP entry but not the opt-in global hook — `npx -y @porte/cli rc disable-hook` first, then `grok plugin uninstall porte`.
 3. Official listing — PR to `xai-org/plugin-marketplace` (verified process from their CONTRIBUTING.md): one entry in `.grok-plugin/marketplace.json` with our repo URL + pinned 40-char commit `sha`, `homepage`, brand-scoped `keywords`/`domains` (`porte`, `useporte.dev`), license stated; run `scripts/generate-plugin-index.py` and `scripts/validate-catalog.py` before opening. Their entries point at a plugin repo's **root** (sentry: `.grok-plugin/plugin.json` + `.mcp.json` + `skills/` at root) — if a root manifest with path overrides can't point into `plugins/grok/`, the listing needs a small dedicated plugin repo; decide at PR time.
 
 ## Proof

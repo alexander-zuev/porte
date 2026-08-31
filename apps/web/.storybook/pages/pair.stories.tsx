@@ -49,7 +49,7 @@ export const Approved: Story = {
   args: { start: 'approved' },
 }
 
-/** `porte up` ran: the relay sees the machine and the card opens the door. */
+/** The daemon connected: the relay sees the machine and the card opens the door. */
 export const Connected: Story = {
   args: { start: 'connected' },
 }

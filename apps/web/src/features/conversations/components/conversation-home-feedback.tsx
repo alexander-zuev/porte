@@ -1,5 +1,5 @@
 import { FolderSimpleIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import { PAIR_COMMAND } from '@web/lib/product.ts'
+import { PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
@@ -82,7 +82,7 @@ export function ConversationHomeFailure({
           </Button>
         ) : (
           <>
-            <TerminalCommand command={PAIR_COMMAND} />
+            <TerminalCommand command={PLUGIN_INSTALL_COMMAND} />
             <Button variant="ghost" onClick={onPair}>
               Enter a pairing code
             </Button>
@@ -98,7 +98,8 @@ function failureContent(state: 'error' | 'unpaired' | 'revoked', hostName?: stri
     return {
       icon: <LinkIcon />,
       title: 'Pair your machine',
-      description: 'Run this on the machine where you use Grok, then open the link it prints.',
+      description:
+        'Install this on the machine where you use Grok, then type /remote-control in Grok and open the link it prints.',
     }
   }
   if (state === 'revoked') {

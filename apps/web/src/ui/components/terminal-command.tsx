@@ -12,6 +12,8 @@ const COPIED_RESET_MS = 2000
 /** Props for a terminal command the reader runs on their own machine. */
 export type TerminalCommandProps = {
   readonly command: string
+  /** The prompt glyph: '$' for a shell, '>' for a command typed inside Grok. */
+  readonly prompt?: '$' | '>'
   /** Type the command out on first paint instead of showing it at once. */
   readonly typed?: boolean
   /** Off when another control beside the box is the one that copies. */
@@ -22,6 +24,7 @@ export type TerminalCommandProps = {
 /** Show one shell command and copy it to the clipboard on request. */
 export function TerminalCommand({
   command,
+  prompt = '$',
   typed = false,
   copy: withCopy = true,
   className,
@@ -62,7 +65,7 @@ export function TerminalCommand({
         className="flex-1 overflow-x-auto rounded-sm bg-transparent p-0 text-left whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring"
       >
         <span aria-hidden className="text-muted-foreground select-none">
-          ${' '}
+          {prompt}{' '}
         </span>
         {typed ? <TextType text={command} /> : command}
       </code>

@@ -102,7 +102,7 @@ export function PairingRequestOrigin({ origin }: { readonly origin: PairingOrigi
       </AlertTitle>
       <AlertDescription>
         {origin.origin === 'unknown'
-          ? 'Continue only if you just ran porte pair here'
+          ? 'Continue only if you just ran /remote-control here'
           : `Requested from ${origin.location} (${origin.ipAddress}) at ${at(origin.requestedAt)}. Make sure you trust it: it will be able to act on your account.`}
       </AlertDescription>
     </Alert>

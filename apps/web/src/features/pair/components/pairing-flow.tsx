@@ -1,4 +1,10 @@
-import { CheckCircleIcon, ProhibitIcon, WarningCircleIcon } from '@phosphor-icons/react'
+import {
+  CheckCircleIcon,
+  DeviceMobileIcon,
+  LaptopIcon,
+  ProhibitIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react'
 import type { PairingOrigin } from '@porte/core/client'
 import { Link } from '@tanstack/react-router'
 import { PairForm, type PairFormProps } from '@web/features/pair/components/pair-form.tsx'
@@ -11,8 +17,7 @@ import {
   PairingStatusIcon,
   type PairingTone,
 } from '@web/features/pair/components/pairing-layout.tsx'
-import { UP_COMMAND } from '@web/lib/product.ts'
-import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
+import { cn } from '@web/lib/utils.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
 
@@ -66,7 +71,7 @@ export type PairingFlowProps =
     }
   | {
       readonly view: 'approved'
-      /** True once the relay reports the machine online, which `porte up` does. */
+      /** True once the relay reports the machine online, which the plugin daemon does. */
       readonly connected: boolean
     }
   | { readonly view: 'denied' }
@@ -141,7 +146,7 @@ function ConfirmPairing(props: Extract<PairingFlowProps, { view: 'confirm' }>) {
 
 /**
  * Paired, then connected, on one card: the relay reports the machine the moment
- * `porte up` runs, so the command gives way to the door without a reload.
+ * the plugin daemon connects, so the wait gives way to the door without a reload.
  */
 function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>) {
   const icon = (
@@ -160,7 +165,8 @@ function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>)
           </Button>
         }
       >
-        <p className="text-muted-foreground">Your phone can reach it now.</p>
+        <MachineLink connected />
+        <p className="text-muted-foreground">Your Grok sessions, on your phone.</p>
       </PairingLayout>
     )
   }
@@ -179,9 +185,33 @@ function ApprovedPairing(props: Extract<PairingFlowProps, { view: 'approved' }>)
         </Button>
       }
     >
-      <p className="text-muted-foreground">Back in your terminal, run:</p>
-      <TerminalCommand command={UP_COMMAND} />
+      <MachineLink connected={false} />
+      <p className="text-muted-foreground">Waiting for your machine…</p>
     </PairingLayout>
+  )
+}
+
+/** The pairing, drawn: machine linked to phone. Breathes until the relay sees the machine. */
+function MachineLink({ connected }: { readonly connected: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'flex w-full items-center gap-3 px-8',
+        connected
+          ? 'text-foreground'
+          : 'animate-pulse text-muted-foreground motion-reduce:animate-none',
+      )}
+    >
+      <LaptopIcon className="size-7 shrink-0" />
+      <span
+        className={cn(
+          'flex-1 border-t',
+          connected ? 'border-status-success-muted-foreground' : 'border-dashed border-current',
+        )}
+      />
+      <DeviceMobileIcon className="size-7 shrink-0" />
+    </div>
   )
 }
 
@@ -203,7 +233,7 @@ function DeniedPairing() {
 const ISSUE_CONTENT = {
   expired: {
     title: 'Code expired',
-    description: 'Codes last ten minutes. Run porte pair again for a fresh one.',
+    description: 'Codes last ten minutes. Run /remote-control in Grok again for a fresh one.',
     tone: 'neutral',
   },
   'already-decided': {
@@ -213,7 +243,7 @@ const ISSUE_CONTENT = {
   },
   'not-yours': {
     title: 'Code belongs to another account',
-    description: 'Do not continue unless you ran porte pair yourself on this machine',
+    description: 'Do not continue unless you ran /remote-control yourself on this machine',
     tone: 'warning',
   },
   unavailable: {
