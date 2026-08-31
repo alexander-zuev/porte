@@ -32,6 +32,11 @@ jobs:
       - run: pnpm format:check
       - run: pnpm turbo run lint
       - run: pnpm turbo run typecheck
+
+      - name: Validate Grok plugin
+        run: |
+          curl -fsSL https://x.ai/cli/install.sh | bash
+          ~/.grok/bin/grok plugin validate plugins/grok
       # Unit and integration only. The design suite drives a real browser
       # against macOS pixel baselines; it runs on the Mac before a commit.
       - run: pnpm turbo run test:unit test:integration
