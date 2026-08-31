@@ -16,9 +16,9 @@ grok plugin install porte --trust
 
 If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry.
 
-Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.2 rc disable-hook` first; plugin uninstall does not remove it.
+Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.3 rc disable-hook` first; plugin uninstall does not remove it.
 
-Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.2 rc enable-hook` (undo with `rc disable-hook`).
+Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.3 rc enable-hook` (undo with `rc disable-hook`).
 
 Optional status row in Grok — a green `/rc on` while the machine is reachable. Add to `~/.grok/config.toml` (only your own config can set this; a plugin cannot):
 

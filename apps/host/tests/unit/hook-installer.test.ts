@@ -17,6 +17,8 @@ import {
 } from '@host/infrastructure/grok/hook-installer.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { version } from '../../package.json'
+
 let grokHome: string
 let porteHome: string
 
@@ -38,7 +40,7 @@ describe('installGrokHook', () => {
     const config = JSON.parse(await readFile(join(grokHome, 'hooks', 'porte.json'), 'utf8'))
     const scriptPath = join(porteHome, 'hook', 'porte-hook.sh')
     expect(config.hooks.UserPromptSubmit[0].hooks[0].command).toBe(scriptPath)
-    expect(await readFile(scriptPath, 'utf8')).toContain('@porte/cli@0.2.2')
+    expect(await readFile(scriptPath, 'utf8')).toContain(`@porte/cli@${version}`)
     await access(scriptPath, constants.X_OK)
   })
 

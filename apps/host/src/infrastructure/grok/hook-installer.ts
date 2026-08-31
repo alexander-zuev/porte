@@ -1,6 +1,8 @@
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { version } from '../../../package.json'
+
 /** Where the two hook files went, and whether anything was written. */
 export type HookInstallResult = { readonly changed: boolean }
 
@@ -78,7 +80,7 @@ function hookScript(): string {
 input=$(cat)
 case "$input" in
   *'/remote-control'*)
-    printf '%s' "$input" | exec npx -y @porte/cli@0.2.2 rc hook
+    printf '%s' "$input" | exec npx -y @porte/cli@${version} rc hook
     ;;
 esac
 exit 0

@@ -22,9 +22,9 @@ Status line (opt-in): `/rc on · access your Grok sessions from anywhere · usep
 
 | Surface                                                | Job                                                                                                                                                                                                                                                      | Verified                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Skill** (default path)                               | Typing `/remote-control` has the model run `npx -y @porte/cli@0.2.2 rc <verb>` and print stdout verbatim. Clean transcript; costs a model turn (~20–30 s) and tokens.                                                                                    | Live TUI: pairing + connect end-to-end.                         |
+| **Skill** (default path)                               | Typing `/remote-control` has the model run `npx -y @porte/cli@0.2.3 rc <verb>` and print stdout verbatim. Clean transcript; costs a model turn (~20–30 s) and tokens.                                                                                    | Live TUI: pairing + connect end-to-end.                         |
 | **`UserPromptSubmit` hook** (opt-in: `rc enable-hook`) | Matches `/remote-control`, runs the verb, returns `{"decision":"block","reason":<text>}`. Instant and deterministic, but Grok frames the answer as ⚠ "Prompt blocked" — confusing enough that it is off by default until xAI ships a "handled" decision. | Live TUI: intercepted in 0.3–2.6 s, exact text, link clickable. |
-| **`.mcp.json`** → `npx -y @porte/cli@0.2.2 mcp`        | The daemon and the installer. Grok spawns it eagerly at every session start and kills it at session end; npx fetches the package on first run. Exposes no tools.                                                                                         | Headless run: process spawned with zero tool calls.             |
+| **`.mcp.json`** → `npx -y @porte/cli@0.2.3 mcp`        | The daemon and the installer. Grok spawns it eagerly at every session start and kills it at session end; npx fetches the package on first run. Exposes no tools.                                                                                         | Headless run: process spawned with zero tool calls.             |
 
 Rules that fell out of the spike:
 
@@ -41,7 +41,7 @@ Rules that fell out of the spike:
 
 1. **Files coordinate; no socket, no RPC.** The rc invocation and the daemons share four files under `~/.porte`. Intent and fact stay separate: `remote-control.json` (intent: `{ enabled, hook }`), `rc-state.json` (fact: written only by the lock holder), `rc-pairing.json` (the in-flight grant), `host.lock` (election, atomic `wx` create + dead-pid steal). A socket protocol buys nothing here — every transition tolerates 1 s of latency.
 2. **`porte mcp` uses `@modelcontextprotocol/sdk`** (catalog dependency): stdio transport, zero tools, transport close → shutdown. The handshake must succeed — the spike showed Grok retries a server that fails it.
-3. **The hook script is a bash prefilter; the CLI does the work.** The script matches `/remote-control` anywhere in the raw payload and exits silently otherwise — no process spawn on ordinary prompts. The match is loose on purpose: the CLI parses the prompt properly and stays silent for a payload that merely mentions the command, so a false positive costs one npx spawn and nothing else. On match it pipes the payload to `npx -y @porte/cli@0.2.2 rc hook`, which runs the verb and prints the block JSON.
+3. **The hook script is a bash prefilter; the CLI does the work.** The script matches `/remote-control` anywhere in the raw payload and exits silently otherwise — no process spawn on ordinary prompts. The match is loose on purpose: the CLI parses the prompt properly and stays silent for a payload that merely mentions the command, so a false positive costs one npx spawn and nothing else. On match it pipes the payload to `npx -y @porte/cli@0.2.3 rc hook`, which runs the verb and prints the block JSON.
 4. **Lock takeover.** An idle daemon polls the lock every 5 s; when the holder dies (its Grok session closed) and `enabled` is true, the next daemon acquires and reconnects. This is what keeps "reachable while ≥1 session is open" true, not just "while the first session is open".
 
 ### Contracts
@@ -79,13 +79,13 @@ unpair(deps: RcDeps): Promise<{ type: 'unpaired' } | { type: 'not-paired' }>  //
 ```txt
 /remote-control (session ≥ 2)
   Grok UserPromptSubmit → ~/.porte/hook/porte-hook.sh (bash prefilter)
-  → npx -y @porte/cli@0.2.2 rc hook  (payload on stdin)
+  → npx -y @porte/cli@0.2.3 rc hook  (payload on stdin)
   → parse verb from .prompt → remote-control.toggle/status/unpair
   → RcSettings.write / RcState.read / pairHost
   → stdout {"decision":"block","reason":<UX-table line>} → Grok paints it
 
 daemon (every Grok session start)
-  Grok spawns `npx -y @porte/cli@0.2.2 mcp` (.mcp.json)
+  Grok spawns `npx -y @porte/cli@0.2.3 mcp` (.mcp.json)
   → install hook idempotently (~/.grok/hooks/porte.json + ~/.porte/hook/porte-hook.sh, content compared)
   → serve MCP stdio; loop every 5 s:
       lock free + enabled + paired → acquire → createHostRuntime → runtime.run → RcState 'on'
@@ -139,7 +139,7 @@ Until then the blocked framing is the accepted cost.
 
 ## Ship to the marketplace
 
-`@porte/cli` 0.2.2 is the pinned runtime for this plugin release.
+`@porte/cli` 0.2.3 is the pinned runtime for this plugin release.
 
 The plugin is static config, not code: no build, no package.json, not in `apps/` or `packages/`. Grok requires the index at the repo root:
 
@@ -147,7 +147,7 @@ The plugin is static config, not code: no build, no package.json, not in `apps/`
 .grok-plugin/marketplace.json      # index Grok reads: { name, plugins: [{ name: "porte", source: "./plugins/grok" }] }
 plugins/grok/
   plugin.json                      # name, version, description
-  .mcp.json                        # porte: npx -y @porte/cli@0.2.2 mcp
+  .mcp.json                        # porte: npx -y @porte/cli@0.2.3 mcp
   skills/remote-control/SKILL.md
 ```
 
@@ -158,7 +158,7 @@ The hook file content is embedded in the CLI (the daemon writes `~/.grok/hooks/p
    ```
    grok plugin install porte --trust
    ```
-   Until the official listing merges, `grok plugin marketplace add alexander-zuev/porte` first. Uninstall removes the skill and the MCP entry but not the opt-in global hook — `npx -y @porte/cli@0.2.2 rc disable-hook` first, then `grok plugin uninstall porte`.
+   Until the official listing merges, `grok plugin marketplace add alexander-zuev/porte` first. Uninstall removes the skill and the MCP entry but not the opt-in global hook — `npx -y @porte/cli@0.2.3 rc disable-hook` first, then `grok plugin uninstall porte`.
 3. Official listing — PR to `xai-org/plugin-marketplace` (verified process from their CONTRIBUTING.md): one entry in `.grok-plugin/marketplace.json` with our repo URL + pinned 40-char commit `sha`, `homepage`, brand-scoped `keywords`/`domains` (`porte`, `useporte.dev`), license stated; run `scripts/generate-plugin-index.py` and `scripts/validate-catalog.py` before opening. Subdirectory plugins are supported: `source.path` on a url source points into the repo (mongodb ships with `"path": "plugins/mongodb"`; `validate-catalog.py` checks the field). Our entry uses `"path": "plugins/grok"` — no dedicated plugin repo needed.
 
 ## Proof

@@ -2,7 +2,7 @@
   "mcpServers": {
     "porte": {
       "command": "npx",
-      "args": ["-y", "@porte/cli@0.2.2", "mcp"]
+      "args": ["-y", "@porte/cli@0.2.3", "mcp"]
     }
   }
 }
