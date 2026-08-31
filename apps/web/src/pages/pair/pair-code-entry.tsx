@@ -12,9 +12,10 @@ import { PairPage } from './pair-page.tsx'
  */
 export function PairCodeEntry() {
   const navigate = useNavigate()
-  const { issue } = useSearch({ from: '/_auth/pair/code' })
+  const { issue, user_code } = useSearch({ from: '/_auth/pair/code' })
   const { user } = useRouteContext({ from: '/_auth' })
-  const claim = useClaimPairing()
+  // Prefilled from the terminal's link; the person still reviews and submits.
+  const claim = useClaimPairing(user_code)
 
   return <PairPage {...toFlowProps()} />
 

@@ -25,9 +25,9 @@ export type ClaimPairing = {
  * The typed code is the only state here; how the last attempt went lives in
  * the mutation.
  */
-export function useClaimPairing(): ClaimPairing {
+export function useClaimPairing(initialCode?: string): ClaimPairing {
   const navigate = useNavigate()
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(initialCode ?? '')
 
   const claim = useMutation({
     mutationFn: (value: string) => claimPairing({ data: value }),
