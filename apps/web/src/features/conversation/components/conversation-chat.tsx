@@ -20,15 +20,10 @@ import {
 import type { ChatStatus, UIMessage } from 'ai'
 import { useState } from 'react'
 
-import { lastTurnChanges } from '../models/tool-runs.ts'
 import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
-import {
-  ConversationChanges,
-  ConversationPlans,
-  conversationCost,
-} from './conversation-progress.tsx'
+import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
 
 export type ConversationChatProps = {
   readonly agent: ConversationAgentConnection
@@ -68,8 +63,6 @@ export function ConversationChat({
         readingOlder={false}
         onReadOlder={null}
       />
-
-      <ConversationChanges changes={lastTurnChanges(chat.messages)} />
 
       <ConversationPlans plans={state.plans} running={running} />
 

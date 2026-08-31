@@ -3,13 +3,11 @@ import { ComposerAddMenu } from '@web/features/conversation/components/composer-
 import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
 import {
-  ConversationChanges,
   ConversationPlans,
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
 import type { ConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
-import { lastTurnChanges } from '@web/features/conversation/models/tool-runs.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
@@ -82,8 +80,6 @@ export function ChatFrame({
         readingOlder={readingOlder}
         onReadOlder={onReadOlder}
       />
-
-      <ConversationChanges changes={lastTurnChanges(messages)} />
 
       <ConversationPlans plans={state.plans} running={running} />
 

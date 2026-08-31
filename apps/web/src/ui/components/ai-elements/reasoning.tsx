@@ -204,15 +204,18 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
     )
   }
   return (
-    // The same rule a call hangs its result from, so a thought and the calls it made read as one family.
+    // No rail: the thought hangs under its row like a tool detail does.
     <CollapsibleContent
       className={cn(
-        'ml-2 flex flex-col border-l pt-1 pb-2 pl-4 text-sm text-muted-foreground outline-none',
+        'flex flex-col pt-1 pb-2 text-sm text-muted-foreground outline-none',
         className,
       )}
       {...props}
     >
-      <MessageResponse>{children}</MessageResponse>
+      {/* Capped like a tool detail: a long thought scrolls inside, opening never jumps the page. */}
+      <div className="max-h-96 overflow-y-auto overscroll-contain">
+        <MessageResponse>{children}</MessageResponse>
+      </div>
     </CollapsibleContent>
   )
 })

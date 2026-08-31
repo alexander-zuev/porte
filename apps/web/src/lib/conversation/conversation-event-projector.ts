@@ -158,8 +158,11 @@ function openPart(
 
 function projectTool(tool: ToolView, state: ConversationEventProjectionState): UIMessageChunk[] {
   const chunks: UIMessageChunk[] = []
-  const input = toolInput(tool)
-  const signature = JSON.stringify(input)
+  // The part's input is the agent's own rawInput; presentation facts ride on
+  // toolMetadata, so the row and the sheet read one field each, not a wrapper.
+  const input = tool.rawInput ?? null
+  const toolMetadata = { kind: tool.kind, locations: tool.locations, _meta: tool._meta ?? null }
+  const signature = JSON.stringify({ input, title: tool.title, toolMetadata })
   if (state.toolInputSignatures.get(tool.toolCallId) !== signature) {
     state.toolInputSignatures.set(tool.toolCallId, signature)
     chunks.push({
@@ -168,7 +171,7 @@ function projectTool(tool: ToolView, state: ConversationEventProjectionState): U
       toolName: tool.name ?? tool.kind,
       title: tool.title,
       input,
-      toolMetadata: { kind: tool.kind, locations: tool.locations },
+      toolMetadata,
       dynamic: true,
     })
   }
@@ -190,16 +193,6 @@ function projectTool(tool: ToolView, state: ConversationEventProjectionState): U
     })
   }
   return chunks
-}
-
-function toolInput(tool: ToolView) {
-  return {
-    value: tool.rawInput ?? null,
-    title: tool.title,
-    kind: tool.kind,
-    locations: tool.locations,
-    _meta: tool._meta ?? null,
-  }
 }
 
 function contentMetadata(content: CanonicalContent): ProviderMetadata | undefined {

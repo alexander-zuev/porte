@@ -1,9 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
-import {
-  ConversationChanges,
-  ConversationPlans,
-} from '@web/features/conversation/components/conversation-progress.tsx'
+import { ConversationPlans } from '@web/features/conversation/components/conversation-progress.tsx'
 import {
   ConversationTurnFailed,
   NoMessagesYet,
@@ -11,13 +8,9 @@ import {
 } from '@web/features/conversation/components/conversation-states.tsx'
 import { MessageCopy } from '@web/features/conversation/components/message-copy.tsx'
 import { MessageFiles } from '@web/features/conversation/components/message-files.tsx'
+import { SpanDiffBlock } from '@web/features/conversation/components/tool-detail.tsx'
 import { ToolCallRow, ToolRun } from '@web/features/conversation/components/tool-run.tsx'
-import { spanDiff } from '@web/features/conversation/models/span-diff.ts'
-import {
-  toolCall,
-  turnChanges,
-  type ToolCall,
-} from '@web/features/conversation/models/tool-runs.ts'
+import { toolCall, type ToolCall } from '@web/features/conversation/models/tool-runs.ts'
 import { TitledCodeBlock } from '@web/ui/components/ai-elements/code-block.tsx'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
@@ -146,7 +139,7 @@ function PartsBoard() {
 
       <Section
         title="Tool call"
-        note="One row per call: the kind's glyph, Grok's title, and what went in and came out under it."
+        note="One row per call: the kind's glyph and a verb line. A tap opens a sheet on a phone and unfolds in place on a desktop."
       >
         <Specimen label="Read" stack>
           <ToolCallRow call={READ} />
@@ -179,18 +172,20 @@ function PartsBoard() {
         <Specimen label="Fence" stack wide>
           <TitledCodeBlock code={TS_CODE} language="tsx" title="tsx" />
         </Specimen>
-        <Specimen label="Diff" note="A replaced span, as an edit reports it." stack wide>
-          <TitledCodeBlock code={spanDiff(stopHookDiff)} language="diff" title="use-stop-turn.ts" />
+        <Specimen
+          label="Diff"
+          note="A replaced span, as an edit reports it: numbered, tinted, gutter bar."
+          stack
+          wide
+        >
+          <SpanDiffBlock diff={stopHookDiff} named />
         </Specimen>
       </Section>
 
       <Section
         title="Above the composer"
-        note="What the turn is doing to the files, and what it still plans to."
+        note="What the turn still plans to do, one line per plan."
       >
-        <Specimen label="Changes line" stack wide>
-          <ConversationChanges changes={turnChanges(answerStop)} />
-        </Specimen>
         <Specimen
           label="Plan, running"
           note="Done, doing, not yet. Only the current step at full contrast."

@@ -11,7 +11,7 @@ import {
 } from 'ai'
 import { z } from 'zod'
 
-import { spanDiffCounts, type LineChange } from './span-diff.ts'
+import { spanDiffCounts, type LineChange, type SpanDiff } from './span-diff.ts'
 
 export type MessagePart = UIMessage['parts'][number]
 
@@ -28,7 +28,13 @@ export type ToolCall = {
   readonly kind: ToolKind
   /** Grok's own title once it has sent one (`Edit hello.txt`); the raw tool name before that. */
   readonly title: string
+  /** The raw tool name, e.g. `run_terminal_command`. */
+  readonly name: string
+  /** The agent's `_meta` for this call, when it sent one. */
+  readonly meta: unknown
   readonly path: string | undefined
+  /** The span diffs of an edit that answered. Empty otherwise. */
+  readonly diffs: readonly SpanDiff[]
   /** Lines in and out, for an edit that has finished. */
   readonly change: LineChange | undefined
 }
@@ -54,6 +60,7 @@ export type Stretch =
 const metadataSchema = z.object({
   kind: ToolKindSchema.optional(),
   locations: z.array(z.object({ path: z.string().min(1) })).optional(),
+  _meta: z.unknown().optional(),
 })
 
 const outputSchema = z.object({ content: z.array(ToolContentSchema) })
@@ -108,7 +115,10 @@ export function toolCall(part: ToolPart): ToolCall {
     part,
     kind,
     title: part.title ?? getToolName(part),
+    name: getToolName(part),
+    meta: metadata.success ? metadata.data._meta : undefined,
     path: location ?? diffs[0]?.path,
+    diffs,
     change,
   }
 }
@@ -128,32 +138,6 @@ export function messageText(message: UIMessage): string {
     .filter(isTextUIPart)
     .map((part) => part.text)
     .join('\n\n')
-}
-
-export type TurnChanges = LineChange & { readonly files: number }
-
-/** What one turn did to the files: how many, and lines in and out. Absent when it edited nothing. */
-export function turnChanges(message: UIMessage): TurnChanges | undefined {
-  const edits = message.parts
-    .filter(isToolUIPart)
-    .map(toolCall)
-    .filter((call) => call.change !== undefined)
-  if (edits.length === 0) return undefined
-  const files = new Set(edits.map((call) => call.path ?? call.part.toolCallId)).size
-  return edits.reduce<TurnChanges>(
-    (sum, call) => ({
-      files,
-      added: sum.added + (call.change?.added ?? 0),
-      removed: sum.removed + (call.change?.removed ?? 0),
-    }),
-    { files, added: 0, removed: 0 },
-  )
-}
-
-/** The changes of the newest answer, which is the turn the reader is watching or just read. */
-export function lastTurnChanges(messages: readonly UIMessage[]): TurnChanges | undefined {
-  const last = messages.findLast((message) => message.role === 'assistant')
-  return last === undefined ? undefined : turnChanges(last)
 }
 
 /** One line for a folded run: `Edited 2 files, read 3 files, ran 1 command`. */

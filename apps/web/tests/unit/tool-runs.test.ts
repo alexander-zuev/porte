@@ -2,9 +2,9 @@ import {
   describeRun,
   groupParts,
   toolCall,
-  turnChanges,
   type ToolPart,
 } from '@web/features/conversation/models/tool-runs.ts'
+import { runChanges, toolCallView } from '@web/features/conversation/models/tool-view.ts'
 import type { DynamicToolUIPart, UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
 
@@ -60,20 +60,41 @@ describe('groupParts with reasoning', () => {
   })
 })
 
-describe('turnChanges', () => {
-  it('sums lines over every edit and counts files once', () => {
+describe('runChanges', () => {
+  it('sums lines over every edit in a run, absent when nothing changed', () => {
     const edit = (id: string, path: string) =>
       call(id, 'edit', 'output-available', {
         toolMetadata: { kind: 'edit', locations: [{ path }] },
         output: { content: [{ type: 'diff', path, oldText: 'a', newText: 'a\nb', _meta: {} }] },
       })
-    const message: UIMessage = {
-      id: 'm',
-      role: 'assistant',
-      parts: [edit('x', '/r/x.ts'), edit('y', '/r/x.ts'), edit('z', '/r/z.ts')],
-    }
-    expect(turnChanges(message)).toEqual({ files: 2, added: 6, removed: 3 })
-    expect(turnChanges({ id: 'n', role: 'assistant', parts: [text] })).toBeUndefined()
+    const calls = [edit('x', '/r/x.ts'), edit('y', '/r/z.ts')].map((part) =>
+      toolCall(part as DynamicToolUIPart),
+    )
+    expect(runChanges(calls)).toEqual({ added: 4, removed: 2 })
+    expect(
+      runChanges([toolCall(call('r', 'read', 'output-available') as DynamicToolUIPart)]),
+    ).toBeUndefined()
+  })
+})
+
+describe('toolCallView', () => {
+  it('reads a command as a verb line with a Command field', () => {
+    const part = call('c', 'execute', 'output-available', {
+      input: { command: 'git status', description: 'Show working tree status' },
+    })
+    const view = toolCallView(toolCall(part as DynamicToolUIPart))
+    expect(view).toMatchObject({
+      verb: 'Ran',
+      subject: 'Show working tree status',
+      field: { name: 'Command', value: 'git status' },
+    })
+  })
+
+  it('hides the input field when a tool sent nothing', () => {
+    const part = call('o', 'other', 'output-available', { input: {} })
+    const view = toolCallView(toolCall(part as DynamicToolUIPart))
+    expect(view.field).toBeUndefined()
+    expect(view.subject).toBe('Title o')
   })
 })
 

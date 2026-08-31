@@ -1,19 +1,21 @@
-import { CheckCircleIcon, CircleIcon, PencilSimpleIcon } from '@phosphor-icons/react'
+import {
+  CaretRightIcon,
+  CheckCircleIcon,
+  CircleIcon,
+  PencilSimpleIcon,
+} from '@phosphor-icons/react'
 import type { ConversationPlan, ConversationUsage, PlanEntry } from '@porte/core/client'
-import type { TurnChanges } from '@web/features/conversation/models/tool-runs.ts'
 import { cn } from '@web/lib/utils.ts'
 import { MessageResponse } from '@web/ui/components/ai-elements/message.tsx'
-import {
-  Plan,
-  PlanAction,
-  PlanContent,
-  PlanDescription,
-  PlanHeader,
-  PlanTitle,
-  PlanTrigger,
-} from '@web/ui/components/ai-elements/plan.tsx'
+import { Card } from '@web/ui/components/ui/card.tsx'
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
 
-/** Shows current ACP plans above the prompt. */
+/**
+ * Shows current ACP plans above the prompt.
+ *
+ * One line per plan on every screen: the composer's column is prime space, so
+ * the steps live in a sheet the line opens, never unfolded in place.
+ */
 export function ConversationPlans({
   plans,
   running,
@@ -27,20 +29,47 @@ export function ConversationPlans({
   return (
     <div className="flex flex-col gap-2">
       {plans.map((plan) => (
-        <Plan key={plan.planId} defaultOpen isStreaming={running}>
-          <PlanHeader>
-            <PlanTitle>Plan</PlanTitle>
-            <PlanDescription>{planDescription(plan)}</PlanDescription>
-            <PlanAction>
-              <PlanTrigger />
-            </PlanAction>
-          </PlanHeader>
-          <PlanContent>
-            <PlanBody plan={plan} />
-          </PlanContent>
-        </Plan>
+        <PlanLine key={plan.planId} plan={plan} running={running} />
       ))}
     </div>
+  )
+}
+
+function PlanLine({
+  plan,
+  running,
+}: {
+  readonly plan: ConversationPlan
+  readonly running: boolean
+}) {
+  return (
+    <Drawer>
+      <DrawerTrigger
+        data-streaming={running ? 'true' : 'false'}
+        render={
+          <Card className="w-full flex-row items-center gap-2 px-4 py-3 text-left shadow-none" />
+        }
+      >
+        <span>Plan</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          {planDescription(plan)}
+        </span>
+        <CaretRightIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerTitle
+          className="px-4"
+          render={
+            <h3>
+              Plan <span className="text-muted-foreground">{planDescription(plan)}</span>
+            </h3>
+          }
+        />
+        <div className="px-4">
+          <PlanBody plan={plan} />
+        </div>
+      </DrawerContent>
+    </Drawer>
   )
 }
 
@@ -98,26 +127,6 @@ function planDescription(plan: ConversationPlan): string {
     return `${String(done)} of ${String(plan.entries.length)} complete`
   }
   return plan.type === 'file' ? 'Plan file' : 'Plan details'
-}
-
-/**
- * What the last turn did to the files, in one line above the composer.
- *
- * `3 files · +29 −4`: the reviewer's number before reading a single row.
- */
-export function ConversationChanges({ changes }: { readonly changes: TurnChanges | undefined }) {
-  if (changes === undefined) return null
-  return (
-    <small className="flex justify-end gap-2 px-3 text-muted-foreground">
-      <span>
-        {changes.files} {changes.files === 1 ? 'file' : 'files'}
-      </span>
-      <span className="font-mono">
-        <span className="text-status-success-muted-foreground">+{changes.added}</span>{' '}
-        <span className="text-destructive-muted-foreground">−{changes.removed}</span>
-      </span>
-    </small>
-  )
 }
 
 /** Formats the cumulative ACP cost for the context control. */
