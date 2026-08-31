@@ -33,13 +33,22 @@ export function ToolDetail({
   const view = toolCallView(call)
 
   // A read is its file: the name is the header, and the body needs no label.
+  // Inline has the width for the whole path; a sheet gets the basename.
   if (call.kind === 'read' && view.field !== undefined) {
     return (
       <div className="flex flex-col gap-2">
-        <small className="font-mono text-muted-foreground">{fileName(view.field.value)}</small>
+        <small className="font-mono text-muted-foreground">
+          {variant === 'inline' ? view.field.value : fileName(view.field.value)}
+        </small>
         <ToolDetailOutput view={view} variant={variant} bare />
       </div>
     )
+  }
+
+  // Inline, an edit is its diff cards: each carries the path as its header,
+  // so a separate `File` field would say the same thing twice.
+  if (variant === 'inline' && view.output.type === 'diffs') {
+    return <ToolDetailOutput view={view} variant={variant} bare />
   }
 
   // Inline, a command is a `$` pill and needs no label: the shape says what it is.
@@ -93,17 +102,12 @@ function ToolDetailOutput({
           <MonoBox>{output.text}</MonoBox>
         )
       ) : (
-        <div
-          className={
-            variant === 'inline'
-              ? 'flex max-h-96 flex-col gap-2 overflow-y-auto overscroll-contain'
-              : 'flex flex-col gap-2'
-          }
-        >
+        <div className="flex flex-col gap-2">
           {output.diffs.map((diff) => (
             <SpanDiffBlock
               key={`${diff.path}:${diffKey(diff)}`}
               diff={diff}
+              variant={variant}
               named={output.diffs.length > 1}
             />
           ))}
@@ -177,15 +181,21 @@ function diffRows(diff: SpanDiff): DiffRow[] {
   ]
 }
 
-/** One span diff of an edit, rendered through the shared diff block. */
+/**
+ * One span diff of an edit, rendered through the shared diff block.
+ *
+ * Inline the card always carries the full path as its header — the card IS
+ * the file. A sheet names the file only when one call touched several.
+ */
 export function SpanDiffBlock({
   diff,
+  variant = 'sheet',
   named,
 }: {
   readonly diff: SpanDiff
+  readonly variant?: ToolDetailVariant
   readonly named?: boolean
 }) {
-  return (
-    <DiffBlock rows={diffRows(diff)} title={named === true ? fileName(diff.path) : undefined} />
-  )
+  const title = variant === 'inline' ? diff.path : named === true ? fileName(diff.path) : undefined
+  return <DiffBlock rows={diffRows(diff)} title={title} />
 }

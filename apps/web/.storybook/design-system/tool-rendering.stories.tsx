@@ -250,6 +250,22 @@ function ReviewBoard() {
           <ToolDetail call={call(EDITED)} />
         </Specimen>
         <Specimen
+          label="Edit, inline (desktop)"
+          note="The diff card is the whole detail: full path as its header, no File field."
+          stack
+          wide
+        >
+          <ToolDetail call={call(EDITED)} variant="inline" />
+        </Specimen>
+        <Specimen
+          label="Command, inline (desktop)"
+          note="A `$` pill and borderless output on its own surface."
+          stack
+          wide
+        >
+          <ToolDetail call={call(RAN)} variant="inline" />
+        </Specimen>
+        <Specimen
           label="Unknown tool"
           note="Grok's label names the sheet; machine output stays JSON behind Prettify."
           stack

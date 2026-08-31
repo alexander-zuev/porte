@@ -27,7 +27,7 @@ export function MonoBox({
   return (
     <pre
       className={cn(
-        'rounded-xl border bg-background p-3 font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6',
+        'rounded-xl border bg-surface p-3 font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6',
         className,
       )}
     >
@@ -37,12 +37,12 @@ export function MonoBox({
 }
 
 /**
- * Output with nothing drawn around it, the way a terminal reads: the words
- * only, capped and scrolling inside its own height.
+ * Terminal output: no border, but its own surface, capped and scrolling
+ * inside its own height so the words read as an inset, not an outline.
  */
 export function PlainOutput({ children }: { readonly children: string }) {
   return (
-    <pre className="max-h-96 overflow-y-auto overscroll-contain font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6">
+    <pre className="max-h-96 overflow-y-auto overscroll-contain rounded-xl bg-surface p-3 font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6">
       {children}
     </pre>
   )
@@ -69,13 +69,13 @@ export function DiffBlock({
   readonly title?: string
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
+    <div className="overflow-hidden rounded-xl border bg-surface">
       {title === undefined ? null : (
-        <div className="border-b bg-muted/80 px-3 py-2 text-xs text-muted-foreground">
+        <div className="border-b px-3 py-2 text-xs text-muted-foreground">
           <span className="font-mono">{title}</span>
         </div>
       )}
-      <div className="overflow-x-auto py-2">
+      <div className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2">
         <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
           {rows.map((row) => (
             <span
