@@ -16,6 +16,8 @@ grok plugin install porte --trust
 
 If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry.
 
+Official marketplace submission: [xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463).
+
 Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.3 rc disable-hook` first; plugin uninstall does not remove it.
 
 Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.3 rc enable-hook` (undo with `rc disable-hook`).
