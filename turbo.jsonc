@@ -54,6 +54,7 @@
     },
     "test:integration": {
       "dependsOn": ["^build", "cf-typegen"],
+      "env": ["GROK_LIVE_TESTS"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
       "outputs": [],
       "outputLogs": "new-only",

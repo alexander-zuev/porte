@@ -9,7 +9,7 @@ import {
 } from '@porte/core/client'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
-import { cleanupGrokSessions, createGitWorkspace, grokOnPath } from './grok-resources.ts'
+import { cleanupGrokSessions, createGitWorkspace, liveGrokTestsEnabled } from './grok-resources.ts'
 
 afterAll(cleanupGrokSessions)
 
@@ -39,7 +39,7 @@ async function withAgent(body: (harness: Harness) => Promise<void>): Promise<voi
   }
 }
 
-describe.skipIf(!grokOnPath())('AcpCodingAgent', () => {
+describe.skipIf(!liveGrokTestsEnabled())('AcpCodingAgent', () => {
   it(
     'creates a session, runs one prompt to completion, and streams the assistant reply',
     async () => {

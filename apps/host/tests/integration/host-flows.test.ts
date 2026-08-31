@@ -17,7 +17,7 @@ import {
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import { FakeConnections } from '../support/test-deps.ts'
-import { cleanupGrokSessions, createGitWorkspace, grokOnPath } from './grok-resources.ts'
+import { cleanupGrokSessions, createGitWorkspace, liveGrokTestsEnabled } from './grok-resources.ts'
 
 afterAll(cleanupGrokSessions)
 
@@ -73,7 +73,7 @@ async function turnFinished(deps: Harness, conversationId: ConversationId): Prom
   )
 }
 
-describe.skipIf(!grokOnPath())('host flows against real Grok', () => {
+describe.skipIf(!liveGrokTestsEnabled())('host flows against real Grok', () => {
   it(
     'creates a conversation and lists it with its git root',
     async () => {

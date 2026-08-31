@@ -4,9 +4,12 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
-/** True when the grok binary is on PATH. */
-export function grokOnPath(): boolean {
-  return spawnSync('grok', ['--version'], { encoding: 'utf8' }).status === 0
+/** True when the caller enables live tests and the grok binary is on PATH. */
+export function liveGrokTestsEnabled(): boolean {
+  return (
+    process.env.GROK_LIVE_TESTS === '1' &&
+    spawnSync('grok', ['--version'], { encoding: 'utf8' }).status === 0
+  )
 }
 
 const workspaces = new Set<string>()
@@ -29,6 +32,7 @@ export async function createGitWorkspace(): Promise<string> {
  * after the test's Grok process has stopped.
  */
 export async function cleanupGrokSessions(): Promise<void> {
+  if (workspaces.size === 0) return
   const sessions = join(homedir(), '.grok', 'sessions')
   const index = new DatabaseSync(join(sessions, 'session_search.sqlite'))
   try {
