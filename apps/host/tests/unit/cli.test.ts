@@ -39,4 +39,21 @@ describe('parseCommand', () => {
     expect(parseCommand(['up', '--verbose'])).toEqual({ kind: 'up' })
     expect(parseCommand(['-v', 'up'])).toEqual({ kind: 'up' })
   })
+
+  it('parses the mcp command', () => {
+    expect(parseCommand(['mcp'])).toEqual({ kind: 'mcp' })
+  })
+
+  it('parses each rc verb', () => {
+    expect(parseCommand(['rc', 'hook'])).toEqual({ kind: 'rc', verb: 'hook' })
+    expect(parseCommand(['rc', 'toggle'])).toEqual({ kind: 'rc', verb: 'toggle' })
+    expect(parseCommand(['rc', 'status'])).toEqual({ kind: 'rc', verb: 'status' })
+    expect(parseCommand(['rc', 'unpair'])).toEqual({ kind: 'rc', verb: 'unpair' })
+    expect(parseCommand(['rc', 'watch-pairing'])).toEqual({ kind: 'rc', verb: 'watch-pairing' })
+  })
+
+  it('rejects rc without a verb and with an unknown verb', () => {
+    expect(() => parseCommand(['rc'])).toThrow(UsageError)
+    expect(() => parseCommand(['rc', 'nope'])).toThrow(UsageError)
+  })
 })

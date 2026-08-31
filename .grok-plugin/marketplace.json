@@ -1,0 +1,16 @@
+{
+  "name": "porte",
+  "description": "Porte: remote control for Grok CLI, from your phone",
+  "owner": { "name": "Alexander Zuev" },
+  "plugins": [
+    {
+      "name": "porte",
+      "description": "Remote control for Grok CLI, from your phone. /remote-control pairs this machine with useporte.dev and keeps it reachable while Grok is open.",
+      "category": "productivity",
+      "source": { "type": "local", "path": "./plugins/grok" },
+      "homepage": "https://useporte.dev",
+      "keywords": ["porte", "useporte", "remote control"],
+      "domains": ["useporte.dev"]
+    }
+  ]
+}

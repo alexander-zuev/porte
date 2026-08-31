@@ -2,69 +2,167 @@
 
 ## Goal
 
-One Grok command connects this machine to Porte. Unpaired → pair, then connect. Paired → connect. Connected → disconnect. No terminal, no code to copy.
+`/remote-control` in Grok pairs, connects, and disconnects this machine — deterministic text, zero LLM turns, zero manual installs. While ≥1 Grok session is open, the machine is reachable from useporte.dev.
 
-## How it works
+## UX (fixed)
 
-- The plugin ships `.mcp.json` → Grok starts `npx -y @porte/cli@latest mcp` with each session and kills it at session end. That process is the daemon.
-- The skill `/remote-control` calls the tool `porte__remote_control` and prints its text. The tool owns all logic; the model owns none.
-- `porte mcp` is a second thin entrypoint beside `cli/`. It reuses `pairHost` and `createHostRuntime` unchanged.
+| Input                    | State       | Text                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/remote-control`        | not paired  | `Open <verification_uri_complete> on your phone to approve this machine (code ABCD-EFGH). It connects on its own once you approve.` The link shows at once; a detached watcher waits for the tap and then enables. Run again while unanswered → `Still waiting for approval. Open <link> on your phone (code ABCD-EFGH).` An expired code starts over with a fresh link. |
+| `/remote-control`        | paired, off | `Remote control on. Run this machine's Grok sessions from your phone: https://useporte.dev` — or, when no daemon confirms within 10 s, `Turning remote control on. Run /remote-control status in a moment.`                                                                                                                                                              |
+| `/remote-control`        | on          | `Remote control off.`                                                                                                                                                                                                                                                                                                                                                    |
+| `/remote-control status` | any         | `Remote control on · useporte.dev` / `Remote control off · paired as "<host>"` / `Remote control off · not paired`                                                                                                                                                                                                                                                       |
+| `/remote-control unpair` | paired      | `This machine is removed from your Porte account. Run /remote-control to pair again.`                                                                                                                                                                                                                                                                                    |
 
-## Contracts (new)
+Status line (opt-in): `/rc on · access your Grok sessions from anywhere · useporte.dev` (green) / `/rc off` (gray).
+
+## Design — three surfaces, one job each
+
+| Surface                                                | Job                                                                                                                                                                                                                                                      | Verified                                                        |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Skill** (default path)                               | Typing `/remote-control` has the model run `npx -y @porte/cli rc <verb>` and print stdout verbatim. Clean transcript; costs a model turn (~20–30 s) and tokens.                                                                                          | Live TUI: pairing + connect end-to-end.                         |
+| **`UserPromptSubmit` hook** (opt-in: `rc enable-hook`) | Matches `/remote-control`, runs the verb, returns `{"decision":"block","reason":<text>}`. Instant and deterministic, but Grok frames the answer as ⚠ "Prompt blocked" — confusing enough that it is off by default until xAI ships a "handled" decision. | Live TUI: intercepted in 0.3–2.6 s, exact text, link clickable. |
+| **`.mcp.json`** → `npx -y @porte/cli mcp`              | The daemon and the installer. Grok spawns it eagerly at every session start and kills it at session end; npx fetches the package on first run. Exposes no tools.                                                                                         | Headless run: process spawned with zero tool calls.             |
+
+Rules that fell out of the spike:
+
+- **The daemon owns the hook files, on request.** Plugin-shipped hooks do not load (verified: `has_hooks=true`, hook engine registers 0), so `rc enable-hook` writes `~/.grok/hooks/porte.json` — global hooks are always trusted — and each daemon start syncs the files to the `hook` setting (removes them when off). Takes effect in the next session; hooks load at session start.
+- **Hook matches slash form only.** A blocked non-slash prompt lands in Grok's queue with an Edit/Resend/Discard pane (verified). Plain text is never touched.
+- **Auto-connect.** On/off persists in `~/.porte`. Daemon start + saved state on + machine paired → connect silently. Open a terminal, type `grok`, machine is live.
+- **One connected daemon per machine.** Each Grok session spawns its own process (leader mode is off by default); a pid lock in `~/.porte` elects one, the rest idle. Last session closing takes the machine offline.
+- **Hook name is `porte`.** Grok's fixed framing then reads `Prompt blocked by global/porte: Remote control on. …` — the least-bad rendering we control.
+- **Status line ships as a documented one-liner** (`[ui.status_line]` + script reading daemon state). Only user config can add it; a plugin cannot. Verified rendering live.
+
+## Implementation
+
+### Decisions
+
+1. **Files coordinate; no socket, no RPC.** The rc invocation and the daemons share four files under `~/.porte`. Intent and fact stay separate: `remote-control.json` (intent: `{ enabled, hook }`), `rc-state.json` (fact: written only by the lock holder), `rc-pairing.json` (the in-flight grant), `host.lock` (election, atomic `wx` create + dead-pid steal). A socket protocol buys nothing here — every transition tolerates 1 s of latency.
+2. **`porte mcp` uses `@modelcontextprotocol/sdk`** (catalog dependency): stdio transport, zero tools, transport close → shutdown. The handshake must succeed — the spike showed Grok retries a server that fails it.
+3. **The hook script is a bash prefilter; the CLI does the work.** The script matches `/remote-control` anywhere in the raw payload and exits silently otherwise — no process spawn on ordinary prompts. The match is loose on purpose: the CLI parses the prompt properly and stays silent for a payload that merely mentions the command, so a false positive costs one npx spawn and nothing else. On match it pipes the payload to `npx -y @porte/cli rc hook`, which runs the verb and prints the block JSON.
+4. **Lock takeover.** An idle daemon polls the lock every 5 s; when the holder dies (its Grok session closed) and `enabled` is true, the next daemon acquires and reconnects. This is what keeps "reachable while ≥1 session is open" true, not just "while the first session is open".
+
+### Contracts
 
 ```ts
-// application/commands/remote-control.ts — one per process, no arguments
-type RemoteControlState =
-  | { type: 'idle' }
-  | { type: 'pairing'; verificationUri: string }               // pairHost running; approval → connect
-  | { type: 'connected'; runtime: HostRuntime; relayUrl: string; stop: AbortController }
+// application/ports/machine-lock.ts — one connected daemon per machine
+interface MachineLock {
+  acquire(): Promise<{ type: 'held' } | { type: 'held-elsewhere'; pid: number }>
+  release(): Promise<void>
+}
 
-type RemoteControlResult =
-  | { type: 'pair'; verificationUri: string }                  // "Open <link> to approve"
-  | { type: 'pairing-pending'; verificationUri: string }
-  | { type: 'pairing-failed'; reason: 'denied' | 'expired' }   // back to idle
-  | { type: 'connected'; url: string }                         // waited for first RelayStatus 'connected', max 10 s
-  | { type: 'connecting'; url: string }                        // still retrying; call again
+// application/ports/remote-control-store.ts
+interface RcSettings { read(): Promise<{ enabled: boolean }>; write(s: { enabled: boolean }): Promise<void> }
+/** Written only by the lock holder; readers treat a dead writer pid as 'off'. */
+interface RcState {
+  read(): Promise<{ status: 'on'; url: string; pid: number } | { status: 'off' }>
+  write(state: { status: 'on'; url: string; pid: number } | { status: 'off' }): Promise<void>
+}
+
+// application/commands/remote-control.ts — runs in the `rc` process, coordinates via the stores
+type RcResult =
+  | { type: 'connected'; url: string }        // waited for rc-state 'on', max 10 s
+  | { type: 'connecting'; url: string }       // enabled written, no holder confirmed yet
   | { type: 'disconnected' }
-  | { type: 'held-elsewhere'; pid: number }                    // another Grok session holds the lock
-
-toggle(): Promise<RemoteControlResult>
-
-// application/ports/host-lock.ts — one connected daemon per machine
-interface HostLock { acquire(): Promise<{ type: 'held' } | { type: 'held-elsewhere'; pid: number }>; release(): Promise<void> }
+  | { type: 'pairing-started' | 'pairing-pending'; verificationUriComplete: string; userCode: string }
+toggle(deps: RcDeps): Promise<RcResult>       // unpaired → issue code, hand it to the detached watcher, return the link at once
+status(deps: RcDeps): Promise<{ type: 'on'; url: string } | { type: 'off'; hostName: string } | { type: 'not-paired' }>
+unpair(deps: RcDeps): Promise<{ type: 'unpaired' } | { type: 'not-paired' }>  // disable, revoke, delete credential
 ```
 
-`DeviceCodeGrant` and `PairingPrompt` gain `verificationUriComplete` (core already parses `verification_uri_complete`; the client drops it today). The tool shows that link.
+`DeviceCodeGrant` and `PairingPrompt` gain `verificationUriComplete` (core already parses `verification_uri_complete`; `DeviceAuthorizationClient` drops it today). The pair prompt shows that link.
 
-## Files
+### Call stacks
 
-| Add                                                                                       | Owns                                                              |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `plugins/grok/.mcp.json`, `plugin.json`, `skills/remote-control/SKILL.md`                 | the plugin                                                        |
-| `.grok-plugin/marketplace.json` (repo root)                                               | `grok plugin marketplace add alexander-zuev/porte`                |
-| `apps/host/src/application/commands/remote-control.ts`                                    | state machine above                                               |
-| `apps/host/src/application/ports/host-lock.ts`, `infrastructure/persistence/host-lock.ts` | pid lock in `~/.porte/host.lock`                                  |
-| `apps/host/src/entrypoints/mcp/run-mcp-command.ts`                                        | `@modelcontextprotocol/sdk` stdio server, one tool, result → text |
-| `tests/unit/remote-control.test.ts`, `tests/unit/host-lock.test.ts`                       | proof                                                             |
+```txt
+/remote-control (session ≥ 2)
+  Grok UserPromptSubmit → ~/.porte/hook/porte-hook.sh (bash prefilter)
+  → npx @porte/cli rc hook  (payload on stdin)
+  → parse verb from .prompt → remote-control.toggle/status/unpair
+  → RcSettings.write / RcState.read / pairHost
+  → stdout {"decision":"block","reason":<UX-table line>} → Grok paints it
 
-| Change                                                                                                                               | What                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| `entrypoints/cli/parse-command.ts`, `run-cli.ts`                                                                                     | `mcp` verb + help                         |
-| `application/ports/device-authorizer.ts`, `infrastructure/porte/device-authorization-client.ts`, `application/commands/pair-host.ts` | pass `verificationUriComplete`            |
-| `apps/host/package.json`, `pnpm-workspace.yaml`                                                                                      | add `@modelcontextprotocol/sdk` (catalog) |
-| `apps/host/README.md`                                                                                                                | plugin install as the first option        |
+daemon (every Grok session start)
+  Grok spawns `npx -y @porte/cli mcp` (.mcp.json)
+  → install hook idempotently (~/.grok/hooks/porte.json + ~/.porte/hook/porte-hook.sh, content compared)
+  → serve MCP stdio; loop every 5 s:
+      lock free + enabled + paired → acquire → createHostRuntime → runtime.run → RcState 'on'
+      disabled while holding      → abort runtime → release → RcState 'off'
+  → stdin EOF (session end) → abort runtime, release lock, RcState 'off'
 
-Unchanged: `porte pair`, `porte up`, `porte unpair`, web, relay.
+failure
+  hook absent/timed out → Grok fails open → skill runs the same `rc` verb through the model (slower, still correct)
+  approval never comes → the watcher dies with the grant's expiry; the next /remote-control issues a fresh code
+  rc toggle with no live daemon (all sessions closing) → 'connecting' line; next session start connects
+  first-ever session → npx cold start can pass Grok's 30 s MCP startup timeout → that session runs daemonless; the cache is warm afterwards
+  rc hook past its 30 s hook timeout → fail-open, the skill re-runs the verb: a toggle that already wrote `enabled` flips back — rare, the daemon keeps the npx cache warm
+```
 
-## Out of scope
+### Files
 
-Unpair from Grok, QR code, status line, xAI marketplace PR, first npm publish (manual prerequisite: `npx @porte/cli` must resolve).
+| Add                                                                                                               | Owns                                                       |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `plugins/grok/plugin.json`, `.mcp.json`, `skills/remote-control/SKILL.md`; `.grok-plugin/marketplace.json` (root) | the plugin (static, unbuilt)                               |
+| `apps/host/src/entrypoints/mcp/run-mcp-command.ts`                                                                | MCP SDK server (stdio, zero tools) + daemon loop above     |
+| `apps/host/src/entrypoints/cli/rc-command.ts`                                                                     | `rc hook\|toggle\|status\|unpair` → result → UX-table text |
+| `apps/host/src/application/commands/remote-control.ts`                                                            | toggle/status/unpair logic                                 |
+| `apps/host/src/application/ports/machine-lock.ts`, `ports/remote-control-store.ts`                                | contracts above                                            |
+| `apps/host/src/infrastructure/persistence/machine-lock.ts`, `remote-control-store.ts`                             | pid lock + atomic JSON files in `~/.porte`                 |
+| `apps/host/src/infrastructure/grok/hook-installer.ts`                                                             | embedded hook script + json, idempotent write              |
+
+| Change                                                                                                                               | What                            |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `entrypoints/cli/parse-command.ts`, `run-cli.ts`                                                                                     | `mcp` + `rc` verbs, help        |
+| `application/ports/device-authorizer.ts`, `infrastructure/porte/device-authorization-client.ts`, `application/commands/pair-host.ts` | pass `verificationUriComplete`  |
+| root `README.md`                                                                                                                     | plugin install as the Grok path |
+
+Unchanged: `porte pair`, `porte up`, `porte unpair`, web, relay, everything under `application/handlers`.
+
+### Test plan (red-green slices)
+
+1. `remote-control.test.ts`: toggle walks not-paired → pairing-started → pairing-pending → fresh code after expiry with fake authorizer/stores; toggle while on disables; unpair revokes and deletes.
+2. `machine-lock.test.ts`: second acquire returns `held-elsewhere`; dead-pid lock is stealable; release is idempotent.
+3. `hook-installer.test.ts`: fresh install writes both files; unchanged content writes nothing; changed script is replaced.
+4. `rc-command.test.ts`: payload → verb parsing (`/remote-control`, `status`, `unpair`, junk suffix); each result renders the exact UX-table line; block JSON is valid.
+5. `run-mcp-command.test.ts`: SDK client handshakes against the server over an in-memory transport; transport close releases the lock and aborts the runtime (fake runtime).
+6. `cli.test.ts` (change): `mcp` and `rc` parse; help text lists them.
+
+## Feature request to xAI
+
+`xai-org/grok-build` is public with issues disabled; the channel is `/feedback` inside Grok. Send:
+
+> Plugins can't deliver a deterministic slash command. Two asks: (1) a `"handled"` decision for `UserPromptSubmit` hooks — paint the hook's text as normal output, skip the model turn, without the ⚠ "Prompt blocked" framing and queue pause; (2) load plugin-shipped `hooks/hooks.json` — today discovery reports `has_hooks=true` but the hook engine registers 0 hooks, so plugins must side-write into `~/.grok/hooks/`. Use case: a `/remote-control` command (Claude Code parity) that must not cost an LLM turn.
+
+Until then the blocked framing is the accepted cost.
+
+## Ship to the marketplace
+
+`@porte/cli` 0.1.7 is on npm — `npx -y @porte/cli` resolves today (verified).
+
+The plugin is static config, not code: no build, no package.json, not in `apps/` or `packages/`. Grok requires the index at the repo root:
+
+```
+.grok-plugin/marketplace.json      # index Grok reads: { name, plugins: [{ name: "porte", source: "./plugins/grok" }] }
+plugins/grok/
+  plugin.json                      # name, version, description
+  .mcp.json                        # porte: npx -y @porte/cli mcp
+  skills/remote-control/SKILL.md
+```
+
+The hook file content is embedded in the CLI (the daemon writes `~/.grok/hooks/porte.json`), so the plugin ships no hooks directory.
+
+1. Validate: `grok plugin validate plugins/grok`; tag: `grok plugin tag --push`.
+2. User install:
+   ```
+   grok plugin marketplace add alexander-zuev/porte
+   grok plugin install porte --trust
+   ```
+   Uninstall removes the skill and the MCP entry but not the opt-in global hook — `npx -y @porte/cli rc disable-hook` first, then `grok plugin uninstall porte`.
+3. Official listing — PR to `xai-org/plugin-marketplace` (verified process from their CONTRIBUTING.md): one entry in `.grok-plugin/marketplace.json` with our repo URL + pinned 40-char commit `sha`, `homepage`, brand-scoped `keywords`/`domains` (`porte`, `useporte.dev`), license stated; run `scripts/generate-plugin-index.py` and `scripts/validate-catalog.py` before opening. Their entries point at a plugin repo's **root** (sentry: `.grok-plugin/plugin.json` + `.mcp.json` + `skills/` at root) — if a root manifest with path overrides can't point into `plugins/grok/`, the listing needs a small dedicated plugin repo; decide at PR time.
 
 ## Proof
 
-1. Unit: `toggle()` walks idle → pairing → connected → idle with a fake authorizer, runtime, and lock; second lock holder gets `held-elsewhere`.
-2. Live: `grok plugin install ./plugins/grok --trust`; new session; `/remote-control` ×3 = link, connected URL, disconnected. Phone shows the online/offline toasts. Second Grok session: `held-elsewhere`.
+1. Unit: `toggle()` walks idle → pairing → connected → idle with fake authorizer, runtime, lock; second lock holder gets `held-elsewhere`; `unpair()` clears credentials; daemon start with saved on-state connects without a command.
+2. Live: install per §Ship, session 1 `/remote-control` pairs via fallback, session 2 `/remote-control` toggles in <1 s with hook text; two sessions → second stays idle; last session close → phone shows machine offline.
 
-## Open question
-
-Grok "leader" mode may share one MCP process across sessions. Live step 2 answers it; the lock is correct either way.
+Pairing never waits inside the hook: a hook paints exactly one text at exit, so the link could not be shown before a wait — the two-phase flow (link at once, detached watcher, auto-connect on approval) is the only shape that works, and it is the better UX.

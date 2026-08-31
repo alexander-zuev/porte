@@ -5,8 +5,10 @@ import {
 import { isCliError } from '@host/entrypoints/cli/cli-error.ts'
 import { runPairCommand } from '@host/entrypoints/cli/pair-command.ts'
 import { VERSION, parseCommand } from '@host/entrypoints/cli/parse-command.ts'
+import { runRcCommand } from '@host/entrypoints/cli/rc-command.ts'
 import { runUpCommand } from '@host/entrypoints/cli/run-up-command.ts'
 import { runUnpairCommand } from '@host/entrypoints/cli/unpair-command.ts'
+import { runMcpCommand } from '@host/entrypoints/mcp/mcp-command.ts'
 import { createPairingResources } from '@host/infrastructure/bootstrap/pairing-resources.ts'
 import { loadConfig, type HostConfig } from '@host/infrastructure/config/host-config.ts'
 
@@ -53,6 +55,20 @@ async function dispatch(argv: readonly string[], io: CliIo): Promise<number> {
   if (command.kind === 'up') {
     await runUpCommand({ config, stderr: io.stderr })
     return 0
+  }
+
+  if (command.kind === 'mcp') {
+    await runMcpCommand(config)
+    return 0
+  }
+
+  if (command.kind === 'rc') {
+    return runRcCommand({
+      config,
+      verb: command.verb,
+      stdin: process.stdin,
+      stdout: io.stdout,
+    })
   }
 
   if (command.kind === 'pair') {

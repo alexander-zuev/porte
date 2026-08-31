@@ -20,6 +20,8 @@ export type PairingOutcome =
 export type PairingPrompt = {
   readonly userCode: string
   readonly verificationUri: string
+  /** The same page with the code pre-filled: approval is one tap. */
+  readonly verificationUriComplete: string
   readonly expiresInSeconds: number
 }
 
@@ -57,9 +59,25 @@ export async function pairHost(input: PairHostInput): Promise<PairingOutcome> {
   input.onPrompt({
     userCode: grant.userCode,
     verificationUri: grant.verificationUri,
+    verificationUriComplete: grant.verificationUriComplete,
     expiresInSeconds: grant.expiresInSeconds,
   })
+  return completePairing(input, grant)
+}
 
+/** What waiting on an already-issued grant needs. */
+export type CompletePairingInput = Omit<PairHostInput, 'host' | 'onPrompt'>
+
+/**
+ * Wait on a grant that was already issued and shown.
+ *
+ * The Grok hook prints the link and exits; a detached watcher finishes the
+ * pairing with this half, so both flows store the credential the same way.
+ */
+export async function completePairing(
+  input: CompletePairingInput,
+  grant: DeviceCodeGrant,
+): Promise<PairingOutcome> {
   const answered = await waitForApproval(input, grant)
   if (answered.status !== 'paired') return answered
 
@@ -80,7 +98,10 @@ export async function pairHost(input: PairHostInput): Promise<PairingOutcome> {
  * The deadline is enforced here as well as by the server, so a server that
  * stops answering cannot leave the daemon polling forever.
  */
-async function waitForApproval(input: PairHostInput, grant: DeviceCodeGrant): Promise<Answer> {
+async function waitForApproval(
+  input: CompletePairingInput,
+  grant: DeviceCodeGrant,
+): Promise<Answer> {
   const deadline = input.now() + grant.expiresInSeconds * 1000
   let intervalSeconds = grant.intervalSeconds
   let attempt = 0

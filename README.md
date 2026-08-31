@@ -2,13 +2,33 @@
 
 Porte (French for door) is a remote control for Grok CLI, from your phone.
 
-Your Grok sessions keep running on your laptop; the phone reads, prompts, and approves.
+Grok stays on your machine. The phone reads, prompts, and approves.
 
 https://useporte.dev
 
 ## Install
 
-Hand it to your agent:
+As a Grok plugin — no manual install; Grok runs Porte with each session:
+
+```sh
+grok plugin marketplace add alexander-zuev/porte
+grok plugin install porte --trust
+```
+
+Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli rc disable-hook` first; plugin uninstall does not remove it.
+
+Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli rc enable-hook` (undo with `rc disable-hook`).
+
+Optional status row in Grok — a green `/rc on` while the machine is reachable. Add to `~/.grok/config.toml` (only your own config can set this; a plugin cannot):
+
+```toml
+[ui.status_line]
+type = "command"
+command = "~/.porte/statusline.sh"
+refresh_interval = 30
+```
+
+Or hand it to your agent:
 
 > Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.
 
@@ -22,12 +42,7 @@ porte up     # keep this running so the phone can reach the machine
 
 Undo: `porte unpair`, then `npm rm -g @porte/cli`.
 
-## How it works
-
-1. Run `porte up` on the machine where you already use Grok.
-2. Sign in on your phone and pair that machine.
-3. Open a conversation — or start a new one in a known repo.
-4. Read the transcript. Prompt. Approve or deny.
+## What it does
 
 ```
 Phone (your account)  →  Porte  →  your paired machine
@@ -37,19 +52,7 @@ Phone (your account)  →  Porte  →  your paired machine
                                            local repos
 ```
 
-## What Porte handles
-
-Porte relays remote actions. Your machine keeps the Grok runtime, repos, and files.
-
-| ☁️ Us                                          | 💻 Your machine         |
-| ---------------------------------------------- | ----------------------- |
-| App account, pairing, and live relay           | `grok.com` login, spend |
-| Conversation list (id, cwd, repo, title)       | Repos, files            |
-| Transcript of conversations you run through it | The Grok process        |
-
-Transcripts stay on the relay so the phone can read a conversation while the machine is offline. Details: [Privacy](https://useporte.dev/privacy).
-
-## What works today
+Works today:
 
 - Open any Grok conversation on the paired machine, or start one in a known repo
 - Read the transcript live: thoughts, tool calls with diffs and read output, Grok's answer
@@ -57,24 +60,21 @@ Transcripts stay on the relay so the phone can read a conversation while the mac
 - Allow or deny a permission request from the phone
 - Model, mode, and context usage shown under the composer
 - Install as a home-screen app on iOS and Android
+- Pair, connect, and disconnect from inside Grok with one `/remote-control` command (Grok plugin)
 
-## Not yet
+Not yet:
 
 - Live output of a turn you started in the TUI: the phone shows it once that turn ends
 - Grok's own questions to you (`ask_user_question`): the turn waits until you answer in the TUI
 - Push notification when Grok needs an approval
 - Switching model or mode from the phone
 - More than one paired machine per account
-- A Grok plugin that pairs and connects with one `/remote-control` command
 
 ## Safety
 
-Remote Grok is the same Grok you already run.
+Remote Grok is the same Grok you already run: same directory, `AGENTS.md`, rules, hooks, sandbox, and ask/deny. No `--always-approve`. No extra filesystem or network power. Deny on the phone is deny.
 
-- Starts in **that project’s directory**
-- Inherits your `AGENTS.md`, rules, hooks, sandbox, and ask/deny
-- No `--always-approve`. No extra filesystem or network power
-- A click on the TUI is still a click on the phone. Deny still denies
+Porte stores your account, pairing, and the transcript of conversations you run through it, so the phone can read while the machine is offline. Repos, files, and your grok.com login stay on the machine. [Privacy](https://useporte.dev/privacy).
 
 ## Development
 
@@ -88,7 +88,7 @@ pnpm turbo run lint typecheck test:unit test:integration
 pnpm --filter @porte/web test:design              # Playwright pictures; Mac only, run before a commit
 ```
 
-Cloudflare types are generated (`worker-configuration.d.ts`, gitignored). Turbo runs `cf-typegen` before lint, typecheck, tests, and build, so a fresh checkout sees what a dev does.
+Cloudflare types are generated (`worker-configuration.d.ts`, gitignored). Turbo runs `cf-typegen` before lint, typecheck, tests, and build.
 
 ### Releasing the CLI
 

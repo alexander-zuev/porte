@@ -20,6 +20,8 @@ Commands:
   pair             Link this machine to your Porte account
   unpair           End this machine's pairing
   up               Connect this host to Porte
+  mcp              Run the Grok-session daemon (started by the Grok plugin)
+  rc               Remote-control verbs for the Grok hook and skill
 
 Examples:
   porte pair
@@ -70,6 +72,39 @@ Environment:
   PORTE_DATA_DIRECTORY  Host data directory. Defaults to ~/.porte
 `
 
+/** Help for `porte rc`. */
+export const RC_HELP = `Usage:
+  porte rc <verb>
+
+Remote-control verbs. The Grok plugin runs these; they also work by hand.
+
+Verbs:
+  toggle           Turn remote control on or off
+  status           One line: on, off, or not paired
+  unpair           Remove this machine from your Porte account
+  enable-hook      Answer /remote-control instantly, without a model turn
+  disable-hook     Back to running /remote-control through the model
+  hook             Read a Grok hook payload on stdin, answer on stdout
+  watch-pairing    Wait for a phone approval (started by toggle, detached)
+
+Options:
+  -h, --help        Show this help
+`
+
+/** The rc verbs `porte rc` accepts. */
+const RC_VERBS = [
+  'hook',
+  'toggle',
+  'status',
+  'unpair',
+  'enable-hook',
+  'disable-hook',
+  'watch-pairing',
+] as const
+
+/** One remote-control verb. */
+export type RcVerbName = (typeof RC_VERBS)[number]
+
 /** Parsed argv. */
 export type Command =
   | { readonly kind: 'help'; readonly text: string }
@@ -77,6 +112,8 @@ export type Command =
   | { readonly kind: 'pair' }
   | { readonly kind: 'unpair' }
   | { readonly kind: 'up' }
+  | { readonly kind: 'mcp' }
+  | { readonly kind: 'rc'; readonly verb: RcVerbName }
 
 /**
  * Parse POSIX flags and one subcommand.
@@ -131,7 +168,24 @@ export function parseCommand(argv: readonly string[]): Command {
     }
     return { kind: 'unpair' }
   }
+  if (verb === 'mcp') {
+    if (positionals.length !== 1) {
+      throw new UsageError({ message: HELP.trimEnd() })
+    }
+    return { kind: 'mcp' }
+  }
+  if (verb === 'rc') {
+    const rcVerb = positionals[1]
+    if (positionals.length !== 2 || !isRcVerb(rcVerb)) {
+      throw new UsageError({ message: RC_HELP.trimEnd() })
+    }
+    return { kind: 'rc', verb: rcVerb }
+  }
   throw new UsageError({ message: HELP.trimEnd() })
+}
+
+function isRcVerb(value: string | undefined): value is RcVerbName {
+  return RC_VERBS.some((verb) => verb === value)
 }
 
 function parseCommandArgs(argv: readonly string[]) {

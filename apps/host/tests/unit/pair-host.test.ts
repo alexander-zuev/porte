@@ -15,6 +15,7 @@ const GRANT: DeviceCodeGrant = {
   deviceCode: 'device-secret',
   userCode: 'ABC123',
   verificationUri: 'https://useporte.dev/pair',
+  verificationUriComplete: 'https://useporte.dev/pair?code=ABC123',
   intervalSeconds: 3,
   expiresInSeconds: 600,
 }

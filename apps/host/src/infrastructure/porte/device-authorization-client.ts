@@ -77,6 +77,7 @@ export class DeviceAuthorizationClient implements DeviceAuthorizer {
       deviceCode: data.device_code,
       userCode: data.user_code,
       verificationUri: data.verification_uri,
+      verificationUriComplete: data.verification_uri_complete,
       intervalSeconds: data.interval,
       expiresInSeconds: data.expires_in,
     }

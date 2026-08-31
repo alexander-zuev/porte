@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "porte": {
+      "command": "npx",
+      "args": ["-y", "@porte/cli", "mcp"]
+    }
+  }
+}

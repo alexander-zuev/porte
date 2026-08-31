@@ -8,6 +8,8 @@ export type DeviceCodeGrant = {
   readonly userCode: string
   /** Where to type it. */
   readonly verificationUri: string
+  /** The same page with the code pre-filled: approval is one tap. */
+  readonly verificationUriComplete: string
   /** Seconds the daemon must wait between polls. */
   readonly intervalSeconds: number
   /** Seconds until the code stops working. */
