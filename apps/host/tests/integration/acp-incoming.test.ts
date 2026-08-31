@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -7,7 +7,13 @@ import {
   answerIncomingRequest,
   parsePermissionRequest,
 } from '@host/infrastructure/acp/incoming-request.ts'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+
+const folders: string[] = []
+
+afterEach(async () => {
+  await Promise.all(folders.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
+})
 
 describe('answerIncomingRequest', () => {
   it('parses a permission request', () => {
@@ -22,6 +28,7 @@ describe('answerIncomingRequest', () => {
 
   it('writes and reads a text file', async () => {
     const folder = await mkdtemp(join(tmpdir(), 'porte-fs-'))
+    folders.push(folder)
     const path = join(folder, 'pong.txt')
     await answerIncomingRequest(folder, 'fs/write_text_file', {
       path,
