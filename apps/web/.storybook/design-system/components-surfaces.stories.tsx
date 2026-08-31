@@ -8,7 +8,6 @@ import {
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { notifyHostOffline, notifyHostOnline } from '@web/features/relay/host-connection-toasts.tsx'
-import { CopyPrompt } from '@web/ui/components/copy-prompt.tsx'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
@@ -282,12 +281,6 @@ function SurfacesBoard() {
           <TerminalCommand command="grok plugin install porte --trust" />
           <Separator />
           <TerminalCommand command="curl -fsSL https://porte.dev/install.sh | sh" />
-        </Specimen>
-        <Specimen
-          label="Copy prompt"
-          note="Beside the command, for the person who hands setup to an agent."
-        >
-          <CopyPrompt prompt="Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine." />
         </Specimen>
       </Section>
     </Board>

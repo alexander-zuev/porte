@@ -1,7 +1,6 @@
 import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { RiGrokAiFill } from '@remixicon/react'
-import { AGENT_PROMPT, PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
-import { CopyPrompt } from '@web/ui/components/copy-prompt.tsx'
+import { PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import type { ReactNode } from 'react'
 
@@ -29,17 +28,8 @@ export function LandingPage() {
       </h1>
 
       <div className="flex flex-col gap-4">
-        {/* One control: the box is the command to type, the button is the path
-            for a person who hands setup to Claude Code, Codex, or Grok. */}
-        <div className="flex max-w-2xl flex-wrap items-center gap-3">
-          <TerminalCommand
-            typed
-            className="max-w-md flex-1"
-            command={PLUGIN_INSTALL_COMMAND}
-            copy={false}
-          />
-          <CopyPrompt prompt={AGENT_PROMPT} />
-        </div>
+        {/* One control: the box shows the command and copies it verbatim. */}
+        <TerminalCommand typed className="max-w-2xl" command={PLUGIN_INSTALL_COMMAND} />
         <p className="max-w-[46ch] text-muted-foreground">
           Pair your machine. Then run Grok from your phone.
         </p>
