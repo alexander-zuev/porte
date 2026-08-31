@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Run the command, print its output. Nothing else.
 
-1. Run `npx -y @porte/cli rc <verb>` in the terminal. The verb is the first
+1. Run `npx -y @porte/cli@0.2.2 rc <verb>` in the terminal. The verb is the first
    word after `/remote-control`: none → `toggle`, `status` → `status`,
    `unpair` → `unpair`. Any other word: print exactly
    `Unknown option. Use /remote-control, /remote-control status, or /remote-control unpair.`

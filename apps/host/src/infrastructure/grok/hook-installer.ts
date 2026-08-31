@@ -78,7 +78,7 @@ function hookScript(): string {
 input=$(cat)
 case "$input" in
   *'/remote-control'*)
-    printf '%s' "$input" | exec npx -y @porte/cli rc hook
+    printf '%s' "$input" | exec npx -y @porte/cli@0.2.2 rc hook
     ;;
 esac
 exit 0

@@ -16,9 +16,9 @@ grok plugin install porte --trust
 
 If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry.
 
-Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli rc disable-hook` first; plugin uninstall does not remove it.
+Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.2 rc disable-hook` first; plugin uninstall does not remove it.
 
-Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli rc enable-hook` (undo with `rc disable-hook`).
+Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.2 rc enable-hook` (undo with `rc disable-hook`).
 
 Optional status row in Grok — a green `/rc on` while the machine is reachable. Add to `~/.grok/config.toml` (only your own config can set this; a plugin cannot):
 
@@ -66,6 +66,8 @@ Not yet:
 Remote Grok is the same Grok you already run: same directory, `AGENTS.md`, rules, hooks, sandbox, and ask/deny. No `--always-approve`. No extra filesystem or network power. Deny on the phone is deny.
 
 Porte stores your account, pairing, and the transcript of conversations you run through it, so the phone can read while the machine is offline. Repos, files, and your grok.com login stay on the machine. [Privacy](https://useporte.dev/privacy).
+
+The CLI stores a Porte bearer credential at `~/.porte/credentials.json` with owner-only file permissions. `/remote-control unpair` revokes the credential and deletes the file.
 
 ## Development
 
