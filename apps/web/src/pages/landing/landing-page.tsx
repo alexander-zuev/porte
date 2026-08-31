@@ -1,7 +1,6 @@
 import { GithubLogoIcon, LaptopIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { RiGrokAiFill } from '@remixicon/react'
-import { PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
-import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
+import { SetupActions } from '@web/pages/landing/setup-actions.tsx'
 import type { ReactNode } from 'react'
 
 const PROOF: readonly { readonly icon: ReactNode; readonly label: string }[] = [
@@ -28,8 +27,7 @@ export function LandingPage() {
       </h1>
 
       <div className="flex flex-col gap-4">
-        {/* One control: the box shows the command and copies it verbatim. */}
-        <TerminalCommand typed className="max-w-2xl" command={PLUGIN_INSTALL_COMMAND} />
+        <SetupActions />
         <p className="max-w-[46ch] text-muted-foreground">
           Pair your machine. Then run Grok from your phone.
         </p>

@@ -8,10 +8,14 @@ import { Button } from '@web/ui/components/ui/button.tsx'
 import { useEffect, useRef, useState } from 'react'
 
 const COPIED_RESET_MS = 2000
+const TYPING_SPEED_MS = 55
+const FIRST_LINE_DELAY_MS = 350
+const LINE_PAUSE_MS = 300
 
 /** Props for a terminal command the reader runs on their own machine. */
 export type TerminalCommandProps = {
-  readonly command: string
+  /** One command, or several shown one per line and copied as one `&&` chain. */
+  readonly command: string | readonly string[]
   /** The prompt glyph: '$' for a shell, '>' for a command typed inside Grok. */
   readonly prompt?: '$' | '>'
   /** Type the command out on first paint instead of showing it at once. */
@@ -21,7 +25,7 @@ export type TerminalCommandProps = {
   readonly className?: string
 }
 
-/** Show one shell command and copy it to the clipboard on request. */
+/** Show shell commands one per line and copy them as one chain on request. */
 export function TerminalCommand({
   command,
   prompt = '$',
@@ -31,6 +35,8 @@ export function TerminalCommand({
 }: TerminalCommandProps) {
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef(0)
+  const lines = Array.isArray(command) ? command : [command]
+  const copyText = lines.join(' && ')
 
   useEffect(
     () => () => {
@@ -41,7 +47,7 @@ export function TerminalCommand({
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(command)
+      await navigator.clipboard.writeText(copyText)
     } catch {
       // Clipboard is unavailable or denied; the command stays selectable.
       return
@@ -53,6 +59,12 @@ export function TerminalCommand({
     }, COPIED_RESET_MS)
   }
 
+  // Each line starts typing after every earlier line has finished.
+  function lineDelay(index: number): number {
+    const typedBefore = lines.slice(0, index).reduce((sum, line) => sum + line.length, 0)
+    return FIRST_LINE_DELAY_MS + typedBefore * TYPING_SPEED_MS + index * LINE_PAUSE_MS
+  }
+
   return (
     <div
       className={cn(
@@ -62,16 +74,29 @@ export function TerminalCommand({
     >
       <code
         tabIndex={0}
-        className="flex-1 overflow-x-auto rounded-sm bg-transparent p-0 text-left whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring"
+        className="flex-1 overflow-x-auto rounded-sm bg-transparent p-0 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring"
       >
-        <span aria-hidden className="text-muted-foreground select-none">
-          {prompt}{' '}
-        </span>
-        {typed ? <TextType text={command} /> : command}
+        {lines.map((line, index) => (
+          <div key={line} className="whitespace-nowrap">
+            <span aria-hidden className="text-muted-foreground select-none">
+              {prompt}{' '}
+            </span>
+            {typed ? (
+              <TextType
+                initialDelay={lineDelay(index)}
+                showCursor={index === lines.length - 1}
+                text={line}
+                typingSpeed={TYPING_SPEED_MS}
+              />
+            ) : (
+              line
+            )}
+          </div>
+        ))}
       </code>
       {withCopy ? (
         <Button
-          aria-label={copied ? 'Command copied' : `Copy ${command}`}
+          aria-label={copied ? 'Command copied' : `Copy ${copyText}`}
           size="icon-sm"
           variant="ghost"
           onClick={() => {

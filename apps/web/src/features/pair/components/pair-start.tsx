@@ -1,6 +1,6 @@
 import { LaptopIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
-import { PLUGIN_INSTALL_COMMAND, REMOTE_CONTROL_COMMAND } from '@web/lib/product.ts'
+import { PLUGIN_INSTALL_COMMANDS, REMOTE_CONTROL_COMMAND } from '@web/lib/product.ts'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 
@@ -27,7 +27,7 @@ export function PairStart() {
 
       <div className="flex flex-col gap-2">
         <small className="text-muted-foreground">In a terminal on that machine</small>
-        <TerminalCommand command={PLUGIN_INSTALL_COMMAND} />
+        <TerminalCommand command={PLUGIN_INSTALL_COMMANDS} />
         <small className="pt-2 text-muted-foreground">Then inside Grok</small>
         <TerminalCommand command={REMOTE_CONTROL_COMMAND} prompt=">" />
       </div>

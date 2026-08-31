@@ -1,5 +1,5 @@
 import { FolderSimpleIcon, LinkIcon, WarningCircleIcon } from '@phosphor-icons/react'
-import { PLUGIN_INSTALL_COMMAND } from '@web/lib/product.ts'
+import { PLUGIN_INSTALL_COMMANDS } from '@web/lib/product.ts'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import {
@@ -82,7 +82,7 @@ export function ConversationHomeFailure({
           </Button>
         ) : (
           <>
-            <TerminalCommand command={PLUGIN_INSTALL_COMMAND} />
+            <TerminalCommand command={PLUGIN_INSTALL_COMMANDS} />
             <Button variant="ghost" onClick={onPair}>
               Enter a pairing code
             </Button>
