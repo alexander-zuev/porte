@@ -42,9 +42,10 @@ export function parseRcVerb(prompt: string): 'toggle' | 'status' | 'unpair' | 'u
 export function renderToggleResult(result: RcToggleResult): string {
   switch (result.type) {
     case 'pairing-started':
-      return `Open ${result.verificationUriComplete} on your phone to approve this machine (code ${result.userCode}). It connects on its own once you approve.`
+      // The link stands alone on its own line so it can be copied in one gesture.
+      return `Open this link on your phone to approve this machine (code ${result.userCode}):\n\n${result.verificationUriComplete}\n\nIt connects on its own once you approve.`
     case 'pairing-pending':
-      return `Still waiting for approval. Open ${result.verificationUriComplete} on your phone (code ${result.userCode}).`
+      return `Still waiting for approval. Open this link on your phone (code ${result.userCode}):\n\n${result.verificationUriComplete}`
     case 'connected':
       return `Remote control on. Run this machine's Grok sessions from your phone: ${result.url}`
     case 'connecting':

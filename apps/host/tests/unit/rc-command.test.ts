@@ -34,7 +34,7 @@ describe('rendering', () => {
         userCode: 'ABC123',
       }),
     ).toBe(
-      'Open https://useporte.dev/pair?code=ABC123 on your phone to approve this machine (code ABC123). It connects on its own once you approve.',
+      'Open this link on your phone to approve this machine (code ABC123):\n\nhttps://useporte.dev/pair?code=ABC123\n\nIt connects on its own once you approve.',
     )
     expect(
       renderToggleResult({
@@ -43,7 +43,7 @@ describe('rendering', () => {
         userCode: 'ABC123',
       }),
     ).toBe(
-      'Still waiting for approval. Open https://useporte.dev/pair?code=ABC123 on your phone (code ABC123).',
+      'Still waiting for approval. Open this link on your phone (code ABC123):\n\nhttps://useporte.dev/pair?code=ABC123',
     )
     expect(renderToggleResult({ type: 'connected', url: 'https://useporte.dev' })).toBe(
       "Remote control on. Run this machine's Grok sessions from your phone: https://useporte.dev",
