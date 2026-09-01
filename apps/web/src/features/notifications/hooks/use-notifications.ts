@@ -34,8 +34,8 @@ function parseIds(raw: string): string[] {
 }
 
 export type Notifications = {
+  /** Only what is not dismissed; the menu dot shows while any remain. */
   readonly notifications: readonly PorteNotification[]
-  /** How many are not dismissed; the menu dot shows while it is above zero. */
   readonly unread: number
   readonly dismiss: (id: string) => void
 }
@@ -45,7 +45,9 @@ export function useNotifications(): Notifications {
   const account = useQuery(hostQueries.forAccount())
   const dismissedRaw = useSyncExternalStore(subscribe, readDismissed, () => '[]')
   const dismissed = new Set(parseIds(dismissedRaw))
-  const notifications = deriveNotifications(account.data)
+  const notifications = deriveNotifications(account.data).filter(
+    (notification) => !dismissed.has(notification.id),
+  )
 
   const dismiss = useCallback((id: string) => {
     try {
@@ -57,9 +59,5 @@ export function useNotifications(): Notifications {
     for (const listener of listeners) listener()
   }, [])
 
-  return {
-    notifications,
-    unread: notifications.filter((notification) => !dismissed.has(notification.id)).length,
-    dismiss,
-  }
+  return { notifications, unread: notifications.length, dismiss }
 }
