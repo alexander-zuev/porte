@@ -183,7 +183,7 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
       <DrawerTrigger className={toolRowClass}>{children}</DrawerTrigger>
       <DrawerContent>
         <SheetHeader title={view.label} />
-        <div className={cn(SHEET_BODY, 'overflow-y-auto overscroll-contain px-4')}>
+        <div className={cn(SHEET_BODY, 'overflow-y-auto overscroll-contain px-4 pt-3')}>
           <ToolDetail call={call} />
         </div>
       </DrawerContent>
@@ -248,7 +248,7 @@ export function RunSheetBody({
         </div>
         <div
           inert={selected === null}
-          className={cn(SHEET_PANEL, selected === null && 'translate-x-full opacity-0')}
+          className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full opacity-0')}
         >
           {selected === null ? null : <ToolDetail call={selected} />}
         </div>
