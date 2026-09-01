@@ -95,6 +95,20 @@ Consequence: a message that reaches Grok cannot be withdrawn. The queue must sit
 - The Host does not change. One turn at a time stays a Host invariant (`ConversationBusyError`).
 - A drain starts through the SDK's `saveMessages`, which waits for the active chat turn and then runs `onChatMessage`. No hand-rolled scheduler.
 
+### What the stack provides, checked in the installed code
+
+| Primitive                                              | Gives                                                                                                                 | Verdict                                                                                                     |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ACP v1 `session/prompt`, `session/cancel`              | One turn at a time; cancel the running one                                                                            | Used as today. No queue, no inject, no read of Grok's queue (`x.ai/queue/*` is `Method not found`).         |
+| ACP v2 draft (`state_update`, idle)                    | Notification-based turn end                                                                                           | Experimental in SDK 1.4.0; Grok 1.0.13 does not implement it.                                               |
+| `AIChatAgent.messageConcurrency` (`queue`, `merge`, …) | Serializes and folds overlapping `sendMessage` submits                                                                | In-memory `TurnQueue`: no per-item cancel, reorder, or list; lost on DO restart. Not used for the queue.    |
+| `Agent.queue()`, `dequeue()`, `getQueues()`            | Durable SQLite task queue with retry                                                                                  | Flushes only from `queue()`, never on wake; no reorder; not broadcast. Would need a second store. Not used. |
+| `AIChatAgent.saveMessages(rows)`                       | Persist, then run one chat turn after the active one; resolves when the turn ends; unaffected by `messageConcurrency` | The turn starter. Used, never awaited from an event handler.                                                |
+| `AIChatAgent.waitUntilStable()`                        | Resolves when no turn, continuation, or client interaction is pending                                                 | The drain's SDK-side guard. Used before `saveMessages`, as the docs require for non-chat entry points.      |
+| `persistMessages` + message broadcast                  | SQLite rows pushed to every viewer                                                                                    | The queue's storage and fan-out. Used.                                                                      |
+
+Custom, and why: the `queued` row marker (so the SDK rows are the queue and every viewer sees it), four callables (a mid-turn `sendMessage` would land in the SDK's in-memory queue), and `drainQueue` (fold plus `saveMessages`, about thirty lines). `messageConcurrency` stays `queue` so a legitimate send in the gap after `turn.finished` waits instead of being dropped.
+
 ### Alternatives
 
 | Option                                  | Cancel | Durable      | Streaming of queued turn          | Verdict                                                  |
@@ -217,12 +231,15 @@ Composer Enter while running
 Host `turn.finished`
   -> acceptEvent -> close stream -> onChatResponse -> reconcileTurn
   -> drainQueue()
-drainQueue()
-  if activeStream || state.runningTurnId return
+drainQueue()                                               // never awaited by a caller
+  if !(await this.waitUntilStable({ timeout })) return      // SDK: no active turn, no pending client interaction
+  if state.runningTurnId return                            // Host fact the SDK cannot see
   rows = this.messages.filter(isQueuedRow); if rows.length === 0 return
   next = sendNow (DO storage) ? [that row] : rows        // Send now runs one row alone
   void this.saveMessages((all) => replace(all, next, foldQueuedRows(next)))
-       // SDK waits for _reply, then runs onChatMessage
+       // documented SDK entry for server-driven turns: persists, serializes after the
+       // active turn regardless of messageConcurrency, runs onChatMessage, resolves
+       // only when the whole turn ends, so it is never awaited inside acceptEvent
 onChatMessage
   row = nextUserRow(this.messages)           // replaces latestUserMessage
   stamp { attemptId }, open stream, hostSocket.request('turn.start')   // rest unchanged
