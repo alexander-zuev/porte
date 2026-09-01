@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// Must precede every schema-constructing import: zod compiles only schemas built after it.
+import 'zod/compile'
 import { setLogSink } from '@porte/core/client'
 
 const major = Number(process.versions.node.split('.')[0])
