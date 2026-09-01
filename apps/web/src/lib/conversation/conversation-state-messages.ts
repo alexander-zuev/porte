@@ -92,6 +92,56 @@ export function turnIdOfRow(row: UIMessage): TurnId | undefined {
   return parsed.success ? parsed.data.turnId : undefined
 }
 
+/** The relay's marker on a user row that waits for the running turn to end. */
+const RowQueuedSchema = z.object({ queued: z.literal(true) })
+
+/** The metadata a queued row carries until `onChatMessage` starts it. */
+export const QUEUED_ROW_METADATA = { queued: true } as const
+
+/** True for a user row the relay holds back until the running turn ends. */
+export function isQueuedRow(row: UIMessage): boolean {
+  return row.role === 'user' && RowQueuedSchema.safeParse(row.metadata).success
+}
+
+/**
+ * The user row `onChatMessage` starts: the first one with no turn link and no
+ * attempt stamp. A browser send and a drained queue row both look like this.
+ *
+ * @param messages - The rows AIChatAgent holds, in transcript order.
+ * @returns The row to start, or undefined when every user row is already linked.
+ */
+export function nextUserRow(messages: readonly UIMessage[]): UIMessage | undefined {
+  return messages.find(
+    (row) =>
+      row.role === 'user' && turnIdOfRow(row) === undefined && attemptIdOfRow(row) === undefined,
+  )
+}
+
+/**
+ * Every queued row folded into one, in order, under the first row's id.
+ * Adjacent text parts join with a blank line, the way the SDK's `merge`
+ * strategy joins overlapping submits. Other parts keep their place.
+ *
+ * @param rows - At least one queued row.
+ * @returns One user row that still carries the queued marker.
+ */
+export function foldQueuedRows(rows: readonly UIMessage[]): UIMessage {
+  const [first, ...rest] = rows
+  if (first === undefined) throw new RangeError('foldQueuedRows needs at least one row')
+  const parts: UIMessage['parts'] = [...first.parts]
+  for (const row of rest) {
+    for (const part of row.parts) {
+      const last = parts.at(-1)
+      if (part.type === 'text' && last?.type === 'text') {
+        parts[parts.length - 1] = { ...last, text: `${last.text}\n\n${part.text}` }
+      } else {
+        parts.push(part)
+      }
+    }
+  }
+  return { id: first.id, role: 'user', metadata: QUEUED_ROW_METADATA, parts }
+}
+
 /**
  * Convert one complete Host state into the messages owned by AIChatAgent.
  *

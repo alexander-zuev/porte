@@ -1,12 +1,17 @@
 import {
   ConversationIdSchema,
   MessageIdSchema,
+  createAttemptId,
   turnIdFor,
   type ConversationState,
   type ConversationTurn,
 } from '@porte/core/client'
 import {
+  QUEUED_ROW_METADATA,
   conversationStateToMessages,
+  foldQueuedRows,
+  isQueuedRow,
+  nextUserRow,
   turnToMessages,
 } from '@web/lib/conversation/conversation-state-messages.ts'
 import type { UIMessage } from 'ai'
@@ -101,5 +106,47 @@ describe('conversationStateToMessages', () => {
       `user ${second}:user`,
       `assistant ${second}`,
     ])
+  })
+})
+
+const text = (value: string): UIMessage['parts'][number] => ({ type: 'text', text: value })
+
+describe('queued rows', () => {
+  const linked: UIMessage = { id: 'u1', role: 'user', metadata: { turnId }, parts: [text('A')] }
+  const sent: UIMessage = {
+    id: 'u2',
+    role: 'user',
+    metadata: { attemptId: createAttemptId() },
+    parts: [text('B')],
+  }
+  const queued: UIMessage = {
+    id: 'u3',
+    role: 'user',
+    metadata: QUEUED_ROW_METADATA,
+    parts: [text('C')],
+  }
+  const bare: UIMessage = { id: 'u4', role: 'user', parts: [text('D')] }
+
+  it('marks only user rows that carry the queued flag', () => {
+    expect(isQueuedRow(queued)).toBe(true)
+    expect(isQueuedRow(bare)).toBe(false)
+    expect(isQueuedRow({ ...queued, role: 'assistant' })).toBe(false)
+  })
+
+  it('starts the first user row with no turn link and no attempt stamp', () => {
+    expect(nextUserRow([linked, sent, queued, bare])?.id).toBe('u3')
+    expect(nextUserRow([linked, sent])).toBeUndefined()
+  })
+
+  it('folds queued rows into one under the first id, text joined by a blank line', () => {
+    const file: UIMessage['parts'][number] = { type: 'file', mediaType: 'image/png', url: 'data:' }
+    const folded = foldQueuedRows([
+      queued,
+      { id: 'u5', role: 'user', metadata: QUEUED_ROW_METADATA, parts: [file, text('E')] },
+      { id: 'u6', role: 'user', metadata: QUEUED_ROW_METADATA, parts: [text('F')] },
+    ])
+    expect(folded.id).toBe('u3')
+    expect(folded.metadata).toEqual(QUEUED_ROW_METADATA)
+    expect(folded.parts).toEqual([text('C'), file, text('E\n\nF')])
   })
 })
