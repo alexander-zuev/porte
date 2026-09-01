@@ -107,24 +107,23 @@ const nonValidationErrorPayloadFields = {
 
 const remoteErrorFields = { remote: z.literal(true) }
 
-const RemoteDomainErrorSchema = z.intersection(
-  z.instanceof(Error),
-  z.discriminatedUnion('_tag', [
-    z.object({
-      ...validationErrorPayloadFields,
-      ...remoteErrorFields,
-    }),
-    z.object({
-      ...nonValidationErrorPayloadFields,
-      ...remoteErrorFields,
-    }),
-  ]),
-)
+// Not intersected with `z.instanceof(Error)`: zod merges intersection outputs, and an
+// Error instance cannot merge with a plain object — `safeParse` throws on every match.
+const RemoteDomainErrorSchema = z.discriminatedUnion('_tag', [
+  z.object({
+    ...validationErrorPayloadFields,
+    ...remoteErrorFields,
+  }),
+  z.object({
+    ...nonValidationErrorPayloadFields,
+    ...remoteErrorFields,
+  }),
+])
 
 /** Identify a native tagged error or a valid tagged error from Workers RPC. */
 export function isDomainError(cause: unknown): cause is DomainError {
   if (TaggedError.is(cause)) return Object.hasOwn(DOMAIN_ERROR_TAGS, cause._tag)
-  return RemoteDomainErrorSchema.safeParse(cause).success
+  return cause instanceof Error && RemoteDomainErrorSchema.safeParse(cause).success
 }
 
 /**
