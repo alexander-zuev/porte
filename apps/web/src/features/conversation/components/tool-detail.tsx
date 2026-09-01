@@ -86,10 +86,11 @@ function ToolDetailOutput({
     return <small className="text-muted-foreground">No output</small>
   }
   const label = bare === true ? null : <small className="text-muted-foreground">Output</small>
+  // A failure says so: the section is named Error, in the failure's own colour.
   if (output.type === 'error') {
     return (
       <div className="flex flex-col gap-2">
-        {label}
+        <small className="text-destructive-muted-foreground">Error</small>
         <MonoBox className="text-destructive-muted-foreground">{output.text}</MonoBox>
       </div>
     )
