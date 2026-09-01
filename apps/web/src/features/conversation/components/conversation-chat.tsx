@@ -5,6 +5,7 @@ import type {
   ConversationActions,
   ConversationPermission,
 } from '@web/features/conversation/hooks/use-answer-permission.ts'
+import { useComposerVoice } from '@web/features/conversation/hooks/use-composer-voice.ts'
 import type { ConversationAgentConnection } from '@web/features/conversation/hooks/use-conversation-agent.ts'
 import { useSetModel } from '@web/features/conversation/hooks/use-set-model.ts'
 import { useStopTurn } from '@web/features/conversation/hooks/use-stop-turn.ts'
@@ -25,6 +26,7 @@ import type { ChatStatus, UIMessage } from 'ai'
 import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ComposerCommandSuggestions } from './composer-command-suggestions.tsx'
 import { ComposerConfigurationMenu } from './composer-configuration-menu.tsx'
+import { ComposerMicButton, ComposerVoiceBar } from './composer-voice.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
 import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
@@ -88,49 +90,88 @@ export function ConversationChat({
                 disabled={!canType}
                 placeholder={promptPlaceholder(canSend, agent.identified)}
               />
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <ComposerAddMenu disabled={!canSubmit} />
-                  {/* The bare mode value with its glyph, the way Claude's composer wears "⚡ Auto". */}
-                  {state.modeId === undefined ? null : (
-                    <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
-                      <LightningIcon aria-hidden className="size-4" />
-                      {state.modeId}
-                    </span>
-                  )}
-                </PromptInputTools>
-                <div className="ml-auto flex items-center gap-1">
-                  <ComposerConfigurationMenu
-                    actions={{ onSetModel: setModel.onSetModel }}
-                    disabled={!canType}
-                    options={state.configuration ?? []}
-                    pending={setModel.pending}
-                  />
-                  {state.usage === undefined ? null : (
-                    <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
-                      <ContextTrigger aria-label="Show context usage" />
-                      <ContextContent>
-                        {conversationCost(state.usage) === undefined ? null : (
-                          <small className="text-muted-foreground">
-                            Cost {conversationCost(state.usage)}
-                          </small>
-                        )}
-                      </ContextContent>
-                    </Context>
-                  )}
-                  {/* Stopping keeps the Stop icon and goes inert until the Host finishes the turn. */}
-                  <ComposerSubmit
-                    disabled={!canType || stop.stopping}
-                    status={status}
-                    onStop={stop.onStop}
-                  />
-                </div>
-              </PromptInputFooter>
+              <ChatComposerFooter
+                canSubmit={canSubmit}
+                canType={canType}
+                setModel={setModel}
+                state={state}
+                status={status}
+                stop={stop}
+              />
             </PromptInputBody>
           </PromptInput>
         </div>
       </PromptInputProvider>
     </div>
+  )
+}
+
+/**
+ * The composer's bottom row. While a voice recording is open or transcribing,
+ * the whole row is the voice bar; otherwise the tools and the send cluster.
+ */
+function ChatComposerFooter({
+  canSubmit,
+  canType,
+  setModel,
+  state,
+  status,
+  stop,
+}: {
+  readonly canSubmit: boolean
+  readonly canType: boolean
+  readonly setModel: ReturnType<typeof useSetModel>
+  readonly state: ConversationLiveState
+  readonly status: ChatStatus
+  readonly stop: ReturnType<typeof useStopTurn>
+}) {
+  const voice = useComposerVoice()
+
+  return (
+    <PromptInputFooter>
+      {voice.status !== 'idle' ? (
+        <ComposerVoiceBar voice={voice} />
+      ) : (
+        <>
+          <PromptInputTools>
+            <ComposerAddMenu disabled={!canSubmit} />
+            {state.modeId === undefined ? null : (
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
+                <LightningIcon aria-hidden className="size-4" />
+                {state.modeId}
+              </span>
+            )}
+          </PromptInputTools>
+          <div className="ml-auto flex items-center gap-1">
+            <ComposerConfigurationMenu
+              actions={{ onSetModel: setModel.onSetModel }}
+              disabled={!canType}
+              options={state.configuration ?? []}
+              pending={setModel.pending}
+            />
+            {state.usage === undefined ? null : (
+              <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
+                <ContextTrigger aria-label="Show context usage" />
+                <ContextContent>
+                  {conversationCost(state.usage) === undefined ? null : (
+                    <small className="text-muted-foreground">
+                      Cost {conversationCost(state.usage)}
+                    </small>
+                  )}
+                </ContextContent>
+              </Context>
+            )}
+            <ComposerMicButton disabled={!canType} start={voice.start} />
+            {/* Stopping keeps the Stop icon and goes inert until the Host finishes the turn. */}
+            <ComposerSubmit
+              disabled={!canType || stop.stopping}
+              status={status}
+              onStop={stop.onStop}
+            />
+          </div>
+        </>
+      )}
+    </PromptInputFooter>
   )
 }
 

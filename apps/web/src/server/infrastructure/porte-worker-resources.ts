@@ -1,10 +1,12 @@
 import { NULL_ANALYTICS, PostHogAnalytics, type AnalyticsService } from '@porte/core'
 import type { PairingAuthority } from '@server/application/ports/pairing-authority.ts'
 import type { PairingOrigins } from '@server/application/ports/pairing-origins.ts'
+import type { Transcription } from '@server/application/ports/transcription.ts'
 import type { HostRepository } from '@server/domain/host/host.repository.ts'
 import type { IConversationAgentClient } from '@web/server/application/ports/conversation-agent-client.ts'
 import type { IHostRelayClient } from '@web/server/application/ports/host-agent-client.ts'
 
+import { WorkersAiTranscription } from './ai/workers-ai-transcription.ts'
 import { getAuthInstance } from './auth/auth.ts'
 import { BetterAuthPairingAuthority } from './auth/better-auth-pairing-authority.ts'
 import { createAuthRateLimitStorage } from './cloudflare/auth-rate-limit.ts'
@@ -49,6 +51,8 @@ export type PorteWorkerResources = {
   pairingOrigins: PairingOrigins
   conversationAgent: IConversationAgentClient
   hostRelay: IHostRelayClient
+  /** Turns composer voice recordings into text. */
+  transcription: Transcription
   /** Fetches external images without exposing their HTTP response. */
   imageFetcher: ImageFetcher
   executionCtx: BackgroundWork
@@ -97,6 +101,7 @@ export function createPorteWorkerResources(
     executionCtx,
     hostRelay: new HostRelayClient(env.HOST_RELAY_AGENT),
     imageFetcher: new ImageFetcher(),
+    transcription: new WorkersAiTranscription(env.AI),
     services: {
       // A test run reports to nobody, and the type says so: the key is a secret
       // the test environment never carries.
