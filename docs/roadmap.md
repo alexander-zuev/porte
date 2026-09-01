@@ -1,0 +1,83 @@
+# Roadmap
+
+Goal: make Porte the best remote control for local Grok sessions before xAI ships
+its own client. Target is the plain mobile browser — no app, no install, no push.
+Every item ends in a public demo (≤60s vertical video) and a share link.
+
+Grounding: Claude Code docs (remote-control, web, mobile, sessions) and Codex docs
+(remote, cloud, code-review, notifications), read 2026-08-31. Both products
+converge on the same core remote loop: steer mid-turn, diff pane, approvals,
+share. Those are table stakes. One verified edge: Claude's remote cannot
+interrupt a running turn from the device — Porte can stop a turn today.
+
+## Stack rank (impact × wow)
+
+### 1. Never-blocked composer — queue and steer mid-turn
+
+The composer accepts a message while Grok runs; the host queues it and delivers
+it when the turn ends. Today the same send fails with `ConversationBusyError`.
+Both competitors treat this as the definition of "remote".
+
+Includes the turn-wedge fix: a failed `beginTurn` must not leave the
+conversation stuck in `ConversationBusyError` (see item 14 in
+`tool-rendering-plan.md` — promptIndex drift from hidden reminder chunks).
+
+Proof: send two messages during a running turn from the phone; both land, in
+order, without an error toast; a killed host mid-turn recovers without restart.
+
+### 2. Changes pane — working-tree diff on demand
+
+One view per conversation: the machine's current `git diff` (uncommitted, or
+branch diff when the tree is clean), per-file +/− counts, rendered with the
+existing diff components. Fetched from the host on request, never cached.
+
+Proof: after a multi-file turn, the pane shows every changed file and matches
+`git diff --stat` on the machine.
+
+### 3. Read-only share links
+
+A conversation can be shared as a public read-only transcript URL. The
+transcript is the landing page: every demo post ends with a live link.
+
+Proof: an incognito browser opens the link and scrolls the full transcript;
+composer, permissions, and machine identity are absent.
+
+### 4. Mission control
+
+Each conversation row shows live state instead of a spinner: current activity
+("Running `pnpm test` · 34s"), "Needs permission", or last outcome
+("Finished +214 −80"). Unseen work is grouped above seen work.
+
+Proof: with three conversations in different states, the list tells them apart
+without opening any of them.
+
+### 5. Outcome cards
+
+Commit and PR URLs in tool output render as link cards. One composer action
+sends a canned "commit and open a PR" prompt.
+
+Proof: a turn that pushes a PR ends with a tappable card that opens GitHub.
+
+### 6. Model and effort from the phone
+
+Device-side model and effort selection applies to the local session, matching
+both competitors. Depends on what Grok exposes over ACP session modes.
+
+Proof: switching on the phone changes the model Grok reports for the next turn.
+
+### 7. Tab attention badge
+
+`(1) Porte` in the tab title plus a favicon dot when a background tab needs a
+permission answer or finished a turn. The web-native substitute for push.
+
+Proof: with the tab in the background, a permission request updates the title
+within a second; opening the tab clears it.
+
+## Parked
+
+- Voice input in the composer (scoped 2026-08-31: MediaRecorder → server fn →
+  Workers AI `whisper-large-v3-turbo`). Input polish, not a demo.
+- Photo attachment demo ("photograph a sketch, Grok builds it") — attachments
+  already ship; this is a demo script, not a build item.
+- Fleet view (several machines side by side) — demo before feature; needs two
+  paired machines only.
