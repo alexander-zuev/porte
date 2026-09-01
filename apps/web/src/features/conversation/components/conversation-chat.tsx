@@ -103,7 +103,6 @@ export function ConversationChat({
                   <ComposerConfigurationMenu
                     actions={{ onSetModel: setModel.onSetModel }}
                     disabled={!canType}
-                    failed={setModel.failed}
                     options={state.configuration ?? []}
                     pending={setModel.pending}
                   />

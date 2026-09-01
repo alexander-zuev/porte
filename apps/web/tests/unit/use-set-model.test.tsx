@@ -3,9 +3,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import type { ConversationAgentStub } from '@web/features/conversation/hooks/use-conversation-agent.ts'
 import { useSetModel, type SetModel } from '@web/features/conversation/hooks/use-set-model.ts'
+import { toast } from '@web/ui/components/ui/sonner.tsx'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-afterEach(cleanup)
+vi.mock('@web/ui/components/ui/sonner.tsx', () => ({ toast: { error: vi.fn() } }))
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
 
 function Probe({ stub, take }: { stub: ConversationAgentStub; take: (value: SetModel) => void }) {
   take(useSetModel(stub))
@@ -44,14 +50,14 @@ describe('useSetModel', () => {
       expect(hook().pending).toBe(false)
     })
     expect(setModel).toHaveBeenCalledWith({ modelId: 'grok-4.6', reasoningEffort: 'low' })
-    expect(hook().failed).toBe(false)
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('reports a refused switch as failed', async () => {
+  it('raises a toast when the switch is refused', async () => {
     const hook = mount(() => Promise.reject(new Error('offline')))
     hook().onSetModel({ modelId: 'grok-4.6' })
     await waitFor(() => {
-      expect(hook().failed).toBe(true)
+      expect(toast.error).toHaveBeenCalledWith('Could not switch. Try again.')
     })
     expect(hook().pending).toBe(false)
   })

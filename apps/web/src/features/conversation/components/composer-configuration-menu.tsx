@@ -31,7 +31,6 @@ export type ComposerConfigurationMenuProps = {
   readonly options: readonly ConversationConfigurationOption[]
   readonly disabled: boolean
   readonly pending: boolean
-  readonly failed: boolean
   readonly actions: { readonly onSetModel: (input: SetModelInput) => void }
 }
 
@@ -133,7 +132,7 @@ function shortEffortName(effort: Choice): string {
   return short === '' ? effort.name : short
 }
 
-function ModelMenu({ picker, disabled, pending, failed, actions }: PickerProps) {
+function ModelMenu({ picker, disabled, pending, actions }: PickerProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -158,13 +157,12 @@ function ModelMenu({ picker, disabled, pending, failed, actions }: PickerProps) 
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
-        {failed ? <SwitchFailed /> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-function EffortPopover({ picker, disabled, pending, failed, actions }: PickerProps) {
+function EffortPopover({ picker, disabled, pending, actions }: PickerProps) {
   const { efforts, currentEffort, currentModel } = picker
   if (efforts === undefined || currentEffort === undefined) return null
   // Grok advertises smartest first; the slider reads faster → smarter left to right.
@@ -203,13 +201,12 @@ function EffortPopover({ picker, disabled, pending, failed, actions }: PickerPro
         {currentEffort.description === undefined ? null : (
           <small className="text-muted-foreground">{currentEffort.description}</small>
         )}
-        {failed ? <SwitchFailed /> : null}
       </PopoverContent>
     </Popover>
   )
 }
 
-function ConfigurationDrawer({ picker, disabled, pending, failed, actions }: PickerProps) {
+function ConfigurationDrawer({ picker, disabled, pending, actions }: PickerProps) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'model' | 'effort'>('model')
   const busy = disabled || pending
@@ -318,7 +315,6 @@ function ConfigurationDrawer({ picker, disabled, pending, failed, actions }: Pic
                 {picker.currentEffort.description}
               </small>
             )}
-            {failed ? <SwitchFailed /> : null}
           </div>
         </ComposerSheetBody>
       </DrawerContent>
@@ -368,13 +364,5 @@ function ChoiceRow({
         <CheckIcon aria-hidden className="ml-auto size-5 shrink-0 text-primary" weight="bold" />
       ) : null}
     </Button>
-  )
-}
-
-function SwitchFailed() {
-  return (
-    <small className="px-4 py-2 text-destructive-muted-foreground">
-      Could not switch. Try again.
-    </small>
   )
 }

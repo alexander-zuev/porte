@@ -105,7 +105,6 @@ export function ChatFrame({
               <ComposerConfigurationMenu
                 actions={{ onSetModel: () => undefined }}
                 disabled={!canSend}
-                failed={false}
                 options={state.configuration ?? []}
                 pending={false}
               />

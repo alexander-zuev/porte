@@ -51,6 +51,25 @@ export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready
   })
+  // Virtualized rows measure themselves after paint and can land a pixel apart
+  // between runs; hold the picture until two consecutive frames agree.
+  await page.waitForFunction(() => {
+    const signature = () =>
+      [...document.querySelectorAll<HTMLElement>('[data-index]')]
+        .map(
+          (row) =>
+            `${row.dataset.index ?? ''}:${String(row.offsetTop)}:${String(row.offsetHeight)}`,
+        )
+        .join(' ')
+    return new Promise((resolve) => {
+      const before = signature()
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve(before === signature())
+        })
+      })
+    })
+  })
 }
 
 /** Document-level rules a component board cannot satisfy: it is a fragment, not a page. */
