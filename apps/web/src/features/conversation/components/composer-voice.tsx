@@ -29,8 +29,9 @@ type ActiveVoice = Exclude<VoiceInput, { status: 'idle' }>
 
 /**
  * Replaces the composer's footer row while a take is open: discard on the
- * left, the take line in the middle, confirm on the right. Confirm goes inert
- * while the recording transcribes and turns into retry after a failure.
+ * left, the take in the middle, confirm on the right. Recording draws the
+ * level trail; transcribing pulses the word and disables confirm; a failure
+ * turns confirm into retry.
  */
 export function ComposerVoiceBar({ voice }: { readonly voice: ActiveVoice }) {
   const discard = voice.status === 'failed' ? voice.discard : voice.cancel
@@ -58,23 +59,31 @@ export function ComposerVoiceBar({ voice }: { readonly voice: ActiveVoice }) {
       </PromptInputButton>
 
       {voice.status === 'recording' ? (
-        <VoiceTrail level={voice.level} />
-      ) : (
+        <>
+          <VoiceTrail level={voice.level} />
+          <small className="tabular-nums text-muted-foreground">{takeTime(voice.seconds)}</small>
+        </>
+      ) : null}
+      {voice.status === 'transcribing' ? (
+        <output
+          aria-live="polite"
+          className="flex-1 animate-pulse text-center motion-reduce:animate-none"
+        >
+          <small className="text-muted-foreground">Transcribing…</small>
+        </output>
+      ) : null}
+      {voice.status === 'failed' ? (
         <span
           aria-hidden
-          data-still={voice.status === 'failed' ? '' : undefined}
-          className={cn(
-            'voice-take-line voice-fade h-1 flex-1',
-            voice.status === 'transcribing' ? 'text-muted-foreground' : 'text-destructive',
-          )}
+          data-still
+          className="voice-take-line voice-fade h-1 flex-1 text-destructive"
         />
-      )}
-      {voice.status === 'recording' ? (
-        <small className="tabular-nums text-muted-foreground">{takeTime(voice.seconds)}</small>
       ) : null}
-      <output aria-live="polite" className="sr-only">
-        {voiceStatusWords(voice)}
-      </output>
+      {voice.status === 'transcribing' ? null : (
+        <output aria-live="polite" className="sr-only">
+          {voice.status === 'recording' ? 'Recording' : 'Transcription failed'}
+        </output>
+      )}
 
       <PromptInputButton
         aria-label={voice.status === 'failed' ? 'Send the recording again' : 'Use recording'}
@@ -144,12 +153,6 @@ function VoiceTrail({ level }: { readonly level: () => number }) {
   }, [level])
 
   return <canvas ref={ref} aria-hidden className="voice-fade h-4 min-w-0 flex-1" />
-}
-
-function voiceStatusWords(voice: ActiveVoice): string {
-  if (voice.status === 'recording') return 'Recording'
-  if (voice.status === 'transcribing') return 'Transcribing'
-  return 'Transcription failed'
 }
 
 function takeTime(seconds: number): string {

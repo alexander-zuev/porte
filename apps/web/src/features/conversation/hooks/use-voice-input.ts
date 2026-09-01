@@ -47,7 +47,7 @@ export type VoiceInputDeps = {
 export function useVoiceInput({ recorder, transcribe, onText }: VoiceInputDeps): VoiceInput {
   const [recording, setRecording] = useState<Recording | null>(null)
   const [now, setNow] = useState(0)
-  // Set by cancel while transcribing: the request finishes on its own, and its
+  // Set by cancel while transcribing: the request settles on its own, and its
   // answer — text or error — must then land nowhere.
   const dropped = useRef(false)
 
