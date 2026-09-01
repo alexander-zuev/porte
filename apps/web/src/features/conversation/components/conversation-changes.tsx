@@ -23,10 +23,10 @@ import {
   groupChanges,
   patchRows,
   splitPath,
-  type ChangePatchView,
   type ChangesLayout,
-  type WorkspaceChangesView,
-} from '@web/features/conversation/models/workspace-diff.ts'
+  type ChangesView,
+  type FileDiffView,
+} from '@web/features/conversation/models/changes.ts'
 import { cn } from '@web/lib/utils.ts'
 import { DiffBlock, ToolRowButton } from '@web/ui/components/ai-elements/tool-output.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -44,11 +44,11 @@ import {
 import { useState, type CSSProperties, type ReactNode } from 'react'
 
 export type ConversationChangesProps = {
-  readonly changes: WorkspaceChangesView
+  readonly changes: ChangesView
   /** The tapped file, or none: the sheet shows the list. */
   readonly selected: ChangedFilePath | null
   /** The tapped file's diff; not read while nothing is selected. */
-  readonly patch: ChangePatchView
+  readonly diff: FileDiffView
   readonly onSelect: (path: ChangedFilePath | null) => void
   /** Story-only: open the sheet on first paint. */
   readonly defaultOpen?: boolean
@@ -64,7 +64,7 @@ export type ConversationChangesProps = {
 export function ConversationChanges({
   changes,
   selected,
-  patch,
+  diff,
   onSelect,
   defaultOpen = false,
 }: ConversationChangesProps) {
@@ -165,7 +165,7 @@ export function ConversationChanges({
               inert={selected === null}
               className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
             >
-              {selected === null ? null : <ChangeDetail path={selected} patch={patch} />}
+              {selected === null ? null : <DiffPanel path={selected} diff={diff} />}
             </div>
           </DrawerBody>
         </DrawerContent>
@@ -372,33 +372,33 @@ const megabytes = new Intl.NumberFormat(undefined, {
  * The pushed-in panel: the diff, or the one line saying why there is none.
  * The full path heads the block, as it does on an inline tool card.
  */
-function ChangeDetail({
+function DiffPanel({
   path,
-  patch,
+  diff,
 }: {
   readonly path: ChangedFilePath
-  readonly patch: ChangePatchView
+  readonly diff: FileDiffView
 }) {
-  if (patch.status === 'pending') return <Note>Reading…</Note>
-  if (patch.status === 'failed') {
+  if (diff.status === 'pending') return <Note>Reading…</Note>
+  if (diff.status === 'failed') {
     return (
       <div className="flex flex-col items-start gap-3">
         <p className="text-muted-foreground">Could not read this file.</p>
-        <Button size="sm" variant="outline" onClick={patch.onRetry}>
+        <Button size="sm" variant="outline" onClick={diff.onRetry}>
           Retry
         </Button>
       </div>
     )
   }
-  switch (patch.patch.kind) {
+  switch (diff.diff.kind) {
     case 'patch':
-      return <DiffBlock unbounded rows={patchRows(patch.patch.patch)} title={path} />
+      return <DiffBlock unbounded rows={patchRows(diff.diff.patch)} title={path} />
     case 'binary':
       return <Note>Binary file</Note>
     case 'too-large':
-      return <Note>Too large to show here ({megabytes.format(patch.patch.bytes / 1_000_000)})</Note>
+      return <Note>Too large to show here ({megabytes.format(diff.diff.bytes / 1_000_000)})</Note>
   }
-  const exhaustive: never = patch.patch
+  const exhaustive: never = diff.diff
   return exhaustive
 }
 

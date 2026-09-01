@@ -13,10 +13,10 @@ async function openConversation() {
   return deps
 }
 
-describe('workspace change queries', () => {
-  it('lists the tree of the conversation’s repository root', async () => {
+describe('changes queries', () => {
+  it('lists the uncommitted changes of the conversation’s repository root', async () => {
     const deps = await openConversation()
-    deps.workspaceChanges.changes = {
+    deps.workingTree.uncommitted = {
       branch: 'main',
       files: [
         {
@@ -28,25 +28,23 @@ describe('workspace change queries', () => {
         },
       ],
     }
-    const result = await deps.bus.handle(createQuery('ListWorkspaceChanges', { conversationId }))
-    expect(result).toEqual(deps.workspaceChanges.changes)
-    expect(deps.workspaceChanges.asked).toEqual([deps.conversations.get(conversationId).gitRoot])
+    const result = await deps.bus.handle(createQuery('ListChanges', { conversationId }))
+    expect(result).toEqual(deps.workingTree.uncommitted)
+    expect(deps.workingTree.asked).toEqual([deps.conversations.get(conversationId).gitRoot])
   })
 
-  it('reads one file from the same root', async () => {
+  it('reads one diff from the same root', async () => {
     const deps = await openConversation()
     const path = ChangedFilePathSchema.parse('a.ts')
-    deps.workspaceChanges.patches.set(path, { kind: 'binary' })
-    const result = await deps.bus.handle(
-      createQuery('GetWorkspaceChange', { conversationId, path }),
-    )
+    deps.workingTree.diffs.set(path, { kind: 'binary' })
+    const result = await deps.bus.handle(createQuery('GetDiff', { conversationId, path }))
     expect(result).toEqual({ kind: 'binary' })
   })
 
   it('fails for a conversation this Host does not hold', async () => {
     const deps = createTestDeps()
     await expect(
-      deps.bus.handle(createQuery('ListWorkspaceChanges', { conversationId })),
+      deps.bus.handle(createQuery('ListChanges', { conversationId })),
     ).rejects.toMatchObject({ _tag: 'ConversationNotFoundError' })
   })
 })

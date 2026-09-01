@@ -92,28 +92,94 @@ export function turnIdOfRow(row: UIMessage): TurnId | undefined {
   return parsed.success ? parsed.data.turnId : undefined
 }
 
-/** The relay's marker on a user row that waits for the running turn to end. */
-const RowQueuedSchema = z.object({ queued: z.literal(true) })
+/**
+ * The relay's marker on a user row that waits for the running turn to end.
+ * The store orders rows by creation, so the run order lives here.
+ */
+const RowQueuedSchema = z.object({ queued: z.literal(true), position: z.int().nonnegative() })
 
-/** The metadata a queued row carries until `onChatMessage` starts it. */
-export const QUEUED_ROW_METADATA = { queued: true } as const
+/**
+ * The marker on the row the drain chose: out of the queue, about to start.
+ * It keeps its position so a failed start can put it back.
+ */
+const RowDequeuedSchema = z.object({ dequeued: z.literal(true), position: z.int().nonnegative() })
+
+/** The metadata a queued row carries until the drain picks it. */
+export function queuedRowMetadata(position: number) {
+  return { queued: true, position } satisfies z.infer<typeof RowQueuedSchema>
+}
+
+/** The metadata the drain gives the row it is about to start. */
+export function dequeuedRowMetadata(position: number) {
+  return { dequeued: true, position } satisfies z.infer<typeof RowDequeuedSchema>
+}
 
 /** True for a user row the relay holds back until the running turn ends. */
 export function isQueuedRow(row: UIMessage): boolean {
-  return row.role === 'user' && RowQueuedSchema.safeParse(row.metadata).success
+  return queuedPositionOfRow(row) !== undefined
+}
+
+/** True for the row the drain took out of the queue and has not started yet. */
+export function isDequeuedRow(row: UIMessage): boolean {
+  return dequeuedPositionOfRow(row) !== undefined
 }
 
 /**
- * The user row `onChatMessage` starts: the first one with no turn link and no
- * attempt stamp. A browser send and a drained queue row both look like this.
+ * The run position of a queued row.
+ *
+ * @param row - One AIChatAgent row.
+ * @returns The position, or undefined for a row that is not queued.
+ */
+export function queuedPositionOfRow(row: UIMessage): number | undefined {
+  if (row.role !== 'user') return undefined
+  const parsed = RowQueuedSchema.safeParse(row.metadata)
+  return parsed.success ? parsed.data.position : undefined
+}
+
+/**
+ * The position a dequeued row held, for putting it back on a failed start.
+ *
+ * @param row - One AIChatAgent row.
+ * @returns The position, or undefined for a row that is not dequeued.
+ */
+export function dequeuedPositionOfRow(row: UIMessage): number | undefined {
+  if (row.role !== 'user') return undefined
+  const parsed = RowDequeuedSchema.safeParse(row.metadata)
+  return parsed.success ? parsed.data.position : undefined
+}
+
+/**
+ * The queued rows in run order.
+ *
+ * @param messages - The rows AIChatAgent holds.
+ * @returns Queued user rows sorted by their position, lowest first.
+ */
+export function queuedRows(messages: readonly UIMessage[]): UIMessage[] {
+  return messages
+    .flatMap((row) => {
+      if (row.role !== 'user') return []
+      const parsed = RowQueuedSchema.safeParse(row.metadata)
+      return parsed.success ? [{ row, position: parsed.data.position }] : []
+    })
+    .toSorted((left, right) => left.position - right.position)
+    .map((entry) => entry.row)
+}
+
+/**
+ * The user row `onChatMessage` starts: the first one with no turn link, no
+ * attempt stamp, and not waiting in the queue. A browser send and the row the
+ * drain dequeued both look like this.
  *
  * @param messages - The rows AIChatAgent holds, in transcript order.
- * @returns The row to start, or undefined when every user row is already linked.
+ * @returns The row to start, or undefined when nothing can start.
  */
 export function nextUserRow(messages: readonly UIMessage[]): UIMessage | undefined {
   return messages.find(
     (row) =>
-      row.role === 'user' && turnIdOfRow(row) === undefined && attemptIdOfRow(row) === undefined,
+      row.role === 'user' &&
+      turnIdOfRow(row) === undefined &&
+      attemptIdOfRow(row) === undefined &&
+      !isQueuedRow(row),
   )
 }
 
@@ -122,8 +188,8 @@ export function nextUserRow(messages: readonly UIMessage[]): UIMessage | undefin
  * Adjacent text parts join with a blank line, the way the SDK's `merge`
  * strategy joins overlapping submits. Other parts keep their place.
  *
- * @param rows - At least one queued row.
- * @returns One user row that still carries the queued marker.
+ * @param rows - At least one queued row, in run order.
+ * @returns One dequeued user row under the first row's id and position.
  */
 export function foldQueuedRows(rows: readonly UIMessage[]): UIMessage {
   const [first, ...rest] = rows
@@ -139,7 +205,12 @@ export function foldQueuedRows(rows: readonly UIMessage[]): UIMessage {
       }
     }
   }
-  return { id: first.id, role: 'user', metadata: QUEUED_ROW_METADATA, parts }
+  return {
+    id: first.id,
+    role: 'user',
+    metadata: dequeuedRowMetadata(queuedPositionOfRow(first) ?? 0),
+    parts,
+  }
 }
 
 /**

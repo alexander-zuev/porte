@@ -3,7 +3,7 @@ import { createCommand, createQuery } from '@host/domain/messages/types.ts'
 import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
 import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
-import { GitWorkspaceChanges } from '@host/infrastructure/git/git-workspace-changes.ts'
+import { GitWorkingTree } from '@host/infrastructure/git/git-working-tree.ts'
 import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
 import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
@@ -35,7 +35,7 @@ async function withHost(body: (deps: Harness) => Promise<void>): Promise<void> {
   const deps: Harness = {
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
-    workspaceChanges: new GitWorkspaceChanges(),
+    workingTree: new GitWorkingTree(),
     connections: new FakeConnections(),
     background: new NodeBackgroundTasks(),
     scheduler: new NodeScheduler(),

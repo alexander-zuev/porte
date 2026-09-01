@@ -29,7 +29,7 @@ command that keeps the CLI version, the plugin version, and every pin identical.
 
 - Backwards compatibility for old hosts beyond the nudge. An old host keeps failing
   new operations with the existing toast; nothing is gated or hidden.
-- Web Push delivery (roadmap §7). This route is its future landing surface only.
+- Web Push delivery (roadmap §8). This route is its future landing surface only.
 - Auto-updating the plugin or CLI. The nudge names the command; the person runs it.
 
 ## Invariants
@@ -90,7 +90,7 @@ The CLI compares against its own version once per `up`/`rc`:
 ### Web notifications
 
 ```ts
-// One derived notification kind today; Push lands here later (roadmap §7).
+// One derived notification kind today; Push lands here later (roadmap §8).
 export type PorteNotification = {
   readonly id: string // stable: `cli-update:${hostId}:${latest}`
   readonly kind: 'cli-update'

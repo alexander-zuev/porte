@@ -121,8 +121,8 @@ Custom, and why: the `queued` row marker (so the SDK rows are the queue and ever
 ### Invariants
 
 1. The Host starts at most one turn per conversation. Unchanged.
-2. A queued row has `metadata.queued === true` and no `turnId` or `attemptId`. When started, `onChatMessage` replaces that metadata with `{ attemptId }`.
-3. `onChatMessage` starts one user row: the first with no turn link. Never two.
+2. A row's metadata is one of: `{ queued, position }` waiting; `{ dequeued, position }` chosen by the drain, about to start; `{ attemptId }` start sent; `{ turnId, … }` linked. The store orders rows by creation, so the run order is `position`.
+3. `onChatMessage` starts one user row: the first with no turn link, no attempt stamp, and not queued. Never two. A queued row is never startable; only the drain makes one dequeued.
 4. The queue drains only when no stream is active and the Host reports no running turn.
 5. A snapshot (`conversation.get`) never deletes queued rows. The relay keeps them by metadata.
 6. Drain folds every queued row into the first one (parts concatenated, text parts joined by a blank line) and deletes the rest before the turn starts. `Send now` starts one row and leaves the rest queued.
@@ -234,12 +234,14 @@ Host `turn.finished`
 drainQueue()                                               // never awaited by a caller
   if !(await this.waitUntilStable({ timeout })) return      // SDK: no active turn, no pending client interaction
   if state.runningTurnId return                            // Host fact the SDK cannot see
-  rows = this.messages.filter(isQueuedRow); if rows.length === 0 return
+  rows = queuedRows(this.messages); if rows.length === 0 return
   next = sendNow (DO storage) ? [that row] : rows        // Send now runs one row alone
-  void this.saveMessages((all) => replace(all, next, foldQueuedRows(next)))
-       // documented SDK entry for server-driven turns: persists, serializes after the
-       // active turn regardless of messageConcurrency, runs onChatMessage, resolves
-       // only when the whole turn ends, so it is never awaited inside acceptEvent
+  persistMessages(fold next into one dequeued row, drop the rest, { _deleteStaleRows })
+       // saveMessages only upserts what it is given, so the fold and the deletes go first
+  void this.saveMessages((all) => all, { signal })      // signal aborts if nothing is startable
+       // documented SDK entry for server-driven turns: serializes after the active turn
+       // regardless of messageConcurrency, runs onChatMessage, resolves only when the
+       // whole turn ends, so it is never awaited inside acceptEvent
 onChatMessage
   row = nextUserRow(this.messages)           // replaces latestUserMessage
   stamp { attemptId }, open stream, hostSocket.request('turn.start')   // rest unchanged

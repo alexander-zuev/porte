@@ -8,6 +8,11 @@ import {
   ConversationTurnSchema,
 } from '../conversation/conversation-view.ts'
 import {
+  ChangedFilePathSchema,
+  FileDiffSchema,
+  UncommittedChangesSchema,
+} from '../git/uncommitted-changes.ts'
+import {
   AttemptIdSchema,
   ElicitationIdSchema,
   MessageIdSchema,
@@ -25,11 +30,6 @@ import {
   jsonRpcRequestSchema,
   jsonRpcResponseSchema,
 } from '../websocket/json-rpc.ts'
-import {
-  ChangePatchSchema,
-  ChangedFilePathSchema,
-  WorkspaceChangesSchema,
-} from '../workspace/workspace-changes.ts'
 import {
   HostApplicationErrorSchema,
   HostRequestIdSchema,
@@ -117,16 +117,16 @@ export const HostConversationMethods = {
     }),
     result: EmptyResultSchema,
   },
-  // The working tree against `HEAD`, read from git on request. Never on live state.
-  'workspace.changes.list': {
+  // The uncommitted changes, read from git on request. Never on live state.
+  'changes.list': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({}),
-    result: WorkspaceChangesSchema,
+    result: UncommittedChangesSchema,
   },
-  'workspace.changes.get': {
+  'changes.diff': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({ path: ChangedFilePathSchema }),
-    result: ChangePatchSchema,
+    result: FileDiffSchema,
   },
   'conversation.event': {
     kind: JSON_RPC_METHOD_KINDS.notification,

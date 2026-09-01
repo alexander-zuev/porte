@@ -1,16 +1,16 @@
 import { spawn } from 'node:child_process'
 import { isAbsolute } from 'node:path'
 
-import type { WorkspaceChangesReader } from '@host/application/ports/workspace-changes.ts'
+import type { WorkingTree } from '@host/application/ports/working-tree.ts'
 import {
-  CHANGE_PATCH_MAX_BYTES,
   ChangedFilePathSchema,
+  FILE_DIFF_MAX_BYTES,
   WorkspaceNotAllowedError,
-  type ChangePatch,
   type ChangedFile,
   type ChangedFilePath,
   type ChangedFileStatus,
-  type WorkspaceChanges,
+  type FileDiff,
+  type UncommittedChanges,
 } from '@porte/core/client'
 
 /** What one git invocation produced. Exit codes are data here; the adapter decides which are failures. */
@@ -38,16 +38,16 @@ const NAME_STATUS: ReadonlyMap<string, ChangedFileStatus> = new Map([
 ])
 
 /**
- * Reads a workspace through the `git` binary.
+ * Reads a working tree through the `git` binary.
  *
  * Every command runs against one base: `HEAD`, or the empty tree when the
  * repository has no commit. Untracked files are asked for one by one with
  * `--no-index`, because `git diff` does not know them.
  */
-export class GitWorkspaceChanges implements WorkspaceChangesReader {
-  constructor(private readonly run: RunGit = execFileGit) {}
+export class GitWorkingTree implements WorkingTree {
+  constructor(private readonly run: RunGit = spawnGit) {}
 
-  async list(gitRoot: string): Promise<WorkspaceChanges> {
+  async changes(gitRoot: string): Promise<UncommittedChanges> {
     const base = await this.base(gitRoot)
     const branch = await this.branch(gitRoot)
     const counts = parseNumstat(
@@ -73,14 +73,14 @@ export class GitWorkspaceChanges implements WorkspaceChangesReader {
           ['diff', '--no-index', '--numstat', '-z', '--', '/dev/null', path],
           NO_INDEX_DIFFERS,
         )
-        const counts = parseNoIndexCounts(output)
-        return counts === undefined ? [] : [withStatus({ ...counts, path }, 'untracked')]
+        const counted = parseNoIndexCounts(output)
+        return counted === undefined ? [] : [withStatus({ ...counted, path }, 'untracked')]
       }),
     )
     return { branch, files: [...tracked, ...added.flat()] }
   }
 
-  async get(gitRoot: string, path: ChangedFilePath): Promise<ChangePatch> {
+  async diff(gitRoot: string, path: ChangedFilePath): Promise<FileDiff> {
     if (isAbsolute(path) || path.split('/').includes('..')) throw new WorkspaceNotAllowedError()
     const base = await this.base(gitRoot)
     const output = (await this.isUntracked(gitRoot, path))
@@ -90,7 +90,7 @@ export class GitWorkspaceChanges implements WorkspaceChangesReader {
           NO_INDEX_DIFFERS,
         )
       : await this.git(gitRoot, ['diff', base, '-U3', '--no-renames', '--', path])
-    if (output.byteLength > CHANGE_PATCH_MAX_BYTES) {
+    if (output.byteLength > FILE_DIFF_MAX_BYTES) {
       return { kind: 'too-large', bytes: output.byteLength }
     }
     const patch = output.toString('utf8')
@@ -145,7 +145,7 @@ export class GitWorkspaceChanges implements WorkspaceChangesReader {
  * and a deadline kills a hung process. Rejects only when git could not start
  * or overran; an exit code, whatever its value, resolves.
  */
-export function execFileGit(gitRoot: string, args: readonly string[]): Promise<GitOutput> {
+export function spawnGit(gitRoot: string, args: readonly string[]): Promise<GitOutput> {
   return new Promise((resolve, reject) => {
     const child = spawn('git', [...args], {
       cwd: gitRoot,

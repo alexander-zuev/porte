@@ -1,9 +1,9 @@
 import {
   ChangedFilePathSchema,
-  type ChangePatch,
   type ChangedFile,
   type ChangedFilePath,
-  type WorkspaceChanges,
+  type FileDiff,
+  type UncommittedChanges,
 } from '@porte/core/client'
 
 /*
@@ -270,8 +270,8 @@ export const changedFiles: readonly ChangedFile[] = [
   { kind: 'text', path: COMPOSER_QUEUE, status: 'untracked', added: 4120, removed: 0 },
 ]
 
-export const workspaceChanges: WorkspaceChanges = { branch: 'main', files: [...changedFiles] }
-export const noChanges: WorkspaceChanges = { branch: 'main', files: [] }
+export const uncommittedChanges: UncommittedChanges = { branch: 'main', files: [...changedFiles] }
+export const noChanges: UncommittedChanges = { branch: 'main', files: [] }
 
 const text = (
   value: string,
@@ -287,7 +287,7 @@ const text = (
  * than a phone, spaces and non-ASCII, no extension, a dotfile, and counts in
  * the hundreds of thousands.
  */
-export const deepChanges: WorkspaceChanges = {
+export const deepChanges: UncommittedChanges = {
   branch: 'feat/conversation-changes-pane-with-a-branch-name-nobody-would-type',
   files: [
     text('package.json', 'modified', 1, 0),
@@ -316,8 +316,8 @@ export const deepChanges: WorkspaceChanges = {
     text('apps/web/src/features/notifications/models/notifications.ts'),
     text('apps/web/src/ui/components/ui/dropdown-menu.tsx', 'modified', 120_345, 98_765),
     text('apps/web/tests/unit/composer.test.ts', 'untracked', 22, 0),
-    text('apps/host/src/infrastructure/node/git-workspace-changes.ts', 'untracked', 90, 0),
-    text('packages/core/src/workspace/workspace-changes.ts', 'untracked', 45, 0),
+    text('apps/host/src/infrastructure/git/git-working-tree.ts', 'untracked', 90, 0),
+    text('packages/core/src/git/uncommitted-changes.ts', 'untracked', 45, 0),
     text(
       'packages/core/src/a-single-folder-whose-name-is-longer-than-any-phone-is-wide-and-keeps-going/index.ts',
     ),
@@ -327,7 +327,7 @@ export const deepChanges: WorkspaceChanges = {
 }
 
 /** One answer per file, as the Host would give it. */
-export const patches: ReadonlyMap<ChangedFilePath, ChangePatch> = new Map([
+export const diffs: ReadonlyMap<ChangedFilePath, FileDiff> = new Map([
   [CHAT_FRAME, { kind: 'patch', patch: CHAT_FRAME_PATCH }],
   [NOTIFICATIONS, { kind: 'patch', patch: NOTIFICATIONS_PATCH }],
   [ROADMAP, { kind: 'patch', patch: ROADMAP_PATCH }],
@@ -339,8 +339,8 @@ export const patches: ReadonlyMap<ChangedFilePath, ChangePatch> = new Map([
 
 /** The two Host calls, answered after a short wait, or refused. */
 export type FakeChangesServer = {
-  readonly list: () => Promise<WorkspaceChanges>
-  readonly get: (path: ChangedFilePath) => Promise<ChangePatch>
+  readonly list: () => Promise<UncommittedChanges>
+  readonly get: (path: ChangedFilePath) => Promise<FileDiff>
 }
 
 const wait = (ms: number) =>
@@ -349,7 +349,7 @@ const wait = (ms: number) =>
   })
 
 export function fakeChangesServer(
-  changes: WorkspaceChanges,
+  changes: UncommittedChanges,
   { delayMs = 400, fails = false }: { readonly delayMs?: number; readonly fails?: boolean } = {},
 ): FakeChangesServer {
   return {
@@ -360,9 +360,9 @@ export function fakeChangesServer(
     },
     get: async (target) => {
       await wait(delayMs)
-      const patch = patches.get(target)
-      if (patch === undefined) throw new Error('That repository is not available on this machine')
-      return patch
+      const diff = diffs.get(target)
+      if (diff === undefined) throw new Error('That repository is not available on this machine')
+      return diff
     },
   }
 }

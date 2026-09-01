@@ -30,13 +30,29 @@ order, without an error toast; a killed host mid-turn recovers without restart.
 ### 2. Changes pane — working-tree diff on demand
 
 One view per conversation: the machine's current `git diff` (uncommitted, or
-branch diff when the tree is clean), per-file +/− counts, rendered with the
-existing diff components. Fetched from the host on request, never cached.
+branch diff when the tree is clean). Fetched from the host on request, never
+cached.
 
-Proof: after a multi-file turn, the pane shows every changed file and matches
-`git diff --stat` on the machine.
+Hunks only — never the whole file. Each file is one row with +/− counts. A
+tap opens that file's diff: `Collapsible` on desktop, `Drawer` on phone, the
+same split as `Reasoning` and `ToolRun`. Render with `DiffBlock`.
 
-### 3. Read-only share links
+Proof: after a multi-file turn, the pane shows every changed file, matches
+`git diff --stat` on the machine, and a phone tap opens one file in a sheet.
+
+### 3. `@` file select in the composer
+
+`@` in the composer opens a search over the conversation's workspace, the way
+a CLI file picker works. Pick a file; the prompt carries it as a
+`resource-link`. Device attachments stay on `+`; this is the machine's tree.
+
+Reuse `ComposerCommandSuggestions` (cmdk). The host answers a file search
+(`git ls-files` plus the query). No file list rides on live state.
+
+Proof: type `@span-d` on the phone, pick `span-diff.ts`, send; Grok's next
+turn reads that path.
+
+### 4. Read-only share links
 
 A conversation can be shared as a public read-only transcript URL. The
 transcript is the landing page: every demo post ends with a live link.
@@ -44,7 +60,7 @@ transcript is the landing page: every demo post ends with a live link.
 Proof: an incognito browser opens the link and scrolls the full transcript;
 composer, permissions, and machine identity are absent.
 
-### 4. Mission control
+### 5. Mission control
 
 Each conversation row shows live state instead of a spinner: current activity
 ("Running `pnpm test` · 34s"), "Needs permission", or last outcome
@@ -53,21 +69,19 @@ Each conversation row shows live state instead of a spinner: current activity
 Proof: with three conversations in different states, the list tells them apart
 without opening any of them.
 
-### 5. Outcome cards
+### 6. Outcome cards
 
 Commit and PR URLs in tool output render as link cards. One composer action
 sends a canned "commit and open a PR" prompt.
 
 Proof: a turn that pushes a PR ends with a tappable card that opens GitHub.
 
-### 6. Model and effort from the phone
+### 7. Model and effort from the phone — shipped
 
-Device-side model and effort selection applies to the local session, matching
-both competitors. Depends on what Grok exposes over ACP session modes.
+Phone and desktop pickers write `conversation.model.set`. Grok takes the pair
+on `session/set_model`.
 
-Proof: switching on the phone changes the model Grok reports for the next turn.
-
-### 7. Notifications
+### 8. Notifications
 
 Web Push for permission requests and turn completion, sent only when no client
 watches the conversation. Works uninstalled on desktop browsers and Android

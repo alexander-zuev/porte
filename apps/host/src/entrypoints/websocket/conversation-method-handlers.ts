@@ -62,9 +62,9 @@ export const CONVERSATION_METHOD_HANDLERS = {
     return null
   },
 
-  'workspace.changes.list': (_params, { bus, conversationId }) =>
-    bus.handle(createQuery('ListWorkspaceChanges', { conversationId })),
+  'changes.list': (_params, { bus, conversationId }) =>
+    bus.handle(createQuery('ListChanges', { conversationId })),
 
-  'workspace.changes.get': (params, { bus, conversationId }) =>
-    bus.handle(createQuery('GetWorkspaceChange', { conversationId, path: params.path })),
+  'changes.diff': (params, { bus, conversationId }) =>
+    bus.handle(createQuery('GetDiff', { conversationId, path: params.path })),
 } satisfies ConversationMethodHandlerRegistry

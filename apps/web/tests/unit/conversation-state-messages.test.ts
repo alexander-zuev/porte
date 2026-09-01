@@ -7,11 +7,13 @@ import {
   type ConversationTurn,
 } from '@porte/core/client'
 import {
-  QUEUED_ROW_METADATA,
   conversationStateToMessages,
+  dequeuedRowMetadata,
   foldQueuedRows,
   isQueuedRow,
   nextUserRow,
+  queuedRowMetadata,
+  queuedRows,
   turnToMessages,
 } from '@web/lib/conversation/conversation-state-messages.ts'
 import type { UIMessage } from 'ai'
@@ -122,7 +124,7 @@ describe('queued rows', () => {
   const queued: UIMessage = {
     id: 'u3',
     role: 'user',
-    metadata: QUEUED_ROW_METADATA,
+    metadata: queuedRowMetadata(2),
     parts: [text('C')],
   }
   const bare: UIMessage = { id: 'u4', role: 'user', parts: [text('D')] }
@@ -133,20 +135,32 @@ describe('queued rows', () => {
     expect(isQueuedRow({ ...queued, role: 'assistant' })).toBe(false)
   })
 
-  it('starts the first user row with no turn link and no attempt stamp', () => {
-    expect(nextUserRow([linked, sent, queued, bare])?.id).toBe('u3')
-    expect(nextUserRow([linked, sent])).toBeUndefined()
+  it('starts the first user row with no turn link, no attempt stamp, and not queued', () => {
+    expect(nextUserRow([linked, sent, queued, bare])?.id).toBe('u4')
+    expect(nextUserRow([linked, sent, queued])).toBeUndefined()
+    const dequeued: UIMessage = { ...queued, metadata: dequeuedRowMetadata(2) }
+    expect(nextUserRow([linked, dequeued, bare])?.id).toBe('u3')
+  })
+
+  it('orders queued rows by their position, not by store order', () => {
+    const later: UIMessage = {
+      id: 'u5',
+      role: 'user',
+      metadata: queuedRowMetadata(1),
+      parts: [text('E')],
+    }
+    expect(queuedRows([linked, queued, bare, later]).map((row) => row.id)).toEqual(['u5', 'u3'])
   })
 
   it('folds queued rows into one under the first id, text joined by a blank line', () => {
     const file: UIMessage['parts'][number] = { type: 'file', mediaType: 'image/png', url: 'data:' }
     const folded = foldQueuedRows([
       queued,
-      { id: 'u5', role: 'user', metadata: QUEUED_ROW_METADATA, parts: [file, text('E')] },
-      { id: 'u6', role: 'user', metadata: QUEUED_ROW_METADATA, parts: [text('F')] },
+      { id: 'u5', role: 'user', metadata: queuedRowMetadata(3), parts: [file, text('E')] },
+      { id: 'u6', role: 'user', metadata: queuedRowMetadata(4), parts: [text('F')] },
     ])
     expect(folded.id).toBe('u3')
-    expect(folded.metadata).toEqual(QUEUED_ROW_METADATA)
+    expect(folded.metadata).toEqual(dequeuedRowMetadata(2))
     expect(folded.parts).toEqual([text('C'), file, text('E\n\nF')])
   })
 })

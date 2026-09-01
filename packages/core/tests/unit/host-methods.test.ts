@@ -41,8 +41,8 @@ describe('Host JSON-RPC methods', () => {
       'conversation.model.set',
       'permission.answer',
       'elicitation.answer',
-      'workspace.changes.list',
-      'workspace.changes.get',
+      'changes.list',
+      'changes.diff',
       'conversation.event',
     ])
   })

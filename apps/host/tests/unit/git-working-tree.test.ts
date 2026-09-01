@@ -1,9 +1,9 @@
 import {
   EMPTY_TREE,
-  GitWorkspaceChanges,
+  GitWorkingTree,
   type GitOutput,
-} from '@host/infrastructure/git/git-workspace-changes.ts'
-import { CHANGE_PATCH_MAX_BYTES, ChangedFilePathSchema } from '@porte/core/client'
+} from '@host/infrastructure/git/git-working-tree.ts'
+import { FILE_DIFF_MAX_BYTES, ChangedFilePathSchema } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = '/repo'
@@ -31,7 +31,7 @@ function fakeGit(answers: Record<string, Answer>) {
 const HEAD_OK = { 'rev-parse --verify --quiet HEAD': { stdout: 'abc\n' } }
 const ON_MAIN = { 'branch --show-current': { stdout: 'main\n' } }
 
-describe('GitWorkspaceChanges.list', () => {
+describe('GitWorkingTree.changes', () => {
   it('joins counts with statuses and appends untracked files', async () => {
     const git = fakeGit({
       ...HEAD_OK,
@@ -51,7 +51,7 @@ describe('GitWorkspaceChanges.list', () => {
         exitCode: 1,
       },
     })
-    const changes = await new GitWorkspaceChanges(git.run).list(ROOT)
+    const changes = await new GitWorkingTree(git.run).changes(ROOT)
     expect(changes).toEqual({
       branch: 'main',
       files: [
@@ -72,7 +72,7 @@ describe('GitWorkspaceChanges.list', () => {
       [`diff ${EMPTY_TREE} --name-status -z --no-renames`]: { stdout: '' },
       'status --porcelain=v2 -z --no-renames --untracked-files=all': { stdout: '' },
     })
-    await expect(new GitWorkspaceChanges(git.run).list(ROOT)).resolves.toEqual({
+    await expect(new GitWorkingTree(git.run).changes(ROOT)).resolves.toEqual({
       branch: 'main',
       files: [],
     })
@@ -86,7 +86,7 @@ describe('GitWorkspaceChanges.list', () => {
       'diff HEAD --name-status -z --no-renames': { stdout: '' },
       'status --porcelain=v2 -z --no-renames --untracked-files=all': { stdout: '' },
     })
-    await expect(new GitWorkspaceChanges(git.run).list(ROOT)).resolves.toMatchObject({
+    await expect(new GitWorkingTree(git.run).changes(ROOT)).resolves.toMatchObject({
       branch: null,
     })
   })
@@ -96,13 +96,13 @@ describe('GitWorkspaceChanges.list', () => {
       ...HEAD_OK,
       'branch --show-current': { exitCode: 128 },
     })
-    await expect(new GitWorkspaceChanges(git.run).list(ROOT)).rejects.toMatchObject({
+    await expect(new GitWorkingTree(git.run).changes(ROOT)).rejects.toMatchObject({
       _tag: 'WorkspaceNotAllowedError',
     })
   })
 })
 
-describe('GitWorkspaceChanges.get', () => {
+describe('GitWorkingTree.diff', () => {
   const STATUS_CLEAN = {
     'status --porcelain=v2 -z --no-renames --untracked-files=all -- src/a.ts': { stdout: '' },
   }
@@ -113,7 +113,7 @@ describe('GitWorkspaceChanges.get', () => {
       ...STATUS_CLEAN,
       'diff HEAD -U3 --no-renames -- src/a.ts': { stdout: 'diff --git a/src/a.ts b/src/a.ts\n' },
     })
-    await expect(new GitWorkspaceChanges(git.run).get(ROOT, path('src/a.ts'))).resolves.toEqual({
+    await expect(new GitWorkingTree(git.run).diff(ROOT, path('src/a.ts'))).resolves.toEqual({
       kind: 'patch',
       patch: 'diff --git a/src/a.ts b/src/a.ts\n',
     })
@@ -127,7 +127,7 @@ describe('GitWorkspaceChanges.get', () => {
       },
       'diff --no-index -U3 -- /dev/null docs/new.md': { stdout: 'new file\n', exitCode: 1 },
     })
-    await expect(new GitWorkspaceChanges(git.run).get(ROOT, path('docs/new.md'))).resolves.toEqual({
+    await expect(new GitWorkingTree(git.run).diff(ROOT, path('docs/new.md'))).resolves.toEqual({
       kind: 'patch',
       patch: 'new file\n',
     })
@@ -141,7 +141,7 @@ describe('GitWorkspaceChanges.get', () => {
         stdout: 'diff --git a/src/a.ts b/src/a.ts\nBinary files a/src/a.ts and b/src/a.ts differ\n',
       },
     })
-    await expect(new GitWorkspaceChanges(git.run).get(ROOT, path('src/a.ts'))).resolves.toEqual({
+    await expect(new GitWorkingTree(git.run).diff(ROOT, path('src/a.ts'))).resolves.toEqual({
       kind: 'binary',
     })
   })
@@ -151,12 +151,12 @@ describe('GitWorkspaceChanges.get', () => {
       ...HEAD_OK,
       ...STATUS_CLEAN,
       'diff HEAD -U3 --no-renames -- src/a.ts': {
-        stdout: Buffer.alloc(CHANGE_PATCH_MAX_BYTES + 1, 0x2b),
+        stdout: Buffer.alloc(FILE_DIFF_MAX_BYTES + 1, 0x2b),
       },
     })
-    await expect(new GitWorkspaceChanges(git.run).get(ROOT, path('src/a.ts'))).resolves.toEqual({
+    await expect(new GitWorkingTree(git.run).diff(ROOT, path('src/a.ts'))).resolves.toEqual({
       kind: 'too-large',
-      bytes: CHANGE_PATCH_MAX_BYTES + 1,
+      bytes: FILE_DIFF_MAX_BYTES + 1,
     })
   })
 
@@ -164,7 +164,7 @@ describe('GitWorkspaceChanges.get', () => {
     'rejects %s before git runs',
     async (bad) => {
       const git = fakeGit({})
-      await expect(new GitWorkspaceChanges(git.run).get(ROOT, path(bad))).rejects.toMatchObject({
+      await expect(new GitWorkingTree(git.run).diff(ROOT, path(bad))).rejects.toMatchObject({
         _tag: 'WorkspaceNotAllowedError',
       })
       expect(git.calls).toEqual([])

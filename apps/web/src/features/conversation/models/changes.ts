@@ -1,9 +1,9 @@
-import type { ChangePatch, ChangedFile, ChangedFilePath } from '@porte/core/client'
+import type { ChangedFile, ChangedFilePath, FileDiff } from '@porte/core/client'
 import type { DiffRow } from '@web/ui/components/ai-elements/tool-output.tsx'
 import { parsePatch } from 'diff'
 
-/** The file list as the screen reads it: absent, failed, or here. */
-export type WorkspaceChangesView =
+/** The uncommitted changes as the screen reads them: absent, failed, or here. */
+export type ChangesView =
   | { readonly status: 'pending' }
   | { readonly status: 'failed'; readonly onRetry: () => void }
   | {
@@ -14,10 +14,10 @@ export type WorkspaceChangesView =
     }
 
 /** One file's diff as the screen reads it. */
-export type ChangePatchView =
+export type FileDiffView =
   | { readonly status: 'pending' }
   | { readonly status: 'failed'; readonly onRetry: () => void }
-  | { readonly status: 'ready'; readonly patch: ChangePatch }
+  | { readonly status: 'ready'; readonly diff: FileDiff }
 
 export type ChangeTotals = {
   readonly files: number

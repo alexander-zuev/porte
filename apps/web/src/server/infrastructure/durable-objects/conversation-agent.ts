@@ -38,6 +38,14 @@ import {
 import {
   attemptIdOfRow,
   conversationStateToMessages,
+  dequeuedPositionOfRow,
+  foldQueuedRows,
+  isDequeuedRow,
+  isQueuedRow,
+  nextUserRow,
+  queuedPositionOfRow,
+  queuedRowMetadata,
+  queuedRows,
   turnIdOfRow,
   turnToMessages,
 } from '@web/lib/conversation/conversation-state-messages.ts'
@@ -55,6 +63,7 @@ import {
   type UIMessage,
   type UIMessageChunk,
 } from 'ai'
+import { z } from 'zod'
 
 // oxlint-disable-next-line import/no-cycle -- The Agents SDK resolves the runtime parent class.
 import { HostRelayAgent } from './host-relay-agent.ts'
@@ -73,6 +82,37 @@ const CHAT_MESSAGES_FRAME = 'cf_agent_chat_messages'
 
 /** DO storage key for the Host's command list; too big for `state`. */
 const COMMANDS_KEY = 'commands'
+/** DO storage key for the queued row `sendQueuedNow` starts alone once the running turn ends. */
+const SEND_NOW_KEY = 'queue.sendNow'
+/** How long a drain waits for the SDK's own turn to settle before giving up until the next trigger. */
+const DRAIN_STABLE_TIMEOUT_MS = 60_000
+
+/** A user part the browser may queue: the same two kinds `sendMessage` builds. */
+const QueuedPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string().min(1) }),
+  z.object({
+    type: z.literal('file'),
+    mediaType: z.string().min(1),
+    url: z.string().min(1),
+    filename: z.string().min(1).optional(),
+  }),
+])
+const QueueMessageInputSchema = z.strictObject({
+  id: MessageIdSchema,
+  parts: z.array(QueuedPartSchema).min(1),
+})
+const QueuedMessageRefSchema = z.strictObject({ messageId: MessageIdSchema })
+const ReorderQueuedInputSchema = z.strictObject({
+  messageId: MessageIdSchema,
+  position: z.int().positive(),
+})
+
+/** A message the browser queues while a turn runs; the row keeps this id. */
+export type QueueMessageInput = z.infer<typeof QueueMessageInputSchema>
+/** One queued row, by the id the browser minted. */
+export type QueuedMessageRef = z.infer<typeof QueuedMessageRefSchema>
+/** Move one queued row to a 1-based position among the queued rows. */
+export type ReorderQueuedInput = z.infer<typeof ReorderQueuedInputSchema>
 
 type HostConnectionState = {
   readonly role: 'host-conversation'
@@ -90,6 +130,8 @@ type ActiveStream =
       readonly binding: 'waiting'
       readonly attemptId: AttemptId
       readonly userMessageId: MessageId
+      /** The row came from the queue, so a failed start puts it back there. */
+      readonly queuedPosition: number | undefined
       readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
       readonly projection: ConversationEventProjectionState
     }
@@ -97,6 +139,7 @@ type ActiveStream =
       readonly binding: 'bound'
       readonly attemptId: AttemptId
       readonly userMessageId: MessageId
+      readonly queuedPosition: number | undefined
       readonly turnId: TurnId
       readonly writer: WritableStreamDefaultWriter<UIMessageChunk>
       readonly projection: ConversationEventProjectionState
@@ -259,7 +302,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     _onEnd: GenerateTextOnEndCallback,
     _options?: OnChatMessageOptions,
   ): Promise<Response> {
-    const userMessage = latestUserMessage(this.messages)
+    const userMessage = startableUserMessage(this.messages)
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
 
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
@@ -267,6 +310,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
       binding: 'waiting',
       attemptId: createAttemptId(),
       userMessageId: userMessage.id,
+      queuedPosition: userMessage.queuedPosition,
       writer: stream.writable.getWriter(),
       projection: createConversationEventProjectionState(),
     }
@@ -278,7 +322,8 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         row.id === userMessage.id ? { ...row, metadata: { attemptId: active.attemptId } } : row,
       ),
     )
-    void this.startTurn(active, userMessage)
+    // Exactly the Host contract: the row's queue position is the relay's own fact.
+    void this.startTurn(active, { id: userMessage.id, content: userMessage.content })
     return createUIMessageStreamResponse({ stream: stream.readable })
   }
 
@@ -391,8 +436,11 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         ...this.messages.filter((row) => rowBelongsToTurn(row, active.turnId)),
       ]
     }
+    // Queued and dequeued rows are the relay's, not the Host's: the snapshot cannot know them.
+    rows = [...rows, ...this.messages.filter((row) => isQueuedRow(row) || isDequeuedRow(row))]
     await this.persistMessages(rows, [], { _deleteStaleRows: true })
     this.publishCurrentActivity()
+    if (state.turn.state === 'idle') this.drainQueueInBackground()
   }
 
   /** Replace one finished turn with the Host's version of it. */
@@ -414,6 +462,8 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
       await this.ctx.storage.put(COMMANDS_KEY, event.commands)
     }
     if (event.type === 'turn.started') await this.bindStream(event)
+    // The queue waits for the SDK's own turn to settle, so this is safe before the stream closes.
+    if (isTerminalEvent(event)) this.drainQueueInBackground()
     const active = this.activeStream
     if (active?.binding !== 'bound' || !eventBelongsToTurn(event, active.turnId)) {
       if (isTerminalEvent(event) && 'turnId' in event) this.reconcileInBackground(event.turnId)
@@ -484,8 +534,164 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
       })
       if (this.activeStream !== active) return
       this.activeStream = undefined
+      // A queued row goes back to the queue; a browser send stays a failed send, as today.
+      if (active.queuedPosition !== undefined) {
+        const position = active.queuedPosition
+        await this.persistMessages(
+          this.messages.map((row) =>
+            row.id === active.userMessageId
+              ? { ...row, metadata: queuedRowMetadata(position) }
+              : row,
+          ),
+        )
+      }
       await closeWriterWithError(active.writer, hostErrorMessage(error))
     }
+  }
+
+  // --- Queue: rows the relay holds back until the running turn ends -------------------------
+
+  /** Persist a queued user row; it starts when no turn runs. */
+  @callable()
+  async queueMessage(input: QueueMessageInput): Promise<null> {
+    const { id, parts } = QueueMessageInputSchema.parse(input)
+    const row: UIMessage = {
+      id,
+      role: 'user',
+      metadata: queuedRowMetadata(nextQueuePosition(this.messages)),
+      parts: parts.map(toUserPart),
+    }
+    await this.persistMessages([...this.messages, row])
+    this.drainQueueInBackground()
+    return null
+  }
+
+  /** Delete a queued row. A row that already started is a no-op: start and withdraw race, and start wins. */
+  @callable()
+  async withdrawQueued(ref: QueuedMessageRef): Promise<null> {
+    const { messageId } = QueuedMessageRefSchema.parse(ref)
+    const row = this.messages.find((entry) => entry.id === messageId)
+    if (row === undefined || !isQueuedRow(row)) return null
+    await this.persistMessages(
+      this.messages.filter((entry) => entry.id !== messageId),
+      [],
+      { _deleteStaleRows: true },
+    )
+    return null
+  }
+
+  /** Move a queued row to a 1-based position among the queued rows; the others shift. */
+  @callable()
+  async reorderQueued(input: ReorderQueuedInput): Promise<null> {
+    const { messageId, position } = ReorderQueuedInputSchema.parse(input)
+    const queued = queuedRows(this.messages)
+    const from = queued.findIndex((row) => row.id === messageId)
+    if (from === -1) return null
+    const moved = queued[from]
+    if (moved === undefined) return null
+    const rest = queued.filter((row) => row.id !== messageId)
+    const at = Math.min(position - 1, rest.length)
+    const ordered = [...rest.slice(0, at), moved, ...rest.slice(at)]
+    const positions = new Map(ordered.map((row, index) => [row.id, index + 1]))
+    await this.persistMessages(
+      this.messages.map((row) => {
+        const next = positions.get(row.id)
+        return next === undefined ? row : { ...row, metadata: queuedRowMetadata(next) }
+      }),
+    )
+    return null
+  }
+
+  /**
+   * Start one queued row next, alone. Cancels the running turn; the drain
+   * that follows `turn.finished` reads the marker. With no turn running the
+   * drain starts at once.
+   */
+  @callable()
+  async sendQueuedNow(ref: QueuedMessageRef): Promise<null> {
+    const { messageId } = QueuedMessageRefSchema.parse(ref)
+    const row = this.messages.find((entry) => entry.id === messageId)
+    if (row === undefined || !isQueuedRow(row)) return null
+    await this.ctx.storage.put(SEND_NOW_KEY, messageId)
+    const turnId = this.state.runningTurnId
+    if (turnId !== undefined) return await this.hostSocket.request('turn.cancel', { turnId })
+    this.drainQueueInBackground()
+    return null
+  }
+
+  // One drain at a time: every trigger while one waits is covered by that one.
+  private draining = false
+
+  private drainQueueInBackground(): void {
+    if (this.draining) return
+    this.draining = true
+    void this.drainQueue()
+      .catch((error) => {
+        logger.warn('queue_drain_failed', {
+          error: toErrorPayload(error),
+          details: { conversationId: this.conversationId },
+        })
+      })
+      .finally(() => {
+        this.draining = false
+      })
+  }
+
+  /**
+   * Start the next turn from the queue once nothing runs: the SDK's turn has
+   * settled and the Host reports no running turn. Every queued row folds into
+   * one, unless `sendQueuedNow` named one row to start alone.
+   *
+   * `saveMessages` resolves when the whole turn ends, so it is not awaited here.
+   * Its callback runs when the SDK is ready to start; if the queue changed
+   * meanwhile and nothing is left to start, the signal aborts the turn before
+   * any work runs.
+   */
+  private async drainQueue(): Promise<void> {
+    const stable = await this.waitUntilStable({ timeout: DRAIN_STABLE_TIMEOUT_MS })
+    if (!stable || this.state.runningTurnId !== undefined) return
+    const queued = queuedRows(this.messages)
+    if (queued.length === 0) return
+    const sendNow = await this.ctx.storage.get<MessageId>(SEND_NOW_KEY)
+    await this.ctx.storage.delete(SEND_NOW_KEY)
+
+    // Fold first, with stale-row deletion: `saveMessages` only upserts what it is given.
+    const alone = queued.find((row) => row.id === sendNow)
+    const next = alone === undefined ? queued : [alone]
+    const folded = foldQueuedRows(next)
+    const dropped = new Set(next.slice(1).map((row) => row.id))
+    await this.persistMessages(
+      this.messages.flatMap((row) => {
+        if (row.id === folded.id) return [folded]
+        return dropped.has(row.id) ? [] : [row]
+      }),
+      [],
+      { _deleteStaleRows: true },
+    )
+
+    // The turn starts when the SDK is ready; if the row was withdrawn by then, no turn runs.
+    const nothingToStart = new AbortController()
+    void this.saveMessages(
+      (rows) => {
+        if (nextUserRow(rows) === undefined) nothingToStart.abort()
+        return [...rows]
+      },
+      { signal: nothingToStart.signal },
+    )
+      .then((result) => {
+        if (result.status !== 'completed' && result.status !== 'aborted') {
+          logger.warn('queue_turn_not_completed', {
+            details: { conversationId: this.conversationId, status: result.status },
+          })
+        }
+        return result
+      })
+      .catch((error) => {
+        logger.warn('queue_turn_failed', {
+          error: toErrorPayload(error),
+          details: { conversationId: this.conversationId },
+        })
+      })
   }
 
   private serializeStream<Result>(work: () => Promise<Result>): Promise<Result> {
@@ -570,10 +776,20 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   }
 }
 
-function latestUserMessage(
-  messages: readonly UIMessage[],
-): { readonly id: MessageId; readonly content: CanonicalContent[] } | undefined {
-  const message = messages.findLast((entry) => entry.role === 'user')
+/**
+ * The user message this chat turn starts, in the Host's content shape.
+ *
+ * A browser send and a drained queue row both arrive as the first user row
+ * with no turn link. A row with nothing the Host can read is not startable.
+ */
+function startableUserMessage(messages: readonly UIMessage[]):
+  | {
+      readonly id: MessageId
+      readonly content: CanonicalContent[]
+      readonly queuedPosition: number | undefined
+    }
+  | undefined {
+  const message = nextUserRow(messages)
   if (message === undefined) return undefined
   const messageId = MessageIdSchema.parse(message.id)
   const content = message.parts.flatMap((part, index) => {
@@ -581,7 +797,8 @@ function latestUserMessage(
     if (part.type !== 'file') return []
     return [canonicalFileContent(messageId, index, part)]
   })
-  return content.length === 0 ? undefined : { id: messageId, content }
+  if (content.length === 0) return undefined
+  return { id: messageId, content, queuedPosition: dequeuedPositionOfRow(message) }
 }
 
 function canonicalFileContent(
@@ -612,6 +829,20 @@ function canonicalFileContent(
     name: part.filename ?? `Attachment ${index + 1}`,
     mimeType: part.mediaType,
   }
+}
+
+/** The next free run position: after the last queued row. */
+function nextQueuePosition(messages: readonly UIMessage[]): number {
+  const last = queuedRows(messages).at(-1)
+  return last === undefined ? 1 : (queuedPositionOfRow(last) ?? 0) + 1
+}
+
+/** The parsed part back into the AI SDK's own shape, without the optional key when absent. */
+function toUserPart(part: z.infer<typeof QueuedPartSchema>): UIMessage['parts'][number] {
+  if (part.type === 'text') return { type: 'text', text: part.text }
+  return part.filename === undefined
+    ? { type: 'file', mediaType: part.mediaType, url: part.url }
+    : { type: 'file', mediaType: part.mediaType, url: part.url, filename: part.filename }
 }
 
 function errorStreamResponse(message: string): Response {

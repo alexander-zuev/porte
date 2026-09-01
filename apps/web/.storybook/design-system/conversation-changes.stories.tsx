@@ -1,11 +1,8 @@
-import type { ChangedFilePath, WorkspaceChanges } from '@porte/core/client'
+import type { ChangedFilePath, UncommittedChanges } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useQuery } from '@tanstack/react-query'
 import { ConversationChanges } from '@web/features/conversation/components/conversation-changes.tsx'
-import type {
-  ChangePatchView,
-  WorkspaceChangesView,
-} from '@web/features/conversation/models/workspace-diff.ts'
+import type { FileDiffView, ChangesView } from '@web/features/conversation/models/changes.ts'
 import { PromptInputProvider } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
@@ -19,7 +16,7 @@ import {
   deepChanges,
   fakeChangesServer,
   noChanges,
-  workspaceChanges,
+  uncommittedChanges,
   type FakeChangesServer,
 } from '../fixtures/changes.ts'
 import { olderTurns, relayState, session } from '../fixtures/transcript.ts'
@@ -76,12 +73,12 @@ export const Clean: StoryObj = { render: () => <ChangesHarness changes={noChange
 export const Failed: StoryObj = { render: () => <ChangesHarness fails /> }
 
 function ChangesHarness({
-  changes = workspaceChanges,
+  changes = uncommittedChanges,
   defaultOpen = false,
   defaultPath = null,
   fails = false,
 }: {
-  readonly changes?: WorkspaceChanges
+  readonly changes?: UncommittedChanges
   readonly defaultOpen?: boolean
   readonly defaultPath?: ChangedFilePath | null
   readonly fails?: boolean
@@ -89,7 +86,7 @@ function ChangesHarness({
   const server = useMemo(() => fakeChangesServer(changes, { fails }), [changes, fails])
   const [selected, setSelected] = useState<ChangedFilePath | null>(defaultPath)
   const list = useChangesList(server, changes)
-  const patch = useChangePatch(server, selected)
+  const diff = useFileDiff(server, selected)
 
   return (
     <PromptInputProvider>
@@ -100,7 +97,7 @@ function ChangesHarness({
             <ConversationChanges
               changes={list}
               defaultOpen={defaultOpen}
-              patch={patch}
+              diff={diff}
               selected={selected}
               onSelect={setSelected}
             />
@@ -116,11 +113,8 @@ function ChangesHarness({
   )
 }
 
-/** The story's stand-in for `useWorkspaceChanges`: one query per fake Host. */
-function useChangesList(
-  server: FakeChangesServer,
-  changes: WorkspaceChanges,
-): WorkspaceChangesView {
+/** The story's stand-in for `useUncommittedChanges`: one query per fake Host. */
+function useChangesList(server: FakeChangesServer, changes: UncommittedChanges): ChangesView {
   const query = useQuery({
     queryKey: ['story', 'changes', 'list', changes.files.length, server],
     queryFn: () => server.list(),
@@ -139,14 +133,14 @@ function useChangesList(
   return { status: 'pending' }
 }
 
-/** The story's stand-in for `useChangePatch`: one query per tapped file. */
-function useChangePatch(server: FakeChangesServer, path: ChangedFilePath | null): ChangePatchView {
+/** The story's stand-in for `useFileDiff`: one query per tapped file. */
+function useFileDiff(server: FakeChangesServer, path: ChangedFilePath | null): FileDiffView {
   const query = useQuery({
     queryKey: ['story', 'changes', 'file', path, server],
     queryFn: () => server.get(path ?? CHAT_FRAME),
     enabled: path !== null,
   })
-  if (query.status === 'success') return { status: 'ready', patch: query.data }
+  if (query.status === 'success') return { status: 'ready', diff: query.data }
   if (query.status === 'error') {
     return {
       status: 'failed',

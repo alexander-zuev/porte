@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { GitWorkspaceChanges } from '@host/infrastructure/git/git-workspace-changes.ts'
+import { GitWorkingTree } from '@host/infrastructure/git/git-working-tree.ts'
 import { ChangedFilePathSchema } from '@porte/core/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -45,11 +45,11 @@ afterAll(() => {
   rmSync(root, { recursive: true, force: true })
 })
 
-describe('GitWorkspaceChanges on a real repository', () => {
-  const reader = new GitWorkspaceChanges()
+describe('GitWorkingTree on a real repository', () => {
+  const tree = new GitWorkingTree()
 
   it('lists every kind of change with the counts git reports', async () => {
-    const changes = await reader.list(root)
+    const changes = await tree.changes(root)
     expect(changes.branch).toBe('main')
     expect(changes.files).toEqual(
       expect.arrayContaining([
@@ -64,7 +64,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
   })
 
   it('matches what git diff --stat says for the tracked files', async () => {
-    const changes = await reader.list(root)
+    const changes = await tree.changes(root)
     const stat = git('diff', 'HEAD', '--numstat', '--no-renames')
     for (const line of stat.trim().split('\n')) {
       const [added, removed, file] = line.split('\t')
@@ -75,7 +75,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
   })
 
   it('returns a unified diff with three lines of context', async () => {
-    const result = await reader.get(root, path('src/edited.ts'))
+    const result = await tree.diff(root, path('src/edited.ts'))
     expect(result).toMatchObject({ kind: 'patch' })
     if (result.kind !== 'patch') return
     expect(result.patch).toContain('@@ -1,3 +1,4 @@')
@@ -85,7 +85,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
   })
 
   it('shows an untracked file as all added', async () => {
-    const result = await reader.get(root, path('docs/notes/new.md'))
+    const result = await tree.diff(root, path('docs/notes/new.md'))
     expect(result).toMatchObject({ kind: 'patch' })
     if (result.kind !== 'patch') return
     expect(result.patch).toContain('--- /dev/null')
@@ -93,7 +93,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
   })
 
   it('names the binary file', async () => {
-    await expect(reader.get(root, path('logo.png'))).resolves.toEqual({ kind: 'binary' })
+    await expect(tree.diff(root, path('logo.png'))).resolves.toEqual({ kind: 'binary' })
   })
 
   it('lists a repository with no commit as all added', async () => {
@@ -101,7 +101,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
     try {
       execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: unborn })
       writeFileSync(join(unborn, 'first.txt'), 'hello\n')
-      const changes = await reader.list(unborn)
+      const changes = await tree.changes(unborn)
       expect(changes.files).toEqual([
         { kind: 'text', path: 'first.txt', status: 'untracked', added: 1, removed: 0 },
       ])
@@ -113,7 +113,7 @@ describe('GitWorkspaceChanges on a real repository', () => {
   it('refuses a directory that is not a repository', async () => {
     const plain = mkdtempSync(join(tmpdir(), 'porte-plain-'))
     try {
-      await expect(reader.list(plain)).rejects.toMatchObject({ _tag: 'WorkspaceNotAllowedError' })
+      await expect(tree.changes(plain)).rejects.toMatchObject({ _tag: 'WorkspaceNotAllowedError' })
     } finally {
       rmSync(plain, { recursive: true, force: true })
     }
