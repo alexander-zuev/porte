@@ -49,6 +49,7 @@ Reference: Claude Code mobile web tool rendering (screenshots reviewed 2026-08-3
 - [x] 10. Plan above the composer collapses to one line on all devices; opening it is a drawer, not an inline expand.
 - [x] 12. Turn-total `1 file +36 −16` line above the composer removed — the collapsed run lines already carry the counts (one fact, one representation).
 - [x] 13. Desktop expansion stays (matches Claude), but capped: detail body is `max-h-96` and scrolls inside its border, so opening never jumps the page. Phone is always a drawer.
+- [ ] 14. Host follow-up (not UX): `acp-update-mapper` logged `prompt_index_mismatch` (expected 6, actual 7) on conversation `01a05924…` — the aggregate's promptIndex prediction drifted, so that turn's ids flip on replay. Investigate after the UX work.
 - [ ] 11. LAST review task: audit the conversation screen for remaining inline expands on phone. Still expanding in place: Reasoning ("Thought for…"), Sources. Everything else now opens a sheet.
 
 ## Spike findings (2026-08-31)
