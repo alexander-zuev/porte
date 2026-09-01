@@ -2,9 +2,12 @@ import { DurableObjectClient, HOST_CONVERSATION_SUBPROTOCOL } from '@porte/core'
 import type {
   ConnectConversationAgent,
   IConversationAgentClient,
+  ReadConversationMessages,
 } from '@web/server/application/ports/conversation-agent-client.ts'
-import { routeSubAgentRequest } from 'agents'
+import { getSubAgentByName, routeSubAgentRequest } from 'agents'
+import type { UIMessage } from 'ai'
 
+import { ConversationAgent } from './conversation-agent.ts'
 import type { HostRelayAgent } from './host-relay-agent.ts'
 import { createRelayUpgradeRequest } from './relay/relay-upgrade-request.ts'
 import { completeRelayUpgrade } from './relay/relay-upgrade-response.ts'
@@ -23,12 +26,10 @@ export class ConversationAgentClient
     return completeRelayUpgrade(input, response, HOST_CONVERSATION_SUBPROTOCOL, 'conversation')
   }
 
-  async readMessages(input: ConnectConversationAgent): Promise<Response> {
-    const request = createRelayUpgradeRequest(input)
-    // The leaf rides in `fromPath` because the forwarder replaces the pathname whole.
-    const fromPath = `/sub/conversation-agent/${input.conversationId}/get-messages`
-    return this.repeatable(input.hostId, (parent) =>
-      routeSubAgentRequest(request, parent, { fromPath }),
-    )
+  async readMessages(input: ReadConversationMessages): Promise<UIMessage[]> {
+    return this.repeatable(input.hostId, async (parent) => {
+      const agent = await getSubAgentByName(parent, ConversationAgent, input.conversationId)
+      return agent.readMessages()
+    })
   }
 }

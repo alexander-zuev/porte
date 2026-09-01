@@ -9,7 +9,6 @@ import { getConversationMessages as getConversationMessagesQuery } from '@server
 import { getConversations as getConversationsQuery } from '@server/application/queries/get-conversations.query.ts'
 import { requireAuth } from '@server/entrypoints/middleware/auth.middleware.ts'
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 
 /**
@@ -42,8 +41,8 @@ export const createConversation = createServerFn({ method: 'POST' })
 
 /**
  * Read one conversation's stored messages, so the page renders before its socket opens.
- * The Agent's response is passed through: its `UIMessage` type carries `unknown` fields
- * that Start will not type-check, and the client names the payload once.
+ * Answered as a `Response`: the `UIMessage` type carries `unknown` fields that Start
+ * will not type-check, and the client names the payload once.
  */
 export const getConversationMessages = createServerFn({ method: 'GET' })
   .middleware([requireAuth])
@@ -54,6 +53,5 @@ export const getConversationMessages = createServerFn({ method: 'GET' })
       context.deps.conversationAgent,
       context.user.id,
       data.conversationId,
-      getRequest(),
     )
   })

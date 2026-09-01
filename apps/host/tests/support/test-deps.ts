@@ -112,9 +112,10 @@ export class FakeConnections implements HostConnections {
 
   connectControl(): void {}
 
-  connectConversation(conversationId: ConversationId, cwd: string): void {
+  connectConversation(conversationId: ConversationId, cwd: string): Promise<void> {
     this.attached.set(conversationId, cwd)
     this.sent.set(conversationId, this.sent.get(conversationId) ?? [])
+    return Promise.resolve()
   }
 
   conversation(conversationId: ConversationId) {

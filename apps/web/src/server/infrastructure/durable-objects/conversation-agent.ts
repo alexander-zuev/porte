@@ -129,6 +129,19 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   }
 
   /**
+   * The stored transcript, for the page's first paint. Worker RPC, not the
+   * SDK's `/get-messages`: an empty store is never served unconfirmed — it
+   * syncs from the machine first, or throws `HostOfflineError`.
+   */
+  async readMessages(): Promise<UIMessage[]> {
+    if (this.messages.length > 0) return this.messages
+    // `conversation.attach` answers only once the machine's socket is up.
+    if (this.hostConnection() === undefined) await this.requestHostAttach()
+    await this.loadSnapshot()
+    return this.messages
+  }
+
+  /**
    * A restart is not a reason to call anything again: the machine runs the turn
    * and its `turn.finished` reconciles the rows. The SDK's own
    * partial row would be a second writer, so it neither persists nor continues.

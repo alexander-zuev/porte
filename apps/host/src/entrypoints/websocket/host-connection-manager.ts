@@ -58,8 +58,9 @@ export class HostConnectionManager implements HostConnections {
     this.controlConnection.start(onStatus)
   }
 
-  connectConversation(conversationId: ConversationId, cwd: string): void {
-    if (this.conversations.has(conversationId)) return
+  connectConversation(conversationId: ConversationId, cwd: string): Promise<void> {
+    const existing = this.conversations.get(conversationId)
+    if (existing !== undefined) return existing.ready
 
     const transport = this.createTransport({
       url: this.conversationUrl(conversationId),
@@ -89,6 +90,7 @@ export class HostConnectionManager implements HostConnections {
       },
     )
     connection.start()
+    return connection.ready
   }
 
   conversation(conversationId: ConversationId): ConversationNotifications | null {

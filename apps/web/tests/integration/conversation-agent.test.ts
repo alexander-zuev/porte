@@ -19,8 +19,10 @@ import {
   type MessageId,
   type TurnId,
 } from '@porte/core'
+import { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { RELAY_HOST_ID_HEADER } from '@server/infrastructure/durable-objects/relay/relay-headers.ts'
+import { getSubAgentByName } from 'agents'
 import type { UIMessage } from 'ai'
 import { env } from 'cloudflare:workers'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -283,11 +285,10 @@ async function openConversation() {
       // No attach request follows: the Host data socket is already connected.
       return { socket: response.webSocket, inbox }
     },
+    // The production read: Worker RPC through the parent, not the SDK's `/get-messages`.
     async messages(): Promise<UIMessage[]> {
-      const response = await stub.fetch(`${dataUrl}/get-messages`)
-      if (!response.ok) throw new Error(`get-messages failed: ${String(response.status)}`)
-      // SAFETY: our own ConversationAgent wrote this JSON from `UIMessage[]` in the same deploy.
-      return (await response.json()) as UIMessage[]
+      const agent = await getSubAgentByName(stub, ConversationAgent, conversation.id)
+      return agent.readMessages()
     },
   }
   return flow

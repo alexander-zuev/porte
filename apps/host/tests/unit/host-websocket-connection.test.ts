@@ -74,9 +74,11 @@ describe('Host WebSocket connections', () => {
   it('attach opens a socket, its first open loads the session, get answers the snapshot', async () => {
     const test = connectionTest()
     await test.control.connect()
-    await test.control.receive(request('conversation.attach', attach))
-    expect(test.conversations).toHaveLength(1)
+    // The attach answers only once the socket is up, so it stays in flight until `connect`.
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() =>{  expect(test.conversations).toHaveLength(1); })
     await test.conversations[0]?.connect()
+    await attached
     expect(test.deps.codingAgent.sessions.get(conversationId)).toBe(attach.cwd)
     await test.conversations[0]?.receive(request('conversation.get', {}))
     expect(jsonFrames(test.conversations[0]).at(-1)?.result).toMatchObject({
@@ -89,9 +91,11 @@ describe('Host WebSocket connections', () => {
   it('a reconnect does not load the session again', async () => {
     const test = connectionTest()
     await test.control.connect()
-    await test.control.receive(request('conversation.attach', attach))
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() =>{  expect(test.conversations).toHaveLength(1); })
     const load = vi.spyOn(test.deps.codingAgent, 'loadSession')
     await test.conversations[0]?.connect()
+    await attached
     await test.conversations[0]?.connect()
     expect(load).toHaveBeenCalledTimes(1)
     test.manager.closeAll()
@@ -100,8 +104,10 @@ describe('Host WebSocket connections', () => {
   it('sends conversation events on the conversation socket once it is up', async () => {
     const test = connectionTest()
     await test.control.connect()
-    await test.control.receive(request('conversation.attach', attach))
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() =>{  expect(test.conversations).toHaveLength(1); })
     await test.conversations[0]?.connect()
+    await attached
     await test.conversations[0]?.receive(
       request('turn.start', {
         attemptId: '0199f97b-9cf1-7f05-9e9d-df1647d7a821',
@@ -124,13 +130,17 @@ describe('Host WebSocket connections', () => {
   it('removes a stopped conversation connection so attach opens a new one', async () => {
     const test = connectionTest()
     await test.control.connect()
-    await test.control.receive(request('conversation.attach', attach))
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() =>{  expect(test.conversations).toHaveLength(1); })
     await test.conversations[0]?.connect()
+    await attached
     test.conversations[0]?.stop()
     await Promise.resolve()
-    await test.control.receive(request('conversation.attach', attach))
-    expect(test.conversations).toHaveLength(2)
+    // The second socket never comes up; closing it below answers this attach with an error.
+    const reattached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() =>{  expect(test.conversations).toHaveLength(2); })
     test.manager.closeAll()
+    await reattached
   })
 })
 

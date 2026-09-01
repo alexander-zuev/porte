@@ -9,8 +9,12 @@ export interface HostConnections {
   readonly control: ControlNotifications
   /** Open the control socket; `onStatus` sees every connect and drop until `closeAll`. */
   connectControl(onStatus?: RelayStatusListener): void
-  /** Idempotent. `cwd` is what `session/load` needs; the relay stores it per conversation. */
-  connectConversation(conversationId: ConversationId, cwd: string): void
+  /**
+   * Idempotent. `cwd` is what `session/load` needs; the relay stores it per conversation.
+   * Resolves once the socket is up and the conversation is open, so an
+   * acknowledgment built on it means the connection is usable.
+   */
+  connectConversation(conversationId: ConversationId, cwd: string): Promise<void>
   /** Null while the conversation has no socket; events for it are then not sent. */
   conversation(conversationId: ConversationId): ConversationNotifications | null
   closeConversation(conversationId: ConversationId): void

@@ -7,6 +7,7 @@ import type { RelaySocket } from '@host/infrastructure/websocket/party-socket-tr
 import { createConversationNotifications } from '@host/infrastructure/websocket/websocket-notifications.ts'
 import {
   HostConversationMethods,
+  HostOfflineError,
   HostRequestIdSchema,
   type ConversationId,
 } from '@porte/core/client'
@@ -16,6 +17,9 @@ export class ConversationConnection {
   readonly notifications: ConversationNotifications
   /** Settles once, when this conversation socket will not come back. */
   readonly stopped: Promise<void>
+  /** Settles once the socket is up and the conversation is open; the attach answer waits on it. */
+  readonly ready: Promise<void>
+  private readonly readyState = Promise.withResolvers<void>()
   private readonly onFrame: ReturnType<typeof createJsonRpcHandler>
   private readonly onUp: () => Promise<void>
 
@@ -28,6 +32,11 @@ export class ConversationConnection {
   ) {
     this.notifications = createConversationNotifications((frame) => transport.send(frame))
     this.stopped = transport.stopped
+    // A socket that dies before its first up answers the waiting attach, not a timeout.
+    this.ready = Promise.race([
+      this.readyState.promise,
+      transport.stopped.then(() => Promise.reject(new HostOfflineError())),
+    ])
     this.onFrame = createJsonRpcHandler({
       methods: HostConversationMethods,
       requestId: HostRequestIdSchema,
@@ -36,7 +45,10 @@ export class ConversationConnection {
       context: { conversationId, bus },
     })
     // Every (re)connect opens the conversation; an open one is a no-op.
-    this.onUp = () => bus.handle(createCommand('OpenConversation', { conversationId, cwd }))
+    this.onUp = async () => {
+      await bus.handle(createCommand('OpenConversation', { conversationId, cwd }))
+      this.readyState.resolve()
+    }
   }
 
   start(): void {

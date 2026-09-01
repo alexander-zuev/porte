@@ -24,9 +24,10 @@ export const CONTROL_METHOD_HANDLERS = {
   'conversation.create': (params, context) =>
     context.bus.handle(createCommand('CreateConversation', params)),
 
-  // The socket's `onUp` dispatches OpenConversation with this cwd, on connect and on every reconnect.
+  // Answered only once the conversation socket is up and the conversation is open,
+  // so the relay can read right after the acknowledgment.
   'conversation.attach': async (params, context) => {
-    context.connections.connectConversation(params.conversationId, params.cwd)
+    await context.connections.connectConversation(params.conversationId, params.cwd)
     return null
   },
 } satisfies ControlMethodHandlerRegistry

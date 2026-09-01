@@ -30,7 +30,7 @@ function runtimeTest() {
       connectControl: () => {
         events.push('control started')
       },
-      connectConversation: () => undefined,
+      connectConversation: () => Promise.resolve(),
       conversation: () => null,
       closeConversation: () => undefined,
       closeAll: () => {
