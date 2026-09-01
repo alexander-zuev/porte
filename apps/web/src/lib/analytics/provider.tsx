@@ -8,6 +8,8 @@ if (!import.meta.env.SSR && settings.posthog.apiKey.length > 0) {
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'identified_only',
     defaults: '2026-08-29',
+    // Off until PostHog's web-vitals crash on soft navigations is fixed (posthog-js 1.422.5).
+    capture_performance: { web_vitals: false },
   })
 }
 
