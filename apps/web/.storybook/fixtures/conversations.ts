@@ -30,8 +30,20 @@ export const storybookSetup = makeConversationSummary({
   updatedAt: IsoDateTimeSchema.parse('2026-08-15T09:00:00.000Z'),
 })
 
+/** Created by the machine, not yet titled by the agent: rows must render its placeholder. */
+export const unnamed = makeConversationSummary({
+  id: ConversationIdSchema.parse('con_porte_3'),
+  cwd: '/Users/az/projects/porte',
+  gitRoot: '/Users/az/projects/porte',
+  title: '',
+  // Mid-day UTC so the date part stays the same calendar day in every test time zone.
+  updatedAt: IsoDateTimeSchema.parse('2026-08-18T09:00:00.000Z'),
+})
+
+// `unnamed` sits second: stories point their running/unseen markers at the first row.
 export const conversations: readonly ConversationSummary[] = [
   listResume,
+  unnamed,
   hostContract,
   storybookSetup,
 ]

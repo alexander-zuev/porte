@@ -6,6 +6,7 @@ import type {
   ConversationListItem,
   ConversationTurnStatus,
 } from '@web/entities/conversation/conversation-list.ts'
+import { conversationDisplayTitle } from '@web/entities/conversation/conversation-title.ts'
 import {
   groupConversationsByRepo,
   type Project,
@@ -124,7 +125,10 @@ function ProjectRow({
         </Button>
       </div>
 
-      <CollapsibleContent className="flex flex-col pb-2">
+      {/* The rail sits under the folder icon's center (`ml-2` = half the size-4
+          icon), so the line visibly hangs off the folder; `pl-4` lands row text
+          at 24px, the same x as the folder's name. */}
+      <CollapsibleContent className="ml-2 flex flex-col border-l border-border pl-4 pb-2">
         {project.conversations.map(({ attentionStatus, conversation, turnStatus }) => (
           <ConversationLink
             key={conversation.id}
@@ -163,7 +167,7 @@ function ConversationLink({
       to="/conversations/$conversationId"
     >
       <span className={cn('min-w-0 flex-1 truncate', !selected && 'text-muted-foreground')}>
-        {conversationTitle(conversation)}
+        {conversationDisplayTitle(conversation.title)}
       </span>
       <span className="flex size-5 shrink-0 items-center justify-center">
         <ConversationRowStatus attentionStatus={attentionStatus} turnStatus={turnStatus} />
@@ -194,14 +198,4 @@ function ConversationRowStatus({
     return <output aria-label="New message" className="size-2 rounded-full bg-status-info" />
   }
   return null
-}
-
-/**
- * What to call a conversation the agent has not titled.
- *
- * The machine creates a conversation with an empty title and the agent writes one
- * later, so a blank row is a real state rather than missing data.
- */
-function conversationTitle(conversation: ConversationSummary): string {
-  return conversation.title.trim() === '' ? 'Untitled' : conversation.title
 }

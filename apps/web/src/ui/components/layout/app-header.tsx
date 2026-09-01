@@ -2,6 +2,7 @@ import { LaptopIcon } from '@phosphor-icons/react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, useChildMatches } from '@tanstack/react-router'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
+import { conversationDisplayTitle } from '@web/entities/conversation/conversation-title.ts'
 import { hostQueries } from '@web/entities/host/host-queries.ts'
 import { useHostConnection } from '@web/features/relay/use-host-connection.ts'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
@@ -67,12 +68,7 @@ function RemoteHost() {
 
   if (owned.data?.state !== 'paired') return null
 
-  const heading =
-    conversationId === undefined
-      ? 'Remote'
-      : title.data === undefined || title.data === ''
-        ? 'Conversation'
-        : title.data
+  const heading = conversationId === undefined ? 'Remote' : conversationHeading(title.data)
 
   return (
     <div className="flex min-w-0 flex-col items-center">
@@ -84,4 +80,9 @@ function RemoteHost() {
       </small>
     </div>
   )
+}
+
+/** `undefined` is a list not yet cached; an empty title is a conversation the agent has not named. */
+function conversationHeading(title: string | undefined): string {
+  return title === undefined ? 'Conversation' : conversationDisplayTitle(title)
 }
