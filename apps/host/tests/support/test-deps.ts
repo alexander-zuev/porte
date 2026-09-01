@@ -7,6 +7,7 @@ import type {
   PromptResult,
 } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
+import type { WorkspaceChangesReader } from '@host/application/ports/workspace-changes.ts'
 import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
@@ -14,9 +15,12 @@ import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
 import {
   ConversationIdSchema,
+  type ChangePatch,
+  type ChangedFilePath,
   type ConversationEvent,
   type ConversationId,
   type ConversationMetadataPatch,
+  type WorkspaceChanges,
 } from '@porte/core/client'
 import { vi } from 'vitest'
 
@@ -139,7 +143,28 @@ export class FakeConnections implements HostConnections {
   }
 }
 
-export type TestDeps = AppDeps & { codingAgent: FakeCodingAgent; scheduler: FakeScheduler }
+/** A workspace whose answers a test sets up front, and that records which root was asked. */
+export class FakeWorkspaceChanges implements WorkspaceChangesReader {
+  readonly asked: string[] = []
+  changes: WorkspaceChanges = { branch: 'main', files: [] }
+  patches = new Map<ChangedFilePath, ChangePatch>()
+
+  list(gitRoot: string): Promise<WorkspaceChanges> {
+    this.asked.push(gitRoot)
+    return Promise.resolve(this.changes)
+  }
+
+  get(gitRoot: string, path: ChangedFilePath): Promise<ChangePatch> {
+    this.asked.push(gitRoot)
+    return Promise.resolve(this.patches.get(path) ?? { kind: 'patch', patch: '' })
+  }
+}
+
+export type TestDeps = AppDeps & {
+  codingAgent: FakeCodingAgent
+  scheduler: FakeScheduler
+  workspaceChanges: FakeWorkspaceChanges
+}
 
 /**
  * The real bus, repository, outbox, and background tasks over a fake agent.
@@ -154,6 +179,7 @@ export function createTestDeps(
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
     codingAgent,
+    workspaceChanges: new FakeWorkspaceChanges(),
     background: new NodeBackgroundTasks(),
     scheduler: new FakeScheduler(),
     now: () => new Date('2026-08-27T12:00:00.000Z'),

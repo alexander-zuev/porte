@@ -61,4 +61,10 @@ export const CONVERSATION_METHOD_HANDLERS = {
     await bus.handle(createCommand('AnswerElicitation', { conversationId, ...params }))
     return null
   },
+
+  'workspace.changes.list': (_params, { bus, conversationId }) =>
+    bus.handle(createQuery('ListWorkspaceChanges', { conversationId })),
+
+  'workspace.changes.get': (params, { bus, conversationId }) =>
+    bus.handle(createQuery('GetWorkspaceChange', { conversationId, path: params.path })),
 } satisfies ConversationMethodHandlerRegistry

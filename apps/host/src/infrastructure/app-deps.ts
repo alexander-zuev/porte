@@ -3,12 +3,14 @@ import type { BackgroundTasks } from '@host/application/ports/background-tasks.t
 import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
 import type { Scheduler } from '@host/application/ports/scheduler.ts'
+import type { WorkspaceChangesReader } from '@host/application/ports/workspace-changes.ts'
 import type { ConversationRepository } from '@host/domain/repositories/conversation-repository.ts'
 import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
 import { CONTROL_METHOD_HANDLERS } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { CONVERSATION_METHOD_HANDLERS } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { HostConnectionManager } from '@host/entrypoints/websocket/host-connection-manager.ts'
 import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
+import { GitWorkspaceChanges } from '@host/infrastructure/git/git-workspace-changes.ts'
 import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
 import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
@@ -22,6 +24,7 @@ export type AppDeps = {
   readonly outbox: EventOutbox
   readonly conversations: ConversationRepository
   readonly codingAgent: CodingAgent
+  readonly workspaceChanges: WorkspaceChangesReader
   readonly connections: HostConnections
   readonly background: BackgroundTasks
   readonly scheduler: Scheduler
@@ -48,6 +51,7 @@ export async function createAppDeps(input: CreateAppDepsInput): Promise<AppDeps>
   const deps: AppDeps = {
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
+    workspaceChanges: new GitWorkspaceChanges(),
     background: new NodeBackgroundTasks(),
     scheduler: new NodeScheduler(),
     now: () => new Date(),

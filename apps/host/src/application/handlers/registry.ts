@@ -12,7 +12,9 @@ import { expireCancel } from './expire-cancel.ts'
 import { finishTurn } from './finish-turn.ts'
 import { getConversation } from './get-conversation.ts'
 import { getTurn } from './get-turn.ts'
+import { getWorkspaceChange } from './get-workspace-change.ts'
 import { listConversations } from './list-conversations.ts'
+import { listWorkspaceChanges } from './list-workspace-changes.ts'
 import { openConversation } from './open-conversation.ts'
 import { publishConversationEvent } from './publish-conversation-event.ts'
 import { releaseParkedRequest } from './release-parked-request.ts'
@@ -65,6 +67,8 @@ export const QUERY_HANDLERS = {
   ListConversations: listConversations,
   GetConversation: getConversation,
   GetTurn: getTurn,
+  ListWorkspaceChanges: listWorkspaceChanges,
+  GetWorkspaceChange: getWorkspaceChange,
 } satisfies QueryRegistry
 
 export const DEFAULT_REGISTRY: MessageRegistry = {

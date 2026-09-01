@@ -26,6 +26,11 @@ import {
   jsonRpcResponseSchema,
 } from '../websocket/json-rpc.ts'
 import {
+  ChangePatchSchema,
+  ChangedFilePathSchema,
+  WorkspaceChangesSchema,
+} from '../workspace/workspace-changes.ts'
+import {
   HostApplicationErrorSchema,
   HostRequestIdSchema,
   sequencedParams,
@@ -111,6 +116,17 @@ export const HostConversationMethods = {
       answer: ElicitationAnswerSchema,
     }),
     result: EmptyResultSchema,
+  },
+  // The working tree against `HEAD`, read from git on request. Never on live state.
+  'workspace.changes.list': {
+    kind: JSON_RPC_METHOD_KINDS.request,
+    params: z.strictObject({}),
+    result: WorkspaceChangesSchema,
+  },
+  'workspace.changes.get': {
+    kind: JSON_RPC_METHOD_KINDS.request,
+    params: z.strictObject({ path: ChangedFilePathSchema }),
+    result: ChangePatchSchema,
   },
   'conversation.event': {
     kind: JSON_RPC_METHOD_KINDS.notification,
