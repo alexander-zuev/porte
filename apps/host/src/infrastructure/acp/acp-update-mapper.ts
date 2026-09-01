@@ -38,6 +38,13 @@ const logger = createLogger('acp-update-mapper')
 /** Grok's per-turn key on `user_message_chunk._meta`; the only stable turn id in a replay. */
 const promptIndexSchema = z.number().int().nonnegative()
 
+/** Grok marks synthetic user chunks its own TUI never shows, e.g. subagent completion reminders. */
+const hiddenChunkMetaSchema = z.object({ hideFromScrollback: z.literal(true) })
+
+function isHiddenChunk(update: ContentUpdate): boolean {
+  return hiddenChunkMetaSchema.safeParse(update._meta).success
+}
+
 type EventData = z.input<typeof ConversationEventSchema>
 type MessageStream = 'user' | 'assistant' | 'reasoning'
 type ContentUpdate = Extract<
@@ -147,7 +154,13 @@ export class AcpUpdateMapper {
           this.checkPromptIndex(update)
           return []
         }
-        return [...this.startReplayTurn(update), ...this.mapContent('user', update)]
+        // A hidden chunk is Grok's own machinery (a subagent completion
+        // reminder): it keeps its prompt slot so replay ids stay stable,
+        // but it is not something anyone said — nothing renders.
+        return [
+          ...this.startReplayTurn(update),
+          ...(isHiddenChunk(update) ? [] : this.mapContent('user', update)),
+        ]
       case 'agent_message_chunk':
         return this.mapContent('assistant', update)
       case 'agent_thought_chunk':

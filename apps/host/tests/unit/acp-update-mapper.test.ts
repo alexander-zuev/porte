@@ -105,6 +105,37 @@ describe('AcpUpdateMapper', () => {
     })
   })
 
+  it('keeps a hidden reminder chunk out of the transcript but in the turn count', () => {
+    // Captured from grok 1.0.5: a subagent completion injected as a hidden user chunk.
+    const mapper = new AcpUpdateMapper(conversationId)
+    const events = [
+      mapper.map({
+        sessionId: conversationId,
+        update: {
+          sessionUpdate: 'user_message_chunk',
+          content: {
+            type: 'text',
+            text: '<system-reminder>\nBackground subagent "01a05a3e" (explore: "Read tool-detail only") completed successfully.\nDuration: 7.3s | Tool calls: 1 | Turns: 1\n</system-reminder>',
+          },
+          _meta: { modelId: 'grok-4.6', promptIndex: 6, hideFromScrollback: true },
+        },
+      }),
+      mapper.map({
+        sessionId: conversationId,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: 'The subagent is done.' },
+        },
+      }),
+    ].flat()
+    expect(events.some((event) => 'role' in event && event.role === 'user')).toBe(false)
+    // The reminder still owns prompt slot 6, so the turn id cannot flip on replay.
+    expect(events.at(-1)).toMatchObject({
+      type: 'message.delta',
+      turnId: `${conversationId}:turn:6`,
+    })
+  })
+
   it('rejects updates outside a turn, a second live turn, and another session', () => {
     const mapper = new AcpUpdateMapper(conversationId)
     expect(() => mapper.map(live[2]!)).toThrow(AcpUpdateSequenceError)
