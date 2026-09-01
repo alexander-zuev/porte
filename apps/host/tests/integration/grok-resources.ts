@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdtemp, readdir, realpath, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, realpath, rm, stat } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -54,15 +54,36 @@ export async function cleanupGrokSessions(): Promise<void> {
   workspaces.clear()
 }
 
-/** Every `porte-test-*` cwd still present in the temp dir or the Grok session store. */
+/** A leftover is stale only when old: another vitest worker's live workspace is minutes fresh. */
+const STALE_AGE_MS = 60 * 60 * 1000
+
+async function isStale(path: string): Promise<boolean> {
+  const info = await stat(path).catch(() => undefined)
+  if (info === undefined) return false
+  return Date.now() - info.mtimeMs > STALE_AGE_MS
+}
+
+/**
+ * Every `porte-test-*` cwd left in the temp dir or the Grok session store by an
+ * EARLIER run. Test files run in parallel workers, so a fresh `porte-test-*`
+ * dir may belong to a live test in another process — only hour-old leftovers
+ * are swept.
+ */
 async function staleWorkspaces(sessions: string): Promise<string[]> {
   const temp = await realpath(tmpdir())
   const tempDirs = await readdir(temp).catch(() => [])
   const sessionDirs = await readdir(sessions).catch(() => [])
-  return [
-    ...tempDirs.filter((name) => name.startsWith(WORKSPACE_PREFIX)).map((name) => join(temp, name)),
+  const candidates = [
+    ...tempDirs
+      .filter((name) => name.startsWith(WORKSPACE_PREFIX))
+      .map((name) => ({ cwd: join(temp, name), probe: join(temp, name) })),
     ...sessionDirs
-      .map((name) => decodeURIComponent(name))
-      .filter((cwd) => cwd.includes(`/${WORKSPACE_PREFIX}`)),
+      .filter((name) => decodeURIComponent(name).includes(`/${WORKSPACE_PREFIX}`))
+      .map((name) => ({ cwd: decodeURIComponent(name), probe: join(sessions, name) })),
   ]
+  const stale: string[] = []
+  for (const candidate of candidates) {
+    if (await isStale(candidate.probe)) stale.push(candidate.cwd)
+  }
+  return stale
 }
