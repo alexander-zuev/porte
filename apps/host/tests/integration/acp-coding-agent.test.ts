@@ -101,9 +101,10 @@ describe.skipIf(!liveGrokTestsEnabled())('AcpCodingAgent', () => {
         const [option] = configuration.options
         if (option?.type !== 'select') throw new Error('no model option')
         const events = await agent.setModel(created.id, option.currentValue)
+        // The current model's effort levels ride along as a second select.
         expect(events[0]).toMatchObject({
           type: 'conversation.configuration.updated',
-          options: [{ id: 'model', currentValue: option.currentValue }],
+          options: [{ id: 'model', currentValue: option.currentValue }, { id: 'effort' }],
         })
         await expect(
           agent.setModel(ConversationIdSchema.parse('missing'), 'x'),

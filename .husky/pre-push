@@ -1,2 +1,6 @@
+# Grok's TUI can leave mouse tracking on; reset it however the hook ends.
+cleanup() { printf '\033[?1000l\033[?1002l\033[?1003l\033[?1006l\033[?25h'; }
+trap cleanup EXIT
+
 GROK_LIVE_TESTS=1 pnpm test:integration
 pnpm test:design || echo "test:design failed (non-blocking)"
