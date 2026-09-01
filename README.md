@@ -8,15 +8,14 @@ https://useporte.dev
 
 ## Install
 
-As a Grok plugin — no manual install; Grok runs Porte with each session. Needs Node 22+:
+As a Grok plugin — no manual install; Grok runs Porte with each session. Needs Node 22+. The official marketplace listing is not approved yet, so install from this repository:
 
 ```sh
+grok plugin marketplace add alexander-zuev/porte
 grok plugin install porte --trust
 ```
 
-If Grok cannot find `porte` (the official listing may still be propagating), run `grok plugin marketplace add alexander-zuev/porte` first, then retry.
-
-Official marketplace submission: [xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463).
+Once the official listing lands ([xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463)), the first command becomes unnecessary.
 
 Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.3 rc disable-hook` first; plugin uninstall does not remove it.
 
