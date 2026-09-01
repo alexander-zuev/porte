@@ -52,6 +52,8 @@ function PlanLine({
     <Drawer>
       <DrawerTrigger
         data-streaming={running ? 'true' : 'false'}
+        // The trigger renders as the card itself; Base UI must not expect a native button.
+        nativeButton={false}
         render={
           <Card className="w-full flex-row items-center gap-2 px-4 py-3 text-left shadow-none" />
         }

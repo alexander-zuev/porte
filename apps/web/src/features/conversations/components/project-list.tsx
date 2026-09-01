@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from '@web/ui/components/ui/collapsible.tsx'
 import { Spinner } from '@web/ui/components/ui/spinner.tsx'
+import { useState } from 'react'
 
 type ProjectListProps = {
   readonly conversations: readonly ConversationListItem[]
@@ -79,10 +80,13 @@ function ProjectRow({
     ({ conversation }) => conversation.id === selectedConversationId,
   )
   const creatingHere = create.pendingCwd === project.gitRoot
+  // Read once at mount: `defaultOpen` only acts then, and a value that keeps
+  // changing makes an uncontrolled Collapsible warn.
+  const [initiallyOpen] = useState(() => holdsSelected || openedProjects.has(project.gitRoot))
 
   return (
     <Collapsible
-      defaultOpen={holdsSelected || openedProjects.has(project.gitRoot)}
+      defaultOpen={initiallyOpen}
       onOpenChange={(open) => {
         if (open) openedProjects.add(project.gitRoot)
         else openedProjects.delete(project.gitRoot)

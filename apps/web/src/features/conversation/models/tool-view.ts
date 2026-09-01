@@ -55,6 +55,12 @@ const listInputSchema = z.object({ directory: z.string().min(1) })
 
 const readInputSchema = z.object({ target_file: z.string().min(1) })
 
+const todoInputSchema = z.object({
+  todos: z
+    .array(z.object({ content: z.string().min(1), status: z.string().optional() }).loose())
+    .min(1),
+})
+
 /**
  * A web search's result, live only: Grok's replay persists backend tools
  * without `rawOutput`, so after a reload this parse fails and the call
@@ -312,6 +318,27 @@ export function toolCallView(call: ToolCall): ToolCallView {
         code: true,
         field: { name: 'URL', value: input.data.url },
       }
+    }
+  }
+
+  // A plan update's result is the plan: the todos render as the output.
+  const todos = todoInputSchema.safeParse(callInput(call))
+  if (todos.success) {
+    const marks = { completed: '✓', in_progress: '→' } as const
+    const text = todos.data.todos
+      .map((todo) => {
+        const mark =
+          todo.status === 'completed' || todo.status === 'in_progress' ? marks[todo.status] : '○'
+        return `${mark} ${todo.content}`
+      })
+      .join('\n')
+    return {
+      ...view,
+      verb: settled ? 'Updated' : 'Updating',
+      subject: 'plan',
+      code: false,
+      field: undefined,
+      output: { type: 'text', text },
     }
   }
 
