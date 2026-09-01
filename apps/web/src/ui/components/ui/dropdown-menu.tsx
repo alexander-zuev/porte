@@ -62,7 +62,8 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        'px-2 py-1.5 text-xs font-medium text-muted-foreground data-inset:pl-8',
+        // Lighter and closer to its rows than a row is to the next: a caption, not an option.
+        'px-2 pt-1.5 pb-0.5 text-xs text-muted-foreground data-inset:pl-8',
         className,
       )}
       {...props}
@@ -146,6 +147,13 @@ function DropdownMenuSubContent({
   )
 }
 
+/**
+ * The same quiet-until-pointed-at row as `DropdownMenuItem`, with room on the
+ * right for the check. The chosen one is bright.
+ */
+const checkedItemClass =
+  "relative flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm text-muted-foreground outline-hidden select-none hover:bg-surface-hover hover:text-foreground focus:bg-surface-hover focus:text-foreground hover:**:text-foreground focus:**:text-foreground data-checked:text-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:cursor-default data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+
 function DropdownMenuCheckboxItem({
   className,
   children,
@@ -159,10 +167,7 @@ function DropdownMenuCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn(checkedItemClass, className)}
       checked={checked}
       {...props}
     >
@@ -195,10 +200,7 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn(checkedItemClass, className)}
       {...props}
     >
       <span

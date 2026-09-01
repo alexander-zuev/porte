@@ -84,54 +84,80 @@ export function FileLines({ lines }: { readonly lines: readonly NumberedLine[] }
   )
 }
 
-/** One row of a rendered diff: its number, its colour, its code. */
-export type DiffRow = {
-  readonly key: string
-  readonly sign: 'removed' | 'added'
-  readonly line: number
-  readonly text: string
-}
+/**
+ * One row of a rendered diff. A code row has its number, its colour, its
+ * text; a gap row stands for the unchanged lines skipped between two hunks.
+ */
+export type DiffRow =
+  | {
+      readonly key: string
+      readonly sign: 'removed' | 'added' | 'context'
+      readonly line: number
+      readonly text: string
+    }
+  | { readonly key: string; readonly sign: 'gap' }
+
+const ROW_TINT = {
+  added: 'border-status-success bg-status-success-muted/60',
+  removed: 'border-destructive bg-destructive-muted/60',
+  context: 'border-transparent',
+} satisfies Record<Exclude<DiffRow['sign'], 'gap'>, string>
 
 /**
  * A diff the way a reviewer reads one: numbered rows, the old lines tinted
  * out, the new tinted in, a gutter bar carrying the colour. Code rows keep
  * their alignment — the block scrolls sideways inside its own border.
+ *
+ * `unbounded` drops the height cap for a surface that scrolls on its own,
+ * such as a sheet; the transcript keeps the cap.
  */
 export function DiffBlock({
   rows,
   title,
+  unbounded = false,
 }: {
   readonly rows: readonly DiffRow[]
   readonly title?: string
+  readonly unbounded?: boolean
 }) {
   return (
     <div className="overflow-hidden rounded-xl border bg-surface">
       {title === undefined ? null : (
         <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-          <span className="font-mono">{title}</span>
+          {/* A path has no spaces to wrap at, so it breaks anywhere rather than clipping. */}
+          <span className="font-mono break-all">{title}</span>
         </div>
       )}
       <div
-        className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2"
+        className={cn(
+          'overflow-x-auto overscroll-contain py-2',
+          !unbounded && 'max-h-96 overflow-y-auto',
+        )}
         tabIndex={0}
       >
         <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
-          {rows.map((row) => (
-            <span
-              key={row.key}
-              className={cn(
-                'flex min-w-full border-l-2 pr-3',
-                row.sign === 'added'
-                  ? 'border-status-success bg-status-success-muted/60'
-                  : 'border-destructive bg-destructive-muted/60',
-              )}
-            >
-              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground select-none">
-                {row.line}
+          {rows.map((row) =>
+            row.sign === 'gap' ? (
+              // Lines were skipped here; the numbers on either side say how many.
+              <span
+                key={row.key}
+                aria-label="Unchanged lines skipped"
+                className="flex min-w-full border-l-2 border-transparent bg-muted/40 pr-3 text-muted-foreground"
+              >
+                <span className="w-9 shrink-0 pr-2 text-right select-none">⋯</span>
               </span>
-              <span className="whitespace-pre">{row.text === '' ? ' ' : row.text}</span>
-            </span>
-          ))}
+            ) : (
+              <span
+                key={row.key}
+                className={cn('flex min-w-full border-l-2 pr-3', ROW_TINT[row.sign])}
+              >
+                <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground select-none">
+                  {row.line}
+                </span>
+                <span className="whitespace-pre">{row.text === '' ? ' ' : row.text}</span>
+              </span>
+            ),
+          )}
         </pre>
       </div>
     </div>

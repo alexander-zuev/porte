@@ -121,13 +121,21 @@ function RowWords({ view }: { readonly view: ToolCallView }) {
   )
 }
 
-function ChangeCount({ change }: { readonly change: { added: number; removed: number } }) {
+/** `4.1k`, `121k`: four digits and up fold, so a row's counts stay one glance wide. */
+const compactCount = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
+
+/** `+N −M` in their colours; the same numbers on a tool row and a changed file. */
+export function ChangeCount({ change }: { readonly change: { added: number; removed: number } }) {
   return (
     <small className="shrink-0 font-mono">
-      <span className="text-status-success-muted-foreground">+{change.added}</span>{' '}
-      <span className="text-destructive-muted-foreground">−{change.removed}</span>
+      <span className="text-status-success-muted-foreground">+{lines(change.added)}</span>{' '}
+      <span className="text-destructive-muted-foreground">−{lines(change.removed)}</span>
     </small>
   )
+}
+
+function lines(count: number): string {
+  return count < 1000 ? String(count) : compactCount.format(count).toLowerCase()
 }
 
 function Chevron() {
@@ -142,12 +150,19 @@ function Chevron() {
 // ---------------------------------------------------------------------------
 // Phone: every row opens a sheet; nothing in the transcript expands in place.
 
-/** The sheet header: close or back on the left, the bold name centred. */
+/**
+ * The sheet header: close or back on the left, the bold name centred, a muted
+ * line under it if given, and one control on the right if given.
+ */
 export function SheetHeader({
   title,
+  subtitle,
+  action,
   onBack,
 }: {
   readonly title: string
+  readonly subtitle?: ReactNode
+  readonly action?: ReactNode
   readonly onBack?: (() => void) | undefined
 }) {
   return (
@@ -165,7 +180,15 @@ export function SheetHeader({
           <CaretLeftIcon aria-hidden className="size-5" />
         </Button>
       )}
-      <DrawerTitle className="min-w-0 text-center" render={<h3 className="truncate">{title}</h3>} />
+      {/* Inset from both buttons, so a long subtitle ends before it touches them. */}
+      <div className="flex min-w-0 flex-col items-center px-3">
+        <DrawerTitle
+          className="min-w-0 text-center"
+          render={<h3 className="truncate">{title}</h3>}
+        />
+        {subtitle}
+      </div>
+      {action === undefined ? null : <div className="justify-self-end">{action}</div>}
     </div>
   )
 }
@@ -191,7 +214,7 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
  * Each page paints the sheet surface, so the incoming one covers the outgoing.
  */
 export const SHEET_PANEL =
-  'absolute inset-0 overflow-y-auto overscroll-contain bg-surface px-4 transition-transform duration-300 ease-out motion-reduce:transition-none'
+  'scrollbar-thin absolute inset-0 overflow-y-auto overscroll-contain bg-surface px-4 transition-transform duration-300 ease-out motion-reduce:transition-none'
 
 /**
  * A folded run's sheet: the calls as a list, and a tap pushes one call's

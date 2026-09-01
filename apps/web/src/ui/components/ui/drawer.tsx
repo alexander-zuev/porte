@@ -121,7 +121,10 @@ function DrawerBody({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="drawer-body-fixed"
-      className={cn('h-[55dvh] overflow-y-auto overscroll-contain px-4 pt-3', className)}
+      className={cn(
+        'scrollbar-thin h-[55dvh] overflow-y-auto overscroll-contain px-4 pt-3',
+        className,
+      )}
       {...props}
     />
   )

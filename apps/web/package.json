@@ -65,6 +65,7 @@
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "catalog:",
+    "diff": "catalog:",
     "drizzle-orm": "catalog:",
     "gsap": "catalog:",
     "http-status-codes": "catalog:",
