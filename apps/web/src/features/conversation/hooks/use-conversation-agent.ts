@@ -10,7 +10,15 @@ export type ConversationAgentClient = ReturnType<
 /** The callables the composer uses; a story fakes exactly these. */
 export type ConversationAgentStub = Pick<
   ConversationAgentClient['stub'],
-  'cancelTurn' | 'listCommands' | 'setModel'
+  | 'cancelTurn'
+  | 'listCommands'
+  | 'setModel'
+  | 'queueMessage'
+  | 'withdrawQueued'
+  | 'reorderQueued'
+  | 'sendQueuedNow'
+  | 'listChanges'
+  | 'getDiff'
 >
 
 /**

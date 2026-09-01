@@ -66,6 +66,12 @@ const agent = {
     listCommands: () =>
       Promise.resolve([{ name: 'review', description: 'Review the current changes' }]),
     setModel: () => Promise.resolve(null),
+    queueMessage: () => Promise.resolve(null),
+    withdrawQueued: () => Promise.resolve(null),
+    reorderQueued: () => Promise.resolve(null),
+    sendQueuedNow: () => Promise.resolve(null),
+    listChanges: () => Promise.resolve({ branch: 'main', files: [] }),
+    getDiff: () => Promise.resolve({ kind: 'binary' as const }),
   },
   connectionError: null,
   send: () => undefined,

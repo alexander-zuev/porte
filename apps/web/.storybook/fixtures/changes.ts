@@ -5,6 +5,7 @@ import {
   type FileDiff,
   type UncommittedChanges,
 } from '@porte/core/client'
+import type { ChangesSource } from '@web/features/conversation/hooks/use-changes-sheet.ts'
 
 /*
  * Real output of `git diff HEAD -U3 --no-renames` on this repository,
@@ -337,28 +338,26 @@ export const diffs: ReadonlyMap<ChangedFilePath, FileDiff> = new Map([
   [COMPOSER_QUEUE, { kind: 'too-large', bytes: 1_437_212 }],
 ])
 
-/** The two Host calls, answered after a short wait, or refused. */
-export type FakeChangesServer = {
-  readonly list: () => Promise<UncommittedChanges>
-  readonly get: (path: ChangedFilePath) => Promise<FileDiff>
-}
-
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms)
   })
 
-export function fakeChangesServer(
+/**
+ * The two callables the sheet reads, answered after a short wait, or refused.
+ * The same shape as the conversation stub, so the story runs the real hook.
+ */
+export function fakeChangesStub(
   changes: UncommittedChanges,
   { delayMs = 400, fails = false }: { readonly delayMs?: number; readonly fails?: boolean } = {},
-): FakeChangesServer {
+): ChangesSource['stub'] {
   return {
-    list: async () => {
+    listChanges: async () => {
       await wait(delayMs)
       if (fails) throw new Error('That repository is not available on this machine')
       return changes
     },
-    get: async (target) => {
+    getDiff: async ({ path: target }) => {
       await wait(delayMs)
       const diff = diffs.get(target)
       if (diff === undefined) throw new Error('That repository is not available on this machine')

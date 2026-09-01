@@ -5,10 +5,13 @@ import type {
   ConversationActions,
   ConversationPermission,
 } from '@web/features/conversation/hooks/use-answer-permission.ts'
+import { useChangesSheet } from '@web/features/conversation/hooks/use-changes-sheet.ts'
 import { useComposerVoice } from '@web/features/conversation/hooks/use-composer-voice.ts'
 import type { ConversationAgentConnection } from '@web/features/conversation/hooks/use-conversation-agent.ts'
+import { useMessageQueue } from '@web/features/conversation/hooks/use-message-queue.ts'
 import { useSetModel } from '@web/features/conversation/hooks/use-set-model.ts'
 import { useStopTurn } from '@web/features/conversation/hooks/use-stop-turn.ts'
+import { isQueuedRow } from '@web/lib/conversation/conversation-state-messages.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
@@ -22,11 +25,14 @@ import {
   usePromptInputController,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import type { ChatStatus, UIMessage } from 'ai'
+import { useMemo } from 'react'
 
 import { ComposerAddMenu } from './composer-add-menu.tsx'
 import { ComposerCommandSuggestions } from './composer-command-suggestions.tsx'
 import { ComposerConfigurationMenu } from './composer-configuration-menu.tsx'
+import { ComposerQueue } from './composer-queue.tsx'
 import { ComposerMicButton, ComposerVoiceBar } from './composer-voice.tsx'
+import { ConversationChanges } from './conversation-changes.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
 import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
@@ -54,16 +60,24 @@ export function ConversationChat({
   // The Host owns "a turn runs"; the SDK's stream status only adds the local `submitted` spinner.
   const running = state.runningTurnId !== undefined
   const stop = useStopTurn(agent.stub, state.runningTurnId)
+  const queue = useMessageQueue(agent.stub, chat.messages)
   const canType = canSend && agent.identified
-  const canSubmit = canType && !running
+  // A send needs the socket; `submitted` is the one window where a second send would double up.
+  const canSubmit = canType && chat.status !== 'submitted'
   const status = submitStatus(chat.status, running)
   const setModel = useSetModel(agent.stub)
+  const sheet = useChangesSheet(agent, { enabled: canType, runningTurnId: state.runningTurnId })
+  // Queued rows are the pill's, not the transcript's, until they start.
+  const transcript = useMemo(
+    () => chat.messages.filter((row) => !isQueuedRow(row)),
+    [chat.messages],
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <ConversationMessages
         error={chat.error}
-        messages={chat.messages}
+        messages={transcript}
         pending={chat.status === 'submitted'}
         readingOlder={false}
         onReadOlder={null}
@@ -73,6 +87,10 @@ export function ConversationChat({
 
       <ConversationPermissions onAnswer={actions.onAnswerPermission} waiting={permissions} />
 
+      <ConversationChanges {...sheet} />
+
+      <ComposerQueue actions={queue.actions} queued={queue.queued} />
+
       {/* The provider carries the typed text, so the `/` suggestions can watch it. */}
       <PromptInputProvider>
         <div className="relative mb-2">
@@ -81,14 +99,16 @@ export function ConversationChat({
             onSubmit={(message) => {
               if (!canSubmit) return
               if (message.text.trim() === '' && message.files.length === 0) return
-              void chat.sendMessage({ text: message.text, files: message.files })
+              // While a turn runs the words wait in the relay; the idle path is unchanged.
+              if (running) queue.queue(message)
+              else void chat.sendMessage({ text: message.text, files: message.files })
             }}
           >
             <PromptInputBody>
               <PromptInputAttachments />
               <PromptInputTextarea
                 disabled={!canType}
-                placeholder={promptPlaceholder(canSend, agent.identified)}
+                placeholder={promptPlaceholder(canSend, agent.identified, running)}
               />
               <ChatComposerFooter
                 canSubmit={canSubmit}
@@ -178,7 +198,11 @@ function ChatComposerFooter({
   )
 }
 
-/** Send goes inert with nothing to send; Stop stays live while a turn runs. */
+/**
+ * One button, as Grok draws it. Idle: the arrow, inert with nothing to send.
+ * Running: Stop while the composer is empty, the arrow once there is text,
+ * and that arrow queues.
+ */
 function ComposerSubmit({
   disabled,
   status,
@@ -191,8 +215,15 @@ function ComposerSubmit({
   const controller = usePromptInputController()
   const empty =
     controller.textInput.value.trim() === '' && controller.attachments.files.length === 0
+  const queues = status === 'streaming' && !empty
   const sendBlocked = empty && status === 'ready'
-  return <PromptInputSubmit disabled={disabled || sendBlocked} status={status} onStop={onStop} />
+  return (
+    <PromptInputSubmit
+      disabled={disabled || sendBlocked}
+      status={queues ? 'ready' : status}
+      onStop={onStop}
+    />
+  )
 }
 
 /**
@@ -206,9 +237,10 @@ function submitStatus(chatStatus: ChatStatus, running: boolean): ChatStatus {
   return 'ready'
 }
 
-function promptPlaceholder(canSend: boolean, identified: boolean): string {
+function promptPlaceholder(canSend: boolean, identified: boolean, running: boolean): string {
   if (!canSend) return 'Your machine is offline'
   if (!identified) return 'Reconnecting…'
+  if (running) return 'Queue for after this turn…'
   // The agent is addressed, not the machine it runs on.
   return 'Message Grok…'
 }

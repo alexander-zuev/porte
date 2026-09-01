@@ -60,7 +60,7 @@ Errors: no new tags. A missing `gitRoot`, missing `git`, or any git exit other t
 ## 5. Freshness
 
 - `staleTime: 0` on both queries; `refetchOnWindowFocus` stays on.
-- `useConversation` invalidates `changesQueries.all(id)` when `state.runningTurnId` goes from set to unset. That is the only writer of "the tree may have changed".
+- The key, not an effect, owns "the tree may have changed": both keys carry `runningTurnId ?? 'idle'`, so a turn ending (or starting) flips the key and Query re-reads. No `invalidateQueries`, nothing to guard under Strict Mode.
 - `keepPreviousData` on the list, so the pill keeps its numbers during a refetch instead of blinking out.
 - A diff refetches on every open; the panel shows `Reading…` until it lands.
 

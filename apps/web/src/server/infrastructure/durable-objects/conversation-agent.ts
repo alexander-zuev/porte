@@ -23,10 +23,12 @@ import {
   type ConversationEvent,
   type ConversationId,
   type ConversationLiveState,
+  type FileDiff,
   type HostConversationMethodMap,
   type HostId,
   type MessageId,
   type TurnId,
+  type UncommittedChanges,
 } from '@porte/core'
 import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.ts'
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
@@ -385,6 +387,18 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     params: HostConversationMethodMap['elicitation.answer']['params'],
   ): Promise<null> {
     return await this.hostSocket.request('elicitation.answer', params)
+  }
+
+  /** The uncommitted changes, read from git on the machine each time; never cached here. */
+  @callable()
+  async listChanges(): Promise<UncommittedChanges> {
+    return await this.hostSocket.request('changes.list', {})
+  }
+
+  /** One changed file's diff, as git prints it. */
+  @callable()
+  async getDiff(params: HostConversationMethodMap['changes.diff']['params']): Promise<FileDiff> {
+    return await this.hostSocket.request('changes.diff', params)
   }
 
   /** The Host's command list, read once by the composer menu; never part of `state`. */

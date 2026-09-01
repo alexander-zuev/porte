@@ -23,6 +23,12 @@ function mount(setModel: ConversationAgentStub['setModel']) {
     setModel,
     cancelTurn: () => Promise.resolve(null),
     listCommands: () => Promise.resolve([]),
+    listChanges: () => Promise.resolve({ branch: 'main', files: [] }),
+    getDiff: () => Promise.resolve({ kind: 'binary' as const }),
+    queueMessage: () => Promise.resolve(null),
+    withdrawQueued: () => Promise.resolve(null),
+    reorderQueued: () => Promise.resolve(null),
+    sendQueuedNow: () => Promise.resolve(null),
   }
   let latest: SetModel | undefined
   render(

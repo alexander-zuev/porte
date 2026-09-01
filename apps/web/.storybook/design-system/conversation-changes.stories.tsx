@@ -1,12 +1,11 @@
 import type { ChangedFilePath, UncommittedChanges } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { useQuery } from '@tanstack/react-query'
 import { ConversationChanges } from '@web/features/conversation/components/conversation-changes.tsx'
-import type { FileDiffView, ChangesView } from '@web/features/conversation/models/changes.ts'
+import { useChangesSheet } from '@web/features/conversation/hooks/use-changes-sheet.ts'
 import { PromptInputProvider } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { INITIAL_VIEWPORTS } from 'storybook/viewport'
 
 import {
@@ -14,10 +13,9 @@ import {
   COMPOSER_QUEUE,
   OG_IMAGE,
   deepChanges,
-  fakeChangesServer,
+  fakeChangesStub,
   noChanges,
   uncommittedChanges,
-  type FakeChangesServer,
 } from '../fixtures/changes.ts'
 import { olderTurns, relayState, session } from '../fixtures/transcript.ts'
 import { ChatFrame } from '../harnesses/chat-frame.tsx'
@@ -28,7 +26,7 @@ import { ChatFrame } from '../harnesses/chat-frame.tsx'
  * - the pill above the composer counts the uncommitted changes
  * - the sheet lists every changed file with its counts
  * - a tapped file pushes its diff in from the right; back returns to the list
- * - the data side is a fake Host: two calls, answered after 400 ms
+ * - the data side is the real hook over a fake stub: two calls, answered after 400 ms
  *
  * Width comes from the viewport toolbar or the browser's device mode.
  */
@@ -46,7 +44,7 @@ export const Changed: StoryObj = { render: () => <ChangesHarness /> }
 /** The file list. */
 export const SheetOpen: StoryObj = { render: () => <ChangesHarness defaultOpen /> }
 
-/** One file's diff, three hunks, context and hunk rows. */
+/** One file's diff, three hunks, context and gap rows. */
 export const FileOpen: StoryObj = {
   render: () => <ChangesHarness defaultOpen defaultPath={CHAT_FRAME} />,
 }
@@ -83,25 +81,26 @@ function ChangesHarness({
   readonly defaultPath?: ChangedFilePath | null
   readonly fails?: boolean
 }) {
-  const server = useMemo(() => fakeChangesServer(changes, { fails }), [changes, fails])
-  const [selected, setSelected] = useState<ChangedFilePath | null>(defaultPath)
-  const list = useChangesList(server, changes)
-  const diff = useFileDiff(server, selected)
+  // One stub per story instance, so each story's cache is its own.
+  const agent = useMemo(
+    () => ({
+      name: `story-${String(changes.files.length)}-${String(fails)}`,
+      stub: fakeChangesStub(changes, { fails }),
+    }),
+    [changes, fails],
+  )
+  const sheet = useChangesSheet(agent, { enabled: true, runningTurnId: undefined })
+  // Story-only: land on a file, the way a tap would.
+  useEffect(() => {
+    sheet.onSelect(defaultPath)
+  }, [defaultPath, sheet.onSelect])
 
   return (
     <PromptInputProvider>
       <AppShell header={<AppHeader />} variant="fill">
         <ChatFrame
           canSend
-          changes={
-            <ConversationChanges
-              changes={list}
-              defaultOpen={defaultOpen}
-              diff={diff}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          }
+          changes={<ConversationChanges {...sheet} defaultOpen={defaultOpen} />}
           messages={[...olderTurns, ...session]}
           permissions={[]}
           placeholder="Message Grok…"
@@ -111,43 +110,4 @@ function ChangesHarness({
       </AppShell>
     </PromptInputProvider>
   )
-}
-
-/** The story's stand-in for `useChanges`: one query per fake Host. */
-function useChangesList(server: FakeChangesServer, changes: UncommittedChanges): ChangesView {
-  const query = useQuery({
-    queryKey: ['story', 'changes', 'list', changes.files.length, server],
-    queryFn: () => server.list(),
-  })
-  if (query.status === 'success') {
-    return { status: 'ready', files: query.data.files, branch: query.data.branch }
-  }
-  if (query.status === 'error') {
-    return {
-      status: 'failed',
-      onRetry: () => {
-        void query.refetch()
-      },
-    }
-  }
-  return { status: 'pending' }
-}
-
-/** The story's stand-in for `useFileDiff`: one query per tapped file. */
-function useFileDiff(server: FakeChangesServer, path: ChangedFilePath | null): FileDiffView {
-  const query = useQuery({
-    queryKey: ['story', 'changes', 'file', path, server],
-    queryFn: () => server.get(path ?? CHAT_FRAME),
-    enabled: path !== null,
-  })
-  if (query.status === 'success') return { status: 'ready', diff: query.data }
-  if (query.status === 'error') {
-    return {
-      status: 'failed',
-      onRetry: () => {
-        void query.refetch()
-      },
-    }
-  }
-  return { status: 'pending' }
 }

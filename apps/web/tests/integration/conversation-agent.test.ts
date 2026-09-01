@@ -1,5 +1,6 @@
 import {
   AttemptIdSchema,
+  ChangedFilePathSchema,
   ConversationIdSchema,
   HOST_CONTROL_SUBPROTOCOL,
   HOST_CONVERSATION_SUBPROTOCOL,
@@ -304,6 +305,39 @@ function userText(params: z.infer<typeof TurnStartParamsSchema>): string {
     .join('')
 }
 
+describe('ConversationAgent diff callables', () => {
+  const uncommitted = {
+    branch: 'main',
+    files: [{ kind: 'text', path: 'src/a.ts', status: 'modified', added: 2, removed: 1 }],
+  }
+
+  it('reads the uncommitted changes from the Host on each call, nothing cached', async () => {
+    const flow = await openConversation()
+    const first = flow.call('listChanges')
+    const request = await flow.nextDataRequest('changes.list')
+    flow.data.socket.send(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: uncommitted }))
+    await expect(first).resolves.toEqual(uncommitted)
+
+    const second = flow.call('listChanges')
+    const again = await flow.nextDataRequest('changes.list')
+    flow.data.socket.send(
+      JSON.stringify({ jsonrpc: '2.0', id: again.id, result: { branch: 'main', files: [] } }),
+    )
+    await expect(second).resolves.toEqual({ branch: 'main', files: [] })
+  })
+
+  it('reads one diff by path', async () => {
+    const flow = await openConversation()
+    const call = flow.call('getDiff', { path: ChangedFilePathSchema.parse('src/a.ts') })
+    const request = await flow.nextDataRequest('changes.diff')
+    expect(request.params).toEqual({ path: 'src/a.ts' })
+    flow.data.socket.send(
+      JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { kind: 'patch', patch: '+a\n' } }),
+    )
+    await expect(call).resolves.toEqual({ kind: 'patch', patch: '+a\n' })
+  })
+})
+
 describe('ConversationAgent through its facet, pending seams', () => {
   it.todo(
     'holds one full assistant row after a facet restart mid-turn (needs a facet restart seam)',
@@ -426,7 +460,7 @@ async function openConversation() {
     async call<Method extends CallableName>(
       method: Method,
       ...args: Parameters<ConversationAgent[Method]>
-    ): Promise<void> {
+    ): Promise<unknown> {
       rpcViewer ??= await flow.viewer()
       rpcId += 1
       const id = `rpc-${String(rpcId)}`
@@ -438,6 +472,7 @@ async function openConversation() {
         },
       })
       if (!response.success) throw new Error(response.error)
+      return response.result
     },
     /** The scripted machine: each call is one thing the real Host does. */
     host: {
@@ -554,10 +589,17 @@ type CallableName =
   | 'reorderQueued'
   | 'sendQueuedNow'
   | 'cancelTurn'
+  | 'listChanges'
+  | 'getDiff'
 
 /** The SDK's answer to one RPC frame (`agents` wire types, not exported). */
 const RpcResponseSchema = z.discriminatedUnion('success', [
-  z.object({ type: z.literal('rpc'), id: z.string(), success: z.literal(true) }),
+  z.object({
+    type: z.literal('rpc'),
+    id: z.string(),
+    success: z.literal(true),
+    result: z.unknown().optional(),
+  }),
   z.object({
     type: z.literal('rpc'),
     id: z.string(),
