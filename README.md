@@ -17,9 +17,9 @@ grok plugin install porte --trust
 
 Once the official listing lands ([xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463)), the first command becomes unnecessary.
 
-Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.3 rc disable-hook` first; plugin uninstall does not remove it.
+Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.2.4 rc disable-hook` first; plugin uninstall does not remove it.
 
-Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.3 rc enable-hook` (undo with `rc disable-hook`).
+Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.2.4 rc enable-hook` (undo with `rc disable-hook`).
 
 Optional status row in Grok — a green `/rc on` while the machine is reachable. Add to `~/.grok/config.toml` (only your own config can set this; a plugin cannot):
 
@@ -50,7 +50,7 @@ Works today:
 - Read the transcript live: thoughts, tool calls with diffs and read output, Grok's answer
 - Prompt, attach files, run slash commands, stop a turn
 - Allow or deny a permission request from the phone
-- Model, mode, and context usage shown under the composer
+- Switch the model and its reasoning effort from the composer; mode and context usage shown beside it
 - Install as a home-screen app on iOS and Android
 - Pair, connect, and disconnect from inside Grok with one `/remote-control` command (Grok plugin)
 
@@ -59,7 +59,7 @@ Not yet:
 - Live output of a turn you started in the TUI: the phone shows it once that turn ends
 - Grok's own questions to you (`ask_user_question`): the turn waits until you answer in the TUI
 - Push notification when Grok needs an approval
-- Switching model or mode from the phone
+- Switching the permission mode from the phone
 - More than one paired machine per account
 
 ## Safety
