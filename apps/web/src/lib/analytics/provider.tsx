@@ -7,8 +7,7 @@ if (!import.meta.env.SSR && settings.posthog.apiKey.length > 0) {
   posthog.init(settings.posthog.apiKey, {
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'identified_only',
-    capture_pageview: false,
-    defaults: '2025-11-30',
+    defaults: '2026-08-29',
   })
 }
 
