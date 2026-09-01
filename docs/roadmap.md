@@ -1,7 +1,9 @@
 # Roadmap
 
 Goal: make Porte the best remote control for local Grok sessions before xAI ships
-its own client. Target is the plain mobile browser — no app, no install, no push.
+its own client. Target is the plain browser — no app, no feature may require an
+install. Web Push works uninstalled everywhere except iOS Safari, where
+add-to-home-screen is an optional opt-in for pings, never a prerequisite.
 Every item ends in a public demo (≤60s vertical video) and a share link.
 
 Grounding: Claude Code docs (remote-control, web, mobile, sessions) and Codex docs
@@ -65,13 +67,18 @@ both competitors. Depends on what Grok exposes over ACP session modes.
 
 Proof: switching on the phone changes the model Grok reports for the next turn.
 
-### 7. Tab attention badge
+### 7. Notifications
 
-`(1) Porte` in the tab title plus a favicon dot when a background tab needs a
-permission answer or finished a turn. The web-native substitute for push.
+Web Push for permission requests and turn completion, sent only when no client
+watches the conversation. Works uninstalled on desktop browsers and Android
+Chrome; an iPhone gets pings after an optional add-to-home-screen. Pieces:
+service worker push handler, one-gesture subscribe, subscriptions in D1, send
+from the relay DO (VAPID + RFC 8291 via a WebCrypto lib). Tab-title badge
+`(1) Porte` + favicon dot ship alongside as the in-tab signal.
 
-Proof: with the tab in the background, a permission request updates the title
-within a second; opening the tab clears it.
+Proof: with the tab closed on desktop, a permission request raises an OS
+notification that opens the conversation; on a phone with the tab in the
+background, the title badge updates within a second.
 
 ## Parked
 
