@@ -2,6 +2,7 @@ import {
   BookOpenIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  FolderSimpleIcon,
   GlobeIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
@@ -11,13 +12,13 @@ import {
   XIcon,
   type Icon,
 } from '@phosphor-icons/react'
-import type { ToolKind } from '@porte/core/client'
 import { ToolDetail } from '@web/features/conversation/components/tool-detail.tsx'
 import { describeRun, type ToolCall } from '@web/features/conversation/models/tool-runs.ts'
 import {
   runChanges,
   toolCallView,
   type ToolCallView,
+  type ToolIcon,
 } from '@web/features/conversation/models/tool-view.ts'
 import { cn } from '@web/lib/utils.ts'
 import { ToolRowButton, toolRowClass } from '@web/ui/components/ai-elements/tool-output.tsx'
@@ -45,11 +46,12 @@ const ICONS = {
   search: MagnifyingGlassIcon,
   execute: TerminalWindowIcon,
   fetch: GlobeIcon,
+  list: FolderSimpleIcon,
   move: WrenchIcon,
   think: WrenchIcon,
   switch_mode: WrenchIcon,
   other: WrenchIcon,
-} satisfies Record<ToolKind, Icon>
+} satisfies Record<ToolIcon, Icon>
 
 type ToolState = ToolCall['part']['state']
 
@@ -81,7 +83,7 @@ const STATUS_DOTS = {
 /** A call still moving keeps the dot, whatever icon its kind has. */
 const MOVING = new Set<ToolState>(['approval-requested', 'input-available', 'input-streaming'])
 
-function RowGlyph({ call }: { readonly call: ToolCall }) {
+function RowGlyph({ call, view }: { readonly call: ToolCall; readonly view: ToolCallView }) {
   const state = call.part.state
   if (MOVING.has(state)) {
     return (
@@ -91,7 +93,7 @@ function RowGlyph({ call }: { readonly call: ToolCall }) {
       </span>
     )
   }
-  const KindIcon = ICONS[call.kind]
+  const KindIcon = ICONS[view.icon]
   const failed = state === 'output-error' || state === 'output-denied'
   return (
     <span
@@ -140,6 +142,12 @@ function Chevron() {
 // ---------------------------------------------------------------------------
 // Phone: every row opens a sheet; nothing in the transcript expands in place.
 
+/**
+ * Every tool sheet opens at the same height, list or detail, one call or ten:
+ * a sheet that resizes per page reads as a different surface each time.
+ */
+const SHEET_BODY = 'h-[55dvh]'
+
 /** The sheet header: close or back on the left, the bold name centred. */
 function SheetHeader({
   title,
@@ -148,29 +156,17 @@ function SheetHeader({
   readonly title: string
   readonly onBack?: (() => void) | undefined
 }) {
+  // `-ml-2.5` sets the glyph, not the button box, on the content edge.
   return (
     <div className="grid grid-cols-[2.25rem_1fr_2.25rem] items-center px-4">
       {onBack === undefined ? (
         <DrawerClose
-          render={
-            <Button
-              aria-label="Close"
-              className="rounded-full bg-muted"
-              size="icon"
-              variant="ghost"
-            />
-          }
+          render={<Button aria-label="Close" className="-ml-2.5" size="icon" variant="ghost" />}
         >
           <XIcon aria-hidden />
         </DrawerClose>
       ) : (
-        <Button
-          aria-label="Back"
-          className="rounded-full bg-muted"
-          size="icon"
-          variant="ghost"
-          onClick={onBack}
-        >
+        <Button aria-label="Back" className="-ml-2.5" size="icon" variant="ghost" onClick={onBack}>
           <CaretLeftIcon aria-hidden />
         </Button>
       )}
@@ -187,7 +183,7 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
       <DrawerTrigger className={toolRowClass}>{children}</DrawerTrigger>
       <DrawerContent>
         <SheetHeader title={view.label} />
-        <div className="px-4">
+        <div className={cn(SHEET_BODY, 'overflow-y-auto overscroll-contain px-4')}>
           <ToolDetail call={call} />
         </div>
       </DrawerContent>
@@ -195,9 +191,14 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
   )
 }
 
+/** The two sheet pages ride one fixed frame; only transform and opacity move. */
+const SHEET_PANEL =
+  'absolute inset-0 overflow-y-auto overscroll-contain px-4 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none'
+
 /**
- * A folded run's sheet: the calls as a list, and a tap slides one call's
- * detail in from the right. Back returns to the list; close is only at the top.
+ * A folded run's sheet: the calls as a list, and a tap pushes one call's
+ * detail in from the right, iOS-style — the sheet itself never moves or
+ * resizes. Back returns to the list; close is only at the top.
  */
 export function RunSheetBody({
   calls,
@@ -207,44 +208,50 @@ export function RunSheetBody({
   readonly summary: string
 }) {
   const [selected, setSelected] = useState<ToolCall | null>(null)
-  if (selected !== null) {
-    const view = toolCallView(selected)
-    return (
-      <>
-        <SheetHeader
-          title={view.label}
-          onBack={() => {
-            setSelected(null)
-          }}
-        />
-        <div
-          key={selected.part.toolCallId}
-          className="animate-in fade-in-0 slide-in-from-right-8 px-4 duration-200 motion-reduce:animate-none"
-        >
-          <ToolDetail call={selected} />
-        </div>
-      </>
-    )
-  }
+  const view = selected === null ? null : toolCallView(selected)
   return (
     <>
-      <SheetHeader title={summary} />
-      <div className="animate-in fade-in-0 slide-in-from-left-8 flex flex-col px-4 duration-200 motion-reduce:animate-none">
-        {calls.map((call) => {
-          const view = toolCallView(call)
-          return (
-            <ToolRowButton
-              key={call.part.toolCallId}
-              onClick={() => {
-                setSelected(call)
-              }}
-            >
-              <RowGlyph call={call} />
-              <RowWords view={view} />
-              <Chevron />
-            </ToolRowButton>
-          )
-        })}
+      <SheetHeader
+        title={view === null ? summary : view.label}
+        onBack={
+          view === null
+            ? undefined
+            : () => {
+                setSelected(null)
+              }
+        }
+      />
+      <div className={cn(SHEET_BODY, 'relative overflow-hidden')}>
+        <div
+          inert={selected !== null}
+          className={cn(
+            SHEET_PANEL,
+            'flex flex-col',
+            selected !== null && '-translate-x-1/3 opacity-0',
+          )}
+        >
+          {calls.map((call) => {
+            const rowView = toolCallView(call)
+            return (
+              <ToolRowButton
+                key={call.part.toolCallId}
+                onClick={() => {
+                  setSelected(call)
+                }}
+              >
+                <RowGlyph call={call} view={rowView} />
+                <RowWords view={rowView} />
+                <Chevron />
+              </ToolRowButton>
+            )
+          })}
+        </div>
+        <div
+          inert={selected === null}
+          className={cn(SHEET_PANEL, selected === null && 'translate-x-full opacity-0')}
+        >
+          {selected === null ? null : <ToolDetail call={selected} />}
+        </div>
       </div>
     </>
   )
@@ -266,7 +273,7 @@ export function ToolCallRow({
   if (phone) {
     return (
       <CallSheet call={call}>
-        <RowGlyph call={call} />
+        <RowGlyph call={call} view={view} />
         <RowWords view={view} />
         <Chevron />
       </CallSheet>
@@ -277,7 +284,7 @@ export function ToolCallRow({
   return (
     <Collapsible className={cn('group not-prose w-full', className)}>
       <CollapsibleTrigger className={toolRowClass}>
-        <RowGlyph call={call} />
+        <RowGlyph call={call} view={view} />
         <RowWords view={view} />
         <Chevron />
       </CollapsibleTrigger>

@@ -1,3 +1,4 @@
+import type { ToolKind } from '@porte/core/client'
 /* oxlint-disable eslint(no-underscore-dangle) -- ACP requires the exact `_meta` boundary name. */
 import { z } from 'zod'
 
@@ -10,10 +11,36 @@ import type { ToolCall } from './tool-runs.ts'
  * the one place that knows Grok's input shapes.
  */
 
-/** Grok's per-tool metadata under `_meta["x.ai/tool"]`; `label` names the sheet. */
+/**
+ * Grok's per-tool metadata under `_meta["x.ai/tool"]`.
+ *
+ * On live calls this carries the input too — `rawInput` is usually an empty
+ * object until replay — so `input` here is the primary input source.
+ */
 const agentToolMetaSchema = z.object({
-  'x.ai/tool': z.object({ label: z.string().min(1) }).loose(),
+  'x.ai/tool': z
+    .object({
+      label: z.string().min(1).optional(),
+      name: z.string().min(1).optional(),
+      input: z.record(z.string(), z.json()).optional(),
+    })
+    .loose(),
 })
+
+function agentMeta(call: ToolCall) {
+  const meta = agentToolMetaSchema.safeParse(call.meta)
+  return meta.success ? meta.data['x.ai/tool'] : undefined
+}
+
+/** A tool input that carries at least one field, as the schemas below read it. */
+type ToolInput = z.infer<typeof filledInputSchema>
+
+/** The call's input, wherever it survived: the part, then the agent's `_meta`. */
+function callInput(call: ToolCall): ToolInput | undefined {
+  const own = filledInputSchema.safeParse(call.part.input)
+  if (own.success) return own.data
+  return agentMeta(call)?.input
+}
 
 const executeInputSchema = z.object({
   command: z.string().min(1),
@@ -23,6 +50,8 @@ const executeInputSchema = z.object({
 const searchInputSchema = z.object({ pattern: z.string().min(1) })
 
 const fetchInputSchema = z.object({ url: z.string().min(1) })
+
+const listInputSchema = z.object({ directory: z.string().min(1) })
 
 /** An input worth a sheet field: an object with at least one key. */
 const filledInputSchema = z
@@ -41,10 +70,14 @@ export type ToolOutputView =
   | { readonly type: 'json'; readonly value: unknown }
   | { readonly type: 'empty' }
 
+/** The glyph a row wears: its ACP kind, or a shape the kind hides (a directory listing). */
+export type ToolIcon = ToolKind | 'list'
+
 /** One call, resolved to everything a row and a sheet print. */
 export type ToolCallView = {
   /** Sheet header: Grok's label ("Run Command") or the humanized tool name. */
   readonly label: string
+  readonly icon: ToolIcon
   /** Row line: verb + subject, e.g. `Ran` + `Show working tree status`. */
   readonly verb: string
   /** What follows the verb. Monospace when `code` is true. */
@@ -81,8 +114,8 @@ function humanize(name: string): string {
 }
 
 function callLabel(call: ToolCall): string {
-  const meta = agentToolMetaSchema.safeParse(call.meta)
-  if (meta.success) return meta.data['x.ai/tool'].label
+  const label = agentMeta(call)?.label
+  if (label !== undefined) return label
   return humanize(call.name)
 }
 
@@ -93,7 +126,7 @@ function callLabel(call: ToolCall): string {
  * replay — so the completed call's `rawOutput` and the title are fallbacks.
  */
 function executeInput(call: ToolCall): { command: string; description?: string } | undefined {
-  const fromInput = executeInputSchema.safeParse(call.part.input)
+  const fromInput = executeInputSchema.safeParse(callInput(call))
   if (fromInput.success) return fromInput.data
   const fromOutput = z
     .object({ rawOutput: executeInputSchema })
@@ -137,12 +170,32 @@ function callOutput(call: ToolCall): ToolOutputView {
  */
 export function toolCallView(call: ToolCall): ToolCallView {
   const output = callOutput(call)
+  const meta = agentMeta(call)
   const view = {
     label: callLabel(call),
+    icon: call.kind satisfies ToolIcon,
     change: call.change,
     output,
   }
   const settled = output.type !== 'pending'
+
+  // A directory listing hides behind kind `other`; Grok's own name says what it is.
+  if (meta?.name === 'list_dir') {
+    const input = listInputSchema.safeParse(callInput(call))
+    const directory = input.success
+      ? input.data.directory
+      : /^List `([\s\S]+)`$/.exec(call.title)?.[1]
+    if (directory !== undefined) {
+      return {
+        ...view,
+        icon: 'list',
+        verb: settled ? 'Listed' : 'Listing',
+        subject: `${baseName(directory)}/`,
+        code: true,
+        field: { name: 'Directory', value: directory },
+      }
+    }
+  }
 
   if (call.kind === 'execute') {
     const input = executeInput(call)
@@ -159,14 +212,17 @@ export function toolCallView(call: ToolCall): ToolCallView {
   }
 
   if (call.kind === 'search') {
-    const input = searchInputSchema.safeParse(call.part.input)
-    if (input.success) {
+    const input = searchInputSchema.safeParse(callInput(call))
+    // Grok titles a search with its pattern, so the title is the fallback input —
+    // unless it is a sentence like `Web search:`, which is no pattern at all.
+    const pattern = input.success ? input.data.pattern : call.title.endsWith(':') ? '' : call.title
+    if (pattern !== '') {
       return {
         ...view,
         verb: settled ? 'Searched' : 'Searching',
-        subject: input.data.pattern,
+        subject: pattern,
         code: true,
-        field: { name: 'Pattern', value: input.data.pattern },
+        field: { name: 'Pattern', value: pattern },
       }
     }
   }
@@ -185,9 +241,12 @@ export function toolCallView(call: ToolCall): ToolCallView {
     (call.kind === 'edit' || call.kind === 'delete' || call.kind === 'move') &&
     call.path !== undefined
   ) {
+    // A created file reads as written, not edited; Grok names the tool `write`.
     const verbs =
       call.kind === 'edit'
-        ? (['Edited', 'Editing'] as const)
+        ? meta?.name === 'write'
+          ? (['Wrote', 'Writing'] as const)
+          : (['Edited', 'Editing'] as const)
         : call.kind === 'delete'
           ? (['Deleted', 'Deleting'] as const)
           : (['Moved', 'Moving'] as const)
@@ -201,7 +260,7 @@ export function toolCallView(call: ToolCall): ToolCallView {
   }
 
   if (call.kind === 'fetch') {
-    const input = fetchInputSchema.safeParse(call.part.input)
+    const input = fetchInputSchema.safeParse(callInput(call))
     if (input.success) {
       return {
         ...view,
@@ -213,13 +272,16 @@ export function toolCallView(call: ToolCall): ToolCallView {
     }
   }
 
-  // Anything else: Grok's title is the whole line, and the sheet shows the
-  // input only when it actually carries something.
-  const input = filledInputSchema.safeParse(call.part.input)
+  // Anything else: Grok's title is the whole line — unless it is empty or a
+  // dangling `Web search:`, where the tool's label reads better. The sheet
+  // shows the input only when it actually carries something.
+  const input = filledInputSchema.safeParse(callInput(call))
+  const bareTitle = call.title.trim()
+  const subject = bareTitle === '' || bareTitle.endsWith(':') ? view.label : call.title
   return {
     ...view,
     verb: '',
-    subject: call.title,
+    subject,
     code: false,
     field: input.success
       ? { name: 'Input', value: JSON.stringify(input.data, null, 2) }

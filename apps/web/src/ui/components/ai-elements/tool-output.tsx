@@ -6,7 +6,7 @@ import type { ComponentProps } from 'react'
  * sheet. Shared as a class so drawer and collapsible triggers can wear it too.
  */
 export const toolRowClass =
-  'group flex min-h-11 w-full items-center gap-2 text-left text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground motion-reduce:transition-none'
+  'group flex min-h-11 w-full items-center gap-2 rounded-md text-left text-muted-foreground transition-colors duration-150 ease-out outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none'
 
 /** A tool row that is a plain button, for sheet lists. */
 export function ToolRowButton({ className, ...props }: ComponentProps<'button'>) {
