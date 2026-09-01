@@ -133,6 +133,22 @@ describe('Host WebSocket connections', () => {
     test.manager.closeAll()
   })
 
+  it('conversation.model.set carries the model and effort pair to the agent', async () => {
+    const test = connectionTest()
+    await test.control.connect()
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() => {
+      expect(test.conversations).toHaveLength(1)
+    })
+    await test.conversations[0]?.connect()
+    await attached
+    await test.conversations[0]?.receive(
+      request('conversation.model.set', { modelId: 'grok-4.5', reasoningEffort: 'low' }),
+    )
+    expect(test.deps.codingAgent.setModel).toHaveBeenCalledWith(conversationId, 'grok-4.5', 'low')
+    test.manager.closeAll()
+  })
+
   it('removes a stopped conversation connection so attach opens a new one', async () => {
     const test = connectionTest()
     await test.control.connect()

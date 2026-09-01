@@ -9,7 +9,6 @@ import {
   TerminalWindowIcon,
   TrashIcon,
   WrenchIcon,
-  XIcon,
   type Icon,
 } from '@phosphor-icons/react'
 import { ToolDetail } from '@web/features/conversation/components/tool-detail.tsx'
@@ -31,7 +30,7 @@ import {
 import {
   Drawer,
   DrawerBody,
-  DrawerClose,
+  DrawerCloseButton,
   DrawerContent,
   DrawerTitle,
   DrawerTrigger,
@@ -144,25 +143,26 @@ function Chevron() {
 // Phone: every row opens a sheet; nothing in the transcript expands in place.
 
 /** The sheet header: close or back on the left, the bold name centred. */
-function SheetHeader({
+export function SheetHeader({
   title,
   onBack,
 }: {
   readonly title: string
   readonly onBack?: (() => void) | undefined
 }) {
-  // `-ml-2.5` sets the glyph, not the button box, on the content edge.
   return (
-    <div className="grid grid-cols-[2.25rem_1fr_2.25rem] items-center px-4">
+    <div className="grid min-h-12 grid-cols-[3rem_1fr_3rem] items-center px-4">
       {onBack === undefined ? (
-        <DrawerClose
-          render={<Button aria-label="Close" className="-ml-2.5" size="icon" variant="ghost" />}
-        >
-          <XIcon aria-hidden />
-        </DrawerClose>
+        <DrawerCloseButton />
       ) : (
-        <Button aria-label="Back" className="-ml-2.5" size="icon" variant="ghost" onClick={onBack}>
-          <CaretLeftIcon aria-hidden />
+        <Button
+          aria-label="Back"
+          className="size-11 rounded-full bg-secondary"
+          size="icon"
+          variant="ghost"
+          onClick={onBack}
+        >
+          <CaretLeftIcon aria-hidden className="size-5" />
         </Button>
       )}
       <DrawerTitle className="min-w-0 text-center" render={<h3 className="truncate">{title}</h3>} />
@@ -186,9 +186,12 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
   )
 }
 
-/** The two sheet pages ride one fixed frame; only transform and opacity move. */
-const SHEET_PANEL =
-  'absolute inset-0 overflow-y-auto overscroll-contain px-4 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none'
+/**
+ * The two sheet pages ride one fixed frame; only transform moves, the iOS way.
+ * Each page paints the sheet surface, so the incoming one covers the outgoing.
+ */
+export const SHEET_PANEL =
+  'absolute inset-0 overflow-y-auto overscroll-contain bg-surface px-4 transition-transform duration-300 ease-out motion-reduce:transition-none'
 
 /**
  * A folded run's sheet: the calls as a list, and a tap pushes one call's
@@ -219,11 +222,7 @@ export function RunSheetBody({
       <DrawerBody className="relative overflow-hidden px-0 pt-0">
         <div
           inert={selected !== null}
-          className={cn(
-            SHEET_PANEL,
-            'flex flex-col',
-            selected !== null && '-translate-x-1/3 opacity-0',
-          )}
+          className={cn(SHEET_PANEL, 'flex flex-col', selected !== null && '-translate-x-1/3')}
         >
           {calls.map((call) => {
             const rowView = toolCallView(call)
@@ -243,7 +242,7 @@ export function RunSheetBody({
         </div>
         <div
           inert={selected === null}
-          className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full opacity-0')}
+          className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
         >
           {selected === null ? null : <ToolDetail call={selected} />}
         </div>

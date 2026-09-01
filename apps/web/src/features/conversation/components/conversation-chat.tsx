@@ -1,11 +1,12 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
+import { LightningIcon } from '@phosphor-icons/react'
 import type { ConversationLiveState } from '@porte/core/client'
 import type {
   ConversationActions,
   ConversationPermission,
 } from '@web/features/conversation/hooks/use-answer-permission.ts'
 import type { ConversationAgentConnection } from '@web/features/conversation/hooks/use-conversation-agent.ts'
-import { useConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
+import { useSetModel } from '@web/features/conversation/hooks/use-set-model.ts'
 import { useStopTurn } from '@web/features/conversation/hooks/use-stop-turn.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
@@ -13,14 +14,17 @@ import {
   PromptInputAttachments,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputController,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import type { ChatStatus, UIMessage } from 'ai'
-import { useState } from 'react'
 
 import { ComposerAddMenu } from './composer-add-menu.tsx'
+import { ComposerCommandSuggestions } from './composer-command-suggestions.tsx'
+import { ComposerConfigurationMenu } from './composer-configuration-menu.tsx'
 import { ConversationMessages } from './conversation-messages.tsx'
 import { ConversationPermissions } from './conversation-permission.tsx'
 import { ConversationPlans, conversationCost } from './conversation-progress.tsx'
@@ -48,11 +52,10 @@ export function ConversationChat({
   // The Host owns "a turn runs"; the SDK's stream status only adds the local `submitted` spinner.
   const running = state.runningTurnId !== undefined
   const stop = useStopTurn(agent.stub, state.runningTurnId)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const commands = useConversationCommands(agent, menuOpen)
   const canType = canSend && agent.identified
   const canSubmit = canType && !running
   const status = submitStatus(chat.status, running)
+  const setModel = useSetModel(agent.stub)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -68,75 +71,85 @@ export function ConversationChat({
 
       <ConversationPermissions onAnswer={actions.onAnswerPermission} waiting={permissions} />
 
-      <PromptInput
-        className="mb-2"
-        onSubmit={(message) => {
-          if (!canSubmit) return
-          if (message.text.trim() === '' && message.files.length === 0) return
-          void chat.sendMessage({ text: message.text, files: message.files })
-        }}
-      >
-        <PromptInputBody>
-          <PromptInputAttachments />
-          <PromptInputTextarea
-            disabled={!canType}
-            placeholder={promptPlaceholder(canSend, agent.identified)}
-          />
-          <PromptInputFooter>
-            <PromptInputTools>
-              <ComposerAddMenu
-                commands={commands}
-                disabled={!canSubmit}
-                onCommand={(name) => {
-                  void chat.sendMessage({ text: `/${name}` })
-                }}
-                onOpenChange={setMenuOpen}
+      {/* The provider carries the typed text, so the `/` suggestions can watch it. */}
+      <PromptInputProvider>
+        <div className="relative mb-2">
+          <ComposerCommandSuggestions agent={agent} />
+          <PromptInput
+            onSubmit={(message) => {
+              if (!canSubmit) return
+              if (message.text.trim() === '' && message.files.length === 0) return
+              void chat.sendMessage({ text: message.text, files: message.files })
+            }}
+          >
+            <PromptInputBody>
+              <PromptInputAttachments />
+              <PromptInputTextarea
+                disabled={!canType}
+                placeholder={promptPlaceholder(canSend, agent.identified)}
               />
-              {state.configuration?.map((option) => (
-                <small key={option.id} className="hidden text-muted-foreground md:inline">
-                  {option.name}: {configurationValue(option)}
-                </small>
-              ))}
-              {state.modeId === undefined ? null : (
-                <small className="hidden text-muted-foreground md:inline">
-                  Mode: {state.modeId}
-                </small>
-              )}
-              {state.usage === undefined ? null : (
-                <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
-                  <ContextTrigger aria-label="Show context usage" />
-                  <ContextContent>
-                    {conversationCost(state.usage) === undefined ? null : (
-                      <small className="text-muted-foreground">
-                        Cost {conversationCost(state.usage)}
-                      </small>
-                    )}
-                  </ContextContent>
-                </Context>
-              )}
-            </PromptInputTools>
-            {/* Stopping keeps the Stop icon and goes inert until the Host finishes the turn. */}
-            <PromptInputSubmit
-              className="ml-auto"
-              disabled={!canType || stop.stopping}
-              status={status}
-              onStop={stop.onStop}
-            />
-          </PromptInputFooter>
-        </PromptInputBody>
-      </PromptInput>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <ComposerAddMenu disabled={!canSubmit} />
+                  {/* The bare mode value with its glyph, the way Claude's composer wears "⚡ Auto". */}
+                  {state.modeId === undefined ? null : (
+                    <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
+                      <LightningIcon aria-hidden className="size-4" />
+                      {state.modeId}
+                    </span>
+                  )}
+                </PromptInputTools>
+                <div className="ml-auto flex items-center gap-1">
+                  <ComposerConfigurationMenu
+                    actions={{ onSetModel: setModel.onSetModel }}
+                    disabled={!canType}
+                    failed={setModel.failed}
+                    options={state.configuration ?? []}
+                    pending={setModel.pending}
+                  />
+                  {state.usage === undefined ? null : (
+                    <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
+                      <ContextTrigger aria-label="Show context usage" />
+                      <ContextContent>
+                        {conversationCost(state.usage) === undefined ? null : (
+                          <small className="text-muted-foreground">
+                            Cost {conversationCost(state.usage)}
+                          </small>
+                        )}
+                      </ContextContent>
+                    </Context>
+                  )}
+                  {/* Stopping keeps the Stop icon and goes inert until the Host finishes the turn. */}
+                  <ComposerSubmit
+                    disabled={!canType || stop.stopping}
+                    status={status}
+                    onStop={stop.onStop}
+                  />
+                </div>
+              </PromptInputFooter>
+            </PromptInputBody>
+          </PromptInput>
+        </div>
+      </PromptInputProvider>
     </div>
   )
 }
 
-function configurationValue(
-  option: NonNullable<ConversationLiveState['configuration']>[number],
-): string {
-  if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
-  const values = option.options.flatMap((value) =>
-    value.type === 'group' ? value.options : [value],
-  )
-  return values.find((value) => value.value === option.currentValue)?.name ?? option.currentValue
+/** Send goes inert with nothing to send; Stop stays live while a turn runs. */
+function ComposerSubmit({
+  disabled,
+  status,
+  onStop,
+}: {
+  readonly disabled: boolean
+  readonly status: ChatStatus
+  readonly onStop: () => void
+}) {
+  const controller = usePromptInputController()
+  const empty =
+    controller.textInput.value.trim() === '' && controller.attachments.files.length === 0
+  const sendBlocked = empty && status === 'ready'
+  return <PromptInputSubmit disabled={disabled || sendBlocked} status={status} onStop={onStop} />
 }
 
 /**

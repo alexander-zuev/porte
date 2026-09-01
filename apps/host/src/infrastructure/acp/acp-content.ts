@@ -4,7 +4,7 @@ import type {
   LoadSessionResponse,
   NewSessionResponse,
 } from '@agentclientprotocol/sdk'
-import { MODEL_OPTION_ID } from '@host/application/ports/coding-agent.ts'
+import { EFFORT_OPTION_ID, MODEL_OPTION_ID } from '@host/application/ports/coding-agent.ts'
 import type { AcpSessionUpdate } from '@host/infrastructure/acp/message.ts'
 import type {
   CanonicalContent,
@@ -42,26 +42,111 @@ export function parseSessionModels(
   return parsed.success ? parsed.data.models : undefined
 }
 
-/** Present the agent's model list as the one `select` option the relay contract knows. */
-export function modelsToConfiguration(
+/** One selectable effort level from a model's `_meta` (x.ai extension; absent elsewhere). */
+const reasoningEffortSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().nullish(),
+  default: z.boolean().nullish(),
+})
+
+const effortMetaSchema = z.object({
+  reasoningEffort: z.string().min(1).optional(),
+  reasoningEfforts: z.array(reasoningEffortSchema).min(1).optional(),
+})
+
+type ReasoningEffort = z.infer<typeof reasoningEffortSchema>
+type SessionModel = AcpSessionModels['availableModels'][number]
+type SelectOption = Extract<ConversationConfigurationOption, { type: 'select' }>['options'][number]
+
+/** A plain `set_model` resets the effort, so absent or unknown current means the default. */
+function modelEfforts(
+  model: SessionModel,
+): { current: string; options: readonly ReasoningEffort[] } | undefined {
+  const parsed = effortMetaSchema.safeParse(model._meta ?? {})
+  if (!parsed.success || parsed.data.reasoningEfforts === undefined) return undefined
+  const options = parsed.data.reasoningEfforts
+  const fallback = options.find((option) => option.default === true) ?? options[0]
+  if (fallback === undefined) return undefined
+  const advertised = parsed.data.reasoningEffort
+  const current = options.some((option) => option.id === advertised) ? advertised : fallback.id
+  return current === undefined ? undefined : { current, options }
+}
+
+function selectOption(
+  value: string,
+  name: string,
+  description?: string | null,
+  isDefault?: boolean | null,
+): SelectOption {
+  const option: SelectOption = { type: 'option', value, name }
+  if (description !== undefined && description !== null) option.description = description
+  if (isDefault === true) option.default = true
+  return option
+}
+
+/** Official one-liners (x.ai news and docs); the agent's own text covers unlisted models. */
+const MODEL_DESCRIPTIONS = new Map<string, string>([
+  ['grok-4.6', "The most intelligent and fastest model we've built"],
+  ['grok-4.5', 'Built for coding, agentic tasks, and knowledge work'],
+])
+
+/** The agent's model list plus the current model's effort levels, when it has any. */
+export function modelsToConfigurationOptions(
   models: AcpSessionModels,
-  currentModelId: string = models.currentModelId,
-): ConversationConfigurationOption {
-  return {
+): ConversationConfigurationOption[] {
+  const model: ConversationConfigurationOption = {
     type: 'select',
     id: MODEL_OPTION_ID,
     name: 'Model',
     category: 'model',
-    currentValue: currentModelId,
-    options: models.availableModels.map((model) => {
-      const option: Extract<
-        ConversationConfigurationOption,
-        { type: 'select' }
-      >['options'][number] = { type: 'option', value: model.modelId, name: model.name }
-      if (model.description !== undefined && model.description !== null) {
-        option.description = model.description
-      }
-      return option
+    currentValue: models.currentModelId,
+    options: models.availableModels.map((entry) =>
+      selectOption(
+        entry.modelId,
+        entry.name,
+        MODEL_DESCRIPTIONS.get(entry.modelId) ?? entry.description,
+      ),
+    ),
+  }
+  const current = models.availableModels.find((entry) => entry.modelId === models.currentModelId)
+  const efforts = current === undefined ? undefined : modelEfforts(current)
+  if (efforts === undefined) return [model]
+  return [
+    model,
+    {
+      type: 'select',
+      id: EFFORT_OPTION_ID,
+      name: 'Effort',
+      category: 'effort',
+      currentValue: efforts.current,
+      options: efforts.options.map((effort) =>
+        selectOption(effort.id, effort.label, effort.description, effort.default),
+      ),
+    },
+  ]
+}
+
+/**
+ * The session's models after one `set_model`: the selection becomes current and
+ * its effort becomes the chosen one, or the model's default when none was sent.
+ */
+export function applyModelSelection(
+  models: AcpSessionModels,
+  modelId: string,
+  reasoningEffort?: string,
+): AcpSessionModels {
+  return {
+    currentModelId: modelId,
+    availableModels: models.availableModels.map((model) => {
+      if (model.modelId !== modelId) return model
+      const efforts = modelEfforts(model)
+      if (efforts === undefined) return model
+      const fallback =
+        efforts.options.find((option) => option.default === true) ?? efforts.options[0]
+      const next = reasoningEffort ?? fallback?.id
+      if (next === undefined) return model
+      return { ...model, _meta: { ...model._meta, reasoningEffort: next } }
     }),
   }
 }

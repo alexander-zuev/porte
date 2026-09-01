@@ -84,6 +84,16 @@ export const HostConversationMethods = {
     }),
     result: EmptyResultSchema,
   },
+  // Mirrors ACP `session/set_model`: effort has no standalone write, so the pair travels together.
+  'conversation.model.set': {
+    kind: JSON_RPC_METHOD_KINDS.request,
+    params: z.strictObject({
+      modelId: z.string().min(1),
+      /** Omitted = the model's default effort. */
+      reasoningEffort: z.string().min(1).optional(),
+    }),
+    result: EmptyResultSchema,
+  },
   'permission.answer': {
     kind: JSON_RPC_METHOD_KINDS.request,
     params: z.strictObject({

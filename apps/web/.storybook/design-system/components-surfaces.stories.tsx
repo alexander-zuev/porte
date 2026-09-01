@@ -340,7 +340,8 @@ function HostConnectionToastBoard() {
         note="Offline holds until dismissed or replaced; online clears itself."
       >
         <Specimen label="Transitions" wide>
-          <div className="flex gap-2">
+          {/* Wraps so the board reflows at 320px; the toasts are the subject, not this row. */}
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={notifyHostOffline}>
               Machine went offline
             </Button>

@@ -37,6 +37,7 @@ describe('Host JSON-RPC methods', () => {
       'turn.get',
       'turn.cancel',
       'conversation.configuration.set',
+      'conversation.model.set',
       'permission.answer',
       'elicitation.answer',
       'conversation.event',

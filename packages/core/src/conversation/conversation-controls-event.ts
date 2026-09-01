@@ -5,6 +5,8 @@ const selectConfigurationValueSchema = z.object({
   value: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
+  /** The provider's default for this select; a picker may badge it. */
+  default: z.boolean().optional(),
 })
 
 const selectConfigurationGroupSchema = z.object({

@@ -6,18 +6,19 @@ import { STORY_IDS, storyPath } from './stories.ts'
 
 /**
  * Content wider than the viewport, ignoring anything the page deliberately
- * scrolls in its own box. A table or a code block may scroll; the page may not.
+ * scrolls or clips in its own box. A table or a code block may scroll; a
+ * truncated line is already contained; the page may not scroll.
  */
 const overflow = (page: Page) =>
   page.evaluate(() => {
     const doc = document.documentElement
+    const contained = new Set(['auto', 'scroll', 'hidden', 'clip'])
     const offenders = [...document.body.querySelectorAll<HTMLElement>('*')]
       .filter((el) => {
         if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false
         if (el.closest('.sr-only')) return false
         for (let ancestor = el.parentElement; ancestor && ancestor !== document.body;) {
-          const overflowX = getComputedStyle(ancestor).overflowX
-          if (overflowX === 'auto' || overflowX === 'scroll') return false
+          if (contained.has(getComputedStyle(ancestor).overflowX)) return false
           ancestor = ancestor.parentElement
         }
         return el.getBoundingClientRect().right > doc.clientWidth + 1
@@ -30,6 +31,18 @@ const overflow = (page: Page) =>
     return { pageScroll: Math.max(0, doc.scrollWidth - doc.clientWidth), offenders }
   })
 
+/**
+ * Fixed-size artboards photographed into assets (favicons, the og card).
+ * WCAG 1.4.10 exempts content whose meaning requires a fixed two-dimensional
+ * layout; these are images, not screens a person reflows.
+ */
+const FIXED_ARTBOARDS = [
+  'design-system-logo--icon',
+  'design-system-logo--icon-maskable',
+  'design-system-logo--all-sizes',
+  'pages-social-card--card',
+]
+
 test.describe('reflow at 320px (WCAG 1.4.10)', () => {
   test.use({ viewport: { width: 320, height: 800 } })
 
@@ -38,6 +51,7 @@ test.describe('reflow at 320px (WCAG 1.4.10)', () => {
       // The viewport is pinned here, so a second project would remeasure the
       // same pixels.
       test.skip(testInfo.project.name !== 'desktop', 'One project covers a pinned viewport.')
+      test.skip(FIXED_ARTBOARDS.includes(id), 'A photographed artboard has a fixed size.')
       await page.goto(storyPath(id))
       await settle(page)
       expect(await overflow(page)).toEqual({ pageScroll: 0, offenders: [] })

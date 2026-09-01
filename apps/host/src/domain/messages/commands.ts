@@ -58,5 +58,5 @@ export type CommandDataMap = {
   CompleteElicitation: InConversation & { elicitationId: ElicitationId }
 
   // Configuration
-  SetModel: InConversation & { modelId: string }
+  SetModel: InConversation & { modelId: string; reasoningEffort?: string }
 }

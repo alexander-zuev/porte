@@ -518,7 +518,7 @@ export const emptyRelayState: ConversationLiveState = {
   pending: { permissions: [], elicitations: [] },
 }
 
-/** The Host's command list, read once when the `+` menu opens. Grok's real list is ~100 KB. */
+/** The Host's command list, read once when `/` is typed. Grok's real list is ~100 KB. */
 const COMMAND_LIST: readonly ConversationCommand[] = [
   { name: 'review', description: 'Review the current changes' },
   { name: 'test', description: 'Run the test suite' },

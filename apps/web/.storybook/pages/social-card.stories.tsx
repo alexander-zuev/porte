@@ -10,14 +10,16 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
  */
 function SocialCard() {
   return (
-    <div className="flex h-[630px] w-[1200px] flex-col justify-between bg-background p-20 text-foreground">
-      <span className="font-brand text-[96px] leading-none font-bold tracking-[var(--tracking-display)]">
+    // `main` for the a11y suite's page rules; invisible in the photograph.
+    <main className="flex h-[630px] w-[1200px] flex-col justify-between bg-background p-20 text-foreground">
+      {/* The card's one heading; `h1` also satisfies the a11y suite's page rules. */}
+      <h1 className="font-brand text-[96px] leading-none font-bold tracking-[var(--tracking-display)]">
         Porte
         <span
           aria-hidden
           className="ml-[0.12em] inline-block h-[1em] w-[0.4em] translate-y-[0.14em] bg-current"
         />
-      </span>
+      </h1>
       <p className="text-[56px] leading-[1.1] font-bold tracking-[var(--tracking-display)]">
         Grok stays on your machine.
         <br />
@@ -27,7 +29,7 @@ function SocialCard() {
         <span className="text-muted-foreground">Remote control for local Grok sessions</span>
         <span className="font-mono text-muted-foreground">useporte.dev</span>
       </div>
-    </div>
+    </main>
   )
 }
 

@@ -1,4 +1,5 @@
 import { Drawer as DrawerPrimitive } from '@base-ui/react/drawer'
+import { XIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import * as React from 'react'
 
@@ -19,6 +20,23 @@ function DrawerTrigger({ ...props }: DrawerPrimitive.Trigger.Props) {
 
 function DrawerClose({ ...props }: DrawerPrimitive.Close.Props) {
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
+}
+
+/** The one close affordance every sheet shares: a soft round target the thumb can hit. */
+function DrawerCloseButton({ className, ...props }: DrawerPrimitive.Close.Props) {
+  return (
+    <DrawerPrimitive.Close
+      aria-label="Close"
+      data-slot="drawer-close-button"
+      className={cn(
+        'flex size-12 shrink-0 items-center justify-center rounded-full border bg-secondary text-foreground transition-colors hover:bg-secondary/80',
+        className,
+      )}
+      {...props}
+    >
+      <XIcon aria-hidden className="size-6" />
+    </DrawerPrimitive.Close>
+  )
 }
 
 function DrawerPortal({ ...props }: DrawerPrimitive.Portal.Props) {
@@ -45,11 +63,8 @@ function DrawerOverlay({ className, ...props }: DrawerPrimitive.Backdrop.Props) 
 }
 
 /**
- * The panel itself.
- *
- * `--bleed` is the height the panel keeps below the screen edge. Overscrolling
- * past the bottom then reveals more panel rather than the page behind it, which
- * is what stops a rubber-band from tearing a gap open on iOS.
+ * The panel itself: a floating card with margins on every side, the sheet at
+ * step 2 of the surface scale so its cards can sit one step above it.
  */
 function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.Props) {
   return (
@@ -57,22 +72,22 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
       <DrawerOverlay />
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"
-        className="fixed inset-0 z-50 flex items-end justify-center"
+        className="fixed inset-0 z-50 flex items-end justify-center p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
       >
         <DrawerPrimitive.Popup
           data-slot="drawer-content"
           className={cn(
             // Held to the app's own measure. Full width past that reads as a
             // page taking over rather than a panel belonging to this column.
-            '[--bleed:3rem] -mb-(--bleed) w-full max-w-2xl max-h-[calc(85dvh+var(--bleed))]',
-            'flex flex-col overflow-y-auto overscroll-contain rounded-t-xl border',
-            'bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg outline-none',
-            'pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px)+var(--bleed))]',
+            'w-full max-w-2xl max-h-[85dvh]',
+            'flex flex-col overflow-y-auto overscroll-contain rounded-3xl border',
+            'bg-surface bg-clip-padding text-sm text-popover-foreground shadow-lg outline-none',
+            'pt-2 pb-4',
             'touch-auto [transform:translateY(var(--drawer-swipe-movement-y))]',
             DRAWER_TRANSITION,
             'transition-transform data-swiping:select-none',
-            'data-starting-style:[transform:translateY(calc(100%-var(--bleed)+2px))]',
-            'data-ending-style:[transform:translateY(calc(100%-var(--bleed)+2px))]',
+            'data-starting-style:[transform:translateY(calc(100%+2rem))]',
+            'data-ending-style:[transform:translateY(calc(100%+2rem))]',
             'data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)]',
             className,
           )}
@@ -90,7 +105,12 @@ function DrawerContent({ className, children, ...props }: DrawerPrimitive.Popup.
 
 /** The grab bar. Decoration: the whole panel is draggable, not just this. */
 function DrawerHandle() {
-  return <div aria-hidden className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border" />
+  return (
+    <div
+      aria-hidden
+      className="mx-auto mt-1 mb-4 h-1.5 w-12 shrink-0 rounded-full bg-border-interactive"
+    />
+  )
 }
 
 /**
@@ -160,6 +180,7 @@ export {
   Drawer,
   DrawerTrigger,
   DrawerClose,
+  DrawerCloseButton,
   DrawerContent,
   DrawerBody,
   DrawerHeader,

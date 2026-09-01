@@ -1,23 +1,30 @@
 import { FileTextIcon, ImageIcon } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
+  ComposerMicButton,
+  ComposerVoiceBar,
+} from '@web/features/conversation/components/composer-voice.tsx'
+import { useVoiceInput } from '@web/features/conversation/hooks/use-voice-input.ts'
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
   PromptInputProvider,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
   usePromptInputAttachments,
+  usePromptInputController,
   type PromptInputMessage,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import { AppHeader } from '@web/ui/components/layout/app-header.tsx'
 import { AppShell } from '@web/ui/components/layout/app-shell.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
+import { Toaster } from '@web/ui/components/ui/sonner.tsx'
 import { useState } from 'react'
 import { INITIAL_VIEWPORTS } from 'storybook/viewport'
 
-import {
-  commandsFailed,
-  commandsPending,
-  commandsReady,
-  emptyRelayState,
-  relayState,
-} from '../fixtures/transcript.ts'
+import { emptyRelayState, relayState } from '../fixtures/transcript.ts'
 import { ChatFrame } from '../harnesses/chat-frame.tsx'
 
 /*
@@ -33,9 +40,6 @@ import { ChatFrame } from '../harnesses/chat-frame.tsx'
  * Width comes from the viewport toolbar; the phone sheet needs a phone.
  */
 
-const COMMAND_LISTS = { ready: commandsReady, pending: commandsPending, failed: commandsFailed }
-type CommandList = keyof typeof COMMAND_LISTS
-
 const meta = {
   title: 'Design System/AI/Composer',
   parameters: { layout: 'fullscreen', viewport: { options: INITIAL_VIEWPORTS } },
@@ -46,23 +50,15 @@ export default meta
 /**
  * The seed buttons make a file in the browser, so the row fills without a
  * file dialog. `+` opens the real menu or sheet, X takes a file out, Enter
- * sends and clears. `commands` picks what the menu finds when it opens.
+ * sends and clears. Commands live behind `/` in the composer, not here.
  */
-export const Interactive: StoryObj<{ commands: CommandList; usage: boolean }> = {
-  args: { commands: 'ready', usage: true },
-  argTypes: { commands: { control: 'select', options: Object.keys(COMMAND_LISTS) } },
-  render: (args) => <Composer commands={args.commands} usage={args.usage} />,
+export const Interactive: StoryObj<{ usage: boolean }> = {
+  args: { usage: true },
+  render: (args) => <Composer usage={args.usage} />,
 }
 
-function Composer({
-  commands,
-  usage,
-}: {
-  readonly commands: CommandList
-  readonly usage: boolean
-}) {
+function Composer({ usage }: { readonly usage: boolean }) {
   const [sent, setSent] = useState<PromptInputMessage | null>(null)
-  const [command, setCommand] = useState<string | null>(null)
 
   return (
     <PromptInputProvider>
@@ -78,23 +74,82 @@ function Composer({
                 {sent.files.length === 1 ? '' : 's'}.
               </small>
             )}
-            {command === null ? null : <small>Command /{command}.</small>}
           </output>
         </div>
         <ChatFrame
           messages={[]}
           state={usage ? { ...relayState, plans: [] } : emptyRelayState}
-          commands={COMMAND_LISTS[commands]}
           permissions={[]}
           status="ready"
           canSend
           placeholder="Message Grok…"
           onSend={setSent}
-          onCommand={setCommand}
         />
       </AppShell>
     </PromptInputProvider>
   )
+}
+
+/**
+ * The full voice-input flow, live: the mic really records (the browser asks for
+ * the microphone), ✓ hands the take to a fake transcriber that answers after a
+ * moment, and the words land in the textarea. `fail` makes every transcription
+ * fail instead: a toast appears and ✓ retries the same take. ✕ or Escape
+ * discards at any point.
+ */
+export const Voice: StoryObj<{ fail: boolean }> = {
+  args: { fail: false },
+  render: (args) => (
+    <PromptInputProvider>
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-3 py-6">
+        <VoiceComposer fail={args.fail} />
+      </div>
+      <Toaster />
+    </PromptInputProvider>
+  ),
+}
+
+function VoiceComposer({ fail }: { readonly fail: boolean }) {
+  const controller = usePromptInputController()
+  const voice = useVoiceInput({
+    transcribe: (audio) => fakeTranscription(audio, fail),
+    onText: (text) => {
+      const value = controller.textInput.value
+      controller.textInput.setInput(value === '' ? text : `${value} ${text}`)
+    },
+  })
+
+  return (
+    <PromptInput onSubmit={() => undefined}>
+      <PromptInputBody>
+        <PromptInputTextarea placeholder="Message Grok…" />
+        <PromptInputFooter>
+          {voice.status === 'idle' ? (
+            <>
+              <PromptInputTools />
+              <div className="ml-auto flex items-center gap-1">
+                <ComposerMicButton disabled={false} start={voice.start} />
+                <PromptInputSubmit disabled status="ready" />
+              </div>
+            </>
+          ) : (
+            <ComposerVoiceBar voice={voice} />
+          )}
+        </PromptInputFooter>
+      </PromptInputBody>
+    </PromptInput>
+  )
+}
+
+/** Story-only: answers like the server fn will, a beat later; `fail` rehearses the error path. */
+async function fakeTranscription(audio: Blob, fail: boolean): Promise<string> {
+  // oxlint-disable-next-line eslint-plugin-promise(avoid-new) -- setTimeout is callback-based.
+  await new Promise((resolve) => {
+    setTimeout(resolve, 1500)
+  })
+  if (fail) throw new Error('transcription failed')
+  const seconds = Math.max(1, Math.round(audio.size / 16000))
+  return `A ${String(seconds)}-second take: fix the failing relay test and push when green.`
 }
 
 /** Story-only: puts a file in the set the way the picker would, without the picker. */

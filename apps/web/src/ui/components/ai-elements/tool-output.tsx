@@ -42,7 +42,10 @@ export function MonoBox({
  */
 export function PlainOutput({ children }: { readonly children: string }) {
   return (
-    <pre className="max-h-96 overflow-y-auto overscroll-contain rounded-xl bg-surface p-3 font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6">
+    <pre
+      tabIndex={0}
+      className="max-h-96 overflow-y-auto overscroll-contain rounded-xl bg-surface p-3 font-mono text-xs leading-5 break-words whitespace-pre-wrap md:text-sm md:leading-6"
+    >
       {children}
     </pre>
   )
@@ -62,11 +65,14 @@ export type NumberedLine = {
 export function FileLines({ lines }: { readonly lines: readonly NumberedLine[] }) {
   return (
     <div className="overflow-hidden rounded-xl border bg-surface">
-      <div className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2">
+      <div
+        className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2"
+        tabIndex={0}
+      >
         <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
           {lines.map((one) => (
             <span key={one.key} className="flex min-w-full pr-3">
-              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground/70 select-none">
+              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground select-none">
                 {one.line}
               </span>
               <span className="whitespace-pre">{one.text === '' ? ' ' : one.text}</span>
@@ -105,7 +111,10 @@ export function DiffBlock({
           <span className="font-mono">{title}</span>
         </div>
       )}
-      <div className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2">
+      <div
+        className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2"
+        tabIndex={0}
+      >
         <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
           {rows.map((row) => (
             <span
@@ -117,7 +126,7 @@ export function DiffBlock({
                   : 'border-destructive bg-destructive-muted/60',
               )}
             >
-              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground/70 select-none">
+              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground select-none">
                 {row.line}
               </span>
               <span className="whitespace-pre">{row.text === '' ? ' ' : row.text}</span>

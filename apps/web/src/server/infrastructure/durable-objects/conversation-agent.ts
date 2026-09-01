@@ -320,6 +320,14 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     return await this.hostSocket.request('conversation.configuration.set', params)
   }
 
+  /** Model and effort travel as one pair, the way ACP's `set_model` takes them. */
+  @callable()
+  async setModel(
+    params: HostConversationMethodMap['conversation.model.set']['params'],
+  ): Promise<null> {
+    return await this.hostSocket.request('conversation.model.set', params)
+  }
+
   @callable()
   async answerPermission(
     params: HostConversationMethodMap['permission.answer']['params'],

@@ -14,7 +14,8 @@ import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import { elicitationId, permissionId } from '@host/domain/conversation/message-identity.ts'
 import type { AcpRequestHandler } from '@host/infrastructure/acp/acp-agent-process.ts'
 import {
-  modelsToConfiguration,
+  applyModelSelection,
+  modelsToConfigurationOptions,
   parseSessionModels,
   toAcpContent,
   type AcpSessionModels,
@@ -182,14 +183,22 @@ export class AcpCodingAgent implements CodingAgent {
     await this.agent.process.notify({ method: 'session/cancel', params: { sessionId: id } })
   }
 
-  async setModel(id: ConversationId, modelId: string): Promise<readonly ConversationEvent[]> {
+  async setModel(
+    id: ConversationId,
+    modelId: string,
+    reasoningEffort?: string,
+  ): Promise<readonly ConversationEvent[]> {
     const session = this.requireSession(id)
+    // Effort rides on `set_model` (x.ai `_meta`); a plain set resets it to the model's default.
     await this.agent.process.request({
       method: 'session/set_model',
-      params: { sessionId: id, modelId },
+      params:
+        reasoningEffort === undefined
+          ? { sessionId: id, modelId }
+          : { sessionId: id, modelId, _meta: { reasoningEffort } },
     })
     if (session.models === undefined) return []
-    session.models = { ...session.models, currentModelId: modelId }
+    session.models = applyModelSelection(session.models, modelId, reasoningEffort)
     session.contextTokens = this.agent.contextTokens(session.models)
     return this.configurationEvents(session)
   }
@@ -255,7 +264,7 @@ export class AcpCodingAgent implements CodingAgent {
     return [
       {
         type: 'conversation.configuration.updated',
-        options: [modelsToConfiguration(session.models)],
+        options: modelsToConfigurationOptions(session.models),
       },
     ]
   }

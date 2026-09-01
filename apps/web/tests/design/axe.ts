@@ -54,7 +54,7 @@ export async function settle(page: Page, theme: Theme = 'dark'): Promise<void> {
 }
 
 /** Document-level rules a component board cannot satisfy: it is a fragment, not a page. */
-export const PAGE_ONLY_RULES = ['page-has-heading-one']
+export const PAGE_ONLY_RULES = ['page-has-heading-one', 'landmark-one-main']
 
 export async function axeViolations(
   page: Page,

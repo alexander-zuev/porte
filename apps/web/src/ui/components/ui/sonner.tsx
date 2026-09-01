@@ -1,16 +1,19 @@
 import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon } from '@phosphor-icons/react'
 import { cn } from '@web/lib/utils.ts'
 import { buttonVariants } from '@web/ui/components/ui/button.tsx'
+import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import { Toaster as Sonner } from 'sonner'
 
 /** Toast host. Rendered once at the root so any surface can raise a message. */
 export function Toaster(props: React.ComponentProps<typeof Sonner>) {
+  // A phone's thumb and composer own the bottom edge, so toasts arrive from the top.
+  const phone = usePhone()
   return (
     <Sonner
       // Below 600px Sonner keeps the host at `width: 100%` beside a left
       // offset, so the host box runs past the viewport. Size it to the offsets.
       className="toaster group max-[600px]:w-[calc(100%-var(--mobile-offset-left)-var(--mobile-offset-right))]!"
-      position="bottom-right"
+      position={phone ? 'top-center' : 'bottom-right'}
       offset={24}
       gap={10}
       // Sonner ships solid glyphs. Every other icon in the product is Phosphor

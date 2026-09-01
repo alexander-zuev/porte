@@ -7,10 +7,10 @@ export type ConversationAgentClient = ReturnType<
   typeof useAgent<ConversationAgent, ConversationLiveState>
 >
 
-/** The callables the composer uses; a story fakes exactly these two. */
+/** The callables the composer uses; a story fakes exactly these. */
 export type ConversationAgentStub = Pick<
   ConversationAgentClient['stub'],
-  'cancelTurn' | 'listCommands'
+  'cancelTurn' | 'listCommands' | 'setModel'
 >
 
 /**

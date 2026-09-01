@@ -16,7 +16,6 @@ import {
   answerTestsThinking,
   askStop,
   askTests,
-  commandsReady,
   commitPermission,
   donePlan,
   emptyRelayState,
@@ -64,7 +63,6 @@ import { ChatFrame, type ChatFrameProps } from '../harnesses/chat-frame.tsx'
 const READY: ChatFrameProps = {
   messages: session,
   state: relayState,
-  commands: commandsReady,
   permissions: [],
   status: 'ready',
   canSend: true,

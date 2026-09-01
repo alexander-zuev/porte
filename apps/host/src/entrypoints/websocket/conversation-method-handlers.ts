@@ -1,5 +1,4 @@
 import type { IMessageBus } from '@host/application/message-bus.ts'
-import { MODEL_OPTION_ID } from '@host/application/ports/coding-agent.ts'
 import { createCommand, createQuery } from '@host/domain/messages/types.ts'
 import { type JsonRpcMethodHandlers } from '@host/entrypoints/websocket/json-rpc-handler.ts'
 import {
@@ -43,12 +42,13 @@ export const CONVERSATION_METHOD_HANDLERS = {
     return null
   },
 
-  // The agent exposes no other option (§1: no `configOptions`); the model is the one select.
-  'conversation.configuration.set': async (params, { bus, conversationId }) => {
-    if (params.optionId !== MODEL_OPTION_ID || params.value.type !== 'select') {
-      throw new ConfigurationNotFoundError()
-    }
-    await bus.handle(createCommand('SetModel', { conversationId, modelId: params.value.value }))
+  // Model and effort write through `conversation.model.set`; no other option exists yet.
+  'conversation.configuration.set': async () => {
+    throw new ConfigurationNotFoundError()
+  },
+
+  'conversation.model.set': async (params, { bus, conversationId }) => {
+    await bus.handle(createCommand('SetModel', { conversationId, ...params }))
     return null
   },
 

@@ -61,8 +61,11 @@ export type PermissionOutcome = Extract<
   { type: 'permission.resolved' }
 >['outcome']
 
-/** The one configuration option the host exposes; `conversation.configuration.set` targets it. */
+/** The model select the host advertises; `conversation.model.set` writes it. */
 export const MODEL_OPTION_ID = 'model'
+
+/** The current model's effort select; written together with the model, never alone. */
+export const EFFORT_OPTION_ID = 'effort'
 
 /** What the agent pushes while a session is open. The application wires it to the bus. */
 export interface AgentListener {
@@ -94,7 +97,11 @@ export interface CodingAgent {
   ): Promise<PromptResult>
   /** Cooperative: the in-flight `prompt` resolves with a `cancelled` outcome. */
   cancel(id: ConversationId): Promise<void>
-  setModel(id: ConversationId, modelId: string): Promise<readonly ConversationEvent[]>
+  setModel(
+    id: ConversationId,
+    modelId: string,
+    reasoningEffort?: string,
+  ): Promise<readonly ConversationEvent[]>
   /** No-op for a session this process does not hold. */
   closeSession(id: ConversationId): Promise<void>
   /** No-op when nothing is parked under that id; the aggregate is the validator. */

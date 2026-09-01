@@ -16,8 +16,10 @@ test('pairing runs from code entry to a connected machine', async ({ page }) => 
   await page.getByRole('button', { name: 'Connect this machine' }).click()
   await expect(page.getByRole('heading', { name: 'Machine paired' })).toBeVisible()
 
-  // The daemon reconnects on its own poll, so the list arrives a beat later.
-  await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible()
+  // The daemon reconnects on its own poll; the flow ends on the connected card,
+  // whose link leaves the harness (the story has no /conversations route).
+  await expect(page.getByRole('heading', { name: 'Machine connected' })).toBeVisible()
+  await expect(page.getByText('Open conversations')).toBeVisible()
 })
 
 test('an expired code offers a fresh attempt', async ({ page }) => {

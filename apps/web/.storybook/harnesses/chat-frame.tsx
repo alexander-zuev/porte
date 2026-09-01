@@ -1,5 +1,7 @@
+import { LightningIcon } from '@phosphor-icons/react'
 import type { ConversationLiveState } from '@porte/core/client'
 import { ComposerAddMenu } from '@web/features/conversation/components/composer-add-menu.tsx'
+import { ComposerConfigurationMenu } from '@web/features/conversation/components/composer-configuration-menu.tsx'
 import { ConversationMessages } from '@web/features/conversation/components/conversation-messages.tsx'
 import { ConversationPermissions } from '@web/features/conversation/components/conversation-permission.tsx'
 import {
@@ -7,7 +9,6 @@ import {
   conversationCost,
 } from '@web/features/conversation/components/conversation-progress.tsx'
 import type { ConversationPermission } from '@web/features/conversation/hooks/use-answer-permission.ts'
-import type { ConversationCommands } from '@web/features/conversation/hooks/use-conversation-commands.ts'
 import { Context, ContextContent, ContextTrigger } from '@web/ui/components/ai-elements/context.tsx'
 import {
   PromptInput,
@@ -24,8 +25,6 @@ import type { ChatStatus, UIMessage } from 'ai'
 export type ChatFrameProps = {
   readonly messages: readonly UIMessage[]
   readonly state: ConversationLiveState
-  /** The Host's command list, as the `+` menu reads it. */
-  readonly commands: ConversationCommands
   readonly permissions: readonly ConversationPermission[]
   readonly onAnswer?: (waiting: ConversationPermission, optionId: string) => void
   /** The turn stopped on its own. Shown beside the transcript, not instead of it. */
@@ -41,7 +40,6 @@ export type ChatFrameProps = {
   readonly readingOlder?: boolean
   /** Where a send lands. The real screen has a machine; a story has a line of text. */
   readonly onSend?: (message: PromptInputMessage) => void
-  readonly onCommand?: (name: string) => void
 }
 
 /**
@@ -55,7 +53,6 @@ export type ChatFrameProps = {
 export function ChatFrame({
   messages,
   state,
-  commands,
   permissions,
   onAnswer = () => undefined,
   error,
@@ -67,7 +64,6 @@ export function ChatFrame({
   onReadOlder = null,
   readingOlder = false,
   onSend = () => undefined,
-  onCommand = () => undefined,
 }: ChatFrameProps) {
   const running = status === 'streaming' || status === 'submitted'
 
@@ -97,22 +93,22 @@ export function ChatFrame({
           <PromptInputTextarea disabled={!canSend} placeholder={placeholder} />
           <PromptInputFooter>
             <PromptInputTools>
-              <ComposerAddMenu
-                commands={commands}
-                disabled={!canSend || running}
-                onCommand={onCommand}
-                onOpenChange={() => undefined}
-              />
-              {state.configuration?.map((option) => (
-                <small key={option.id} className="hidden text-muted-foreground md:inline">
-                  {option.name}: {configurationValue(option)}
-                </small>
-              ))}
+              <ComposerAddMenu disabled={!canSend || running} />
               {state.modeId === undefined ? null : (
-                <small className="hidden text-muted-foreground md:inline">
-                  Mode: {state.modeId}
-                </small>
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
+                  <LightningIcon aria-hidden className="size-4" />
+                  {state.modeId}
+                </span>
               )}
+            </PromptInputTools>
+            <div className="ml-auto flex items-center gap-1">
+              <ComposerConfigurationMenu
+                actions={{ onSetModel: () => undefined }}
+                disabled={!canSend}
+                failed={false}
+                options={state.configuration ?? []}
+                pending={false}
+              />
               {state.usage === undefined ? null : (
                 <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
                   <ContextTrigger aria-label="Show context usage" />
@@ -125,26 +121,11 @@ export function ChatFrame({
                   </ContextContent>
                 </Context>
               )}
-            </PromptInputTools>
-            <PromptInputSubmit
-              className="ml-auto"
-              disabled={!canSend || stopping}
-              status={status}
-              onStop={onStop}
-            />
+              <PromptInputSubmit disabled={!canSend || stopping} status={status} onStop={onStop} />
+            </div>
           </PromptInputFooter>
         </PromptInputBody>
       </PromptInput>
     </div>
   )
-}
-
-function configurationValue(
-  option: NonNullable<ConversationLiveState['configuration']>[number],
-): string {
-  if (option.type === 'boolean') return option.currentValue ? 'On' : 'Off'
-  const values = option.options.flatMap((value) =>
-    value.type === 'group' ? value.options : [value],
-  )
-  return values.find((value) => value.value === option.currentValue)?.name ?? option.currentValue
 }
