@@ -23,9 +23,9 @@ import { olderTurns, relayState, session } from '../fixtures/transcript.ts'
 import { ChatFrame } from '../harnesses/chat-frame.tsx'
 
 /*
- * Changes pane, low-fi. Spec: docs/changes-pane.md.
+ * Diff sheet, low-fi. Spec: docs/diff-sheet.md.
  *
- * - the pill above the composer counts the uncommitted tree
+ * - the pill above the composer counts the uncommitted changes
  * - the sheet lists every changed file with its counts
  * - a tapped file pushes its diff in from the right; back returns to the list
  * - the data side is a fake Host: two calls, answered after 400 ms
@@ -113,7 +113,7 @@ function ChangesHarness({
   )
 }
 
-/** The story's stand-in for `useUncommittedChanges`: one query per fake Host. */
+/** The story's stand-in for `useChanges`: one query per fake Host. */
 function useChangesList(server: FakeChangesServer, changes: UncommittedChanges): ChangesView {
   const query = useQuery({
     queryKey: ['story', 'changes', 'list', changes.files.length, server],
