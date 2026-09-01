@@ -32,6 +32,8 @@ export type ComposerConfigurationMenuProps = {
   readonly disabled: boolean
   readonly pending: boolean
   readonly actions: { readonly onSetModel: (input: SetModelInput) => void }
+  /** Placement in the composer row; the menu is one flex item either way. */
+  readonly className?: string
 }
 
 /** One selectable value, flattened out of the select's groups. */
@@ -105,25 +107,26 @@ function modelPicker(options: readonly ConversationConfigurationOption[]): Model
  * click sends the pair the person is looking at; the check mark moves only
  * when the machine's `configuration.updated` broadcast confirms it.
  */
-export function ComposerConfigurationMenu(props: ComposerConfigurationMenuProps) {
+export function ComposerConfigurationMenu({ className, ...props }: ComposerConfigurationMenuProps) {
   const phone = usePhone()
   const picker = modelPicker(props.options)
   if (picker === undefined) return null
-  if (phone) return <ConfigurationDrawer {...props} picker={picker} />
   return (
-    <>
-      <ModelMenu {...props} picker={picker} />
-      <EffortPopover {...props} picker={picker} />
-    </>
+    <div className={cn('flex min-w-0 items-center gap-1', className)}>
+      {phone ? (
+        <ConfigurationDrawer {...props} picker={picker} />
+      ) : (
+        <>
+          <ModelMenu {...props} picker={picker} />
+          <EffortPopover {...props} picker={picker} />
+        </>
+      )}
+    </div>
   )
 }
 
-type PickerProps = ComposerConfigurationMenuProps & { readonly picker: ModelPicker }
-
-function triggerLabel(picker: ModelPicker): string {
-  return picker.currentEffort === undefined
-    ? picker.currentModel.name
-    : `${picker.currentModel.name} · ${shortEffortName(picker.currentEffort)}`
+type PickerProps = Omit<ComposerConfigurationMenuProps, 'className'> & {
+  readonly picker: ModelPicker
 }
 
 /** "High Effort" reads as "High" on a control that already says Effort. */
@@ -227,14 +230,18 @@ function ConfigurationDrawer({ picker, disabled, pending, actions }: PickerProps
         render={
           <PromptInputButton
             aria-label="Model and effort"
-            className="rounded-full"
+            className="min-w-0 rounded-full"
             disabled={disabled}
             size="sm"
             variant="outline"
           />
         }
       >
-        {picker.currentModel.name}
+        <span className="min-w-0 truncate">{picker.currentModel.name}</span>
+        {/* The effort rides along muted, the way the Claude app labels its pill. */}
+        {picker.currentEffort === undefined ? null : (
+          <span className="text-muted-foreground">{shortEffortName(picker.currentEffort)}</span>
+        )}
       </DrawerTrigger>
       <DrawerContent>
         <SheetHeader

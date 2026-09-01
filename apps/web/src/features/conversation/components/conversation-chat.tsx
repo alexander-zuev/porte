@@ -135,20 +135,23 @@ function ChatComposerFooter({
         <>
           <PromptInputTools>
             <ComposerAddMenu disabled={!canSubmit} />
+            {/* Hidden on a phone: the row has room for the model pill or the mode, not both. */}
             {state.modeId === undefined ? null : (
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
+              <span className="hidden h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground md:inline-flex">
                 <LightningIcon aria-hidden className="size-4" />
                 {state.modeId}
               </span>
             )}
           </PromptInputTools>
-          <div className="ml-auto flex items-center gap-1">
-            <ComposerConfigurationMenu
-              actions={{ onSetModel: setModel.onSetModel }}
-              disabled={!canType}
-              options={state.configuration ?? []}
-              pending={setModel.pending}
-            />
+          {/* Beside the add button on a phone, as the Claude app lays it out; right of the gap from md up. */}
+          <ComposerConfigurationMenu
+            actions={{ onSetModel: setModel.onSetModel }}
+            className="md:ml-auto"
+            disabled={!canType}
+            options={state.configuration ?? []}
+            pending={setModel.pending}
+          />
+          <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
             {state.usage === undefined ? null : (
               <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
                 <ContextTrigger aria-label="Show context usage" />

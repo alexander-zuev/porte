@@ -95,19 +95,20 @@ export function ChatFrame({
             <PromptInputTools>
               <ComposerAddMenu disabled={!canSend || running} />
               {state.modeId === undefined ? null : (
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground">
+                <span className="hidden h-8 items-center gap-1.5 rounded-full border px-3 text-muted-foreground md:inline-flex">
                   <LightningIcon aria-hidden className="size-4" />
                   {state.modeId}
                 </span>
               )}
             </PromptInputTools>
-            <div className="ml-auto flex items-center gap-1">
-              <ComposerConfigurationMenu
-                actions={{ onSetModel: () => undefined }}
-                disabled={!canSend}
-                options={state.configuration ?? []}
-                pending={false}
-              />
+            <ComposerConfigurationMenu
+              actions={{ onSetModel: () => undefined }}
+              className="md:ml-auto"
+              disabled={!canSend}
+              options={state.configuration ?? []}
+              pending={false}
+            />
+            <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
               {state.usage === undefined ? null : (
                 <Context maxTokens={state.usage.sizeTokens} usedTokens={state.usage.usedTokens}>
                   <ContextTrigger aria-label="Show context usage" />
