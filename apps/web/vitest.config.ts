@@ -28,6 +28,10 @@ function sqlAsText(): Plugin {
   }
 }
 
+// Workers AI has no local simulation, so the AI binding is remote. CI has no
+// Cloudflare token: it keeps every binding local and skips the billed whisper test.
+const ci = process.env.CI !== undefined
+
 /** Separates fast Node tests from integration tests that need workerd and Durable Objects. */
 export default defineConfig({
   test: {
@@ -57,6 +61,7 @@ export default defineConfig({
           // The facet binding is test-only because workerd cannot discover it through ctx.exports.
           cloudflareTest(async () => ({
             main: './tests/integration/relay.worker.ts',
+            remoteBindings: !ci,
             miniflare: {
               bindings: {
                 TEST_DATABASE_MIGRATIONS: await readD1Migrations(databaseMigrationsPath),
@@ -74,6 +79,7 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
+          exclude: ci ? ['tests/integration/transcription.test.ts'] : [],
         },
       },
     ],

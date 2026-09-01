@@ -140,8 +140,8 @@
         "SENTRY_DSN": "https://public@example.com/1",
       },
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
-      // No `remote`: CI has no Cloudflare token, and no test exercises AI.
-      "ai": { "binding": "AI" },
+      // Workers AI has no local simulation; vitest.config.ts turns remote bindings off in CI.
+      "ai": { "binding": "AI", "remote": true },
       "d1_databases": [
         {
           "binding": "DB",
