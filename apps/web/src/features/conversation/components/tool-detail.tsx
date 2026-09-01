@@ -79,10 +79,8 @@ function ToolDetailOutput({
 }) {
   const { output } = view
   if (output.type === 'pending') return null
+  // An opened detail always answers: a call that printed nothing says so.
   if (output.type === 'empty') {
-    // Only a call that promises output says it had none. A plan update or a
-    // mode switch has nothing to print, and a label saying so is noise.
-    if (view.verb === '') return null
     return <small className="text-muted-foreground">No output</small>
   }
   const label = bare === true ? null : <small className="text-muted-foreground">Output</small>
