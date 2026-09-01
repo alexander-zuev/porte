@@ -35,6 +35,8 @@ export class BrowserVoiceRecorder implements VoiceRecorderPort {
 
     // A second tap off the same stream, so the bar can draw what the mic hears.
     const audioContext = new AudioContext()
+    // iOS creates it suspended; without a resume the level reads as silence.
+    void audioContext.resume().catch(() => undefined)
     const analyser = audioContext.createAnalyser()
     analyser.fftSize = 512
     audioContext.createMediaStreamSource(stream).connect(analyser)
@@ -97,5 +99,7 @@ function preferredMimeType(): string | undefined {
 
 /** The recorder answers with codecs attached (`audio/webm;codecs=opus`); keep the container. */
 function recordedMimeType(reported: string): VoiceRecordingMimeType {
-  return reported.startsWith('audio/mp4') ? 'audio/mp4' : 'audio/webm'
+  const container = VoiceRecordingMimeTypes.find((type) => reported.startsWith(type))
+  // Firefox with no preference match records its default, ogg/opus.
+  return container ?? 'audio/ogg'
 }

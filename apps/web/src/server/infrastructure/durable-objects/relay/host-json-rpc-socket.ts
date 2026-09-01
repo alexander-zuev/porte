@@ -11,6 +11,7 @@ import {
   createHostRequestId,
   createLogger,
   errorFromHostPayload,
+  jsonRpcNotification,
   jsonRpcRequest,
   jsonRpcResponseSchema,
   readJsonRpcIncoming,
@@ -170,6 +171,14 @@ export class HostJsonRpcSocket<Registry extends JsonRpcMethodRegistry> {
    * @param params - The method params.
    * @returns The parsed Host result.
    */
+  /** Fire one notification at the machine; nothing comes back. */
+  async notify<Method extends JsonRpcRegistryNotificationMethod<Registry>>(
+    method: Method,
+    params: NotificationParams<Registry, Method>,
+  ): Promise<void> {
+    await this.send(JSON.stringify(jsonRpcNotification(method, params)))
+  }
+
   async request<Method extends JsonRpcRegistryRequestMethod<Registry>>(
     method: Method,
     params: RequestContract<Registry, Method>['params'],

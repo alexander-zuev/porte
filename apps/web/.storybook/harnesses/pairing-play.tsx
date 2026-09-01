@@ -31,6 +31,7 @@ const HOST = {
   name: "Alex's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: null,
+  cliVersion: null,
 } satisfies PairedHost
 
 /** Where every pairing journey lands. Only a paired machine has conversations to list. */

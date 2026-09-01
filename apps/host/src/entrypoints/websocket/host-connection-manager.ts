@@ -3,6 +3,7 @@ import type { ControlNotifications } from '@host/application/ports/control-notif
 import type { ConversationNotifications } from '@host/application/ports/conversation-notifications.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
 import type { RelayStatusListener } from '@host/application/ports/relay-status.ts'
+import { VERSION } from '@host/entrypoints/cli/version.ts'
 import { ControlConnection } from '@host/entrypoints/websocket/control-connection.ts'
 import type { ControlMethodHandlerRegistry } from '@host/entrypoints/websocket/control-method-handlers.ts'
 import { ConversationConnection } from '@host/entrypoints/websocket/conversation-connection.ts'
@@ -24,6 +25,8 @@ export type HostConnectionManagerInput = {
   readonly controlHandlers: ControlMethodHandlerRegistry
   readonly conversationHandlers: ConversationMethodHandlerRegistry
   readonly bus: IMessageBus
+  /** The relay's `version.latest`; the update nudge and marker file live behind it. */
+  readonly onLatestVersion: (latest: string) => Promise<void>
 }
 
 /** Owns the control connection and the active conversation connection registry. */
@@ -39,10 +42,12 @@ export class HostConnectionManager implements HostConnections {
       url: this.controlUrl(),
       subprotocol: HOST_CONTROL_SUBPROTOCOL,
       authorization: `Bearer ${input.token}`,
+      cliVersion: VERSION,
     })
     this.controlConnection = new ControlConnection(transport, input.controlHandlers, {
       bus: input.bus,
       connections: this,
+      onLatestVersion: input.onLatestVersion,
     })
   }
 
@@ -66,6 +71,7 @@ export class HostConnectionManager implements HostConnections {
       url: this.conversationUrl(conversationId),
       subprotocol: HOST_CONVERSATION_SUBPROTOCOL,
       authorization: `Bearer ${this.input.token}`,
+      cliVersion: VERSION,
     })
     const connection = new ConversationConnection(
       conversationId,

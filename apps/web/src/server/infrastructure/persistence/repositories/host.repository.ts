@@ -68,10 +68,10 @@ export class DrizzleHostRepository implements HostRepository {
       .onConflictDoUpdate({ target: host.userId, set: toRow(snapshot) })
   }
 
-  async recordSeen(hostId: HostId, at: Date): Promise<void> {
+  async recordSeen(hostId: HostId, at: Date, cliVersion?: string): Promise<void> {
     await this.db()
       .update(host)
-      .set({ lastSeenAt: at })
+      .set(cliVersion === undefined ? { lastSeenAt: at } : { lastSeenAt: at, cliVersion })
       .where(and(eq(host.id, hostId), or(isNull(host.lastSeenAt), lt(host.lastSeenAt, at))))
   }
 

@@ -24,6 +24,7 @@ describe('PartySocketTransport', () => {
         url: 'ws://relay.invalid',
         subprotocol: 'porte.test',
         authorization: 'Bearer test',
+        cliVersion: '0.0.0',
       },
       new FakePartySocket(),
     )
@@ -41,7 +42,12 @@ describe('PartySocketTransport', () => {
   it('reports connecting, connected, and each retry with its cause', () => {
     const socket = new FakePartySocket()
     const transport = new PartySocketTransport(
-      { url: 'ws://relay.invalid', subprotocol: 'porte.test', authorization: 'Bearer test' },
+      {
+        url: 'ws://relay.invalid',
+        subprotocol: 'porte.test',
+        authorization: 'Bearer test',
+        cliVersion: '0.0.0',
+      },
       socket,
     )
     const seen: RelayStatus[] = []
@@ -68,6 +74,7 @@ describe('PartySocketTransport', () => {
         url: 'ws://relay.invalid',
         subprotocol: 'porte.test',
         authorization: 'Bearer test',
+        cliVersion: '0.0.0',
       },
       new FakePartySocket(),
     )

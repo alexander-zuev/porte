@@ -33,6 +33,7 @@ const HOST = {
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: IsoDateTimeSchema.parse('2026-08-20T09:20:14.515Z'),
+  cliVersion: null,
 } satisfies PairedHost
 
 const SUMMARY = makeConversationSummary({

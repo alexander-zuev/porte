@@ -187,6 +187,7 @@ function connectionTest() {
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
       bus: deps.bus,
+      onLatestVersion: async () => undefined,
     },
     createTransport,
   )

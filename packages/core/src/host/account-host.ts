@@ -24,6 +24,8 @@ export const PairedHostSchema = HostDescriptorSchema.extend({
   /** Names the pairing's relay object; a re-pair after unpair gets a new one. */
   id: HostIdSchema,
   lastSeenAt: IsoDateTimeSchema.nullable(),
+  /** The CLI build the daemon last announced; null before any 0.2.4+ daemon spoke. */
+  cliVersion: z.string().nullable(),
 })
 export type PairedHost = z.infer<typeof PairedHostSchema>
 

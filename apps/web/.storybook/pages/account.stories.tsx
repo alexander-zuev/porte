@@ -11,12 +11,14 @@ const neverSeenHost = {
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: null,
+  cliVersion: null,
 } satisfies PairedHost
 
 const seenHost = {
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: '2026-08-19T14:02:00.000Z',
+  cliVersion: null,
 } as PairedHost
 
 const actions = {

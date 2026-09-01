@@ -11,6 +11,7 @@ const pairedHost = {
   name: "Alexander's MacBook Pro",
   platform: 'darwin',
   lastSeenAt: IsoDateTimeSchema.parse('2026-08-19T14:02:00.000Z'),
+  cliVersion: null,
 } satisfies PairedHost
 
 const meta = {

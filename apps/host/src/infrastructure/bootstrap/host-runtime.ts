@@ -19,6 +19,6 @@ export async function createHostRuntime(
   const credentials = new FileCredentialStore(config.dataDirectory)
   const credential = await credentials.read()
   if (credential === null) throw new HostNotPairedError()
-  const deps = await createAppDeps({ credential, signal })
+  const deps = await createAppDeps({ credential, signal, dataDirectory: config.dataDirectory })
   return { runtime: new HostRuntime(signal, deps), relayUrl: credential.baseUrl }
 }

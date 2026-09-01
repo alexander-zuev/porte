@@ -33,7 +33,8 @@ export interface HostRepository {
   save(host: Host): Promise<void>
 
   /** Record a later observation without changing pairing state. */
-  recordSeen(hostId: HostId, at: Date): Promise<void>
+  /** `cliVersion` rides along when the daemon announced one; absent leaves the stored value. */
+  recordSeen(hostId: HostId, at: Date, cliVersion?: string): Promise<void>
 
   /** Drop the row outright. Used when the account itself goes away. */
   deleteByUserId(userId: UserId): Promise<void>

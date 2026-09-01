@@ -1,0 +1,1 @@
+ALTER TABLE `host` ADD `cli_version` text;

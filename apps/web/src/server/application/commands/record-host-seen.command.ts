@@ -15,6 +15,7 @@ export async function recordHostSeen(
   hosts: HostRepository,
   hostId: HostId,
   at: Date,
+  cliVersion?: string,
 ): Promise<void> {
-  await hosts.recordSeen(hostId, at)
+  await hosts.recordSeen(hostId, at, cliVersion)
 }

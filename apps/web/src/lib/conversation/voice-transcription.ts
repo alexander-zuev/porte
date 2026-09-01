@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-/** What the composer records; Safari produces mp4/AAC, every other browser webm/opus. */
-export const VoiceRecordingMimeTypes = ['audio/webm', 'audio/mp4'] as const
+/** What browsers record: Chrome/Edge webm/opus, Safari mp4/AAC, Firefox ogg/opus. */
+export const VoiceRecordingMimeTypes = ['audio/webm', 'audio/mp4', 'audio/ogg'] as const
 
 export type VoiceRecordingMimeType = (typeof VoiceRecordingMimeTypes)[number]
 
@@ -12,7 +12,8 @@ export type VoiceRecording = {
 }
 
 export const TranscribeVoiceInputSchema = z.object({
-  audio: z.base64(),
+  // 8 MB of base64 is roughly double the longest recording the composer allows.
+  audio: z.base64().max(8_000_000, { error: 'The recording is too long' }),
   mimeType: z.enum(VoiceRecordingMimeTypes),
 })
 

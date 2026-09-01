@@ -45,6 +45,11 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Drift cannot ship: core's LATEST_CLI_VERSION, plugin.json, and every pin
+      # must agree with the package version (all written by `pnpm release:cli`).
+      - if: steps.version.outputs.published == 'false'
+        run: node scripts/release-cli.mjs check
+
       # main was green at this commit; the tarball still proves itself before it ships.
       - if: steps.version.outputs.published == 'false'
         run: pnpm --filter @porte/cli lint

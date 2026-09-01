@@ -1,6 +1,14 @@
-import { FolderIcon, GearIcon, LifebuoyIcon, ListIcon, SignOutIcon } from '@phosphor-icons/react'
+import {
+  BellIcon,
+  FolderIcon,
+  GearIcon,
+  LifebuoyIcon,
+  ListIcon,
+  SignOutIcon,
+} from '@phosphor-icons/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { useNotifications } from '@web/features/notifications/hooks/use-notifications.ts'
 import { authService } from '@web/lib/auth/auth-service.ts'
 import { REPOSITORY_URL } from '@web/lib/product.ts'
 import { Button } from '@web/ui/components/ui/button.tsx'
@@ -27,7 +35,7 @@ function MenuLink({
   icon,
   label,
 }: {
-  readonly to: '/conversations' | '/account'
+  readonly to: '/conversations' | '/account' | '/notifications'
   readonly icon: ReactNode
   readonly label: string
 }) {
@@ -66,6 +74,7 @@ function MenuLink({
 export function AppMenu() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { unread } = useNotifications()
 
   // The cache is cleared after leaving the protected tree, not before: clearing
   // while a protected route is still mounted makes its live queries refetch
@@ -86,8 +95,14 @@ export function AppMenu() {
     <Drawer>
       <DrawerTrigger
         render={
-          <Button aria-label="Open menu" size="icon" variant="ghost">
+          <Button aria-label="Open menu" className="relative" size="icon" variant="ghost">
             <ListIcon aria-hidden />
+            {unread > 0 ? (
+              <span
+                aria-hidden
+                className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive"
+              />
+            ) : null}
           </Button>
         }
       />
@@ -100,6 +115,21 @@ export function AppMenu() {
             the same without a second set of rules. Log out only recolours. */}
         <nav className="flex flex-col gap-0.5 px-2">
           <MenuLink icon={<FolderIcon aria-hidden />} label="Conversations" to="/conversations" />
+          <MenuLink
+            icon={
+              <span className="relative">
+                <BellIcon aria-hidden />
+                {unread > 0 ? (
+                  <span
+                    aria-hidden
+                    className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive"
+                  />
+                ) : null}
+              </span>
+            }
+            label="Notifications"
+            to="/notifications"
+          />
           <MenuLink icon={<GearIcon aria-hidden />} label="Account" to="/account" />
           {/* Leaves the app, so it says so and opens where a report belongs. */}
           <Button

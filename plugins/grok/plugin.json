@@ -1,7 +1,9 @@
 {
   "name": "porte",
-  "version": "0.1.0",
+  "version": "0.2.4",
   "description": "Remote control for Grok CLI, from your phone. /remote-control pairs this machine with useporte.dev and keeps it reachable while Grok is open.",
-  "author": { "name": "Alexander Zuev" },
+  "author": {
+    "name": "Alexander Zuev"
+  },
   "homepage": "https://useporte.dev"
 }

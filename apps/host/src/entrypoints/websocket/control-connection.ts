@@ -26,7 +26,9 @@ export class ControlConnection {
       methods: HostControlMethods,
       requestId: HostRequestIdSchema,
       handlers,
-      notificationHandlers: {},
+      notificationHandlers: {
+        'version.latest': (params) => context.onLatestVersion(params.latest),
+      },
       context,
     })
   }

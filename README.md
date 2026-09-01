@@ -88,14 +88,14 @@ Cloudflare types are generated (`worker-configuration.d.ts`, gitignored). Turbo 
 
 ### Releasing the CLI
 
-`apps/host` publishes as `@porte/cli`. A release is a version bump on `main`:
+`apps/host` publishes as `@porte/cli`. A release is a version bump on `main`, made only through the release script — it rewrites the package version, `LATEST_CLI_VERSION` in core, the plugin version, and every `@porte/cli@` pin together:
 
 ```sh
-pnpm --filter @porte/cli version patch --no-git-checks
+pnpm release:cli patch   # or minor | major
 git commit -am "release(cli): x.y.z" && git push
 ```
 
-`publish-cli.yaml` lints, tests, builds, and publishes with provenance through npm trusted publishing (no token). A version already on npm is skipped.
+`publish-cli.yaml` refuses to publish when any version fact disagrees (`release:cli check`), then lints, tests, builds, and publishes with provenance through npm trusted publishing (no token). A version already on npm is skipped.
 
 ## License
 

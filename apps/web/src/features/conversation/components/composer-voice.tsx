@@ -132,10 +132,10 @@ function VoiceTrail({ level }: { readonly level: () => number }) {
       levels.forEach((one, at) => {
         const x = width - DOT - (levels.length - 1 - at) * SLOT - slide
         if (x < -SLOT) return
+        // `fillRect`, not `roundRect`: iOS 15 lacks roundRect, and at 2px wide
+        // the difference is invisible.
         const bar = Math.max(DOT, one * height)
-        scene.beginPath()
-        scene.roundRect(x, (height - bar) / 2, DOT, bar, DOT)
-        scene.fill()
+        scene.fillRect(x, (height - bar) / 2, DOT, bar)
       })
     })
     return () => {

@@ -8,6 +8,8 @@ import { HostControlMethods } from '@porte/core/client'
 export type ControlMethodContext = {
   readonly bus: IMessageBus
   readonly connections: Pick<HostConnections, 'connectConversation'>
+  /** The relay's `version.latest`; the update nudge and marker file live behind it. */
+  readonly onLatestVersion: (latest: string) => Promise<void>
 }
 
 /** One exhaustive handler for each inbound control request. */

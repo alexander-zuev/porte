@@ -43,6 +43,13 @@
       "when": 1787405509965,
       "tag": "0005_acoustic_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788282187987,
+      "tag": "0006_wooden_azazel",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,9 @@
 import {
   ConversationIdSchema,
   ConversationNotFoundError,
+  HOST_CLI_VERSION_HEADER,
   HOST_CONVERSATION_SUBPROTOCOL,
+  LATEST_CLI_VERSION,
   HOST_CONTROL_SUBPROTOCOL,
   HostControlMethods,
   HostIdSchema,
@@ -79,6 +81,8 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       notificationHandlers: {
         'conversation.updated': (params) => this.handleConversationUpdated(params),
         'conversation.removed': (params) => this.handleConversationRemoved(params),
+        // Relay → host only; a machine never sends it back.
+        'version.latest': async () => undefined,
       },
       sequence: hostSequenceStorage(ctx),
     })
@@ -144,7 +148,9 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
       subprotocol: HOST_CONTROL_SUBPROTOCOL,
     })
     this.setHostStatus('online')
-    this.recordHostSeen(this.hostId)
+    this.recordHostSeen(this.hostId, context.request.headers.get(HOST_CLI_VERSION_HEADER))
+    // Tell the machine what is newest, so its CLI and status line can nudge.
+    void this.hostSocket.notify('version.latest', { latest: LATEST_CLI_VERSION }).catch(() => {})
     this.syncConversationsInBackground()
   }
 
@@ -350,12 +356,12 @@ export class HostRelayAgent extends Agent<RuntimeEnv, HostRelayState> {
     this.setState({ ...this.state, conversationsVersion: this.state.conversationsVersion + 1 })
   }
 
-  private async rememberSeen(hostId: HostId): Promise<void> {
-    await recordHostSeen(this.resources.hostRepository, hostId, new Date())
+  private async rememberSeen(hostId: HostId, cliVersion?: string): Promise<void> {
+    await recordHostSeen(this.resources.hostRepository, hostId, new Date(), cliVersion)
   }
 
-  private recordHostSeen(hostId: HostId): void {
-    void this.rememberSeen(hostId).catch((error) => {
+  private recordHostSeen(hostId: HostId, cliVersion?: string | null): void {
+    void this.rememberSeen(hostId, cliVersion ?? undefined).catch((error) => {
       logger.error('host_seen_failed', { error, details: { hostId } })
     })
   }

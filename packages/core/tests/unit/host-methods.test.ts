@@ -24,6 +24,7 @@ describe('Host JSON-RPC methods', () => {
       'conversations.list',
       'conversation.create',
       'conversation.attach',
+      'version.latest',
       'conversation.updated',
       'conversation.removed',
     ])

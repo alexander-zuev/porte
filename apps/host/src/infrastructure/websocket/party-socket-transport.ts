@@ -1,5 +1,6 @@
 import type { RelayDropCause, RelayStatusListener } from '@host/application/ports/relay-status.ts'
 import {
+  HOST_CLI_VERSION_HEADER,
   JsonRpcSendError,
   JsonRpcTextSchema,
   createLogger,
@@ -27,6 +28,8 @@ export type PartySocketTransportInput = {
   readonly url: string
   readonly subprotocol: string
   readonly authorization: `Bearer ${string}`
+  /** This build's version, told to the relay on the upgrade. */
+  readonly cliVersion: string
 }
 
 /** Consumers of one relay socket. */
@@ -137,6 +140,7 @@ export class PartySocketTransport implements RelaySocket {
   private createSocket(): PartySocket {
     const AuthenticatedWebSocket = authenticatedWebSocketConstructor(
       this.input.authorization,
+      this.input.cliVersion,
       this.recordHandshake,
     )
     return new PartySocket(this.input.url, this.input.subprotocol, {
@@ -265,13 +269,16 @@ export const createPartySocketTransport: RelaySocketFactory = (input) =>
 
 function authenticatedWebSocketConstructor(
   authorization: `Bearer ${string}`,
+  cliVersion: string,
   recordHandshake: (status: number) => void,
 ): NodeWebSocketConstructor {
   return class AuthenticatedWebSocket extends NodeWebSocket {
     private heartbeat: NodeJS.Timeout | undefined
 
     constructor(address: string | URL, protocols?: string | string[]) {
-      super(address, protocols ?? [], { headers: { Authorization: authorization } })
+      super(address, protocols ?? [], {
+        headers: { Authorization: authorization, [HOST_CLI_VERSION_HEADER]: cliVersion },
+      })
       this.once('unexpected-response', (_request, response) => {
         recordHandshake(response.statusCode ?? 0)
         response.resume()

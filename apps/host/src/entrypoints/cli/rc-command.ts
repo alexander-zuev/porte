@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -16,6 +17,7 @@ import { createRemoteControlDeps } from '@host/infrastructure/bootstrap/remote-c
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import { installGrokHook, removeGrokHook } from '@host/infrastructure/grok/hook-installer.ts'
 import { readAllText } from '@host/infrastructure/node/read-stream.ts'
+import { UPDATE_AVAILABLE_FILE, updateNoticeLine } from '@host/infrastructure/update-notice.ts'
 import { z } from 'zod'
 
 /** The rc verbs a person or the hook can run. */
@@ -130,8 +132,14 @@ export async function runRcCommand(input: RunRcCommandInput): Promise<number> {
   }
 
   const line = await verbLine(deps, input.verb)
-  input.stdout.write(`${line}\n`)
+  input.stdout.write(`${line}${await updateSuffix(input.config.dataDirectory)}\n`)
   return 0
+}
+
+/** One extra line when the daemon has marked a newer release; silence otherwise. */
+async function updateSuffix(dataDirectory: string): Promise<string> {
+  const latest = await readFile(join(dataDirectory, UPDATE_AVAILABLE_FILE), 'utf8').catch(() => '')
+  return latest === '' ? '' : `\n${updateNoticeLine(latest.trim())}`
 }
 
 /** The text to paint for one hook payload, or null when the prompt is not ours. */

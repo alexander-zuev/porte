@@ -63,6 +63,11 @@ if [[ "$state" == *'"status":"on"'* ]] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev
 else
   printf '\\033[90m/rc off\\033[0m'
 fi
+# Written by the daemon when the relay knows a newer release; removed once current.
+update=$(cat "${porteHome}/update-available" 2>/dev/null)
+if [ -n "$update" ]; then
+  printf ' · \\033[33mupdate %s\\033[0m' "$update"
+fi
 `
 }
 

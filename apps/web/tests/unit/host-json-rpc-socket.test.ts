@@ -33,6 +33,7 @@ describe('HostJsonRpcSocket ordering', () => {
     const socket = new HostJsonRpcSocket({
       methods: HostControlMethods,
       notificationHandlers: {
+        'version.latest': async () => undefined,
         'conversation.updated': async (params) => {
           applied.push(params.seq)
         },
@@ -61,6 +62,7 @@ describe('HostJsonRpcSocket ordering', () => {
     const socket = new HostJsonRpcSocket({
       methods: HostControlMethods,
       notificationHandlers: {
+        'version.latest': async () => undefined,
         'conversation.updated': async (params) => {
           applied.push(params.seq)
         },

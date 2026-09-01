@@ -14,6 +14,7 @@ import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.
 import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
+import { noteLatestCliVersion } from '@host/infrastructure/update-notice.ts'
 import { createPartySocketTransport } from '@host/infrastructure/websocket/party-socket-transport.ts'
 
 /** Everything a handler may touch. Handlers receive it whole and read what they need. */
@@ -31,6 +32,8 @@ export type AppDeps = {
 export type CreateAppDepsInput = {
   readonly credential: { readonly baseUrl: string; readonly token: string }
   readonly signal: AbortSignal
+  /** Where the update marker lives; `statusline.sh` and `rc` read it. */
+  readonly dataDirectory: string
 }
 
 /**
@@ -66,6 +69,7 @@ export async function createAppDeps(input: CreateAppDepsInput): Promise<AppDeps>
       controlHandlers: CONTROL_METHOD_HANDLERS,
       conversationHandlers: CONVERSATION_METHOD_HANDLERS,
       bus,
+      onLatestVersion: (latest) => noteLatestCliVersion(input.dataDirectory, latest),
     },
     createPartySocketTransport,
   )

@@ -31,6 +31,7 @@ function toPairedHost(row: DbHost): PairedHost {
     // can honestly call an observation.
     lastSeenAt:
       row.lastSeenAt === null ? null : IsoDateTimeSchema.parse(row.lastSeenAt.toISOString()),
+    cliVersion: row.cliVersion,
   }
 }
 

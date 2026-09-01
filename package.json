@@ -16,6 +16,7 @@
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
     "test:design": "pnpm --filter @porte/web run test:design",
+    "release:cli": "node scripts/release-cli.mjs",
     "storybook": "pnpm --filter @porte/web run storybook",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

@@ -47,6 +47,11 @@ export const HostControlMethods = {
     params: z.strictObject({ conversationId: ConversationIdSchema, cwd: z.string().min(1) }),
     result: EmptyResultSchema,
   },
+  // Relay → host, once per connect: the newest released CLI, for the update nudge.
+  'version.latest': {
+    kind: JSON_RPC_METHOD_KINDS.notification,
+    params: z.strictObject({ latest: z.string().min(1) }),
+  },
   'conversation.updated': {
     kind: JSON_RPC_METHOD_KINDS.notification,
     params: sequencedParams({

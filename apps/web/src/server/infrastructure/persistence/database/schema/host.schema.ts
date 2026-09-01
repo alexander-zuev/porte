@@ -28,6 +28,8 @@ export const host = sqliteTable(
     revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
     /** Last time the relay held a live connection. Availability is derived, never stored. */
     lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }),
+    /** The CLI build the daemon last announced; null before any version-aware daemon spoke. */
+    cliVersion: text('cli_version'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),

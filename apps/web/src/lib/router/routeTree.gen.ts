@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './../../routes/__root'
 import { Route as AuthRouteRouteImport } from './../../routes/_auth/route'
 import { Route as PublicRouteRouteImport } from './../../routes/_public/route'
 import { Route as AuthAccountRouteImport } from './../../routes/_auth/account'
+import { Route as AuthNotificationsRouteImport } from './../../routes/_auth/notifications'
 import { Route as AuthPairRouteRouteImport } from './../../routes/_auth/pair/route'
 import { Route as PublicIndexRouteImport } from './../../routes/_public/index'
 import { Route as PublicPrivacyRouteImport } from './../../routes/_public/privacy'
@@ -42,6 +43,11 @@ const PublicRouteRoute = PublicRouteRouteImport.update({
 const AuthAccountRoute = AuthAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthNotificationsRoute = AuthNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthPairRouteRoute = AuthPairRouteRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/pair': typeof AuthPairRouteRouteWithChildren
   '/account': typeof AuthAccountRoute
+  '/notifications': typeof AuthNotificationsRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/account': typeof AuthAccountRoute
+  '/notifications': typeof AuthNotificationsRoute
   '/privacy': typeof PublicPrivacyRoute
   '/sign-in': typeof PublicSignInRoute
   '/terms': typeof PublicTermsRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/_auth/pair': typeof AuthPairRouteRouteWithChildren
   '/_auth/account': typeof AuthAccountRoute
+  '/_auth/notifications': typeof AuthNotificationsRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/terms': typeof PublicTermsRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/'
     | '/pair'
     | '/account'
+    | '/notifications'
     | '/privacy'
     | '/sign-in'
     | '/terms'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/notifications'
     | '/privacy'
     | '/sign-in'
     | '/terms'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_public'
     | '/_auth/pair'
     | '/_auth/account'
+    | '/_auth/notifications'
     | '/_public/privacy'
     | '/_public/sign-in'
     | '/_public/terms'
@@ -301,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthAccountRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/notifications': {
+      id: '/_auth/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthNotificationsRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/pair': {
@@ -455,6 +474,7 @@ const AuthPairRouteRouteWithChildren = AuthPairRouteRoute._addFileChildren(
 interface AuthRouteRouteChildren {
   AuthPairRouteRoute: typeof AuthPairRouteRouteWithChildren
   AuthAccountRoute: typeof AuthAccountRoute
+  AuthNotificationsRoute: typeof AuthNotificationsRoute
   AuthConversationsConversationIdRoute: typeof AuthConversationsConversationIdRoute
   AuthConversationsIndexRoute: typeof AuthConversationsIndexRoute
 }
@@ -462,6 +482,7 @@ interface AuthRouteRouteChildren {
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthPairRouteRoute: AuthPairRouteRouteWithChildren,
   AuthAccountRoute: AuthAccountRoute,
+  AuthNotificationsRoute: AuthNotificationsRoute,
   AuthConversationsConversationIdRoute: AuthConversationsConversationIdRoute,
   AuthConversationsIndexRoute: AuthConversationsIndexRoute,
 }
