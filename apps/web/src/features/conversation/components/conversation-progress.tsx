@@ -8,7 +8,13 @@ import type { ConversationPlan, ConversationUsage, PlanEntry } from '@porte/core
 import { cn } from '@web/lib/utils.ts'
 import { MessageResponse } from '@web/ui/components/ai-elements/message.tsx'
 import { Card } from '@web/ui/components/ui/card.tsx'
-import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@web/ui/components/ui/drawer.tsx'
 
 /**
  * Shows current ACP plans above the prompt.
@@ -65,9 +71,9 @@ function PlanLine({
             </h3>
           }
         />
-        <div className="px-4">
+        <DrawerBody>
           <PlanBody plan={plan} />
-        </div>
+        </DrawerBody>
       </DrawerContent>
     </Drawer>
   )

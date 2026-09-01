@@ -93,6 +93,20 @@ function DrawerHandle() {
   return <div aria-hidden className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border" />
 }
 
+/**
+ * The one body every sheet opens with: a fixed height that scrolls inside,
+ * so a sheet is the same surface whether it holds one line or a file.
+ */
+function DrawerBody({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="drawer-body-fixed"
+      className={cn('h-[55dvh] overflow-y-auto overscroll-contain px-4 pt-3', className)}
+      {...props}
+    />
+  )
+}
+
 function DrawerHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -147,6 +161,7 @@ export {
   DrawerTrigger,
   DrawerClose,
   DrawerContent,
+  DrawerBody,
   DrawerHeader,
   DrawerFooter,
   DrawerTitle,

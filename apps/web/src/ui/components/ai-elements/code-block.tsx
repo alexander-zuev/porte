@@ -14,7 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@web/ui/components/ui/dialog.tsx'
-import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@web/ui/components/ui/drawer.tsx'
 import {
   Select,
   SelectContent,
@@ -428,7 +434,9 @@ export const CodeBlockExpandButton = ({ title }: { readonly title: string }) => 
         <DrawerTrigger render={trigger} />
         <DrawerContent>
           <DrawerTitle className="px-4" render={<h3 className="truncate">{title}</h3>} />
-          <div className="rounded-xl border bg-background mx-4">{body}</div>
+          <DrawerBody>
+            <div className="rounded-xl border bg-background">{body}</div>
+          </DrawerBody>
         </DrawerContent>
       </Drawer>
     )

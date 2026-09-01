@@ -6,7 +6,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@web/ui/components/ui/collapsible.tsx'
-import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@web/ui/components/ui/drawer.tsx'
 import { usePhone } from '@web/ui/hooks/use-phone.ts'
 import type { ComponentProps, ReactNode } from 'react'
 import { createContext, memo, useContext, useEffect, useMemo, useRef } from 'react'
@@ -197,9 +203,9 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
     return (
       <DrawerContent>
         <DrawerTitle className="px-4" render={<h3>Thoughts</h3>} />
-        <div className={cn('flex flex-col gap-4 px-4 text-sm text-muted-foreground', className)}>
+        <DrawerBody className={cn('flex flex-col gap-4 text-sm text-muted-foreground', className)}>
           <MessageResponse>{children}</MessageResponse>
-        </div>
+        </DrawerBody>
       </DrawerContent>
     )
   }

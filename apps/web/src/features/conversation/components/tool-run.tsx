@@ -30,6 +30,7 @@ import {
 } from '@web/ui/components/ui/collapsible.tsx'
 import {
   Drawer,
+  DrawerBody,
   DrawerClose,
   DrawerContent,
   DrawerTitle,
@@ -142,12 +143,6 @@ function Chevron() {
 // ---------------------------------------------------------------------------
 // Phone: every row opens a sheet; nothing in the transcript expands in place.
 
-/**
- * Every tool sheet opens at the same height, list or detail, one call or ten:
- * a sheet that resizes per page reads as a different surface each time.
- */
-const SHEET_BODY = 'h-[55dvh]'
-
 /** The sheet header: close or back on the left, the bold name centred. */
 function SheetHeader({
   title,
@@ -183,9 +178,9 @@ function CallSheet({ call, children }: { readonly call: ToolCall; readonly child
       <DrawerTrigger className={toolRowClass}>{children}</DrawerTrigger>
       <DrawerContent>
         <SheetHeader title={view.label} />
-        <div className={cn(SHEET_BODY, 'overflow-y-auto overscroll-contain px-4 pt-3')}>
+        <DrawerBody>
           <ToolDetail call={call} />
-        </div>
+        </DrawerBody>
       </DrawerContent>
     </Drawer>
   )
@@ -221,7 +216,7 @@ export function RunSheetBody({
               }
         }
       />
-      <div className={cn(SHEET_BODY, 'relative overflow-hidden')}>
+      <DrawerBody className="relative overflow-hidden px-0 pt-0">
         <div
           inert={selected !== null}
           className={cn(
@@ -252,7 +247,7 @@ export function RunSheetBody({
         >
           {selected === null ? null : <ToolDetail call={selected} />}
         </div>
-      </div>
+      </DrawerBody>
     </>
   )
 }
