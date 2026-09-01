@@ -13,6 +13,7 @@ const PLUGIN = 'plugins/grok/plugin.json'
 /** Every document carrying an `@porte/cli@x.y.z` pin. */
 const PINNED_DOCS = [
   'README.md',
+  'plugins/grok/.mcp.json',
   'plugins/grok/skills/remote-control/SKILL.md',
   'apps/web/public/agent-setup/prompt.md',
 ]
