@@ -48,6 +48,36 @@ export function PlainOutput({ children }: { readonly children: string }) {
   )
 }
 
+/** One line of a read file: its number and its code. */
+export type NumberedLine = {
+  readonly key: string
+  readonly line: number
+  readonly text: string
+}
+
+/**
+ * A read file the way an editor shows one: a number gutter, then the code.
+ * Same card, cap, and scroll as a diff, minus the colour.
+ */
+export function FileLines({ lines }: { readonly lines: readonly NumberedLine[] }) {
+  return (
+    <div className="overflow-hidden rounded-xl border bg-surface">
+      <div className="max-h-96 overflow-x-auto overflow-y-auto overscroll-contain py-2">
+        <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
+          {lines.map((one) => (
+            <span key={one.key} className="flex min-w-full pr-3">
+              <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground/70 select-none">
+                {one.line}
+              </span>
+              <span className="whitespace-pre">{one.text === '' ? ' ' : one.text}</span>
+            </span>
+          ))}
+        </pre>
+      </div>
+    </div>
+  )
+}
+
 /** One row of a rendered diff: its number, its colour, its code. */
 export type DiffRow = {
   readonly key: string

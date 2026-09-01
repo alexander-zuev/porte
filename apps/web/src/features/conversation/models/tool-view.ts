@@ -53,6 +53,8 @@ const fetchInputSchema = z.object({ url: z.string().min(1) })
 
 const listInputSchema = z.object({ directory: z.string().min(1) })
 
+const readInputSchema = z.object({ target_file: z.string().min(1) })
+
 /** An input worth a sheet field: an object with at least one key. */
 const filledInputSchema = z
   .record(z.string(), z.json())
@@ -227,13 +229,20 @@ export function toolCallView(call: ToolCall): ToolCallView {
     }
   }
 
-  if (call.kind === 'read' && call.path !== undefined) {
-    return {
-      ...view,
-      verb: settled ? 'Read' : 'Reading',
-      subject: baseName(call.path),
-      code: true,
-      field: { name: 'File', value: call.path },
+  if (call.kind === 'read') {
+    // Locations arrive late on live calls: the input and the title also carry the path.
+    const input = readInputSchema.safeParse(callInput(call))
+    const path =
+      call.path ??
+      (input.success ? input.data.target_file : /^Read `([\s\S]+)`$/.exec(call.title)?.[1])
+    if (path !== undefined) {
+      return {
+        ...view,
+        verb: settled ? 'Read' : 'Reading',
+        subject: baseName(path),
+        code: true,
+        field: { name: 'File', value: path },
+      }
     }
   }
 

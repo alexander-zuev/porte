@@ -5,9 +5,11 @@ import type { ToolCall } from '@web/features/conversation/models/tool-runs.ts'
 import { toolCallView, type ToolCallView } from '@web/features/conversation/models/tool-view.ts'
 import {
   DiffBlock,
+  FileLines,
   MonoBox,
   PlainOutput,
   type DiffRow,
+  type NumberedLine,
 } from '@web/ui/components/ai-elements/tool-output.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
 import { useState } from 'react'
@@ -35,12 +37,17 @@ export function ToolDetail({
   // A read is its file: the name is the header, and the body needs no label.
   // Inline has the width for the whole path; a sheet gets the basename.
   if (call.kind === 'read' && view.field !== undefined) {
+    const lines = view.output.type === 'text' ? numberedLines(view.output.text) : undefined
     return (
       <div className="flex flex-col gap-2">
         <small className="font-mono text-muted-foreground">
           {variant === 'inline' ? view.field.value : fileName(view.field.value)}
         </small>
-        <ToolDetailOutput view={view} variant={variant} bare />
+        {lines === undefined ? (
+          <ToolDetailOutput view={view} variant={variant} bare />
+        ) : (
+          <FileLines lines={lines} />
+        )}
       </div>
     )
   }
@@ -140,6 +147,26 @@ function JsonOutput({ value }: { readonly value: unknown }) {
       <MonoBox>{text}</MonoBox>
     </div>
   )
+}
+
+/**
+ * Grok numbers read output inline (`12→code`), sparsely on long files. The
+ * markers become a real gutter; unmarked lines count on from the last marker.
+ * Text whose first line carries no marker is not a file body.
+ */
+function numberedLines(text: string): NumberedLine[] | undefined {
+  const lines = text.split('\n')
+  if (!/^\d+→/.test(lines[0] ?? '')) return undefined
+  let counter = 0
+  return lines.map((line, index) => {
+    const match = /^(\d+)→(.*)$/.exec(line)
+    if (match !== null) {
+      counter = Number(match[1])
+      return { key: String(index), line: counter, text: match[2] ?? '' }
+    }
+    counter += 1
+    return { key: String(index), line: counter, text: line }
+  })
 }
 
 /** Grok puts the line the span starts on in `_meta`. */
