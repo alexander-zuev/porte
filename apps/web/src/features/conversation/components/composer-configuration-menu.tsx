@@ -352,7 +352,7 @@ function ChoiceRow({
   return (
     <Button
       className={cn(
-        'h-auto min-h-14 w-full justify-start gap-3 rounded-none px-0 py-3 text-left hover:bg-transparent',
+        'h-auto min-h-14 w-full justify-start gap-3 rounded-none px-0 py-3 text-left whitespace-normal hover:bg-transparent',
         divided && 'border-t',
       )}
       disabled={disabled}

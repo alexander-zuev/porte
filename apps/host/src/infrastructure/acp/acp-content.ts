@@ -87,7 +87,7 @@ function selectOption(
 
 /** Official one-liners (x.ai news and docs); the agent's own text covers unlisted models. */
 const MODEL_DESCRIPTIONS = new Map<string, string>([
-  ['grok-4.6', "The most intelligent and fastest model we've built"],
+  ['grok-4.6', 'The most intelligent and fastest model'],
   ['grok-4.5', 'Built for coding, agentic tasks, and knowledge work'],
 ])
 
