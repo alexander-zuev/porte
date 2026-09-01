@@ -55,6 +55,16 @@ const listInputSchema = z.object({ directory: z.string().min(1) })
 
 const readInputSchema = z.object({ target_file: z.string().min(1) })
 
+const mcpInputSchema = z.object({
+  tool_name: z.string().min(1),
+  tool_input: z.record(z.string(), z.json()).optional(),
+})
+
+/** An MCP result: Grok wraps the tool's text in `rawOutput.output.OkayOutput`. */
+const mcpOutputSchema = z.object({
+  rawOutput: z.object({ output: z.object({ OkayOutput: z.string().min(1) }).loose() }).loose(),
+})
+
 const todoInputSchema = z.object({
   todos: z
     .array(z.object({ content: z.string().min(1), status: z.string().optional() }).loose())
@@ -221,12 +231,15 @@ export function toolCallView(call: ToolCall): ToolCallView {
     }
   }
 
-  if (call.kind === 'execute') {
+  // Live `tool_call`s sometimes arrive with no `kind` at all, so a command is
+  // recognised by its shape (`{command}`) and name, not only by its kind.
+  if (call.kind === 'execute' || call.kind === 'other' || meta?.name === 'run_terminal_command') {
     const input = executeInput(call)
     if (input !== undefined) {
       const description = input.description
       return {
         ...view,
+        icon: 'execute',
         verb: settled ? 'Ran' : 'Running',
         subject: description ?? input.command,
         code: description === undefined,
@@ -318,6 +331,31 @@ export function toolCallView(call: ToolCall): ToolCallView {
         code: true,
         field: { name: 'URL', value: input.data.url },
       }
+    }
+  }
+
+  // Grok dispatches MCP through `use_tool`: `<server>__<tool>` plus the tool's
+  // own input. The reader sees the tool, not the dispatcher.
+  const mcp = mcpInputSchema.safeParse(callInput(call))
+  if (mcp.success) {
+    const [server, ...toolParts] = mcp.data.tool_name.split('__')
+    const toolName = toolParts.join('__')
+    const inner = filledInputSchema.safeParse(mcp.data.tool_input)
+    const result = mcpOutputSchema.safeParse(
+      call.part.state === 'output-available' ? call.part.output : undefined,
+    )
+    return {
+      ...view,
+      label: toolName === '' || server === undefined ? view.label : server,
+      verb: '',
+      subject: humanize(toolName === '' ? mcp.data.tool_name : toolName),
+      code: false,
+      field: inner.success
+        ? { name: 'Input', value: JSON.stringify(inner.data, null, 2) }
+        : undefined,
+      output: result.success
+        ? { type: 'text', text: result.data.rawOutput.output.OkayOutput }
+        : output,
     }
   }
 
