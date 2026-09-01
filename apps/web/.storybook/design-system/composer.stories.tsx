@@ -1,10 +1,16 @@
 import { FileTextIcon, ImageIcon } from '@phosphor-icons/react'
+import { InternalServerError } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   ComposerMicButton,
   ComposerVoiceBar,
 } from '@web/features/conversation/components/composer-voice.tsx'
 import { useVoiceInput } from '@web/features/conversation/hooks/use-voice-input.ts'
+import { BrowserVoiceRecorder } from '@web/features/conversation/services/voice-recorder.ts'
+import type {
+  TranscribeVoiceResult,
+  VoiceRecording,
+} from '@web/lib/conversation/voice-transcription.ts'
 import {
   PromptInput,
   PromptInputBody,
@@ -91,10 +97,11 @@ function Composer({ usage }: { readonly usage: boolean }) {
 }
 
 /**
- * The full voice-input flow, live: the mic really records (the browser asks for
- * the microphone), ✓ hands the take to a fake transcriber that answers after a
- * moment, and the words land in the textarea. `fail` makes every transcription
- * fail instead: a toast appears and ✓ retries the same take. ✕ or Escape
+ * The full voice-input flow, live: the mic really records (the browser asks
+ * for the microphone), ✓ hands the recording to a story-local `transcribe`
+ * standing where the server fn goes, and the words land in the textarea.
+ * `fail` makes every transcription reject with the real error payload shape
+ * instead: a toast appears and ✓ retries the same recording. ✕ or Escape
  * discards at any point.
  */
 export const Voice: StoryObj<{ fail: boolean }> = {
@@ -109,10 +116,14 @@ export const Voice: StoryObj<{ fail: boolean }> = {
   ),
 }
 
+/** One per story session: the recorder is stateless between recordings. */
+const recorder = new BrowserVoiceRecorder()
+
 function VoiceComposer({ fail }: { readonly fail: boolean }) {
   const controller = usePromptInputController()
   const voice = useVoiceInput({
-    transcribe: (audio) => fakeTranscription(audio, fail),
+    recorder,
+    transcribe: (recording) => mockTranscribeVoice(recording, fail),
     onText: (text) => {
       const value = controller.textInput.value
       controller.textInput.setInput(value === '' ? text : `${value} ${text}`)
@@ -141,15 +152,25 @@ function VoiceComposer({ fail }: { readonly fail: boolean }) {
   )
 }
 
-/** Story-only: answers like the server fn will, a beat later; `fail` rehearses the error path. */
-async function fakeTranscription(audio: Blob, fail: boolean): Promise<string> {
+/**
+ * Story-only: answers like the mocked server fn, a beat later. `fail` rejects
+ * with the payload shape the function error middleware really produces.
+ */
+async function mockTranscribeVoice(
+  recording: VoiceRecording,
+  fail: boolean,
+): Promise<TranscribeVoiceResult> {
   // oxlint-disable-next-line eslint-plugin-promise(avoid-new) -- setTimeout is callback-based.
   await new Promise((resolve) => {
-    setTimeout(resolve, 1500)
+    setTimeout(resolve, 1200)
   })
-  if (fail) throw new Error('transcription failed')
-  const seconds = Math.max(1, Math.round(audio.size / 16000))
-  return `A ${String(seconds)}-second take: fix the failing relay test and push when green.`
+  if (fail) {
+    const failure = new InternalServerError()
+    // oxlint-disable-next-line typescript/only-throw-error -- the real client rejects with this payload shape.
+    throw { _tag: failure._tag, message: failure.message }
+  }
+  const kilobytes = Math.max(1, Math.round(recording.audio.size / 1024))
+  return { text: `Mock transcript of a ${String(kilobytes)} KB ${recording.mimeType} recording.` }
 }
 
 /** Story-only: puts a file in the set the way the picker would, without the picker. */

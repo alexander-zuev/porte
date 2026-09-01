@@ -60,3 +60,44 @@ html:has(.shell-frame-fill) body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/** Fades both ends of the voice bar's line under the neighbouring buttons. */
+@utility voice-fade {
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+/**
+ * The marching dots of a voice recording being transcribed. The pattern
+ * repeats every 8px and the loop shifts exactly one period, so the conveyor
+ * never visibly jumps. `data-still` (the failed state) and reduced motion
+ * keep the dots and stop the march. Pair with `voice-fade`.
+ */
+@utility voice-take-line {
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    display: block;
+    height: 100%;
+    width: calc(100% + 8px);
+    background-image: radial-gradient(circle, currentColor 1px, transparent 1.5px);
+    background-size: 8px 100%;
+    animation: voice-take-slide 0.3s linear infinite;
+  }
+
+  &[data-still]::before {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      animation: none;
+    }
+  }
+}
+
+@keyframes voice-take-slide {
+  to {
+    transform: translateX(-8px);
+  }
+}
