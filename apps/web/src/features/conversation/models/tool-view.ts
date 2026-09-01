@@ -55,6 +55,22 @@ const listInputSchema = z.object({ directory: z.string().min(1) })
 
 const readInputSchema = z.object({ target_file: z.string().min(1) })
 
+/**
+ * A web search's result, live only: Grok's replay persists backend tools
+ * without `rawOutput`, so after a reload this parse fails and the call
+ * honestly reports no output.
+ */
+const webSearchOutputSchema = z.object({
+  rawOutput: z.object({
+    action: z
+      .object({
+        query: z.string().min(1),
+        sources: z.array(z.object({ url: z.string().min(1) }).loose()).optional(),
+      })
+      .loose(),
+  }),
+})
+
 /** An input worth a sheet field: an object with at least one key. */
 const filledInputSchema = z
   .record(z.string(), z.json())
@@ -214,6 +230,24 @@ export function toolCallView(call: ToolCall): ToolCallView {
   }
 
   if (call.kind === 'search') {
+    const web = webSearchOutputSchema.safeParse(
+      call.part.state === 'output-available' ? call.part.output : undefined,
+    )
+    if (web.success) {
+      const query = web.data.rawOutput.action.query
+      const sources = web.data.rawOutput.action.sources ?? []
+      return {
+        ...view,
+        verb: settled ? 'Searched' : 'Searching',
+        subject: query,
+        code: false,
+        field: { name: 'Query', value: query },
+        output:
+          sources.length > 0
+            ? { type: 'text', text: sources.map((source) => source.url).join('\n') }
+            : output,
+      }
+    }
     const input = searchInputSchema.safeParse(callInput(call))
     // Grok titles a search with its pattern, so the title is the fallback input —
     // unless it is a sentence like `Web search:`, which is no pattern at all.

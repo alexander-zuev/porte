@@ -90,6 +90,29 @@ describe('toolCallView', () => {
     })
   })
 
+  it('reads a live web search from rawOutput: query and source urls', () => {
+    const part = call('w', 'search', 'output-available', {
+      title: 'Web search:',
+      output: {
+        content: [],
+        rawOutput: {
+          action: {
+            type: 'search',
+            query: 'grok tui rendering',
+            sources: [{ type: 'url', url: 'https://example.com/a' }],
+          },
+        },
+      },
+    })
+    const view = toolCallView(toolCall(part as DynamicToolUIPart))
+    expect(view).toMatchObject({
+      verb: 'Searched',
+      subject: 'grok tui rendering',
+      field: { name: 'Query', value: 'grok tui rendering' },
+      output: { type: 'text', text: 'https://example.com/a' },
+    })
+  })
+
   it('hides the input field when a tool sent nothing', () => {
     const part = call('o', 'other', 'output-available', { input: {} })
     const view = toolCallView(toolCall(part as DynamicToolUIPart))
