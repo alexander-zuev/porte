@@ -18,9 +18,11 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputController,
   type PromptInputMessage,
 } from '@web/ui/components/ai-elements/prompt-input.tsx'
 import type { ChatStatus, UIMessage } from 'ai'
+import type { ReactNode } from 'react'
 
 export type ChatFrameProps = {
   readonly messages: readonly UIMessage[]
@@ -40,6 +42,12 @@ export type ChatFrameProps = {
   readonly readingOlder?: boolean
   /** Where a send lands. The real screen has a machine; a story has a line of text. */
   readonly onSend?: (message: PromptInputMessage) => void
+  /** While a turn runs, Enter queues instead of sending. Absent: the composer sends. */
+  readonly onQueue?: (message: PromptInputMessage) => void
+  /** The queue pill, drawn above the composer. */
+  readonly queue?: ReactNode
+  /** The changes pill, drawn above the composer. */
+  readonly changes?: ReactNode
 }
 
 /**
@@ -64,8 +72,12 @@ export function ChatFrame({
   onReadOlder = null,
   readingOlder = false,
   onSend = () => undefined,
+  onQueue,
+  queue,
+  changes,
 }: ChatFrameProps) {
   const running = status === 'streaming' || status === 'submitted'
+  const queues = running && onQueue !== undefined
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -81,11 +93,16 @@ export function ChatFrame({
 
       <ConversationPermissions onAnswer={onAnswer} waiting={permissions} />
 
+      {changes}
+
+      {queue}
+
       <PromptInput
         className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onSubmit={(message) => {
           if (message.text.trim() === '' && message.files.length === 0) return
-          onSend(message)
+          if (queues) onQueue(message)
+          else onSend(message)
         }}
       >
         <PromptInputBody>
@@ -121,11 +138,35 @@ export function ChatFrame({
                   </ContextContent>
                 </Context>
               )}
-              <PromptInputSubmit disabled={!canSend || stopping} status={status} onStop={onStop} />
+              {queues ? (
+                <QueueOrStop disabled={!canSend || stopping} onStop={onStop} />
+              ) : (
+                <PromptInputSubmit
+                  disabled={!canSend || stopping}
+                  status={status}
+                  onStop={onStop}
+                />
+              )}
             </div>
           </PromptInputFooter>
         </PromptInputBody>
       </PromptInput>
     </div>
+  )
+}
+
+/** One button while a turn runs, as Grok draws it: Stop when empty, the send arrow (which queues) once there is text. */
+function QueueOrStop({
+  disabled,
+  onStop,
+}: {
+  readonly disabled: boolean
+  readonly onStop: () => void
+}) {
+  const controller = usePromptInputController()
+  const empty =
+    controller.textInput.value.trim() === '' && controller.attachments.files.length === 0
+  return (
+    <PromptInputSubmit disabled={disabled} status={empty ? 'streaming' : 'ready'} onStop={onStop} />
   )
 }

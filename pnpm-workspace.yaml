@@ -111,6 +111,9 @@ catalog:
   '@testing-library/react': ^16.3.3
   happy-dom: ^20.12.0
   '@tanstack/react-virtual': ^3.14.10
+  '@dnd-kit/core': ^6.3.1
+  '@dnd-kit/sortable': ^10.0.0
+  '@dnd-kit/utilities': ^3.2.2
 
 allowBuilds:
   '@prisma/client': false
