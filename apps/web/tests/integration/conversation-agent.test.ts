@@ -27,7 +27,7 @@ import { queuedRows } from '@web/lib/conversation/conversation-state-messages.ts
 import { getSubAgentByName } from 'agents'
 import type { UIMessage } from 'ai'
 import { env } from 'cloudflare:workers'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { applyDatabaseTestMigrations } from './database-test-migrations.ts'
@@ -53,6 +53,22 @@ const idleState: ConversationState = {
 }
 
 beforeAll(applyDatabaseTestMigrations)
+
+/** Every socket a test opened; closed after it so no relay send is in flight at teardown. */
+const openSockets: WebSocket[] = []
+
+afterEach(async () => {
+  const sockets = openSockets.splice(0)
+  await Promise.all(sockets.map(closeSocket))
+})
+
+function closeSocket(socket: WebSocket): Promise<void> {
+  if (socket.readyState === WebSocket.CLOSED) return Promise.resolve()
+  return new Promise((resolve) => {
+    socket.addEventListener('close', () => resolve(), { once: true })
+    if (socket.readyState === WebSocket.OPEN) socket.close(1000, 'test complete')
+  })
+}
 
 describe('ConversationAgent through its facet', () => {
   it('keeps the user row with its browser id and orders crossed frames (F11, F12)', async () => {
@@ -559,6 +575,7 @@ async function openConversation() {
       if (response.webSocket === null) throw new Error('Expected a viewer WebSocket')
       const inbox = new SocketInbox(response.webSocket)
       response.webSocket.accept()
+      openSockets.push(response.webSocket)
       // No attach request follows: the Host data socket is already connected.
       return { socket: response.webSocket, inbox }
     },
@@ -593,6 +610,7 @@ async function connectSocket(
   if (response.webSocket === null) throw new Error('Expected a WebSocket response')
   const inbox = new SocketInbox(response.webSocket)
   response.webSocket.accept()
+  openSockets.push(response.webSocket)
   return { socket: response.webSocket, inbox }
 }
 
