@@ -62,8 +62,9 @@ export function ConversationChat({
   const stop = useStopTurn(agent.stub, state.runningTurnId)
   const queue = useMessageQueue(agent.stub, chat.messages)
   const canType = canSend && agent.identified
-  // A send needs the socket; `submitted` is the one window where a second send would double up.
-  const canSubmit = canType && chat.status !== 'submitted'
+  // A send needs the socket. `submitted` and a Stop in flight are the windows where a
+  // second send would double up or land in a turn that is ending.
+  const canSubmit = canType && chat.status !== 'submitted' && !stop.stopping
   const status = submitStatus(chat.status, running)
   const setModel = useSetModel(agent.stub)
   const sheet = useChangesSheet(agent, { enabled: canType, runningTurnId: state.runningTurnId })

@@ -41,7 +41,7 @@ import {
   attemptIdOfRow,
   conversationStateToMessages,
   dequeuedPositionOfRow,
-  foldQueuedRows,
+  dequeuedRowMetadata,
   isDequeuedRow,
   isQueuedRow,
   nextUserRow,
@@ -653,8 +653,9 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
 
   /**
    * Start the next turn from the queue once nothing runs: the SDK's turn has
-   * settled and the Host reports no running turn. Every queued row folds into
-   * one, unless `sendQueuedNow` named one row to start alone.
+   * settled and the Host reports no running turn. One row per turn, in run
+   * order, unless `sendQueuedNow` named the row. The drain after that turn's
+   * end takes the next one.
    *
    * `saveMessages` resolves when the whole turn ends, so it is not awaited here.
    * Its callback runs when the SDK is ready to start; if the queue changed
@@ -669,19 +670,21 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     const sendNow = await this.ctx.storage.get<MessageId>(SEND_NOW_KEY)
     await this.ctx.storage.delete(SEND_NOW_KEY)
 
-    // Fold first, with stale-row deletion: `saveMessages` only upserts what it is given.
-    const alone = queued.find((row) => row.id === sendNow)
-    const next = alone === undefined ? queued : [alone]
-    const folded = foldQueuedRows(next)
-    const dropped = new Set(next.slice(1).map((row) => row.id))
+    // One message, one turn: the Send now row if any, else the first in run order.
+    const chosen = queued.find((row) => row.id === sendNow) ?? queued[0]
+    if (chosen === undefined) return
+    const position = queuedPositionOfRow(chosen) ?? 0
+    // The store orders rows by creation. A row queued mid-turn predates the answer it
+    // waited for, so it is deleted and written again to take its place after that answer.
     await this.persistMessages(
-      this.messages.flatMap((row) => {
-        if (row.id === folded.id) return [folded]
-        return dropped.has(row.id) ? [] : [row]
-      }),
+      this.messages.filter((row) => row.id !== chosen.id),
       [],
       { _deleteStaleRows: true },
     )
+    await this.persistMessages([
+      ...this.messages,
+      { ...chosen, metadata: dequeuedRowMetadata(position) },
+    ])
 
     // The turn starts when the SDK is ready; if the row was withdrawn by then, no turn runs.
     const nothingToStart = new AbortController()

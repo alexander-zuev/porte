@@ -163,7 +163,7 @@ describe('ConversationAgent through its facet', () => {
  * assertion reads the store or the requests the Host received.
  */
 describe('ConversationAgent queue', () => {
-  it('queues while a turn runs and starts every queued message as one turn when it ends', async () => {
+  it('queues while a turn runs, then runs the queue one message per turn, in order', async () => {
     const flow = await openConversation()
     const viewer = await flow.viewer()
     viewer.socket.send(chatRequest('req-1', 'browser-1', 'first'))
@@ -178,9 +178,19 @@ describe('ConversationAgent queue', () => {
     await flow.host.expectNoRequestFor(300)
 
     await flow.host.finishTurn(first.turnId, 'first', 'working')
-    const drained = await flow.host.startTurn()
-    expect(drained.params.userMessage.id).toBe('q-1')
-    expect(userText(drained.params)).toBe('second\n\nthird')
+    const second = await flow.host.startTurn()
+    expect(second.params.userMessage.id).toBe('q-1')
+    expect(userText(second.params)).toBe('second')
+    await vi.waitFor(async () => {
+      const ids = (await flow.messages()).map((row) => row.id)
+      // The started row takes its place after the answer it waited for.
+      expect(ids.indexOf('q-1')).toBeGreaterThan(ids.indexOf(first.turnId))
+      expect(queuedTexts(await flow.messages())).toEqual(['third'])
+    })
+
+    await flow.host.finishTurn(second.turnId, 'second', 'done')
+    const third = await flow.host.startTurn()
+    expect(third.params.userMessage.id).toBe('q-2')
     await vi.waitFor(async () => {
       expect(queuedTexts(await flow.messages())).toEqual([])
     })
@@ -250,7 +260,10 @@ describe('ConversationAgent queue', () => {
     await flow.host.finishTurn(first.turnId, 'first', '')
     const started = await flow.host.startTurn()
     expect(started.params.userMessage.id).toBe('q-3')
-    expect(userText(started.params)).toBe('c\n\na')
+    expect(userText(started.params)).toBe('c')
+    await vi.waitFor(async () => {
+      expect(queuedTexts(await flow.messages())).toEqual(['a'])
+    })
   })
 
   it('a Host snapshot mid-turn keeps the queued rows', async () => {

@@ -9,7 +9,6 @@ import {
 import {
   conversationStateToMessages,
   dequeuedRowMetadata,
-  foldQueuedRows,
   isQueuedRow,
   nextUserRow,
   queuedRowMetadata,
@@ -150,17 +149,5 @@ describe('queued rows', () => {
       parts: [text('E')],
     }
     expect(queuedRows([linked, queued, bare, later]).map((row) => row.id)).toEqual(['u5', 'u3'])
-  })
-
-  it('folds queued rows into one under the first id, text joined by a blank line', () => {
-    const file: UIMessage['parts'][number] = { type: 'file', mediaType: 'image/png', url: 'data:' }
-    const folded = foldQueuedRows([
-      queued,
-      { id: 'u5', role: 'user', metadata: queuedRowMetadata(3), parts: [file, text('E')] },
-      { id: 'u6', role: 'user', metadata: queuedRowMetadata(4), parts: [text('F')] },
-    ])
-    expect(folded.id).toBe('u3')
-    expect(folded.metadata).toEqual(dequeuedRowMetadata(2))
-    expect(folded.parts).toEqual([text('C'), file, text('E\n\nF')])
   })
 })

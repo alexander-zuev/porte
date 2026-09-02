@@ -184,36 +184,6 @@ export function nextUserRow(messages: readonly UIMessage[]): UIMessage | undefin
 }
 
 /**
- * Every queued row folded into one, in order, under the first row's id.
- * Adjacent text parts join with a blank line, the way the SDK's `merge`
- * strategy joins overlapping submits. Other parts keep their place.
- *
- * @param rows - At least one queued row, in run order.
- * @returns One dequeued user row under the first row's id and position.
- */
-export function foldQueuedRows(rows: readonly UIMessage[]): UIMessage {
-  const [first, ...rest] = rows
-  if (first === undefined) throw new RangeError('foldQueuedRows needs at least one row')
-  const parts: UIMessage['parts'] = [...first.parts]
-  for (const row of rest) {
-    for (const part of row.parts) {
-      const last = parts.at(-1)
-      if (part.type === 'text' && last?.type === 'text') {
-        parts[parts.length - 1] = { ...last, text: `${last.text}\n\n${part.text}` }
-      } else {
-        parts.push(part)
-      }
-    }
-  }
-  return {
-    id: first.id,
-    role: 'user',
-    metadata: dequeuedRowMetadata(queuedPositionOfRow(first) ?? 0),
-    parts,
-  }
-}
-
-/**
  * Convert one complete Host state into the messages owned by AIChatAgent.
  *
  * @param state - The Host's `conversation.get` result.
