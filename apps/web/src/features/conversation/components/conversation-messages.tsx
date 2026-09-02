@@ -1,3 +1,4 @@
+import { outcomeOfRow } from '@web/lib/conversation/conversation-state-messages.ts'
 import {
   Conversation,
   ConversationRow,
@@ -29,7 +30,12 @@ import {
 } from '../hooks/use-transcript-virtualizer.ts'
 import { groupParts, messageSettled, messageText } from '../models/tool-runs.ts'
 import { ConversationContentPart } from './conversation-content-part.tsx'
-import { ConversationTurnFailed, NoMessagesYet, TurnPending } from './conversation-states.tsx'
+import {
+  ConversationTurnFailed,
+  ConversationTurnStopped,
+  NoMessagesYet,
+  TurnPending,
+} from './conversation-states.tsx'
 import { MessageCopy } from './message-copy.tsx'
 import { MessageFiles } from './message-files.tsx'
 import { ToolRun } from './tool-run.tsx'
@@ -165,6 +171,7 @@ function TranscriptRowContent({
       <MessageContent>
         <MessageParts message={message} />
       </MessageContent>
+      {outcomeOfRow(message) === 'cancelled' ? <ConversationTurnStopped /> : null}
       {/* Only once there are words to take: an answer still arriving, or one with no text, gets none. */}
       {message.role === 'assistant' && messageSettled(message) && messageText(message) !== '' ? (
         <MessageCopy text={messageText(message)} />

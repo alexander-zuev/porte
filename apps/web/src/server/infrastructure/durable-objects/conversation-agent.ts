@@ -50,6 +50,7 @@ import {
   queuedRows,
   turnIdOfRow,
   turnToMessages,
+  type TurnOutcome,
 } from '@web/lib/conversation/conversation-state-messages.ts'
 import {
   type AgentContext,
@@ -330,7 +331,9 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
   }
 
   /** The turn whose stream just closed; `onChatResponse` reconciles it after the SDK persisted. */
-  private reconcileAfterReply: { turnId: TurnId; userMessageId: MessageId } | undefined
+  private reconcileAfterReply:
+    | { turnId: TurnId; userMessageId: MessageId; outcome: TurnOutcome | undefined }
+    | undefined
 
   /**
    * After the SDK persisted the assistant row: replace the turn with the Host's
@@ -341,12 +344,14 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     const finished = this.reconcileAfterReply
     if (finished === undefined) return
     this.reconcileAfterReply = undefined
-    await this.reconcileTurn(finished.turnId, finished.userMessageId).catch((error) => {
-      logger.warn('turn_reconcile_failed', {
-        error: toErrorPayload(error),
-        details: { conversationId: this.conversationId, turnId: finished.turnId },
-      })
-    })
+    await this.reconcileTurn(finished.turnId, finished.outcome, finished.userMessageId).catch(
+      (error) => {
+        logger.warn('turn_reconcile_failed', {
+          error: toErrorPayload(error),
+          details: { conversationId: this.conversationId, turnId: finished.turnId },
+        })
+      },
+    )
   }
 
   @callable()
@@ -457,10 +462,17 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     if (state.turn.state === 'idle') this.drainQueueInBackground()
   }
 
-  /** Replace one finished turn with the Host's version of it. */
-  private async reconcileTurn(turnId: TurnId, userMessageId?: MessageId): Promise<void> {
+  /**
+   * Replace one finished turn with the Host's version of it. The outcome rides
+   * along because the Host's view drops it: this is the one write of the stop mark.
+   */
+  private async reconcileTurn(
+    turnId: TurnId,
+    outcome: TurnOutcome | undefined,
+    userMessageId?: MessageId,
+  ): Promise<void> {
     const turn = await this.hostSocket.request('turn.get', { turnId })
-    const rows = await turnToMessages(turn, this.messages, userMessageId)
+    const rows = await turnToMessages(turn, this.messages, userMessageId, outcome)
     const index = this.messages.findIndex((row) => rowBelongsToTurn(row, turnId))
     const kept = this.messages.filter((row) => !rowBelongsToTurn(row, turnId))
     const at = index === -1 ? kept.length : index
@@ -480,7 +492,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     if (isTerminalEvent(event)) this.drainQueueInBackground()
     const active = this.activeStream
     if (active?.binding !== 'bound' || !eventBelongsToTurn(event, active.turnId)) {
-      if (isTerminalEvent(event) && 'turnId' in event) this.reconcileInBackground(event.turnId)
+      if (event.type === 'turn.finished') this.reconcileInBackground(event.turnId, event.outcome)
       return
     }
     await this.serializeStream(async () => {
@@ -497,7 +509,11 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
       }
       if (!isTerminalEvent(event)) return
       // `onChatResponse` reconciles after `_reply` has persisted the streamed row.
-      this.reconcileAfterReply = { turnId: active.turnId, userMessageId: active.userMessageId }
+      this.reconcileAfterReply = {
+        turnId: active.turnId,
+        userMessageId: active.userMessageId,
+        outcome: event.type === 'turn.finished' ? event.outcome : undefined,
+      }
       this.activeStream = undefined
       await active.writer.close().catch(() => undefined)
     })
@@ -526,8 +542,8 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     if (next !== this.state) this.setState(next)
   }
 
-  private reconcileInBackground(turnId: TurnId): void {
-    void this.reconcileTurn(turnId).catch((error) => {
+  private reconcileInBackground(turnId: TurnId, outcome: TurnOutcome): void {
+    void this.reconcileTurn(turnId, outcome).catch((error) => {
       logger.warn('turn_reconcile_failed', {
         error: toErrorPayload(error),
         details: { conversationId: this.conversationId, turnId },

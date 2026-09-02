@@ -11,6 +11,7 @@ import {
   dequeuedRowMetadata,
   isQueuedRow,
   nextUserRow,
+  outcomeOfRow,
   queuedRowMetadata,
   queuedRows,
   turnToMessages,
@@ -57,6 +58,22 @@ describe('turnToMessages', () => {
       `assistant ${turnId}`,
     ])
     expect(messages[1]?.parts.map((part) => part.type)).toEqual(['step-start', 'reasoning', 'text'])
+  })
+
+  it('stamps a stopped turn on its assistant row, and keeps the stamp on a rebuild', async () => {
+    const stopped = await turnToMessages(turn, [], undefined, { type: 'cancelled' })
+    expect(stopped[1]?.metadata).toEqual({ turnId, outcome: 'cancelled' })
+    expect(outcomeOfRow(stopped[1]!)).toBe('cancelled')
+
+    // A snapshot has no outcome: the stored row's stamp stays.
+    const rebuilt = await turnToMessages(turn, stopped)
+    expect(rebuilt[1]?.metadata).toEqual({ turnId, outcome: 'cancelled' })
+    // A completed turn carries none.
+    const done = await turnToMessages(turn, stopped, undefined, {
+      type: 'completed',
+      reason: 'completed',
+    })
+    expect(done[1]?.metadata).toEqual({ turnId })
   })
 
   it('reuses the stored user row that carries the same turn in its metadata', async () => {

@@ -12,6 +12,7 @@ import {
   answerTestsDone,
   answerTestsInterrupted,
   answerTestsRunning,
+  answerTestsStopped,
   answerTestsStreaming,
   answerTestsThinking,
   askStop,
@@ -287,6 +288,15 @@ export const TurnFailed: Story = {
         status="error"
         error={new Error('The machine closed the connection while the answer was being written.')}
       />
+    </Screen>
+  ),
+}
+
+/** The reader pressed Stop. The mark is the row's own, so it is still there after a reload. */
+export const TurnStopped: Story = {
+  render: () => (
+    <Screen>
+      <ChatFrame {...READY} messages={[...BEFORE_TESTS, answerTestsStopped]} status="ready" />
     </Screen>
   ),
 }

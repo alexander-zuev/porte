@@ -2,6 +2,7 @@ import {
   AttemptIdSchema,
   TurnIdSchema,
   type AttemptId,
+  type ConversationEvent,
   type ConversationItem,
   type ConversationState,
   type ConversationTurn,
@@ -16,6 +17,9 @@ import {
 import { readUIMessageStream, type UIMessage, type UIMessageChunk } from 'ai'
 import { z } from 'zod'
 
+/** How a turn ended, as the Host reports it in `turn.finished`. */
+export type TurnOutcome = Extract<ConversationEvent, { type: 'turn.finished' }>['outcome']
+
 /**
  * The rows one turn owns, under the ids the live stream also uses.
  *
@@ -24,12 +28,16 @@ import { z } from 'zod'
  *
  * @param turn - One turn's items and tools from the Host.
  * @param existing - The rows AIChatAgent already holds.
+ * @param userRowId - The sender's own row id, for the stream-alive path.
+ * @param outcome - How the turn ended, when the caller has just seen it. The
+ *   Host's view forgets it, so without it the stored assistant row's stamp stays.
  * @returns At most one user row and one assistant row.
  */
 export async function turnToMessages(
   turn: ConversationTurn,
   existing: readonly UIMessage[],
   userRowId?: string,
+  outcome?: TurnOutcome,
 ): Promise<UIMessage[]> {
   const messages: UIMessage[] = []
   const assistantItems: ConversationItem[] = []
@@ -60,8 +68,41 @@ export async function turnToMessages(
     assistantItems.push(item)
   }
   const assistant = await assistantMessage(turn.turnId, assistantItems, turn.tools)
-  if (assistant !== undefined && assistant.parts.length > 0) messages.push(assistant)
+  if (assistant !== undefined && assistant.parts.length > 0) {
+    const stored = existing.find((row) => row.id === turn.turnId)
+    messages.push({ ...assistant, metadata: assistantRowMetadata(turn.turnId, stored, outcome) })
+  }
   return messages
+}
+
+/** A stopped turn's mark on its assistant row. A finished turn carries none. */
+const RowOutcomeSchema = z.object({ outcome: z.literal('cancelled') })
+
+/**
+ * How a stored assistant row's turn ended.
+ *
+ * @param row - One AIChatAgent row.
+ * @returns `cancelled` for a turn the user stopped; undefined otherwise.
+ */
+export function outcomeOfRow(row: UIMessage): 'cancelled' | undefined {
+  if (row.role !== 'assistant') return undefined
+  return RowOutcomeSchema.safeParse(row.metadata).success ? 'cancelled' : undefined
+}
+
+/**
+ * The turn link, plus the stop mark: from the outcome when the caller has one,
+ * else whatever the stored row already carried, so a rebuild keeps it.
+ */
+function assistantRowMetadata(
+  turnId: TurnId,
+  stored: UIMessage | undefined,
+  outcome: TurnOutcome | undefined,
+): UIMessage['metadata'] {
+  const cancelled =
+    outcome === undefined
+      ? stored !== undefined && outcomeOfRow(stored) === 'cancelled'
+      : outcome.type === 'cancelled'
+  return cancelled ? { turnId, outcome: 'cancelled' } : { turnId }
 }
 
 /** A stored row's link to its turn; the AI SDK types `metadata` as unknown. */
@@ -293,7 +334,7 @@ async function assistantMessage(
 
   let message: UIMessage | undefined
   for await (const next of readUIMessageStream({ stream: chunkStream(chunks) })) message = next
-  return message === undefined ? undefined : { ...message, metadata: { turnId } }
+  return message
 }
 
 function chunkStream(chunks: readonly UIMessageChunk[]): ReadableStream<UIMessageChunk> {

@@ -254,10 +254,15 @@ describe('ConversationAgent queue', () => {
     const cancel = await flow.nextDataRequest('turn.cancel')
     flow.data.socket.send(JSON.stringify({ jsonrpc: '2.0', id: cancel.id, result: null }))
     await stop
-    await flow.host.finishTurn(first.turnId, 'first', '', { type: 'cancelled' })
+    await flow.host.finishTurn(first.turnId, 'first', 'partial', { type: 'cancelled' })
 
     const started = await flow.host.startTurn()
     expect(userText(started.params)).toBe('second')
+    // The stop mark is the reconciled row's own, so a reload still shows it.
+    await vi.waitFor(async () => {
+      const answer = (await flow.messages()).find((row) => row.id === first.turnId)
+      expect(answer?.metadata).toEqual({ turnId: first.turnId, outcome: 'cancelled' })
+    })
   })
 
   it('reorder and remove change what the next turn carries', async () => {

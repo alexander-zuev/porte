@@ -379,6 +379,18 @@ export const answerTestsInterrupted: UIMessage = {
   ],
 }
 
+/** The same answer after the reader pressed Stop: the relay stamped the row, so the mark survives a reload. */
+export const answerTestsStopped: UIMessage = {
+  id: 'msg-answer-tests',
+  role: 'assistant',
+  metadata: { turnId: 'msg-answer-tests', outcome: 'cancelled' },
+  parts: [
+    { type: 'reasoning', text: TESTS_THOUGHT, state: 'done' },
+    run('call-test-run', TEST_COMMAND, 'Run the web integration suite', TEST_OUTPUT),
+    { type: 'text', text: '15 tests pass, including the two that cover a reload', state: 'done' },
+  ],
+}
+
 // ---------------------------------------------------------------------------
 // Earlier in the session, read back on request
 

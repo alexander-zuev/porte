@@ -75,6 +75,18 @@ export function TurnPending() {
 }
 
 /**
+ * The user pressed Stop. One muted line under what arrived, kept with the
+ * answer across reloads: a cut-off sentence must not read as the whole answer.
+ */
+export function ConversationTurnStopped() {
+  return (
+    <output className="text-muted-foreground">
+      <small>Turn cancelled by user.</small>
+    </output>
+  )
+}
+
+/**
  * The turn stopped on its own.
  *
  * One line under the cut-off text, where "Thinking…" sat a moment before: it
