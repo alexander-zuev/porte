@@ -48,6 +48,12 @@ export type ComposerQueueProps = {
 export function ComposerQueue({ queued, actions, defaultOpen = false }: ComposerQueueProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [selectedId, setSelectedId] = useState<MessageId | null>(null)
+  // The sheet can be open when the last row starts. Forget that, or the next queued
+  // message would mount the drawer open again.
+  if (queued.length === 0 && open) {
+    setOpen(false)
+    setSelectedId(null)
+  }
   if (queued.length === 0) return null
   const count = String(queued.length)
   // A message that started or was removed while its page was open falls back to the list.

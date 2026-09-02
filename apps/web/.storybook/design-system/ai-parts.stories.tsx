@@ -222,8 +222,14 @@ function PartsBoard() {
 
       <Section
         title="Context"
-        note="How much of the window is spent. Hover for the count and the cost."
+        note="The ring fills as the window does. Click for the count and the cost."
       >
+        <Specimen label="Empty">
+          <Context maxTokens={500_000} usedTokens={0}>
+            <ContextTrigger aria-label="Show context usage" />
+            <ContextContent />
+          </Context>
+        </Specimen>
         <Specimen label="Early">
           <Context maxTokens={200_000} usedTokens={14_000}>
             <ContextTrigger aria-label="Show context usage" />
