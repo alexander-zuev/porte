@@ -182,8 +182,9 @@ export function SheetHeader({
       )}
       {/* Inset from both buttons, so a long subtitle ends before it touches them. */}
       <div className="flex min-w-0 flex-col items-center px-3">
+        {/* A centred flex child takes its content width; cap it so `truncate` has an edge to cut at. */}
         <DrawerTitle
-          className="min-w-0 text-center"
+          className="max-w-full min-w-0 text-center"
           render={<h3 className="truncate">{title}</h3>}
         />
         {subtitle}
