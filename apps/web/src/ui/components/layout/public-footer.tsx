@@ -1,6 +1,8 @@
 import { GithubLogoIcon } from '@phosphor-icons/react'
 import { Link } from '@tanstack/react-router'
-import { REPOSITORY_URL } from '@web/lib/product.ts'
+import { REPOSITORY_URL, TAAFT_LISTING_URL } from '@web/lib/product.ts'
+import { TaaftIcon } from '@web/ui/components/taaft-icon.tsx'
+import { Separator } from '@web/ui/components/ui/separator.tsx'
 import type { ReactNode } from 'react'
 
 /** Props for the footer shared by every public page. */
@@ -34,6 +36,16 @@ export function PublicFooter({ variant }: PublicFooterProps) {
         >
           <GithubLogoIcon aria-hidden className="size-5" />
         </a>
+        <a
+          aria-label="Featured on There's An AI For That"
+          className={FOOTER_LINK}
+          href={TAAFT_LISTING_URL}
+          rel="nofollow noreferrer"
+          target="_blank"
+        >
+          <TaaftIcon aria-hidden className="size-5" />
+        </a>
+        <Separator className="h-4 self-center" orientation="vertical" />
         <LegalLinks />
       </nav>
     </FooterBar>

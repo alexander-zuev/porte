@@ -1,6 +1,10 @@
 /** Public facts about Porte shared by marketing and onboarding surfaces. */
 export const REPOSITORY_URL = 'https://github.com/alexander-zuev/porte'
 
+/** Porte's listing on There's An AI For That. The `ref` tells them the click came from our badge. */
+export const TAAFT_LISTING_URL =
+  'https://theresanaiforthat.com/ai/useporte-dev/?ref=social-icon&v=7120318'
+
 /** Adds the Porte marketplace, then installs the plugin. Works before and after the official listing. */
 export const PLUGIN_INSTALL_COMMANDS = [
   'grok plugin marketplace add alexander-zuev/porte',
