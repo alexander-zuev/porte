@@ -128,30 +128,31 @@ export function DiffBlock({
           <span className="font-mono break-all">{title}</span>
         </div>
       )}
+      {/* Tight on a phone, where every line of code is width the screen does not have; roomier from md up. */}
       <div
         className={cn(
-          'overflow-x-auto overscroll-contain py-2',
+          'overflow-x-auto overscroll-contain py-1.5 md:py-2',
           !unbounded && 'max-h-96 overflow-y-auto',
         )}
         tabIndex={0}
       >
-        <pre className="min-w-max font-mono text-xs leading-5 md:text-sm md:leading-6">
+        <pre className="min-w-max font-mono text-xs leading-4 md:text-sm md:leading-6">
           {rows.map((row) =>
             row.sign === 'gap' ? (
               // Lines were skipped here; the numbers on either side say how many.
               <span
                 key={row.key}
                 aria-label="Unchanged lines skipped"
-                className="flex min-w-full border-l-2 border-transparent bg-muted/40 pr-3 text-muted-foreground"
+                className="flex min-w-full border-l-2 border-transparent bg-muted/40 pr-2 text-muted-foreground md:pr-3"
               >
-                <span className="w-9 shrink-0 pr-2 text-right select-none">⋯</span>
+                <span className="w-8 shrink-0 pr-1.5 text-right select-none md:w-9 md:pr-2">⋯</span>
               </span>
             ) : (
               <span
                 key={row.key}
-                className={cn('flex min-w-full border-l-2 pr-3', ROW_TINT[row.sign])}
+                className={cn('flex min-w-full border-l-2 pr-2 md:pr-3', ROW_TINT[row.sign])}
               >
-                <span className="w-9 shrink-0 pr-2 text-right text-muted-foreground select-none">
+                <span className="w-8 shrink-0 pr-1.5 text-right text-muted-foreground select-none md:w-9 md:pr-2">
                   {row.line}
                 </span>
                 <span className="whitespace-pre">{row.text === '' ? ' ' : row.text}</span>

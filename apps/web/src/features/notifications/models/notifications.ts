@@ -8,7 +8,7 @@ import {
 /**
  * One thing that needs the person. Derived from facts the app already holds —
  * nothing is stored; a notification disappears when its fact stops being true.
- * Web Push (roadmap §7) lands on this same shape later.
+ * Web Push (roadmap §8) lands on this same shape later.
  */
 export type PorteNotification = {
   /** Stable per fact, so a dismissal outlives reloads and dies with the fact. */

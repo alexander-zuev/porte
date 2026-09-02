@@ -21,14 +21,16 @@ const none = { branch: 'main', files: [] } as const
 
 function Probe({
   agent,
+  enabled = true,
   runningTurnId,
   take,
 }: {
   agent: ChangesSource
+  enabled?: boolean
   runningTurnId: ReturnType<typeof turnIdFor> | undefined
   take: (value: ChangesSheet) => void
 }) {
-  take(useChangesSheet(agent, { enabled: true, runningTurnId }))
+  take(useChangesSheet(agent, { enabled, runningTurnId }))
   return null
 }
 
@@ -60,6 +62,30 @@ function mount(stub: ChangesSource['stub']) {
 }
 
 describe('useChangesSheet', () => {
+  it('asks nothing and says offline while the gate is closed', () => {
+    const listChanges = vi.fn(() => Promise.resolve(one))
+    const agent: ChangesSource = {
+      name: 'conversation-1',
+      stub: { listChanges, getDiff: () => Promise.reject(new Error('no')) },
+    }
+    let latest: ChangesSheet | undefined
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Probe
+          agent={agent}
+          enabled={false}
+          runningTurnId={undefined}
+          take={(value) => {
+            latest = value
+          }}
+        />
+      </QueryClientProvider>,
+    )
+    expect(latest?.changes).toEqual({ status: 'offline' })
+    expect(latest?.diff).toEqual({ status: 'offline' })
+    expect(listChanges).not.toHaveBeenCalled()
+  })
+
   it('reads the list once and the diff only after a tap', async () => {
     const listChanges = vi.fn(() => Promise.resolve(one))
     const getDiff = vi.fn(() => Promise.resolve({ kind: 'binary' as const }))
@@ -100,20 +126,43 @@ describe('useChangesSheet', () => {
     expect(listChanges).toHaveBeenCalledTimes(3)
   })
 
-  it('reports a refused read with a retry that asks again', async () => {
-    const listChanges = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(one)
-    const { hook } = mount({ listChanges, getDiff: () => Promise.reject(new Error('no')) })
-    await waitFor(() => {
-      expect(hook().changes).toMatchObject({ status: 'failed' })
-    })
-    const view = hook().changes
-    if (view.status !== 'failed') throw new Error('expected failed')
-    view.onRetry()
-    await waitFor(() => {
+  it('rides out the open race: a first refusal is asked again before it shows', async () => {
+    vi.useFakeTimers()
+    try {
+      const listChanges = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Host is offline'))
+        .mockResolvedValueOnce(one)
+      const { hook } = mount({ listChanges, getDiff: () => Promise.reject(new Error('no')) })
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(listChanges).toHaveBeenCalledTimes(2)
       expect(hook().changes).toMatchObject({ status: 'ready' })
-    })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports a refused read after the retries, and Retry asks again', async () => {
+    vi.useFakeTimers()
+    try {
+      const refused = new Error('That repository is not available on this machine')
+      const listChanges = vi
+        .fn()
+        .mockRejectedValueOnce(refused)
+        .mockRejectedValueOnce(refused)
+        .mockRejectedValueOnce(refused)
+        .mockResolvedValueOnce(one)
+      const { hook } = mount({ listChanges, getDiff: () => Promise.reject(new Error('no')) })
+      // Two retries at 1 s and 2 s, then the failure shows.
+      await vi.advanceTimersByTimeAsync(4_000)
+      expect(listChanges).toHaveBeenCalledTimes(3)
+      const view = hook().changes
+      if (view.status !== 'failed') throw new Error('expected failed')
+      view.onRetry()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(hook().changes).toMatchObject({ status: 'ready' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

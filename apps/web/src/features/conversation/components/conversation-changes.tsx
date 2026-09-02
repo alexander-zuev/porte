@@ -28,8 +28,17 @@ import {
   type FileDiffView,
 } from '@web/features/conversation/models/changes.ts'
 import { cn } from '@web/lib/utils.ts'
-import { DiffBlock, ToolRowButton } from '@web/ui/components/ai-elements/tool-output.tsx'
+import {
+  DiffBlock,
+  ToolRowButton,
+  toolRowClass,
+} from '@web/ui/components/ai-elements/tool-output.tsx'
 import { Button } from '@web/ui/components/ui/button.tsx'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@web/ui/components/ui/collapsible.tsx'
 import { Drawer, DrawerBody, DrawerContent, DrawerTrigger } from '@web/ui/components/ui/drawer.tsx'
 import {
   DropdownMenu,
@@ -41,6 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@web/ui/components/ui/dropdown-menu.tsx'
+import { Skeleton } from '@web/ui/components/ui/skeleton.tsx'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 
 export type ConversationChangesProps = {
@@ -70,13 +80,22 @@ export function ConversationChanges({
 }: ConversationChangesProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [layout, setLayout] = useState<ChangesLayout>(DEFAULT_CHANGES_LAYOUT)
-  if (changes.status === 'pending') return null
+  // No machine to ask: the composer already says so, the pill stays away.
+  if (changes.status === 'offline') return null
+  // The pill's own shape while the machine is asked, so the strip does not jump when it lands.
+  if (changes.status === 'pending') {
+    return (
+      <div className="flex justify-end">
+        <Skeleton className="h-8 w-40 rounded-md" />
+      </div>
+    )
+  }
   if (changes.status === 'failed') {
     return (
       <div className="flex justify-end">
         <Button size="sm" variant="outline" onClick={changes.onRetry}>
           <WarningIcon aria-hidden className="text-destructive-muted-foreground" />
-          Could not read diff · Retry
+          Could not read diff
         </Button>
       </div>
     )
@@ -135,12 +154,11 @@ export function ConversationChanges({
                 selected !== null && '-translate-x-1/3',
               )}
             >
-              {groupChanges(changes.files, layout.group).map((section) => (
-                <section key={section.title} className="flex flex-col gap-2">
-                  {layout.group === 'none' ? null : (
-                    <small className="px-1 text-muted-foreground">{section.title}</small>
-                  )}
-                  {/* The same card a folded tool run opens into: hairline rows, one file each. */}
+              {groupChanges(changes.files, layout.group).map((section) => {
+                {
+                  /* The same card a folded tool run opens into: hairline rows, one file each. */
+                }
+                const card = (
                   <div className="divide-y rounded-xl border">
                     {layout.view === 'tree' ? (
                       <TreeRows files={section.files} onSelect={onSelect} />
@@ -158,8 +176,26 @@ export function ConversationChanges({
                       ))
                     )}
                   </div>
-                </section>
-              ))}
+                )
+                if (layout.group === 'none') return <section key={section.title}>{card}</section>
+                // Each section folds under its heading, the way Zed's Tracked and Untracked do.
+                return (
+                  <Collapsible
+                    key={section.title}
+                    defaultOpen
+                    className="group flex flex-col gap-2"
+                  >
+                    <CollapsibleTrigger className={cn(toolRowClass, 'min-h-9 px-1')}>
+                      <CaretRightIcon
+                        aria-hidden
+                        className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+                      />
+                      <small>{section.title}</small>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="outline-none">{card}</CollapsibleContent>
+                  </Collapsible>
+                )
+              })}
             </div>
             <div
               inert={selected === null}
@@ -379,7 +415,8 @@ function DiffPanel({
   readonly path: ChangedFilePath
   readonly diff: FileDiffView
 }) {
-  if (diff.status === 'pending') return <Note>Reading…</Note>
+  if (diff.status === 'offline') return <Note>Your machine is offline.</Note>
+  if (diff.status === 'pending') return <DiffSkeleton />
   if (diff.status === 'failed') {
     return (
       <div className="flex flex-col items-start gap-3">
@@ -404,4 +441,32 @@ function DiffPanel({
 
 function Note({ children }: { readonly children: ReactNode }) {
   return <p className="text-muted-foreground">{children}</p>
+}
+
+/** Written out, not generated: the same code-shaped bars on every render, no flicker. */
+const DIFF_SKELETON_ROWS = [
+  'w-1/2',
+  'w-3/4',
+  'w-2/3',
+  'w-11/12',
+  'w-1/3',
+  'w-5/6',
+  'w-2/5',
+  'w-3/5',
+] as const
+
+/** The diff card before the machine answers: a path line, then rows the width of code. */
+function DiffSkeleton() {
+  return (
+    <div aria-busy className="overflow-hidden rounded-xl border bg-surface">
+      <div className="border-b px-3 py-2">
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+      <div className="flex flex-col gap-2 px-3 py-3">
+        {DIFF_SKELETON_ROWS.map((width, index) => (
+          <Skeleton key={index} className={cn('h-3', width)} />
+        ))}
+      </div>
+    </div>
+  )
 }

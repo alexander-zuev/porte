@@ -47,6 +47,7 @@ export function useChangesSheet(agent: ChangesSource, options: ChangesSheetOptio
     queryFn: () => agent.stub.listChanges(),
     enabled: options.enabled,
     placeholderData: keepPreviousData,
+    retry: OPEN_RACE_RETRIES,
   })
   const diff = useQuery({
     queryKey: [...scope, 'diff', selected] as const,
@@ -54,8 +55,13 @@ export function useChangesSheet(agent: ChangesSource, options: ChangesSheetOptio
       selected === null || !options.enabled
         ? skipToken
         : () => agent.stub.getDiff({ path: selected }),
+    retry: OPEN_RACE_RETRIES,
   })
 
+  // A disabled query also reports `pending`; the gate, not the query, says the machine is away.
+  if (!options.enabled) {
+    return { changes: OFFLINE, selected, diff: OFFLINE, onSelect: setSelected }
+  }
   const changes: ChangesView =
     list.status === 'success'
       ? { status: 'ready', files: list.data.files, branch: list.data.branch }
@@ -71,6 +77,16 @@ export function useChangesSheet(agent: ChangesSource, options: ChangesSheetOptio
 
   return { changes, selected, diff: fileDiff, onSelect: setSelected }
 }
+
+const OFFLINE = { status: 'offline' } as const
+
+/**
+ * The Host's conversation socket attaches moments after the browser identifies,
+ * so the first read can find the machine "offline" for a few milliseconds.
+ * Two retries at Query's default backoff cover that window. A machine that is
+ * away for real never asks: `enabled` follows its connection status.
+ */
+const OPEN_RACE_RETRIES = 2
 
 function failed(retry: () => void) {
   return { status: 'failed' as const, onRetry: retry }

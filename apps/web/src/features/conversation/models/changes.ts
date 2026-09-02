@@ -2,8 +2,12 @@ import type { ChangedFile, ChangedFilePath, FileDiff } from '@porte/core/client'
 import type { DiffRow } from '@web/ui/components/ai-elements/tool-output.tsx'
 import { parsePatch } from 'diff'
 
-/** The uncommitted changes as the screen reads them: absent, failed, or here. */
+/**
+ * The uncommitted changes as the screen reads them. `offline` is the machine
+ * or its socket being away: nothing was asked, so nothing is drawn.
+ */
 export type ChangesView =
+  | { readonly status: 'offline' }
   | { readonly status: 'pending' }
   | { readonly status: 'failed'; readonly onRetry: () => void }
   | {
@@ -13,8 +17,9 @@ export type ChangesView =
       readonly branch: string | null
     }
 
-/** One file's diff as the screen reads it. */
+/** One file's diff as the screen reads it; `offline` while the machine is away. */
 export type FileDiffView =
+  | { readonly status: 'offline' }
   | { readonly status: 'pending' }
   | { readonly status: 'failed'; readonly onRetry: () => void }
   | { readonly status: 'ready'; readonly diff: FileDiff }
