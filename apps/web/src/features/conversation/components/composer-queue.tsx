@@ -59,57 +59,56 @@ export function ComposerQueue({ queued, actions, defaultOpen = false }: Composer
   // A message that started or was removed while its page was open falls back to the list.
   const selected = queued.find((message) => message.id === selectedId) ?? null
 
+  // The parent's strip places the pill; the drawer root draws nothing of its own.
   return (
-    <div className="flex justify-end">
-      <Drawer
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next)
-          if (!next) setSelectedId(null)
-        }}
+    <Drawer
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setSelectedId(null)
+      }}
+    >
+      <DrawerTrigger
+        render={<Button aria-label={`${count} queued, open queue`} size="sm" variant="outline" />}
       >
-        <DrawerTrigger
-          render={<Button aria-label={`${count} queued, open queue`} size="sm" variant="outline" />}
-        >
-          <ClockCountdownIcon aria-hidden className="text-muted-foreground" />
-          <span className="tabular-nums">{count}</span>
-        </DrawerTrigger>
-        <DrawerContent>
-          <SheetHeader
-            title={selected === null ? 'Queue' : `#${String(selected.position)}`}
-            onBack={
-              selected === null
-                ? undefined
-                : () => {
-                    setSelectedId(null)
-                  }
-            }
-          />
-          {/* One fixed frame; the message page slides in from the right, iOS-style. */}
-          <ComposerSheetBody className="relative overflow-hidden px-0 pt-0">
-            <div
-              inert={selected !== null}
-              className={cn(SHEET_PANEL, 'pt-3', selected !== null && '-translate-x-1/3')}
-            >
-              <QueueList actions={actions} queued={queued} onOpen={setSelectedId} />
-            </div>
-            <div
-              inert={selected === null}
-              className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
-            >
-              {selected === null ? null : (
-                <p className="whitespace-pre-wrap">
-                  {selected.text}
-                  {selected.files > 0 ? (
-                    <span className="text-muted-foreground"> · {String(selected.files)} file</span>
-                  ) : null}
-                </p>
-              )}
-            </div>
-          </ComposerSheetBody>
-        </DrawerContent>
-      </Drawer>
-    </div>
+        <ClockCountdownIcon aria-hidden className="text-muted-foreground" />
+        <span className="tabular-nums">{count}</span>
+      </DrawerTrigger>
+      <DrawerContent>
+        <SheetHeader
+          title={selected === null ? 'Queue' : `#${String(selected.position)}`}
+          onBack={
+            selected === null
+              ? undefined
+              : () => {
+                  setSelectedId(null)
+                }
+          }
+        />
+        {/* One fixed frame; the message page slides in from the right, iOS-style. */}
+        <ComposerSheetBody className="relative overflow-hidden px-0 pt-0">
+          <div
+            inert={selected !== null}
+            className={cn(SHEET_PANEL, 'pt-3', selected !== null && '-translate-x-1/3')}
+          >
+            <QueueList actions={actions} queued={queued} onOpen={setSelectedId} />
+          </div>
+          <div
+            inert={selected === null}
+            className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
+          >
+            {selected === null ? null : (
+              <p className="whitespace-pre-wrap">
+                {selected.text}
+                {selected.files > 0 ? (
+                  <span className="text-muted-foreground"> · {String(selected.files)} file</span>
+                ) : null}
+              </p>
+            )}
+          </div>
+        </ComposerSheetBody>
+      </DrawerContent>
+    </Drawer>
   )
 }
 

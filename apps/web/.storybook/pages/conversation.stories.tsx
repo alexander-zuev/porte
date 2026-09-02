@@ -285,8 +285,8 @@ function LongTranscriptHarness() {
       >
         <ConversationMessages
           messages={messages}
-          pending={false}
           readingOlder={false}
+          running={false}
           onReadOlder={null}
         />
       </div>

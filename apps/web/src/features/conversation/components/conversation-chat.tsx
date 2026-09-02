@@ -79,7 +79,7 @@ export function ConversationChat({
       <ConversationMessages
         error={chat.error}
         messages={transcript}
-        pending={chat.status === 'submitted'}
+        running={chat.status === 'submitted' || running}
         readingOlder={false}
         onReadOlder={null}
       />
@@ -88,9 +88,11 @@ export function ConversationChat({
 
       <ConversationPermissions onAnswer={actions.onAnswerPermission} waiting={permissions} />
 
-      <ConversationChanges {...sheet} />
-
-      <ComposerQueue actions={queue.actions} queued={queue.queued} />
+      {/* One strip for both pills; hidden when neither draws, so the column gap does not open for nothing. */}
+      <div className="flex justify-end gap-2 empty:hidden">
+        <ConversationChanges {...sheet} />
+        <ComposerQueue actions={queue.actions} queued={queue.queued} />
+      </div>
 
       {/* The provider carries the typed text, so the `/` suggestions can watch it. */}
       <PromptInputProvider>

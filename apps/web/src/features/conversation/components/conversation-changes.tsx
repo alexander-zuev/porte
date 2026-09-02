@@ -83,130 +83,117 @@ export function ConversationChanges({
   // No machine to ask: the composer already says so, the pill stays away.
   if (changes.status === 'offline') return null
   // The pill's own shape while the machine is asked, so the strip does not jump when it lands.
-  if (changes.status === 'pending') {
-    return (
-      <div className="flex justify-end">
-        <Skeleton className="h-8 w-40 rounded-md" />
-      </div>
-    )
-  }
+  // The pill's own shape while the machine is asked, so the strip does not jump when it lands.
+  if (changes.status === 'pending') return <Skeleton className="h-8 w-40 rounded-md" />
   if (changes.status === 'failed') {
     return (
-      <div className="flex justify-end">
-        <Button size="sm" variant="outline" onClick={changes.onRetry}>
-          <WarningIcon aria-hidden className="text-destructive-muted-foreground" />
-          Could not read diff
-        </Button>
-      </div>
+      <Button size="sm" variant="outline" onClick={changes.onRetry}>
+        <WarningIcon aria-hidden className="text-destructive-muted-foreground" />
+        Could not read diff
+      </Button>
     )
   }
   if (changes.files.length === 0) return null
   const totals = changeTotals(changes.files)
   const title = selected === null ? 'Diff' : splitPath(selected).name
 
-  // Right-aligned, where the queue pill sits: the composer's own row stays clear on the left.
+  // The parent's strip places the pill beside the queue's; the drawer root draws nothing of its own.
   return (
-    <div className="flex justify-end">
-      <Drawer
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next)
-          // Closing forgets the file, so the next open starts at the list.
-          if (!next) onSelect(null)
-        }}
-      >
-        <DrawerTrigger render={<Button aria-label="Open diff" size="sm" variant="outline" />}>
-          <GitDiffIcon aria-hidden className="text-muted-foreground" />
-          <span className="tabular-nums">
-            {totals.files} {totals.files === 1 ? 'file' : 'files'}
-          </span>
-          <ChangeCount change={totals} />
-        </DrawerTrigger>
-        <DrawerContent>
-          <SheetHeader
-            title={title}
-            // The one fact the phone cannot see otherwise: which branch Grok writes to.
-            subtitle={
-              selected === null ? (
-                <small className="flex max-w-full items-center gap-1.5 font-mono text-muted-foreground">
-                  <GitBranchIcon aria-hidden className="size-3.5 shrink-0" />
-                  <span className="truncate">{changes.branch ?? 'detached HEAD'}</span>
-                </small>
-              ) : undefined
-            }
-            action={
-              selected === null ? <LayoutMenu layout={layout} onChange={setLayout} /> : undefined
-            }
-            onBack={
-              selected === null
-                ? undefined
-                : () => {
-                    onSelect(null)
-                  }
-            }
-          />
-          <DrawerBody className="relative overflow-hidden px-0 pt-0">
-            <div
-              inert={selected !== null}
-              className={cn(
-                SHEET_PANEL,
-                'flex flex-col gap-4 pt-3',
-                selected !== null && '-translate-x-1/3',
-              )}
-            >
-              {groupChanges(changes.files, layout.group).map((section) => {
-                {
-                  /* The same card a folded tool run opens into: hairline rows, one file each. */
+    <Drawer
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        // Closing forgets the file, so the next open starts at the list.
+        if (!next) onSelect(null)
+      }}
+    >
+      <DrawerTrigger render={<Button aria-label="Open diff" size="sm" variant="outline" />}>
+        <GitDiffIcon aria-hidden className="text-muted-foreground" />
+        <span className="tabular-nums">
+          {totals.files} {totals.files === 1 ? 'file' : 'files'}
+        </span>
+        <ChangeCount change={totals} />
+      </DrawerTrigger>
+      <DrawerContent>
+        <SheetHeader
+          title={title}
+          // The one fact the phone cannot see otherwise: which branch Grok writes to.
+          subtitle={
+            selected === null ? (
+              <small className="flex max-w-full items-center gap-1.5 font-mono text-muted-foreground">
+                <GitBranchIcon aria-hidden className="size-3.5 shrink-0" />
+                <span className="truncate">{changes.branch ?? 'detached HEAD'}</span>
+              </small>
+            ) : undefined
+          }
+          action={
+            selected === null ? <LayoutMenu layout={layout} onChange={setLayout} /> : undefined
+          }
+          onBack={
+            selected === null
+              ? undefined
+              : () => {
+                  onSelect(null)
                 }
-                const card = (
-                  <div className="divide-y rounded-xl border">
-                    {layout.view === 'tree' ? (
-                      <TreeRows files={section.files} onSelect={onSelect} />
-                    ) : (
-                      changesList(section.files, layout.sort).map((file) => (
-                        <FileRow
-                          key={file.path}
-                          depth={0}
-                          file={file}
-                          showDirectory
-                          onSelect={() => {
-                            onSelect(file.path)
-                          }}
-                        />
-                      ))
-                    )}
-                  </div>
-                )
-                if (layout.group === 'none') return <section key={section.title}>{card}</section>
-                // Each section folds under its heading, the way Zed's Tracked and Untracked do.
-                return (
-                  <Collapsible
-                    key={section.title}
-                    defaultOpen
-                    className="group flex flex-col gap-2"
-                  >
-                    <CollapsibleTrigger className={cn(toolRowClass, 'min-h-9 px-1')}>
-                      <CaretRightIcon
-                        aria-hidden
-                        className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+          }
+        />
+        <DrawerBody className="relative overflow-hidden px-0 pt-0">
+          <div
+            inert={selected !== null}
+            className={cn(
+              SHEET_PANEL,
+              'flex flex-col gap-4 pt-3',
+              selected !== null && '-translate-x-1/3',
+            )}
+          >
+            {groupChanges(changes.files, layout.group).map((section) => {
+              {
+                /* The same card a folded tool run opens into: hairline rows, one file each. */
+              }
+              const card = (
+                <div className="divide-y rounded-xl border">
+                  {layout.view === 'tree' ? (
+                    <TreeRows files={section.files} onSelect={onSelect} />
+                  ) : (
+                    changesList(section.files, layout.sort).map((file) => (
+                      <FileRow
+                        key={file.path}
+                        depth={0}
+                        file={file}
+                        showDirectory
+                        onSelect={() => {
+                          onSelect(file.path)
+                        }}
                       />
-                      <small>{section.title}</small>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="outline-none">{card}</CollapsibleContent>
-                  </Collapsible>
-                )
-              })}
-            </div>
-            <div
-              inert={selected === null}
-              className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
-            >
-              {selected === null ? null : <DiffPanel path={selected} diff={diff} />}
-            </div>
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
-    </div>
+                    ))
+                  )}
+                </div>
+              )
+              if (layout.group === 'none') return <section key={section.title}>{card}</section>
+              // Each section folds under its heading, the way Zed's Tracked and Untracked do.
+              return (
+                <Collapsible key={section.title} defaultOpen className="group flex flex-col gap-2">
+                  <CollapsibleTrigger className={cn(toolRowClass, 'min-h-9 px-1')}>
+                    <CaretRightIcon
+                      aria-hidden
+                      className="size-3 shrink-0 transition-transform duration-150 ease-out group-data-panel-open:rotate-90 motion-reduce:transition-none"
+                    />
+                    <small>{section.title}</small>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="outline-none">{card}</CollapsibleContent>
+                </Collapsible>
+              )
+            })}
+          </div>
+          <div
+            inert={selected === null}
+            className={cn(SHEET_PANEL, 'pt-3', selected === null && 'translate-x-full')}
+          >
+            {selected === null ? null : <DiffPanel path={selected} diff={diff} />}
+          </div>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   )
 }
 

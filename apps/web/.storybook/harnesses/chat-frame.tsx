@@ -84,7 +84,7 @@ export function ChatFrame({
       <ConversationMessages
         error={error}
         messages={messages}
-        pending={status === 'submitted'}
+        running={running}
         readingOlder={readingOlder}
         onReadOlder={onReadOlder}
       />
@@ -93,9 +93,10 @@ export function ChatFrame({
 
       <ConversationPermissions onAnswer={onAnswer} waiting={permissions} />
 
-      {changes}
-
-      {queue}
+      <div className="flex justify-end gap-2 empty:hidden">
+        {changes}
+        {queue}
+      </div>
 
       <PromptInput
         className="mb-[max(0.5rem,env(safe-area-inset-bottom))]"

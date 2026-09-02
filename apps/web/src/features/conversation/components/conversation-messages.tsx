@@ -36,8 +36,8 @@ import { ToolRun } from './tool-run.tsx'
 
 export type ConversationMessagesProps = {
   readonly messages: readonly UIMessage[]
-  /** A prompt is sent and no part of the answer has arrived. */
-  readonly pending: boolean
+  /** A turn is in flight. The answer's slot is held until the answer shows something. */
+  readonly running: boolean
   /** The last turn stopped on its own. Shown under what it managed to say. */
   readonly error?: Error
   /** Older turns exist. Absent once the whole transcript has been read. */
@@ -55,18 +55,27 @@ type Row =
 
 function transcriptRows({
   messages,
-  pending,
+  running,
   error,
   onReadOlder,
 }: ConversationMessagesProps): Row[] {
   const rows: Row[] = []
   if (messages.length === 0) rows.push({ kind: 'empty', key: 'empty' })
   if (onReadOlder !== null) rows.push({ kind: 'older', key: 'older' })
-  for (const message of messages) rows.push({ kind: 'message', key: message.id, message })
-  // The answer's slot, held until the answer takes it.
-  if (pending) rows.push({ kind: 'pending', key: 'pending' })
+  // The stream's first chunks make an answer with nothing to draw. It gets no row,
+  // so the slot below holds "Thinking…" in place until the first part lands.
+  const shown = messages.filter(
+    (message) => message.role !== 'assistant' || hasVisiblePart(message),
+  )
+  for (const message of shown) rows.push({ kind: 'message', key: message.id, message })
+  if (running && shown.at(-1)?.role !== 'assistant') rows.push({ kind: 'pending', key: 'pending' })
   if (error !== undefined) rows.push({ kind: 'failed', key: 'failed', error })
   return rows
+}
+
+/** `step-start` draws nothing; every other part takes space. */
+function hasVisiblePart(message: UIMessage): boolean {
+  return message.parts.some((part) => part.type !== 'step-start')
 }
 
 /**
