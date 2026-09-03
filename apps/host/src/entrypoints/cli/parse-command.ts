@@ -1,6 +1,7 @@
 import { parseArgs } from 'node:util'
 
 import { UsageError } from './cli-error.ts'
+import { parseRcWords, type RcVerb } from './rc-verb.ts'
 import { VERSION } from './version.ts'
 
 export { VERSION }
@@ -74,36 +75,24 @@ Environment:
 
 /** Help for `porte rc`. */
 export const RC_HELP = `Usage:
-  porte rc <verb>
+  porte rc [verb]
 
 Remote-control verbs. The Grok plugin runs these; they also work by hand.
 
 Verbs:
-  toggle           Turn remote control on or off
-  status           One line: on, off, or not paired
-  unpair           Remove this machine from your Porte account
-  enable-hook      Answer /remote-control instantly, without a model turn
-  disable-hook     Back to running /remote-control through the model
-  hook             Read a Grok hook payload on stdin, answer on stdout
-  watch-pairing    Wait for a phone approval (started by toggle, detached)
+  (none)                  Turn remote control on or off
+  on | off                Turn remote control on or off, explicitly
+  status                  One line: on, off, or not paired
+  status-line [on | off]  Show or hide the /rc row in Grok's status line
+  unpair                  Remove this machine from your Porte account
+  enable-hook             Answer /remote-control instantly, without a model turn
+  disable-hook            Back to running /remote-control through the model
+  hook                    Read a Grok hook payload on stdin, answer on stdout
+  watch-pairing           Wait for a phone approval (started by on, detached)
 
 Options:
   -h, --help        Show this help
 `
-
-/** The rc verbs `porte rc` accepts. */
-const RC_VERBS = [
-  'hook',
-  'toggle',
-  'status',
-  'unpair',
-  'enable-hook',
-  'disable-hook',
-  'watch-pairing',
-] as const
-
-/** One remote-control verb. */
-export type RcVerbName = (typeof RC_VERBS)[number]
 
 /** Parsed argv. */
 export type Command =
@@ -113,7 +102,7 @@ export type Command =
   | { readonly kind: 'unpair' }
   | { readonly kind: 'up' }
   | { readonly kind: 'mcp' }
-  | { readonly kind: 'rc'; readonly verb: RcVerbName }
+  | { readonly kind: 'rc'; readonly verb: RcVerb }
 
 /**
  * Parse POSIX flags and one subcommand.
@@ -175,17 +164,13 @@ export function parseCommand(argv: readonly string[]): Command {
     return { kind: 'mcp' }
   }
   if (verb === 'rc') {
-    const rcVerb = positionals[1]
-    if (positionals.length !== 2 || !isRcVerb(rcVerb)) {
+    const rcVerb = parseRcWords(positionals.slice(1))
+    if (rcVerb === null) {
       throw new UsageError({ message: RC_HELP.trimEnd() })
     }
     return { kind: 'rc', verb: rcVerb }
   }
   throw new UsageError({ message: HELP.trimEnd() })
-}
-
-function isRcVerb(value: string | undefined): value is RcVerbName {
-  return RC_VERBS.some((verb) => verb === value)
 }
 
 function parseCommandArgs(argv: readonly string[]) {

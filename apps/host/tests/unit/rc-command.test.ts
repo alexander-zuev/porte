@@ -1,34 +1,78 @@
 import {
   blockDecision,
-  parseRcVerb,
+  renderStatusLineResult,
   renderStatusResult,
-  renderToggleResult,
+  renderSwitchResult,
   renderUnpairResult,
+  statusLineNote,
 } from '@host/entrypoints/cli/rc-command.ts'
+import { parsePromptVerb, parseRcWords } from '@host/entrypoints/cli/rc-verb.ts'
 import { describe, expect, it } from 'vitest'
 
-describe('parseRcVerb', () => {
+describe('parsePromptVerb', () => {
   it('maps each prompt form onto its verb', () => {
-    expect(parseRcVerb('/remote-control')).toBe('toggle')
-    expect(parseRcVerb('/remote-control ')).toBe('toggle')
-    expect(parseRcVerb('/remote-control status')).toBe('status')
-    expect(parseRcVerb('/remote-control unpair')).toBe('unpair')
+    expect(parsePromptVerb('/remote-control')).toEqual({ kind: 'remote', to: 'toggle' })
+    expect(parsePromptVerb('/remote-control ')).toEqual({ kind: 'remote', to: 'toggle' })
+    expect(parsePromptVerb('/remote-control on')).toEqual({ kind: 'remote', to: 'on' })
+    expect(parsePromptVerb('/remote-control off')).toEqual({ kind: 'remote', to: 'off' })
+    expect(parsePromptVerb('/remote-control status')).toEqual({ kind: 'status' })
+    expect(parsePromptVerb('/remote-control status-line')).toEqual({
+      kind: 'status-line',
+      to: 'toggle',
+    })
+    expect(parsePromptVerb('/remote-control status-line off')).toEqual({
+      kind: 'status-line',
+      to: 'off',
+    })
+    expect(parsePromptVerb('/remote-control unpair')).toEqual({ kind: 'unpair' })
   })
 
-  it('treats an unknown suffix as unknown, never as a toggle', () => {
-    expect(parseRcVerb('/remote-control off please')).toBe('unknown')
+  it('treats unknown words as unknown, never as a toggle; plugin verbs are not for prompts', () => {
+    expect(parsePromptVerb('/remote-control off please')).toBe('unknown')
+    expect(parsePromptVerb('/remote-control status-line maybe')).toBe('unknown')
+    expect(parsePromptVerb('/remote-control hook')).toBe('unknown')
   })
 
   it('rejects prompts that are not the command', () => {
-    expect(parseRcVerb('tell me about /remote-control')).toBeNull()
-    expect(parseRcVerb('remote-control')).toBeNull()
+    expect(parsePromptVerb('tell me about /remote-control')).toBeNull()
+    expect(parsePromptVerb('remote-control')).toBeNull()
+  })
+})
+
+describe('parseRcWords', () => {
+  it('accepts the plugin verbs and refuses extra words', () => {
+    expect(parseRcWords(['hook'])).toEqual({ kind: 'hook' })
+    expect(parseRcWords(['watch-pairing'])).toEqual({ kind: 'watch-pairing' })
+    expect(parseRcWords(['toggle'])).toEqual({ kind: 'remote', to: 'toggle' })
+    expect(parseRcWords(['on', 'now'])).toBeNull()
+    expect(parseRcWords(['status', 'line'])).toBeNull()
+    expect(parseRcWords(['dance'])).toBeNull()
   })
 })
 
 describe('rendering', () => {
-  it('renders every toggle result as its exact line', () => {
+  it('renders every status-line outcome and note as its exact line', () => {
+    expect(renderStatusLineResult(true, 'added')).toBe(
+      'Status row on. Restart Grok to see the /rc row.',
+    )
+    expect(renderStatusLineResult(true, 'unwritable')).toBe(
+      'Status row on, but ~/.grok/config.toml could not be written.',
+    )
+    expect(renderStatusLineResult(false, 'off')).toBe('Status row off. Restart Grok to hide it.')
+    expect(statusLineNote('current')).toBe('')
+    expect(statusLineNote('off')).toBe('')
+    expect(statusLineNote('added')).toBe('\nRestart Grok once to see the /rc status row.')
+    expect(statusLineNote('theirs')).toBe(
+      '\nGrok already has a status line of its own. /remote-control status-line replaces it with the /rc row.',
+    )
+  })
+
+  it('renders every switch result as its exact line', () => {
+    expect(renderSwitchResult({ type: 'not-paired' })).toBe(
+      'This machine is not paired. Run /remote-control to pair.',
+    )
     expect(
-      renderToggleResult({
+      renderSwitchResult({
         type: 'pairing-started',
         verificationUriComplete: 'https://useporte.dev/pair?code=ABC123',
         userCode: 'ABC123',
@@ -37,7 +81,7 @@ describe('rendering', () => {
       'Open this link on your phone to approve this machine (code ABC123):\n\nhttps://useporte.dev/pair?code=ABC123\n\nIt connects on its own once you approve.',
     )
     expect(
-      renderToggleResult({
+      renderSwitchResult({
         type: 'pairing-pending',
         verificationUriComplete: 'https://useporte.dev/pair?code=ABC123',
         userCode: 'ABC123',
@@ -45,13 +89,13 @@ describe('rendering', () => {
     ).toBe(
       'Still waiting for approval. Open this link on your phone (code ABC123):\n\nhttps://useporte.dev/pair?code=ABC123',
     )
-    expect(renderToggleResult({ type: 'connected', url: 'https://useporte.dev' })).toBe(
+    expect(renderSwitchResult({ type: 'connected', url: 'https://useporte.dev' })).toBe(
       "Remote control on. Run this machine's Grok sessions from your phone: https://useporte.dev",
     )
-    expect(renderToggleResult({ type: 'connecting', url: 'https://useporte.dev' })).toBe(
+    expect(renderSwitchResult({ type: 'connecting', url: 'https://useporte.dev' })).toBe(
       'Turning remote control on. Run /remote-control status in a moment.',
     )
-    expect(renderToggleResult({ type: 'disconnected' })).toBe('Remote control off.')
+    expect(renderSwitchResult({ type: 'disconnected' })).toBe('Remote control off.')
   })
 
   it('renders every status result as its exact line', () => {

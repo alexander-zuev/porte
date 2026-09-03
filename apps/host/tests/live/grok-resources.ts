@@ -3,6 +3,7 @@ import { mkdtemp, readdir, realpath, rm, stat } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { setTimeout as sleep } from 'node:timers/promises'
 
 import { describe } from 'vitest'
 
@@ -44,20 +45,37 @@ export async function cleanupGrokSessions(): Promise<void> {
   const stale = await staleWorkspaces(sessions)
   const targets = new Set([...workspaces, ...stale])
   if (targets.size === 0) return
-  // Grok's own process may hold the index while a client is still shutting down.
-  const index = new DatabaseSync(join(sessions, 'session_search.sqlite'), { timeout: 5_000 })
-  try {
-    const remove = index.prepare('DELETE FROM session_docs WHERE cwd = ?')
-    for (const cwd of targets) {
-      remove.run(cwd)
-      await rm(join(sessions, encodeURIComponent(cwd)), { recursive: true, force: true })
-      await rm(cwd, { recursive: true, force: true })
-    }
-    index.exec("INSERT INTO session_docs_fts(session_docs_fts) VALUES('rebuild')")
-  } finally {
-    index.close()
+  // Files first: they never lock, so a busy index cannot leave a workspace behind.
+  for (const cwd of targets) {
+    await rm(join(sessions, encodeURIComponent(cwd)), { recursive: true, force: true })
+    await rm(cwd, { recursive: true, force: true })
   }
   workspaces.clear()
+  await removeFromIndex(join(sessions, 'session_search.sqlite'), targets)
+}
+
+/** How long the index may stay busy: Grok's own process holds it while a client shuts down. */
+const INDEX_RETRIES = 6
+const INDEX_RETRY_MS = 5_000
+
+/** Drop the rows `session/list` is served from, waiting out a busy Grok. */
+async function removeFromIndex(path: string, cwds: ReadonlySet<string>): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      const index = new DatabaseSync(path, { timeout: INDEX_RETRY_MS })
+      try {
+        const remove = index.prepare('DELETE FROM session_docs WHERE cwd = ?')
+        for (const cwd of cwds) remove.run(cwd)
+        index.exec("INSERT INTO session_docs_fts(session_docs_fts) VALUES('rebuild')")
+        return
+      } finally {
+        index.close()
+      }
+    } catch (error) {
+      if (attempt >= INDEX_RETRIES) throw error
+      await sleep(INDEX_RETRY_MS)
+    }
+  }
 }
 
 /** A leftover is stale only when old: another vitest worker's live workspace is minutes fresh. */

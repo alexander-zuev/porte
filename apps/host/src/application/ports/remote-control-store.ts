@@ -6,9 +6,14 @@ import type { DeviceCodeGrant } from '@host/application/ports/device-authorizer.
  * `enabled`: connect on session start, or stay offline. `hook`: answer
  * `/remote-control` instantly through the prompt hook (opt-in — Grok frames a
  * hook answer as "Prompt blocked", which reads as an error), or let the skill
- * run it through the model.
+ * run it through the model. `statusLine`: keep the `/rc` row in Grok's status
+ * line (on until the person turns it off).
  */
-export type RcSettingsSnapshot = { readonly enabled: boolean; readonly hook: boolean }
+export type RcSettingsSnapshot = {
+  readonly enabled: boolean
+  readonly hook: boolean
+  readonly statusLine: boolean
+}
 
 /** A read also says which write it saw, so a daemon can tell "changed" from "same again". */
 export type RcSettingsRead = RcSettingsSnapshot & { readonly generation: number }

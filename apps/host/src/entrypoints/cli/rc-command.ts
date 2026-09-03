@@ -4,51 +4,37 @@ import { join } from 'node:path'
 
 import {
   setHook,
+  setStatusLine,
   status,
-  toggle,
+  switchRemoteControl,
   unpair,
   type RcStatusResult,
-  type RcToggleResult,
+  type RcSwitchResult,
   type RcUnpairResult,
   type RemoteControlDeps,
 } from '@host/application/commands/remote-control.ts'
 import type { HostFailure } from '@host/application/ports/remote-control-store.ts'
+import { parsePromptVerb, type PromptVerb, type RcVerb } from '@host/entrypoints/cli/rc-verb.ts'
 import { runWatchPairing } from '@host/entrypoints/cli/watch-pairing.ts'
 import { createRemoteControlDeps } from '@host/infrastructure/bootstrap/remote-control-resources.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import {
   disableLeaderMode,
-  installGrokHook,
-  removeGrokHook,
+  installStatusLineConfig,
   removeStatusLineConfig,
+  syncGrokConfig,
+  type GrokConfigSync,
+  type InstallGrokHookInput,
 } from '@host/infrastructure/grok/hook-installer.ts'
 import { readAllText } from '@host/infrastructure/node/read-stream.ts'
 import { UPDATE_AVAILABLE_FILE, updateNoticeLine } from '@host/infrastructure/update-notice.ts'
 import { z } from 'zod'
 
-/** The rc verbs a person or the hook can run. */
-export type RcVerb =
-  | 'hook'
-  | 'toggle'
-  | 'status'
-  | 'unpair'
-  | 'enable-hook'
-  | 'disable-hook'
-  | 'watch-pairing'
-
-/** What one prompt asks for, or null when the prompt is not the command. */
-export function parseRcVerb(prompt: string): 'toggle' | 'status' | 'unpair' | 'unknown' | null {
-  if (!prompt.startsWith('/remote-control')) return null
-  const rest = prompt.slice('/remote-control'.length).trim()
-  if (rest === '') return 'toggle'
-  if (rest === 'status') return 'status'
-  if (rest === 'unpair') return 'unpair'
-  return 'unknown'
-}
-
-/** The exact line for each toggle outcome. The hook prints it verbatim. */
-export function renderToggleResult(result: RcToggleResult): string {
+/** The exact line for each on/off outcome. The hook prints it verbatim. */
+export function renderSwitchResult(result: RcSwitchResult): string {
   switch (result.type) {
+    case 'not-paired':
+      return 'This machine is not paired. Run /remote-control to pair.'
     case 'pairing-started':
       // The link stands alone on its own line so it can be copied in one gesture.
       return `Open this link on your phone to approve this machine (code ${result.userCode}):\n\n${result.verificationUriComplete}\n\nIt connects on its own once you approve.`
@@ -109,7 +95,32 @@ export function blockDecision(reason: string): string {
 }
 
 const UNKNOWN_OPTION =
-  'Unknown option. Use /remote-control, /remote-control status, or /remote-control unpair.'
+  'Unknown option. Use /remote-control [on|off], /remote-control status, /remote-control status-line [on|off], or /remote-control unpair.'
+
+/** The exact line for each status-line outcome. */
+export function renderStatusLineResult(on: boolean, sync: GrokConfigSync['statusLine']): string {
+  if (!on) return 'Status row off. Restart Grok to hide it.'
+  if (sync === 'unwritable') return 'Status row on, but ~/.grok/config.toml could not be written.'
+  return 'Status row on. Restart Grok to see the /rc row.'
+}
+
+/**
+ * One extra line after toggle or status when the row is not showing yet, so the
+ * person (or the agent reading for them) knows the one step that fixes it.
+ */
+export function statusLineNote(sync: GrokConfigSync['statusLine']): string {
+  switch (sync) {
+    case 'added':
+      return '\nRestart Grok once to see the /rc status row.'
+    case 'theirs':
+      return '\nGrok already has a status line of its own. /remote-control status-line replaces it with the /rc row.'
+    case 'unwritable':
+      return '\nCould not write the /rc status row to ~/.grok/config.toml.'
+    case 'current':
+    case 'off':
+      return ''
+  }
+}
 
 /** Grok's hook payload; every field except the prompt is irrelevant here. */
 const HookPayloadSchema = z.object({ prompt: z.string() })
@@ -131,22 +142,21 @@ export type RunRcCommandInput = {
 export async function runRcCommand(input: RunRcCommandInput): Promise<number> {
   const deps = createRemoteControlDeps(input.config)
 
-  if (input.verb === 'watch-pairing') {
+  if (input.verb.kind === 'watch-pairing') {
     await runWatchPairing(deps, input.stdin)
     return 0
   }
 
-  if (input.verb === 'hook') {
-    const text = await hookText(deps, input.stdin)
+  if (input.verb.kind === 'hook') {
+    const text = await hookText(deps, input.stdin, grokPaths(input.config))
     if (text !== null) input.stdout.write(blockDecision(text))
     return 0
   }
 
-  if (input.verb === 'enable-hook' || input.verb === 'disable-hook') {
-    const on = input.verb === 'enable-hook'
+  if (input.verb.kind === 'enable-hook' || input.verb.kind === 'disable-hook') {
+    const on = input.verb.kind === 'enable-hook'
     await setHook(deps, on)
-    const paths = { grokHome: join(homedir(), '.grok'), porteHome: input.config.dataDirectory }
-    await (on ? installGrokHook(paths) : removeGrokHook(paths))
+    await syncGrokConfig(await deps.settings.read(), grokPaths(input.config))
     input.stdout.write(
       on
         ? 'Instant /remote-control is on for new Grok sessions. Grok frames a hook answer as "Prompt blocked" — that is its wording, not an error.\n'
@@ -155,9 +165,13 @@ export async function runRcCommand(input: RunRcCommandInput): Promise<number> {
     return 0
   }
 
-  const line = await verbLine(deps, input.verb)
+  const line = await verbLine(deps, input.verb, grokPaths(input.config))
   input.stdout.write(`${line}${await updateSuffix(input.config.dataDirectory)}\n`)
   return 0
+}
+
+function grokPaths(config: HostConfig): InstallGrokHookInput {
+  return { grokHome: join(homedir(), '.grok'), porteHome: config.dataDirectory }
 }
 
 /** One extra line when the daemon has marked a newer release; silence otherwise. */
@@ -170,33 +184,59 @@ async function updateSuffix(dataDirectory: string): Promise<string> {
 async function hookText(
   deps: RemoteControlDeps,
   stdin: NodeJS.ReadableStream,
+  paths: InstallGrokHookInput,
 ): Promise<string | null> {
   const payload = HookPayloadSchema.safeParse(JSON.parse(await readAllText(stdin)))
   if (!payload.success) return null
-  const verb = parseRcVerb(payload.data.prompt)
+  const verb = parsePromptVerb(payload.data.prompt)
   if (verb === null) return null
   if (verb === 'unknown') return UNKNOWN_OPTION
-  return verbLine(deps, verb)
+  return verbLine(deps, verb, paths)
 }
 
 async function verbLine(
   deps: RemoteControlDeps,
-  verb: 'toggle' | 'status' | 'unpair',
+  verb: PromptVerb,
+  paths: InstallGrokHookInput,
 ): Promise<string> {
-  switch (verb) {
-    case 'toggle':
-      return renderToggleResult(await toggle(deps))
-    case 'status':
-      return renderStatusResult(await status(deps))
+  switch (verb.kind) {
+    case 'remote': {
+      const line = renderSwitchResult(await switchRemoteControl(deps, verb.to))
+      return line + statusLineNote(await syncChoices(deps, paths))
+    }
+    case 'status': {
+      const line = renderStatusResult(await status(deps))
+      return line + statusLineNote(await syncChoices(deps, paths))
+    }
+    case 'status-line': {
+      const on = await setStatusLine(deps, verb.to)
+      // The explicit verb is the one place a status line that is not ours gives way.
+      const sync = on
+        ? await installStatusLineConfig(paths.grokHome, paths.porteHome, { foreign: 'replace' })
+            .then((result): GrokConfigSync['statusLine'] => result)
+            .catch((): GrokConfigSync['statusLine'] => 'unwritable')
+        : await removeStatusLineConfig(paths.grokHome)
+            .then((): GrokConfigSync['statusLine'] => 'off')
+            .catch((): GrokConfigSync['statusLine'] => 'unwritable')
+      return renderStatusLineResult(on, sync)
+    }
     case 'unpair': {
       const result = await unpair(deps)
       // Porte leaves Grok as it found it: no shared session process and no status line of ours.
       if (result.type === 'unpaired') {
-        const grokHome = join(homedir(), '.grok')
-        await disableLeaderMode(grokHome).catch(() => null)
-        await removeStatusLineConfig(grokHome).catch(() => null)
+        await disableLeaderMode(paths.grokHome).catch(() => null)
+        await removeStatusLineConfig(paths.grokHome).catch(() => null)
       }
       return renderUnpairResult(result)
     }
   }
+}
+
+/** Every `/remote-control` is an install or update moment: bring Grok's files in line. */
+async function syncChoices(
+  deps: RemoteControlDeps,
+  paths: InstallGrokHookInput,
+): Promise<GrokConfigSync['statusLine']> {
+  const sync = await syncGrokConfig(await deps.settings.read(), paths)
+  return sync.statusLine
 }

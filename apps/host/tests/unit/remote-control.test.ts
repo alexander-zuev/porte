@@ -1,9 +1,12 @@
 import {
+  setStatusLine,
   status,
-  toggle,
+  switchRemoteControl,
   unpair,
   type RemoteControlDeps,
 } from '@host/application/commands/remote-control.ts'
+
+const toggle = (deps: RemoteControlDeps) => switchRemoteControl(deps, 'toggle')
 import type { CredentialStore, StoredCredential } from '@host/application/ports/credential-store.ts'
 import type { DeviceAuthorizer } from '@host/application/ports/device-authorizer.ts'
 import type {
@@ -24,7 +27,12 @@ function fakeDeps(overrides?: {
   stateAfterEnable?: RcStateSnapshot
 }) {
   let credential = overrides?.credential ?? null
-  let settings = { enabled: overrides?.enabled ?? false, hook: false, generation: 0 }
+  let settings = {
+    enabled: overrides?.enabled ?? false,
+    hook: false,
+    statusLine: true,
+    generation: 0,
+  }
   let state = overrides?.state ?? ({ status: 'off' } as const)
   let pending: ReturnType<RcPairingStore['read']> extends Promise<infer T> ? T : never = null
   const revoked: string[] = []
@@ -111,6 +119,7 @@ function fakeDeps(overrides?: {
     revoked: () => revoked,
     watched: () => watched,
     settings: () => ({ enabled: settings.enabled, hook: settings.hook }),
+    statusLine: () => settings.statusLine,
     generation: () => settings.generation,
     pending: () => pending,
     credential: () => credential,
@@ -219,6 +228,40 @@ describe('toggle', () => {
 
     expect(result).toEqual({ type: 'disconnected' })
     expect(test.settings()).toEqual({ enabled: false, hook: false })
+  })
+
+  it('"on" while already on confirms without a write; "off" while off is a plain off', async () => {
+    const on = fakeDeps({
+      credential: PAIRED,
+      enabled: true,
+      state: { status: 'on', url: 'https://useporte.dev', pid: 42 },
+    })
+    expect(await switchRemoteControl(on.deps, 'on')).toEqual({
+      type: 'connected',
+      url: 'https://useporte.dev',
+    })
+    expect(on.generation()).toBe(0)
+
+    const off = fakeDeps({ credential: PAIRED })
+    expect(await switchRemoteControl(off.deps, 'off')).toEqual({ type: 'disconnected' })
+    expect(off.settings()).toEqual({ enabled: false, hook: false })
+  })
+
+  it('"off" on a machine that was never paired starts no pairing', async () => {
+    const test = fakeDeps()
+    expect(await switchRemoteControl(test.deps, 'off')).toEqual({ type: 'not-paired' })
+    expect(test.watched()).toEqual([])
+  })
+})
+
+describe('setStatusLine', () => {
+  it('records the choice: explicit words are idempotent, toggle flips', async () => {
+    const test = fakeDeps()
+    expect(await setStatusLine(test.deps, 'off')).toBe(false)
+    expect(await setStatusLine(test.deps, 'off')).toBe(false)
+    expect(await setStatusLine(test.deps, 'toggle')).toBe(true)
+    expect(await setStatusLine(test.deps, 'on')).toBe(true)
+    expect(test.statusLine()).toBe(true)
   })
 })
 

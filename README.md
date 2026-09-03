@@ -8,33 +8,37 @@ https://useporte.dev
 
 ## Install
 
-As a Grok plugin — no manual install; Grok runs Porte with each session. Needs Node 22+. The official marketplace listing is not approved yet, so install from this repository:
+Paste this into any agent on the machine:
+
+> Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.
+
+Or by hand (Node 22+):
 
 ```sh
 grok plugin marketplace add alexander-zuev/porte
 grok plugin install porte --trust
 ```
 
-Once the official listing lands ([xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463)), the first command becomes unnecessary.
+Then, in a new Grok session:
 
-Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.3.2 rc disable-hook` first; plugin uninstall does not remove it.
+- `/remote-control` prints a link. Open it on your phone and approve. The machine connects on its own and stays connected across sessions.
+- `/remote-control` again turns remote control off; once more turns it on. `/remote-control on` and `off` say it explicitly.
+- `/remote-control status` shows the state and the URL.
+- `/remote-control unpair` removes the machine from your account.
 
-Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.3.2 rc enable-hook` (undo with `rc disable-hook`).
+The `/rc` row at the bottom of Grok shows the same: green when reachable, red with the fix when not. `/remote-control status-line off` hides it, `on` brings it back.
 
-Status row in Grok — green `/rc on` while the machine is reachable, yellow while it connects, red with the fix when it cannot. Porte adds it to `~/.grok/config.toml` on the first session, unless you already have a status line of your own, which it leaves alone:
+Instant `/remote-control`, no model turn: `npx -y @porte/cli@0.3.2 rc enable-hook`.
 
-```toml
-[ui.status_line]
-type = "command"
-command = "~/.porte/statusline.sh"
-refresh_interval = 2
+## Update
+
+```sh
+grok plugin marketplace update porte && grok plugin update porte
 ```
 
-Or hand it to your agent:
+Then start a new Grok session.
 
-> Fetch and execute the instructions from https://useporte.dev/agent-setup/prompt.md to set up Porte on this machine.
-
-## What it does
+## Features
 
 ```
 Phone (your account)  →  Porte  →  your paired machine
@@ -44,33 +48,23 @@ Phone (your account)  →  Porte  →  your paired machine
                                            local repos
 ```
 
-Works today:
+- Open any Grok conversation on the machine, or start one in a known repo
+- Read the transcript live, also for turns you started in the terminal: thoughts, tool calls with diffs, the answer
+- Prompt, attach files, run slash commands, stop a turn, queue a prompt while a turn runs
+- Allow or deny a permission request; the terminal sees the answer
+- Switch the model and its reasoning effort; see the mode and context usage
+- Open uncommitted changes and read a file's diff
 
-- Open any Grok conversation on the paired machine, or start one in a known repo
-- Read the transcript live: thoughts, tool calls with diffs and read output, Grok's answer
-- Prompt, attach files, run slash commands, stop a turn
-- Queue a prompt while a turn runs; it sends when the turn ends
-- Open uncommitted changes from the pill above the composer; tap a file for its diff
-- Allow or deny a permission request from the phone
-- Switch the model and its reasoning effort from the composer; mode and context usage shown beside it
-- Install as a home-screen app on iOS and Android
-- Pair, connect, and disconnect from inside Grok with one `/remote-control` command (Grok plugin)
+## Planned
 
-Not yet:
-
-- Live output of a turn you started in the TUI: the phone shows it once that turn ends
-- Grok's own questions to you (`ask_user_question`): the turn waits until you answer in the TUI
+- `@file` mentions in the composer
 - Push notification when Grok needs an approval
+- Grok's own questions to you (`ask_user_question`); today the turn waits for the terminal
 - Switching the permission mode from the phone
-- More than one paired machine per account
 
 ## Safety
 
-Remote Grok is the same Grok you already run: same directory, `AGENTS.md`, rules, hooks, sandbox, and ask/deny. No `--always-approve`. No extra filesystem or network power. Deny on the phone is deny.
-
-Porte stores your account, pairing, and the transcript of conversations you run through it, so the phone can read while the machine is offline. Repos, files, and your grok.com login stay on the machine. [Privacy](https://useporte.dev/privacy).
-
-The CLI stores a Porte bearer credential at `~/.porte/credentials.json` with owner-only file permissions. `/remote-control unpair` revokes the credential and deletes the file.
+Remote Grok is the same Grok you already run, with the same directory, `AGENTS.md`, hooks, sandbox, and ask/deny. Nothing is auto-approved. Repos, files, and your grok.com login stay on the machine. Porte stores your account, the pairing, and the transcripts you open, so the phone can read while the machine is offline ([Privacy](https://useporte.dev/privacy)). The pairing credential is `~/.porte/credentials.json`, readable by you only; `/remote-control unpair` revokes and deletes it.
 
 ## Development
 

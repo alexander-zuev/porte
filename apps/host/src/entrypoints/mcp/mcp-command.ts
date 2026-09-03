@@ -9,13 +9,7 @@ import {
   createRemoteControlDeps,
 } from '@host/infrastructure/bootstrap/remote-control-resources.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
-import {
-  enableLeaderMode,
-  installGrokHook,
-  installStatusLineConfig,
-  installStatusLineScript,
-  removeGrokHook,
-} from '@host/infrastructure/grok/hook-installer.ts'
+import { syncGrokConfig } from '@host/infrastructure/grok/hook-installer.ts'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 /** How often the daemon re-reads the sticky choice and the lock. */
@@ -38,16 +32,8 @@ export async function runMcpCommand(config: HostConfig): Promise<void> {
     state: deps.state,
     credentials: deps.credentials,
     installHook: async () => {
-      // A read-only Grok home must not stop the daemon; the skill path still works.
       const paths = { grokHome: join(homedir(), '.grok'), porteHome: config.dataDirectory }
-      const settings = await deps.settings.read()
-      const syncHook = settings.hook ? installGrokHook(paths) : removeGrokHook(paths)
-      await syncHook.catch(() => null)
-      // One shared Grok backend for the TUI and the Host; takes effect at the next Grok start.
-      await enableLeaderMode(paths.grokHome).catch(() => null)
-      await installStatusLineScript(config.dataDirectory).catch(() => null)
-      // Grok has one status line: ours goes in only when it is free or already ours.
-      await installStatusLineConfig(paths.grokHome, config.dataDirectory).catch(() => null)
+      await syncGrokConfig(await deps.settings.read(), paths)
     },
     createRuntime: (signal) => createHostRuntime(config, signal),
     pollMs: POLL_MS,

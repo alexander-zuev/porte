@@ -65,24 +65,63 @@ const OUR_COMMAND_LINE = /^\s*command\s*=.*porte.*statusline\.sh/
 /** Two seconds: one `cat` and one `kill -0`, and the line follows the daemon within a poll. */
 const STATUS_LINE_REFRESH_S = 2
 
+/** `added`: written now, so Grok shows it after a restart. `theirs`: someone else's status line kept. */
+export type StatusLineInstall = 'added' | 'current' | 'theirs'
+
 /**
  * Point Grok's status line at our script in `~/.grok/config.toml`.
  *
  * Grok has one status line. Absent: ours is appended. Ours already: its lines are
- * rewritten, so an older interval is brought current. Someone else's: untouched,
- * because their status line is theirs. Same line-edit discipline as `use_leader`.
+ * rewritten, so an older interval is brought current. Someone else's: kept,
+ * unless `foreign` is `replace`, which only the explicit verb asks for. Same
+ * line-edit discipline as `use_leader`.
  */
 export async function installStatusLineConfig(
   grokHome: string,
   porteHome: string,
-): Promise<boolean> {
+  options: { readonly foreign: 'keep' | 'replace' } = { foreign: 'keep' },
+): Promise<StatusLineInstall> {
   const path = join(grokHome, 'config.toml')
   const current = await readFile(path, 'utf8').catch(() => '')
-  const next = withStatusLine(current, statusLineConfigLines(porteHome))
-  if (next === current) return false
+  const next = withStatusLine(current, statusLineConfigLines(porteHome), options.foreign)
+  if (next === null) return 'theirs'
+  if (next === current) return 'current'
   await mkdir(grokHome, { recursive: true })
   await writeFile(path, next)
-  return true
+  return 'added'
+}
+
+/** What the person chose, as far as this file needs to know. */
+export type GrokConfigChoices = { readonly hook: boolean; readonly statusLine: boolean }
+
+/** `off`: the person turned the row off. `unwritable`: Grok's home refused the write. */
+export type GrokConfigSync = { readonly statusLine: StatusLineInstall | 'off' | 'unwritable' }
+
+/**
+ * Bring Grok's files in line with the person's choices.
+ *
+ * Runs at every daemon start and every `/remote-control`, because Grok gives a
+ * plugin no install or update hook: those are the earliest moments Porte code
+ * runs after either. Idempotent, and a read-only Grok home never throws.
+ */
+export async function syncGrokConfig(
+  choices: GrokConfigChoices,
+  paths: InstallGrokHookInput,
+): Promise<GrokConfigSync> {
+  const syncHook = choices.hook ? installGrokHook(paths) : removeGrokHook(paths)
+  await syncHook.catch(() => null)
+  // One shared Grok backend for the TUI and the Host; takes effect at the next Grok start.
+  await enableLeaderMode(paths.grokHome).catch(() => null)
+  if (!choices.statusLine) {
+    await removeStatusLineConfig(paths.grokHome).catch(() => null)
+    return { statusLine: 'off' }
+  }
+  try {
+    await installStatusLineScript(paths.porteHome)
+    return { statusLine: await installStatusLineConfig(paths.grokHome, paths.porteHome) }
+  } catch {
+    return { statusLine: 'unwritable' }
+  }
 }
 
 /** Drop our status line on unpair; a status line that is not ours stays. */
@@ -107,7 +146,12 @@ function statusLineConfigLines(porteHome: string): readonly string[] {
   ]
 }
 
-function withStatusLine(config: string, ours: readonly string[]): string {
+/** The config with our lines in, or null when someone else's status line is kept. */
+function withStatusLine(
+  config: string,
+  ours: readonly string[],
+  foreign: 'keep' | 'replace',
+): string | null {
   const lines = config.split('\n')
   const section = statusLineSection(lines)
   if (section === null) {
@@ -115,7 +159,7 @@ function withStatusLine(config: string, ours: readonly string[]): string {
     const separator = body.length === 0 ? '' : '\n'
     return `${body}${separator}${STATUS_LINE_SECTION}\n${ours.join('\n')}\n`
   }
-  if (!section.ours) return config
+  if (!section.ours && foreign === 'keep') return null
   lines.splice(section.start + 1, section.end - section.start - 1, ...ours)
   return lines.join('\n')
 }

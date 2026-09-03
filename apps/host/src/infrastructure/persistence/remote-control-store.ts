@@ -16,6 +16,8 @@ import { z } from 'zod'
 const SettingsSchema = z.object({
   enabled: z.boolean(),
   hook: z.boolean().default(false),
+  // On by default: a fresh install and a file from before the field both get the row.
+  statusLine: z.boolean().default(true),
   // Files written before the counter existed count as write zero.
   generation: z.int().nonnegative().default(0),
 })
@@ -48,7 +50,7 @@ export class FileRcSettings implements RcSettings {
   async read(): Promise<RcSettingsRead> {
     const parsed = await readJson(join(this.dataDirectory, 'remote-control.json'), SettingsSchema)
     // A machine that never chose is off: connecting must be an explicit choice.
-    return parsed ?? { enabled: false, hook: false, generation: 0 }
+    return parsed ?? { enabled: false, hook: false, statusLine: true, generation: 0 }
   }
 
   async write(settings: RcSettingsSnapshot): Promise<void> {
@@ -56,6 +58,7 @@ export class FileRcSettings implements RcSettings {
     await writeJson(this.dataDirectory, 'remote-control.json', {
       enabled: settings.enabled,
       hook: settings.hook,
+      statusLine: settings.statusLine,
       generation: generation + 1,
     })
   }

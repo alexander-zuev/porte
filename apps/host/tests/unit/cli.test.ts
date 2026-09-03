@@ -44,16 +44,19 @@ describe('parseCommand', () => {
     expect(parseCommand(['mcp'])).toEqual({ kind: 'mcp' })
   })
 
-  it('parses each rc verb', () => {
-    expect(parseCommand(['rc', 'hook'])).toEqual({ kind: 'rc', verb: 'hook' })
-    expect(parseCommand(['rc', 'toggle'])).toEqual({ kind: 'rc', verb: 'toggle' })
-    expect(parseCommand(['rc', 'status'])).toEqual({ kind: 'rc', verb: 'status' })
-    expect(parseCommand(['rc', 'unpair'])).toEqual({ kind: 'rc', verb: 'unpair' })
-    expect(parseCommand(['rc', 'watch-pairing'])).toEqual({ kind: 'rc', verb: 'watch-pairing' })
+  it('parses each rc verb; bare rc is the toggle', () => {
+    expect(parseCommand(['rc'])).toEqual({ kind: 'rc', verb: { kind: 'remote', to: 'toggle' } })
+    expect(parseCommand(['rc', 'on'])).toEqual({ kind: 'rc', verb: { kind: 'remote', to: 'on' } })
+    expect(parseCommand(['rc', 'status'])).toEqual({ kind: 'rc', verb: { kind: 'status' } })
+    expect(parseCommand(['rc', 'status-line', 'off'])).toEqual({
+      kind: 'rc',
+      verb: { kind: 'status-line', to: 'off' },
+    })
+    expect(parseCommand(['rc', 'hook'])).toEqual({ kind: 'rc', verb: { kind: 'hook' } })
   })
 
-  it('rejects rc without a verb and with an unknown verb', () => {
-    expect(() => parseCommand(['rc'])).toThrow(UsageError)
+  it('rejects an unknown rc verb and extra words', () => {
     expect(() => parseCommand(['rc', 'nope'])).toThrow(UsageError)
+    expect(() => parseCommand(['rc', 'status', 'now'])).toThrow(UsageError)
   })
 })

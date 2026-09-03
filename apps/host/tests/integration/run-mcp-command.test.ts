@@ -44,7 +44,13 @@ function daemonTest(overrides?: {
     transport: serverTransport,
     lock,
     settings: {
-      read: () => Promise.resolve({ enabled: overrides?.enabled ?? true, hook: false, generation }),
+      read: () =>
+        Promise.resolve({
+          enabled: overrides?.enabled ?? true,
+          hook: false,
+          statusLine: true,
+          generation,
+        }),
     },
     state: {
       read: () => Promise.resolve(state),

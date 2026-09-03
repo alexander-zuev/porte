@@ -9,8 +9,11 @@ import type {
 } from '@host/application/ports/remote-control-store.ts'
 import type { HostDescriptor } from '@porte/core/client'
 
-/** How one `/remote-control` toggle ended. Each variant is one line the person reads. */
-export type RcToggleResult =
+/** `on` and `off` are idempotent; `toggle` flips whatever the choice is. */
+export type Switch = 'on' | 'off' | 'toggle'
+
+/** How one `/remote-control [on|off]` ended. Each variant is one line the person reads. */
+export type RcSwitchResult =
   /** A fresh code was issued; the watcher now waits for the phone tap. */
   | {
       readonly type: 'pairing-started'
@@ -27,6 +30,8 @@ export type RcToggleResult =
   /** Enabled, but no daemon confirmed within the window. */
   | { readonly type: 'connecting'; readonly url: string }
   | { readonly type: 'disconnected' }
+  /** `off` on a machine that was never paired: nothing to turn off. */
+  | { readonly type: 'not-paired' }
 
 /** What `/remote-control status` reports. */
 export type RcStatusResult =
@@ -61,36 +66,35 @@ export type RemoteControlDeps = {
 const CONFIRM_POLL_MS = 500
 
 /**
- * Flip remote control.
+ * Turn remote control on or off; `toggle` flips whatever it is.
  *
- * Unpaired: issue a code, hand it to the watcher, and return the link at once —
- * approval lands later and a daemon connects on its own. Paired: flip the
- * sticky choice; the daemons react to it.
+ * Unpaired: `off` is a no-op; anything else issues a code, hands it to the
+ * watcher, and returns the link at once — approval lands later and a daemon
+ * connects on its own. Paired: write the sticky choice; the daemons react to it.
  */
-export async function toggle(deps: RemoteControlDeps): Promise<RcToggleResult> {
+export async function switchRemoteControl(
+  deps: RemoteControlDeps,
+  to: Switch,
+): Promise<RcSwitchResult> {
   const credential = await deps.credentials.read()
-  if (credential === null) return startOrRepeatPairing(deps)
+  if (credential === null) return to === 'off' ? { type: 'not-paired' } : startOrRepeatPairing(deps)
 
   const settings = await deps.settings.read()
   const state = await deps.state.read()
-  // A stopped daemon reads the toggle as "try again": the write it waits for, or a new pairing.
-  if (state.status === 'error') {
-    if (state.failure.type === 'unauthorized') {
-      // The server already refuses this credential; keeping it would refuse forever.
-      await deps.credentials.clear()
-      await deps.pairing.clear()
-      return startOrRepeatPairing(deps)
-    }
-    await deps.settings.write({ ...settings, enabled: true })
-    const retried = await waitForOn(deps)
-    return retried ?? { type: 'connecting', url: credential.baseUrl }
-  }
-
-  if (settings.enabled) {
+  // A toggle on a stopped daemon means "try again", not "off".
+  const wantOn = to === 'on' || (to === 'toggle' && (!settings.enabled || state.status === 'error'))
+  if (!wantOn) {
     await deps.settings.write({ ...settings, enabled: false })
     return { type: 'disconnected' }
   }
-
+  // A stopped daemon reads "on" as "try again": the write it waits for, or a new pairing.
+  if (state.status === 'error' && state.failure.type === 'unauthorized') {
+    // The server already refuses this credential; keeping it would refuse forever.
+    await deps.credentials.clear()
+    await deps.pairing.clear()
+    return startOrRepeatPairing(deps)
+  }
+  if (state.status === 'on' && settings.enabled) return { type: 'connected', url: state.url }
   await deps.settings.write({ ...settings, enabled: true })
   const confirmed = await waitForOn(deps)
   return confirmed ?? { type: 'connecting', url: credential.baseUrl }
@@ -125,8 +129,16 @@ export async function setHook(deps: RemoteControlDeps, hook: boolean): Promise<v
   await deps.settings.write({ ...(await deps.settings.read()), hook })
 }
 
+/** Choose whether the `/rc` row shows; returns the choice. The caller writes Grok's config. */
+export async function setStatusLine(deps: RemoteControlDeps, to: Switch): Promise<boolean> {
+  const settings = await deps.settings.read()
+  const statusLine = to === 'toggle' ? !settings.statusLine : to === 'on'
+  await deps.settings.write({ ...settings, statusLine })
+  return statusLine
+}
+
 /** Reuse a live pending code, or issue a fresh one and start its watcher. */
-async function startOrRepeatPairing(deps: RemoteControlDeps): Promise<RcToggleResult> {
+async function startOrRepeatPairing(deps: RemoteControlDeps): Promise<RcSwitchResult> {
   const pending = await deps.pairing.read()
   if (pending !== null && pending.expiresAtMs > deps.now()) {
     return {
@@ -152,7 +164,7 @@ async function startOrRepeatPairing(deps: RemoteControlDeps): Promise<RcToggleRe
 }
 
 /** Poll the published state until a daemon reports on, or the window closes. */
-async function waitForOn(deps: RemoteControlDeps): Promise<RcToggleResult | null> {
+async function waitForOn(deps: RemoteControlDeps): Promise<RcSwitchResult | null> {
   const deadline = deps.now() + deps.confirmTimeoutMs
   while (deps.now() < deadline) {
     // oxlint-disable-next-line no-await-in-loop -- Each read must see the previous daemon reaction.
