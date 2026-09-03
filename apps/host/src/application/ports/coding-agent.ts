@@ -1,10 +1,8 @@
-import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import type {
   CanonicalContent,
   ConversationCursor,
   ConversationEvent,
   ConversationId,
-  ConversationUsage,
   ElicitationAnswer,
   ElicitationId,
   HostControlMethodMap,
@@ -12,15 +10,15 @@ import type {
   PendingElicitation,
   PendingPermission,
   PermissionId,
-  TurnId,
 } from '@porte/core/client'
 
 /**
  * Port for the coding agent process (Grok now).
  *
- * Every method maps to one agent request. Mutations return the canonical events
- * they cause; what the agent pushes on its own reaches the application through
- * `AgentListener`. Conversation state lives in the `Conversation` aggregate, not here.
+ * The agent owns every turn. Whoever typed the prompt, this surface or the
+ * terminal, the turn reaches the application as canonical events through
+ * `AgentListener`: `turn.started`, the user echo, the answer, `turn.finished`.
+ * Conversation state lives in the `Conversation` aggregate, not here.
  */
 export type SessionFacts = {
   readonly id: ConversationId
@@ -43,15 +41,14 @@ export type CreatedSession = {
   readonly events: readonly ConversationEvent[]
 }
 
-/** A loaded session: its title as the agent lists it, and its history as events. */
+/**
+ * A loaded session: its title as the agent lists it, and its history as events,
+ * turn boundaries included. A history whose last turn has no `turn.finished` is
+ * still running on the agent; the live stream continues it.
+ */
 export type LoadedSession = {
   readonly title: string
   readonly events: readonly ConversationEvent[]
-}
-
-export type PromptResult = {
-  readonly outcome: TurnOutcome
-  readonly usage?: ConversationUsage
 }
 
 export type PermissionRequest = Omit<PendingPermission, 'turnId'>
@@ -85,24 +82,22 @@ export interface CodingAgent {
   /** Whether this process holds the session; a closed one must be loaded before `prompt`. */
   isOpen(id: ConversationId): boolean
   /**
-   * Resolves when the turn ends. Rejects only when the agent could not run it.
-   * `promptIndex` is the prediction behind `turnId`; the mapper checks it
-   * against the agent's own counter.
+   * Hand the agent a prompt. The turn it starts, and its end, arrive as events;
+   * this resolves when the agent has answered the prompt request, and rejects
+   * only when the agent refused to run it.
    */
-  prompt(
-    id: ConversationId,
-    turnId: TurnId,
-    promptIndex: number,
-    content: readonly CanonicalContent[],
-  ): Promise<PromptResult>
-  /** Cooperative: the in-flight `prompt` resolves with a `cancelled` outcome. */
+  prompt(id: ConversationId, content: readonly CanonicalContent[]): Promise<void>
+  /** Cooperative: the running turn ends with a `cancelled` outcome on the stream. */
   cancel(id: ConversationId): Promise<void>
   setModel(
     id: ConversationId,
     modelId: string,
     reasoningEffort?: string,
   ): Promise<readonly ConversationEvent[]>
-  /** No-op for a session this process does not hold. */
+  /**
+   * Forget the session on this process. Never closes it on the agent: the
+   * session is shared with the terminal, and closing there would end it for both.
+   */
   closeSession(id: ConversationId): Promise<void>
   /** No-op when nothing is parked under that id; the aggregate is the validator. */
   resolvePermission(permissionId: PermissionId, outcome: PermissionOutcome): void

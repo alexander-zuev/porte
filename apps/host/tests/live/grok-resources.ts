@@ -4,6 +4,8 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
+import { describe } from 'vitest'
+
 const WORKSPACE_PREFIX = 'porte-test-'
 
 /** True when the caller enables live tests and the grok binary is on PATH. */
@@ -13,6 +15,9 @@ export function liveGrokTestsEnabled(): boolean {
     spawnSync('grok', ['--version'], { encoding: 'utf8' }).status === 0
   )
 }
+
+/** `describe` for a suite that spends tokens: skipped unless `test:live` runs it. */
+export const describeLive = describe.skipIf(!liveGrokTestsEnabled())
 
 const workspaces = new Set<string>()
 

@@ -13,7 +13,12 @@ import {
   AcpTimeoutError,
   AcpProcessError,
 } from './error.ts'
-import type { AcpSessionNotification, JsonValue } from './message.ts'
+import {
+  GROK_NOTIFICATION_METHODS,
+  type AcpSessionNotification,
+  type GrokNotificationMethod,
+  type JsonValue,
+} from './message.ts'
 
 type AcpRequestFailure = AcpRpcError | AcpExitedError | AcpTimeoutError | AcpProcessError
 type AcpOutgoingParams = acp.AgentRequestParamsByMethod[acp.AgentRequestMethod] | JsonValue
@@ -46,6 +51,8 @@ export type StartAcpAgentProcess = {
   readonly onRequest: AcpRequestHandler
   /** ACP `elicitation/complete` from the agent. */
   readonly onElicitationComplete?: (notification: acp.CompleteElicitationNotification) => void
+  /** Grok's `_x.ai` session channels, raw; the adapter keeps what it understands. */
+  readonly onGrokNotification?: (method: GrokNotificationMethod, params: JsonValue) => void
 }
 
 /**
@@ -71,6 +78,11 @@ export class AcpAgentProcess {
       .onNotification(acp.methods.client.elicitation.complete, ({ params }) => {
         input.onElicitationComplete?.(params)
       })
+    for (const method of GROK_NOTIFICATION_METHODS) {
+      app.onNotification(method, { parse: (raw) => z.json().parse(raw) }, ({ params }) => {
+        input.onGrokNotification?.(method, params)
+      })
+    }
 
     registerClientRequests(app, input.onRequest)
     child.stderr.resume()

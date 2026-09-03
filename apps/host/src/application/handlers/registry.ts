@@ -1,6 +1,7 @@
 import { answerElicitation } from './answer-elicitation.ts'
 import { answerPermission } from './answer-permission.ts'
 import { applyAgentUpdate } from './apply-agent-update.ts'
+import { bindAttempt } from './bind-attempt.ts'
 import { cancelTurn } from './cancel-turn.ts'
 import { closeAllConversations } from './close-all-conversations.ts'
 import { closeConversation } from './close-conversation.ts'
@@ -9,7 +10,6 @@ import { completeElicitation } from './complete-elicitation.ts'
 import { createConversation } from './create-conversation.ts'
 import { dropConversationSocket } from './drop-conversation-socket.ts'
 import { expireCancel } from './expire-cancel.ts'
-import { finishTurn } from './finish-turn.ts'
 import { getConversation } from './get-conversation.ts'
 import { getDiff } from './get-diff.ts'
 import { getTurn } from './get-turn.ts'
@@ -22,6 +22,7 @@ import { requestElicitation } from './request-elicitation.ts'
 import { requestPermission } from './request-permission.ts'
 import { setModel } from './set-model.ts'
 import { startTurn } from './start-turn.ts'
+import { trackTurnActivity } from './track-turn-activity.ts'
 import type { CommandRegistry, EventRegistry, MessageRegistry, QueryRegistry } from './types.ts'
 
 // Command handlers registry - one handler per command
@@ -37,7 +38,6 @@ export const COMMAND_HANDLERS = {
 
   // Turn
   StartTurn: startTurn,
-  FinishTurn: finishTurn,
   CancelTurn: cancelTurn,
   ExpireCancel: expireCancel,
   ApplyAgentUpdate: applyAgentUpdate,
@@ -58,7 +58,12 @@ export const COMMAND_HANDLERS = {
 // Event handlers registry - zero or more handlers per event. All effects: the
 // aggregate is already saved when these run.
 export const EVENT_HANDLERS = {
-  ConversationEventRaised: [publishConversationEvent, releaseParkedRequest],
+  ConversationEventRaised: [
+    publishConversationEvent,
+    releaseParkedRequest,
+    bindAttempt,
+    trackTurnActivity,
+  ],
   ConversationClosed: [dropConversationSocket],
 } satisfies EventRegistry
 

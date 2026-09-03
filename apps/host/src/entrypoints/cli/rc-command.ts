@@ -12,10 +12,15 @@ import {
   type RcUnpairResult,
   type RemoteControlDeps,
 } from '@host/application/commands/remote-control.ts'
+import type { HostFailure } from '@host/application/ports/remote-control-store.ts'
 import { runWatchPairing } from '@host/entrypoints/cli/watch-pairing.ts'
 import { createRemoteControlDeps } from '@host/infrastructure/bootstrap/remote-control-resources.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
-import { installGrokHook, removeGrokHook } from '@host/infrastructure/grok/hook-installer.ts'
+import {
+  disableLeaderMode,
+  installGrokHook,
+  removeGrokHook,
+} from '@host/infrastructure/grok/hook-installer.ts'
 import { readAllText } from '@host/infrastructure/node/read-stream.ts'
 import { UPDATE_AVAILABLE_FILE, updateNoticeLine } from '@host/infrastructure/update-notice.ts'
 import { z } from 'zod'
@@ -66,6 +71,24 @@ export function renderStatusResult(result: RcStatusResult): string {
       return `Remote control off · paired as "${result.hostName}"`
     case 'not-paired':
       return 'Remote control off · not paired'
+    case 'connecting':
+      return 'Remote control connecting…'
+    case 'error':
+      return `Remote control error · ${failureLine(result.failure)}`
+  }
+}
+
+/** The reason and its fix, one line; the status line prints the same words. */
+export function failureLine(failure: HostFailure): string {
+  switch (failure.type) {
+    case 'unauthorized':
+      return 'pairing revoked · /remote-control to pair again'
+    case 'agent-start':
+      return 'Grok could not start · fix Grok, then /remote-control'
+    case 'refused':
+      return `Porte refused (HTTP ${String(failure.http)}) · update Porte`
+    case 'protocol':
+      return 'Porte closed the connection · update Porte'
   }
 }
 
@@ -164,7 +187,12 @@ async function verbLine(
       return renderToggleResult(await toggle(deps))
     case 'status':
       return renderStatusResult(await status(deps))
-    case 'unpair':
-      return renderUnpairResult(await unpair(deps))
+    case 'unpair': {
+      const result = await unpair(deps)
+      // Porte leaves Grok as it found it: no shared session process without remote control.
+      if (result.type === 'unpaired')
+        await disableLeaderMode(join(homedir(), '.grok')).catch(() => null)
+      return renderUnpairResult(result)
+    }
   }
 }

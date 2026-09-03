@@ -4,7 +4,6 @@ import type {
   CodingAgent,
   CreatedSession,
   LoadedSession,
-  PromptResult,
 } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
 import type { WorkingTree } from '@host/application/ports/working-tree.ts'
@@ -12,9 +11,11 @@ import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
 import type { AppDeps } from '@host/infrastructure/app-deps.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
+import { InMemoryAttemptBindings } from '@host/infrastructure/persistence/in-memory-attempt-bindings.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
 import {
   ConversationIdSchema,
+  type CanonicalContent,
   type ChangedFilePath,
   type ConversationEvent,
   type ConversationId,
@@ -25,19 +26,23 @@ import {
 import { vi } from 'vitest'
 
 /**
- * A coding agent that answers from RAM. `prompt` parks until the test settles it,
- * so a turn can be observed while running. Pushes reach `listener` like the real one.
+ * A coding agent that answers from RAM. `prompt` parks until the test settles
+ * it; the turn itself is whatever the test pushes through `listener`, like
+ * the real stream. `cancel` records the call and nothing more: Grok ends the
+ * turn on the stream, and a test pushes that too.
  */
 export class FakeCodingAgent implements CodingAgent {
   listener: AgentListener | undefined
   readonly sessions = new Map<ConversationId, string>()
-  private readonly prompts = new Map<ConversationId, (result: PromptResult) => void>()
+  readonly prompted: { id: ConversationId; text: string }[] = []
+  private readonly prompts = new Map<
+    ConversationId,
+    { resolve: () => void; reject: (cause: unknown) => void }
+  >()
   private nextId = 1
 
   readonly listSessions = vi.fn(async () => ({ sessions: [] }))
-  readonly cancel = vi.fn(async (id: ConversationId) => {
-    this.settle(id, { outcome: { type: 'cancelled' } })
-  })
+  readonly cancel = vi.fn(async (_id: ConversationId) => undefined)
   readonly setModel = vi.fn(async (): Promise<readonly ConversationEvent[]> => [])
   readonly closeSession = vi.fn(async (id: ConversationId) => {
     this.sessions.delete(id)
@@ -61,22 +66,32 @@ export class FakeCodingAgent implements CodingAgent {
     return this.sessions.has(id)
   }
 
-  prompt(id: ConversationId): Promise<PromptResult> {
-    return new Promise((resolve) => {
-      this.prompts.set(id, resolve)
+  prompt(id: ConversationId, content: readonly CanonicalContent[]): Promise<void> {
+    const text = content.find((block) => block.type === 'text')
+    this.prompted.push({ id, text: text === undefined ? '' : text.text })
+    return new Promise((resolve, reject) => {
+      this.prompts.set(id, { resolve, reject })
     })
   }
 
-  /** Let the agent stream events for the running turn. */
+  /** Let the agent stream events, turn boundaries included. A turn's end also answers its prompt, as Grok does. */
   push(id: ConversationId, events: readonly ConversationEvent[]): void {
     this.listener?.onEvents(id, events)
+    if (events.some((event) => event.type === 'turn.finished')) this.settle(id)
   }
 
-  /** Settle the parked prompt as the agent would. */
-  settle(id: ConversationId, result: PromptResult): void {
-    const resolve = this.prompts.get(id)
+  /** Answer the parked prompt request as Grok does at the end of the turn. */
+  settle(id: ConversationId): void {
+    const parked = this.prompts.get(id)
     this.prompts.delete(id)
-    resolve?.(result)
+    parked?.resolve()
+  }
+
+  /** Refuse the parked prompt before any turn started. */
+  refuse(id: ConversationId, cause: unknown): void {
+    const parked = this.prompts.get(id)
+    this.prompts.delete(id)
+    parked?.reject(cause)
   }
 
   get running(): readonly ConversationId[] {
@@ -178,6 +193,7 @@ export function createTestDeps(
   const deps: TestDeps = {
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
+    attempts: new InMemoryAttemptBindings(),
     codingAgent,
     workingTree: new FakeWorkingTree(),
     background: new NodeBackgroundTasks(),

@@ -10,6 +10,7 @@ import {
 } from '@host/infrastructure/bootstrap/remote-control-resources.ts'
 import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import {
+  enableLeaderMode,
   installGrokHook,
   installStatusLineScript,
   removeGrokHook,
@@ -18,6 +19,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 /** How often the daemon re-reads the sticky choice and the lock. */
 const POLL_MS = 5000
+/** A relay that closed for malformed frames gets a fresh Host, but not a fast loop of them. */
+const PROTOCOL_RESTART_MS = 30_000
 
 /** Run the Grok-session daemon on this process's stdio until Grok ends the session. */
 export async function runMcpCommand(config: HostConfig): Promise<void> {
@@ -39,10 +42,14 @@ export async function runMcpCommand(config: HostConfig): Promise<void> {
       const settings = await deps.settings.read()
       const syncHook = settings.hook ? installGrokHook(paths) : removeGrokHook(paths)
       await syncHook.catch(() => null)
+      // One shared Grok backend for the TUI and the Host; takes effect at the next Grok start.
+      await enableLeaderMode(paths.grokHome).catch(() => null)
       await installStatusLineScript(config.dataDirectory).catch(() => null)
     },
     createRuntime: (signal) => createHostRuntime(config, signal),
     pollMs: POLL_MS,
+    protocolRestartMs: PROTOCOL_RESTART_MS,
+    now: () => Date.now(),
     sleep: (ms) => sleep(ms),
   })
 }

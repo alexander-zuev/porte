@@ -1,4 +1,5 @@
 /* oxlint-disable no-underscore-dangle -- ACP requires the exact `_meta` boundary name. */
+import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import {
   assistantMessageId,
   reasoningMessageId,
@@ -14,11 +15,17 @@ import {
   mapPlan,
   mapToolContent,
 } from '@host/infrastructure/acp/acp-content.ts'
-import type { AcpSessionNotification, AcpSessionUpdate } from '@host/infrastructure/acp/message.ts'
+import type {
+  AcpSessionNotification,
+  AcpSessionUpdate,
+  GrokTurnCompleted,
+} from '@host/infrastructure/acp/message.ts'
 import {
   ConversationEventSchema,
+  INTERNAL_SERVER_ERROR,
   MessageIdSchema,
   ToolViewSchema,
+  createAttemptId,
   createLogger,
   type ConversationCommand,
   type ConversationEvent,
@@ -35,15 +42,26 @@ import { z } from 'zod'
 
 const logger = createLogger('acp-update-mapper')
 
-/** Grok's per-turn key on `user_message_chunk._meta`; the only stable turn id in a replay. */
+/** Grok's per-turn key on `user_message_chunk._meta`; the only stable turn id in a stream. */
 const promptIndexSchema = z.number().int().nonnegative()
 
-/** Grok marks synthetic user chunks its own TUI never shows, e.g. subagent completion reminders. */
+/** Grok marks synthetic user chunks its own TUI never shows, e.g. the reminder after a cancel. */
 const hiddenChunkMetaSchema = z.object({ hideFromScrollback: z.literal(true) })
 
 function isHiddenChunk(update: ContentUpdate): boolean {
   return hiddenChunkMetaSchema.safeParse(update._meta).success
 }
+
+/** Updates that belong to a turn; outside one they have nowhere to go. */
+const TURN_SCOPED_UPDATES: ReadonlySet<AcpSessionUpdate['sessionUpdate']> = new Set([
+  'agent_message_chunk',
+  'agent_thought_chunk',
+  'tool_call',
+  'tool_call_update',
+  'plan',
+  'plan_update',
+  'plan_removed',
+])
 
 type EventData = z.input<typeof ConversationEventSchema>
 type MessageStream = 'user' | 'assistant' | 'reasoning'
@@ -51,10 +69,8 @@ type ContentUpdate = Extract<
   AcpSessionUpdate,
   { sessionUpdate: 'user_message_chunk' | 'agent_message_chunk' | 'agent_thought_chunk' }
 >
-/** Live turns come from the relay; replay turns are grouped by Grok's `promptIndex`. */
-type ActiveTurn =
-  | { readonly turnId: TurnId; readonly live: true }
-  | { readonly turnId: TurnId; readonly live: false; readonly promptIndex: number }
+/** The turn Grok is inside: opened by a typed user chunk, closed by `turn_completed`. */
+type ActiveTurn = { readonly turnId: TurnId; readonly promptIndex: number }
 
 /** The agent sent an update in an order the mapper cannot place. */
 export class AcpUpdateSequenceError extends TaggedError('AcpUpdateSequenceError')<{
@@ -87,18 +103,22 @@ export class AcpSessionMismatchError extends TaggedError('AcpSessionMismatchErro
 }
 
 /**
- * Converts ACP `session/update` notifications into canonical events, for replay
- * (`session/load`) and live turns alike. One instance per open conversation.
+ * Converts Grok's session stream into canonical events, for replay
+ * (`session/load`) and live updates alike. One instance per open conversation.
  *
- * Grok names no message (§1 of the redesign doc), so ids come from stream
- * boundaries: a chunk on a stream with no open message starts one; `tool_call`
- * and the end of a turn close every open stream. Turn events themselves belong
- * to the `Conversation` aggregate; the mapper never emits `turn.*`.
+ * The stream is the only source of turns. A typed `user_message_chunk` with a
+ * new `promptIndex` opens one, whoever typed it; Grok's `turn_completed`
+ * closes it. `turn.started` carries a fresh attempt id: the aggregate replaces
+ * it when the echo matches a prompt this Host sent.
+ *
+ * Grok names no message, so ids come from stream boundaries: a chunk on a
+ * stream with no open message starts one; `tool_call` and the end of a turn
+ * close every open stream.
  *
  * Turn indexes minted here strictly increase. Grok's `promptIndex` is unique
- * only within one Grok process: a second process on the same session (the
- * TUI beside the Host) restarts its own counter, and the history then repeats
- * an index. The same history maps to the same ids on every load either way.
+ * only within one Grok process: a second process on the same session restarts
+ * its own counter, and the history then repeats an index. The same history
+ * maps to the same ids on every load either way.
  */
 export class AcpUpdateMapper {
   private turn: ActiveTurn | undefined
@@ -107,8 +127,7 @@ export class AcpUpdateMapper {
   private readonly open = new Map<MessageStream, MessageId>()
   private readonly tools = new Map<string, ToolView>()
   private commandsKey: string | undefined
-  private expectedPromptIndex: number | undefined
-  private promptIndexChecked = false
+  private contextTokens: number | undefined
 
   /**
    * @param conversationId - The session every update must belong to.
@@ -119,36 +138,14 @@ export class AcpUpdateMapper {
    */
   constructor(private readonly conversationId: ConversationId) {}
 
-  /** The relay turn in flight, if any. Replay turns are not live. */
-  get liveTurnId(): TurnId | undefined {
-    return this.turn?.live === true ? this.turn.turnId : undefined
+  /** The turn Grok is inside, if any. */
+  get runningTurnId(): TurnId | undefined {
+    return this.turn?.turnId
   }
 
-  /**
-   * A relay turn starts; its user message is raised by the aggregate, not mapped.
-   *
-   * `expectedPromptIndex` is the aggregate's prediction behind `turnId`. The first
-   * live `user_message_chunk` carries Grok's `_meta.promptIndex`; a mismatch is an
-   * invariant error, logged once by the caller.
-   */
-  beginTurn(turnId: TurnId, expectedPromptIndex: number): void {
-    if (this.turn?.live === true) {
-      throw new AcpUpdateSequenceError('A live turn is already active')
-    }
-    this.turn = { turnId, live: true }
-    this.nextTurnIndex = Math.max(this.nextTurnIndex, expectedPromptIndex + 1)
-    this.expectedPromptIndex = expectedPromptIndex
-    this.promptIndexChecked = false
-    this.ordinal = 0
-    this.open.clear()
-  }
-
-  /** The prompt settled: close every open stream. */
-  endTurn(): readonly ConversationEvent[] {
-    if (this.turn?.live !== true) throw new AcpUpdateSequenceError('No live turn is active')
-    const events = this.events(this.closeStreams())
-    this.turn = undefined
-    return events
+  /** The current model's context window; `turn_completed` usage is reported against it. */
+  setContextTokens(sizeTokens: number | undefined): void {
+    this.contextTokens = sizeTokens
   }
 
   map(notification: AcpSessionNotification): readonly ConversationEvent[] {
@@ -156,20 +153,33 @@ export class AcpUpdateMapper {
     return this.events(this.mapUpdate(notification.update))
   }
 
+  /** Grok's `turn_completed`, from the live or the replay channel. Nothing open is a no-op. */
+  completeTurn(completion: GrokTurnCompleted['update']): readonly ConversationEvent[] {
+    const turn = this.turn
+    if (turn === undefined) return []
+    const events = this.closeStreams()
+    const usage = this.usage(completion.usage?.totalTokens)
+    if (usage !== undefined) events.push({ type: 'conversation.usage.updated', usage })
+    events.push({
+      type: 'turn.finished',
+      turnId: turn.turnId,
+      outcome: outcomeOf(completion.stop_reason),
+    })
+    this.turn = undefined
+    return this.events(events)
+  }
+
   private mapUpdate(update: AcpSessionUpdate): EventData[] {
+    if (this.turn === undefined && TURN_SCOPED_UPDATES.has(update.sessionUpdate)) {
+      // Grok re-broadcasts a session's history to every client holding it; nothing to place it in.
+      logger.debug('acp_update_outside_turn', {
+        details: { conversationId: this.conversationId, kind: update.sessionUpdate },
+      })
+      return []
+    }
     switch (update.sessionUpdate) {
       case 'user_message_chunk':
-        if (this.turn?.live === true) {
-          this.checkPromptIndex(update)
-          return []
-        }
-        // A hidden chunk is Grok's own machinery (a subagent completion
-        // reminder): it keeps its prompt slot so replay ids stay stable,
-        // but it is not something anyone said — nothing renders.
-        return [
-          ...this.startReplayTurn(update),
-          ...(isHiddenChunk(update) ? [] : this.mapContent('user', update)),
-        ]
+        return this.mapUserChunk(update)
       case 'agent_message_chunk':
         return this.mapContent('assistant', update)
       case 'agent_thought_chunk':
@@ -217,47 +227,50 @@ export class AcpUpdateMapper {
   }
 
   /**
-   * The aggregate predicted the prompt index behind the live turn id; Grok's
-   * `_meta.promptIndex` on the echo is the truth. A mismatch means the ids of
-   * this turn flip on the next replay, so it is logged loudly, once.
+   * A typed user chunk opens a turn, or continues the open one when Grok split
+   * the prompt into several chunks. A hidden chunk is Grok's own machinery: it
+   * keeps its prompt slot so later ids stay stable, but nothing renders and no
+   * turn opens.
    */
-  private checkPromptIndex(update: ContentUpdate): void {
-    if (this.promptIndexChecked) return
-    this.promptIndexChecked = true
-    const actual = promptIndexSchema.safeParse(update._meta?.promptIndex)
-    if (!actual.success || actual.data === this.expectedPromptIndex) return
-    logger.warn('prompt_index_mismatch', {
-      details: {
-        conversationId: this.conversationId,
-        expected: this.expectedPromptIndex,
-        actual: actual.data,
-      },
-    })
-  }
-
-  /** Grok fires the same ~100 KB command list after every tool call; emit it once. */
-  private mapCommands(commands: readonly ConversationCommand[]): EventData[] {
-    const key = JSON.stringify(commands)
-    if (key === this.commandsKey) return []
-    this.commandsKey = key
-    return [{ type: 'conversation.commands.updated', commands: [...commands] }]
-  }
-
-  private startReplayTurn(update: ContentUpdate): EventData[] {
+  private mapUserChunk(update: ContentUpdate): EventData[] {
     const promptIndex = promptIndexSchema.safeParse(update._meta?.promptIndex)
     if (!promptIndex.success) {
-      throw new AcpUpdateValueError('ACP replay user message has no promptIndex')
+      throw new AcpUpdateValueError('ACP user message has no promptIndex')
     }
-    // Real replays repeat a promptIndex when one turn carried several user chunks; same turn.
-    if (this.turn?.live === false && this.turn.promptIndex === promptIndex.data) return []
-    const closed = this.closeStreams()
-    this.turn = {
-      turnId: turnIdFor(this.conversationId, this.claimTurnIndex(promptIndex.data)),
-      live: false,
-      promptIndex: promptIndex.data,
+    if (this.turn?.promptIndex === promptIndex.data) {
+      return isHiddenChunk(update) ? [] : this.mapContent('user', update)
     }
+    if (isHiddenChunk(update)) {
+      this.claimTurnIndex(promptIndex.data)
+      return []
+    }
+    const events = this.endTurnWithoutCompletion()
+    const turnId = turnIdFor(this.conversationId, this.claimTurnIndex(promptIndex.data))
+    this.turn = { turnId, promptIndex: promptIndex.data }
     this.ordinal = 0
-    return closed
+    events.push({ type: 'turn.started', turnId, attemptId: createAttemptId() })
+    events.push(...this.mapContent('user', update))
+    return events
+  }
+
+  /** Grok opened a new turn while one was open: the old one ended with no `turn_completed`. */
+  private endTurnWithoutCompletion(): EventData[] {
+    const turn = this.turn
+    if (turn === undefined) return []
+    logger.warn('turn_ended_without_completion', {
+      details: { conversationId: this.conversationId, turnId: turn.turnId },
+    })
+    const events = this.closeStreams()
+    events.push({
+      type: 'turn.finished',
+      turnId: turn.turnId,
+      outcome: {
+        type: 'failed',
+        error: { _tag: INTERNAL_SERVER_ERROR, message: 'Grok ended the turn without a completion' },
+      },
+    })
+    this.turn = undefined
+    return events
   }
 
   /** Grok's index when it is new here; otherwise the next free one, so no turn id repeats. */
@@ -272,9 +285,23 @@ export class AcpUpdateMapper {
     return index
   }
 
+  private usage(totalTokens: number | undefined): ConversationUsage | undefined {
+    if (totalTokens === undefined || this.contextTokens === undefined) return undefined
+    return { usedTokens: Math.min(totalTokens, this.contextTokens), sizeTokens: this.contextTokens }
+  }
+
+  /** Grok fires the same ~100 KB command list after every tool call; emit it once. */
+  private mapCommands(commands: readonly ConversationCommand[]): EventData[] {
+    const key = JSON.stringify(commands)
+    if (key === this.commandsKey) return []
+    this.commandsKey = key
+    return [{ type: 'conversation.commands.updated', commands: [...commands] }]
+  }
+
   private mapContent(stream: MessageStream, update: ContentUpdate): EventData[] {
     const turnId = this.requireTurn()
-    const events: EventData[] = []
+    // The prompt is complete once the agent answers; consumers key on that completion.
+    const events: EventData[] = stream === 'user' ? [] : this.closeStream('user')
     let messageId = this.open.get(stream)
     if (messageId === undefined) {
       messageId = this.messageId(stream, turnId, update.messageId)
@@ -375,23 +402,25 @@ export class AcpUpdateMapper {
   }
 
   private closeStreams(): EventData[] {
+    return [...this.open.keys()].flatMap((stream) => this.closeStream(stream))
+  }
+
+  private closeStream(stream: MessageStream): EventData[] {
     const turn = this.turn
-    if (turn === undefined) return []
-    const closed: EventData[] = []
-    for (const [stream, messageId] of this.open) {
-      closed.push(
-        stream === 'reasoning'
-          ? { type: 'reasoning.completed', turnId: turn.turnId, messageId }
-          : { type: 'message.completed', turnId: turn.turnId, messageId },
-      )
-    }
-    this.open.clear()
-    return closed
+    const messageId = this.open.get(stream)
+    if (turn === undefined || messageId === undefined) return []
+    this.open.delete(stream)
+    return [
+      stream === 'reasoning'
+        ? { type: 'reasoning.completed', turnId: turn.turnId, messageId }
+        : { type: 'message.completed', turnId: turn.turnId, messageId },
+    ]
   }
 
   private requireTurn(): TurnId {
-    if (this.turn === undefined)
+    if (this.turn === undefined) {
       throw new AcpUpdateSequenceError('ACP update arrived outside a turn')
+    }
     return this.turn.turnId
   }
 
@@ -401,6 +430,21 @@ export class AcpUpdateMapper {
       if (!parsed.success) throw new AcpUpdateValueError('ACP update cannot form a canonical event')
       return parsed.data
     })
+  }
+}
+
+/** Grok's `stop_reason` as the relay's outcome; an unknown reason counts as a plain end. */
+function outcomeOf(stopReason: string): TurnOutcome {
+  switch (stopReason) {
+    case 'cancelled':
+      return { type: 'cancelled' }
+    case 'refusal':
+      return { type: 'completed', reason: 'refused' }
+    case 'max_tokens':
+    case 'max_turn_requests':
+      return { type: 'completed', reason: 'limit_reached' }
+    default:
+      return { type: 'completed', reason: 'completed' }
   }
 }
 

@@ -1,10 +1,8 @@
-import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import type {
   AttemptId,
   CanonicalContent,
   ConversationEvent,
   ConversationId,
-  ConversationUsage,
   ElicitationAnswer,
   ElicitationId,
   HostControlMethodMap,
@@ -28,16 +26,15 @@ export type CommandDataMap = {
   CloseIdleConversation: InConversation
 
   // Turn
-  /** The Host mints the turn id; `attemptId` makes a repeated request a no-op. */
+  /** Send a prompt; answers with the turn Grok started for it. `attemptId` makes a repeat a no-op. */
   StartTurn: InConversation & {
     attemptId: AttemptId
     userMessage: { id: MessageId; content: readonly CanonicalContent[] }
   }
-  FinishTurn: InConversation & { turnId: TurnId; outcome: TurnOutcome; usage?: ConversationUsage }
   CancelTurn: InConversation & { turnId: TurnId }
-  /** The cancel deadline fired; close the session and finish the turn if it still runs. */
+  /** The cancel deadline fired; end the turn here if it still runs. */
   ExpireCancel: InConversation & { turnId: TurnId }
-  /** Apply the canonical events the ACP adapter mapped from one `session/update`. */
+  /** Apply the canonical events the ACP adapter mapped from Grok's stream, turn boundaries included. */
   ApplyAgentUpdate: InConversation & { events: readonly ConversationEvent[] }
 
   // Permission

@@ -32,6 +32,62 @@ export async function installGrokHook(input: InstallGrokHookInput): Promise<Hook
   return { changed: scriptChanged || configChanged }
 }
 
+const CLI_SECTION = '[cli]'
+/** The `[cli]` table header, with or without a trailing comment. */
+const CLI_SECTION_LINE = /^\s*\[cli\]\s*(#.*)?$/
+const USE_LEADER_LINE = 'use_leader = true'
+const USE_LEADER_KEY = /^\s*use_leader\s*=/
+
+/**
+ * Turn on Grok's shared session process in `~/.grok/config.toml`.
+ *
+ * With `[cli] use_leader = true` every `grok` process on the machine, the TUI
+ * and this Host's agent alike, is a client of one backend, so a session is one
+ * live thing wherever it is typed. Grok reads the key at start, so the person
+ * restarts Grok once. A line edit, not a TOML rewrite: the rest of the file,
+ * comments included, stays byte for byte.
+ */
+export async function enableLeaderMode(grokHome: string): Promise<boolean> {
+  const path = join(grokHome, 'config.toml')
+  const current = await readFile(path, 'utf8').catch(() => '')
+  const next = withUseLeader(current)
+  if (next === current) return false
+  await mkdir(grokHome, { recursive: true })
+  await writeFile(path, next)
+  return true
+}
+
+/** Drop the `use_leader` line again on unpair, so Grok runs as it did before Porte. */
+export async function disableLeaderMode(grokHome: string): Promise<boolean> {
+  const path = join(grokHome, 'config.toml')
+  const current = await readFile(path, 'utf8').catch(() => undefined)
+  if (current === undefined) return false
+  const next = current
+    .split('\n')
+    .filter((line) => !USE_LEADER_KEY.test(line))
+    .join('\n')
+  if (next === current) return false
+  await writeFile(path, next)
+  return true
+}
+
+function withUseLeader(config: string): string {
+  const lines = config.split('\n')
+  const existing = lines.findIndex((line) => USE_LEADER_KEY.test(line))
+  if (existing !== -1) {
+    if (lines[existing]?.trim() === USE_LEADER_LINE) return config
+    lines[existing] = USE_LEADER_LINE
+    return lines.join('\n')
+  }
+  const section = lines.findIndex((line) => CLI_SECTION_LINE.test(line))
+  if (section !== -1) {
+    lines.splice(section + 1, 0, USE_LEADER_LINE)
+    return lines.join('\n')
+  }
+  const body = config.endsWith('\n') || config.length === 0 ? config : `${config}\n`
+  return `${body}${body.length === 0 ? '' : '\n'}${CLI_SECTION}\n${USE_LEADER_LINE}\n`
+}
+
 /** Remove the prompt hook, so `/remote-control` runs through the skill again. */
 export async function removeGrokHook(input: InstallGrokHookInput): Promise<void> {
   await rm(join(input.grokHome, 'hooks', 'porte.json'), { force: true })
@@ -58,8 +114,25 @@ function statusLineScript(porteHome: string): string {
 state=$(cat "${porteHome}/rc-state.json" 2>/dev/null)
 # The writer pid must be alive: a crashed daemon leaves a stale "on" behind.
 pid=$(printf '%s' "$state" | sed -n 's/.*"pid":\\([0-9][0-9]*\\).*/\\1/p')
-if [[ "$state" == *'"status":"on"'* ]] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+alive=0
+if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=1; fi
+if [[ "$state" == *'"status":"on"'* ]] && [ "$alive" = 1 ]; then
   printf '\\033[32m/rc on\\033[0m · access your Grok sessions from anywhere · useporte.dev'
+elif [[ "$state" == *'"status":"connecting"'* ]] && [ "$alive" = 1 ]; then
+  printf '\\033[33m/rc connecting…\\033[0m'
+elif [[ "$state" == *'"status":"error"'* ]] && [ "$alive" = 1 ]; then
+  # The same words as \`/remote-control status\`; this line is the only one the person sees.
+  if [[ "$state" == *'"type":"unauthorized"'* ]]; then
+    reason='pairing revoked · /remote-control to pair again'
+  elif [[ "$state" == *'"type":"agent-start"'* ]]; then
+    reason='Grok could not start · fix Grok, then /remote-control'
+  elif [[ "$state" == *'"type":"refused"'* ]]; then
+    http=$(printf '%s' "$state" | sed -n 's/.*"http":\\([0-9][0-9]*\\).*/\\1/p')
+    reason="Porte refused (HTTP $http) · update Porte"
+  else
+    reason='Porte closed the connection · update Porte'
+  fi
+  printf '\\033[31m/rc error\\033[0m · %s' "$reason"
 else
   printf '\\033[90m/rc off\\033[0m'
 fi

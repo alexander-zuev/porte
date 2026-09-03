@@ -1,81 +1,14 @@
-import { MessageBus } from '@host/application/message-bus.ts'
 import { createCommand, createQuery } from '@host/domain/messages/types.ts'
-import { createAgentInbound } from '@host/entrypoints/acp/acp-inbound.ts'
-import { AcpCodingAgent } from '@host/infrastructure/acp/acp-coding-agent.ts'
-import type { AppDeps } from '@host/infrastructure/app-deps.ts'
-import { GitWorkingTree } from '@host/infrastructure/git/git-working-tree.ts'
-import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
-import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
-import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
-import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
-import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
-import {
-  MessageIdSchema,
-  createAttemptId,
-  turnIdFor,
-  type ConversationId,
-} from '@porte/core/client'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { createAttemptId, turnIdFor } from '@porte/core/client'
+import { afterAll, expect, it } from 'vitest'
 
-import { FakeConnections } from '../support/test-deps.ts'
-import { cleanupGrokSessions, createGitWorkspace, liveGrokTestsEnabled } from './grok-resources.ts'
+import { cleanupGrokSessions, createGitWorkspace, describeLive } from './grok-resources.ts'
+import { GROK_TIMEOUT_MS, turnFinished, userMessage, withHost } from './host-harness.ts'
 
 afterAll(cleanupGrokSessions)
 
-/**
- * The host as `porte up` runs it — real Grok, real bus, real handlers — with the
- * relay sockets replaced by a recorder. One test per flow the product depends on.
- */
-const GROK_TIMEOUT_MS = 180_000
-type Harness = AppDeps & { connections: FakeConnections }
-
-async function withHost(body: (deps: Harness) => Promise<void>): Promise<void> {
-  const shutdown = new AbortController()
-  const outbox = new EventOutbox()
-  const deps: Harness = {
-    outbox,
-    conversations: new InMemoryConversationRepository(outbox),
-    workingTree: new GitWorkingTree(),
-    connections: new FakeConnections(),
-    background: new NodeBackgroundTasks(),
-    scheduler: new NodeScheduler(),
-    now: () => new Date(),
-    get bus() {
-      return bus
-    },
-    get codingAgent() {
-      return codingAgent
-    },
-  }
-  const bus = new MessageBus(deps)
-  const codingAgent = await AcpCodingAgent.start(
-    (callbacks) => startGrok(shutdown.signal, callbacks),
-    createAgentInbound(bus, deps.background),
-  )
-  try {
-    await body(deps)
-  } finally {
-    await bus.handle(createCommand('CloseAllConversations', {}))
-    await deps.background.drain()
-    shutdown.abort()
-  }
-}
-
-function userMessage(text: string) {
-  return { id: MessageIdSchema.parse(`${text}:user`), content: [{ type: 'text' as const, text }] }
-}
-
-async function turnFinished(deps: Harness, conversationId: ConversationId): Promise<void> {
-  await vi.waitFor(
-    () => {
-      const sent = deps.connections.sent.get(conversationId) ?? []
-      expect(sent.some((event) => event.type === 'turn.finished')).toBe(true)
-    },
-    { timeout: 120_000, interval: 250 },
-  )
-}
-
-describe.skipIf(!liveGrokTestsEnabled())('host flows against real Grok', () => {
+/** One test per flow the product depends on, against real Grok. */
+describeLive('host flows against real Grok', () => {
   it(
     'creates a conversation and lists it with its git root',
     async () => {

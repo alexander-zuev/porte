@@ -1,5 +1,5 @@
 /* oxlint-disable no-underscore-dangle -- ACP reserves `_meta` for provider data. */
-import type { CreateElicitationResponse, McpServer, StopReason } from '@agentclientprotocol/sdk'
+import type { CreateElicitationResponse, McpServer } from '@agentclientprotocol/sdk'
 import type {
   AgentListener,
   CodingAgent,
@@ -7,10 +7,8 @@ import type {
   CreateSession,
   LoadedSession,
   PermissionOutcome,
-  PromptResult,
   SessionPage,
 } from '@host/application/ports/coding-agent.ts'
-import type { TurnOutcome } from '@host/domain/conversation/conversation.ts'
 import { elicitationId, permissionId } from '@host/domain/conversation/message-identity.ts'
 import type { AcpRequestHandler } from '@host/infrastructure/acp/acp-agent-process.ts'
 import {
@@ -27,7 +25,11 @@ import {
   parseElicitationRequest,
   parsePermissionRequest,
 } from '@host/infrastructure/acp/incoming-request.ts'
-import type { AcpSessionNotification, JsonValue } from '@host/infrastructure/acp/message.ts'
+import {
+  GrokTurnCompletedSchema,
+  type AcpSessionNotification,
+  type JsonValue,
+} from '@host/infrastructure/acp/message.ts'
 import type { AcpCallbacks, ReadyAgent } from '@host/infrastructure/grok/grok-launch.ts'
 import {
   ConversationCursorSchema,
@@ -41,7 +43,6 @@ import {
   type ElicitationAnswer,
   type ElicitationId,
   type PermissionId,
-  type TurnId,
 } from '@porte/core/client'
 import { z } from 'zod'
 
@@ -55,7 +56,6 @@ type OpenSession = {
   readonly cwd: string
   readonly mapper: AcpUpdateMapper
   models: AcpSessionModels | undefined
-  contextTokens: number | undefined
   /** Set while `session/load` replays; mapped events collect here instead of the listener. */
   replay: ConversationEvent[] | undefined
 }
@@ -76,6 +76,8 @@ export class AcpCodingAgent implements CodingAgent {
   private readonly elicitationOwners = new Map<ElicitationId, ConversationId>()
   /** Updates for a session whose `session/new` response has not arrived yet. */
   private readonly orphans = new Map<string, AcpSessionNotification[]>()
+  /** Sessions this process let go; Grok keeps streaming them, and nothing here wants that. */
+  private readonly forgotten = new Set<ConversationId>()
 
   private constructor(
     private readonly agent: ReadyAgent,
@@ -97,6 +99,7 @@ export class AcpCodingAgent implements CodingAgent {
         return adapter.answerRequest(id, method, params)
       },
       onElicitationComplete: ({ elicitationId: id }) => adapter?.completeElicitation(id),
+      onGrokNotification: (_method, params) => adapter?.receiveGrokNotification(params),
     })
     adapter = new AcpCodingAgent(ready, listener)
     return adapter
@@ -136,7 +139,7 @@ export class AcpCodingAgent implements CodingAgent {
         params: { sessionId: id, cwd, mcpServers: [] },
       })
       session.models = parseSessionModels(loaded)
-      session.contextTokens = this.agent.contextTokens(session.models)
+      session.mapper.setContextTokens(this.agent.contextTokens(session.models))
       return {
         title: this.agent.sessionTitle(loaded),
         events: [...session.replay, ...this.configurationEvents(session)],
@@ -153,27 +156,14 @@ export class AcpCodingAgent implements CodingAgent {
     return this.sessions.has(id)
   }
 
-  async prompt(
-    id: ConversationId,
-    turnId: TurnId,
-    promptIndex: number,
-    content: readonly CanonicalContent[],
-  ): Promise<PromptResult> {
-    const session = this.requireSession(id)
-    session.mapper.beginTurn(turnId, promptIndex)
-    try {
-      const response = await this.agent.process.request({
-        method: 'session/prompt',
-        params: { sessionId: id, prompt: content.map(toAcpContent) },
-        timeoutMs: PROMPT_TIMEOUT_MS,
-      })
-      const usage = this.agent.promptUsage(response._meta, session.contextTokens)
-      return usage === undefined
-        ? { outcome: toOutcome(response.stopReason) }
-        : { outcome: toOutcome(response.stopReason), usage }
-    } finally {
-      this.listener.onEvents(id, session.mapper.endTurn())
-    }
+  async prompt(id: ConversationId, content: readonly CanonicalContent[]): Promise<void> {
+    this.requireSession(id)
+    // The response repeats what the stream already said (`turn_completed`); only a refusal matters.
+    await this.agent.process.request({
+      method: 'session/prompt',
+      params: { sessionId: id, prompt: content.map(toAcpContent) },
+      timeoutMs: PROMPT_TIMEOUT_MS,
+    })
   }
 
   async cancel(id: ConversationId): Promise<void> {
@@ -199,7 +189,7 @@ export class AcpCodingAgent implements CodingAgent {
     })
     if (session.models === undefined) return []
     session.models = applyModelSelection(session.models, modelId, reasoningEffort)
-    session.contextTokens = this.agent.contextTokens(session.models)
+    session.mapper.setContextTokens(this.agent.contextTokens(session.models))
     return this.configurationEvents(session)
   }
 
@@ -208,11 +198,9 @@ export class AcpCodingAgent implements CodingAgent {
     if (session === undefined) return
     this.sessions.delete(id)
     this.orphans.delete(id)
+    this.forgotten.add(id)
     this.releaseParked(id)
-    if (this.agent.capabilities.sessionCapabilities?.close == null) return
-    // The session died with the process; closing it is already done.
-    if (this.agent.process.exited) return
-    await this.agent.process.request({ method: 'session/close', params: { sessionId: id } })
+    // Never `session/close`: the session is shared with the terminal and would end there too.
   }
 
   resolvePermission(id: PermissionId, outcome: PermissionOutcome): void {
@@ -242,15 +230,26 @@ export class AcpCodingAgent implements CodingAgent {
   }
 
   private open(id: ConversationId, cwd: string, models: AcpSessionModels | undefined): OpenSession {
-    const session: OpenSession = {
-      cwd,
-      mapper: new AcpUpdateMapper(id),
-      models,
-      contextTokens: this.agent.contextTokens(models),
-      replay: undefined,
-    }
+    const mapper = new AcpUpdateMapper(id)
+    mapper.setContextTokens(this.agent.contextTokens(models))
+    const session: OpenSession = { cwd, mapper, models, replay: undefined }
+    this.forgotten.delete(id)
     this.sessions.set(id, session)
     return session
+  }
+
+  /** Grok's own channels: only `turn_completed` matters, and only for a session this process holds. */
+  private receiveGrokNotification(params: JsonValue): void {
+    const completed = GrokTurnCompletedSchema.safeParse(params)
+    if (!completed.success) return
+    const id = ConversationIdSchema.safeParse(completed.data.sessionId)
+    if (!id.success) return
+    const session = this.sessions.get(id.data)
+    if (session === undefined) return
+    if (session.replay === undefined && isReplayFrame(params)) return
+    const events = session.mapper.completeTurn(completed.data.update)
+    if (session.replay !== undefined) session.replay.push(...events)
+    else if (events.length > 0) this.listener.onEvents(id.data, events)
   }
 
   private requireSession(id: ConversationId): OpenSession {
@@ -272,7 +271,10 @@ export class AcpCodingAgent implements CodingAgent {
   private receiveUpdate(notification: AcpSessionNotification): void {
     const id = ConversationIdSchema.safeParse(notification.sessionId)
     if (!id.success) return
+    if (this.forgotten.has(id.data)) return
     const session = this.sessions.get(id.data)
+    // Grok replays a session's history to every client holding it when another client loads it.
+    if (session?.replay === undefined && isReplayFrame(notification)) return
     if (session === undefined) {
       // `session/new` answers after its first updates; keep them until the id is known.
       const pending = this.orphans.get(id.data) ?? []
@@ -319,7 +321,7 @@ export class AcpCodingAgent implements CodingAgent {
     params: JsonValue,
   ): Promise<JsonValue> {
     const request = parsePermissionRequest(params)
-    const turnId = session.mapper.liveTurnId
+    const turnId = session.mapper.runningTurnId
     if (turnId === undefined) {
       throw new AcpClientRequestError({ code: -32600, message: 'no active turn' })
     }
@@ -343,7 +345,7 @@ export class AcpCodingAgent implements CodingAgent {
     params: JsonValue,
   ): Promise<JsonValue> {
     const request = parseElicitationRequest(params)
-    const turnId = session.mapper.liveTurnId
+    const turnId = session.mapper.runningTurnId
     if (turnId === undefined) {
       throw new AcpClientRequestError({ code: -32600, message: 'no active turn' })
     }
@@ -387,18 +389,11 @@ export class AcpCodingAgent implements CodingAgent {
   }
 }
 
-function toOutcome(stopReason: StopReason): TurnOutcome {
-  switch (stopReason) {
-    case 'end_turn':
-      return { type: 'completed', reason: 'completed' }
-    case 'refusal':
-      return { type: 'completed', reason: 'refused' }
-    case 'max_tokens':
-    case 'max_turn_requests':
-      return { type: 'completed', reason: 'limit_reached' }
-    case 'cancelled':
-      return { type: 'cancelled' }
-  }
+const replayMetaSchema = z.object({ _meta: z.object({ isReplay: z.literal(true) }) })
+
+/** Grok stamps `_meta.isReplay` on frames that repeat history rather than report it. */
+function isReplayFrame(frame: JsonValue | AcpSessionNotification): boolean {
+  return replayMetaSchema.safeParse(frame).success
 }
 
 function elicitationResponse(answer: ElicitationAnswer): JsonValue {

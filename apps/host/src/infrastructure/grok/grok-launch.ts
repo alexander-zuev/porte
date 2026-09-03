@@ -6,7 +6,6 @@ import {
   type AgentCapabilities,
   type AuthMethod,
   type LoadSessionResponse,
-  type PromptResponse,
   type SessionInfo,
 } from '@agentclientprotocol/sdk'
 import {
@@ -25,7 +24,6 @@ import {
   CodingAgentUnavailableError,
   ConversationIdSchema,
   IsoDateTimeSchema,
-  type ConversationUsage,
 } from '@porte/core/client'
 import { z } from 'zod'
 
@@ -64,13 +62,10 @@ const GROK_CACHED_TOKEN_AUTH_METHOD_ID = 'cached_token'
 /** Grok reports the context size on each model's `_meta` (spike: `totalContextTokens`). */
 const modelMetaSchema = z.object({ totalContextTokens: z.number().int().positive() })
 
-/** Grok reports the tokens the last call used on the prompt response `_meta` (spike). */
-const promptMetaSchema = z.object({ totalTokens: z.number().int().nonnegative() })
-
 /** Callbacks the ACP process needs before it can start; the adapter supplies them. */
 export type AcpCallbacks = Pick<
   StartAcpAgentProcess,
-  'onUpdate' | 'onRequest' | 'onElicitationComplete'
+  'onUpdate' | 'onRequest' | 'onElicitationComplete' | 'onGrokNotification'
 >
 
 /**
@@ -86,11 +81,6 @@ export type ReadyAgent = {
   readonly sessionTitle: (response: LoadSessionResponse) => string
   /** Context window of the current model, when the agent reports one. */
   readonly contextTokens: (models: AcpSessionModels | null | undefined) => number | undefined
-  /** Usage for one finished prompt, when the agent reports it and the context size is known. */
-  readonly promptUsage: (
-    meta: PromptResponse['_meta'],
-    sizeTokens: number | undefined,
-  ) => ConversationUsage | undefined
 }
 
 /**
@@ -103,7 +93,8 @@ export type ReadyAgent = {
 export async function startGrok(signal: AbortSignal, callbacks: AcpCallbacks): Promise<ReadyAgent> {
   const process = await AcpAgentProcess.start({
     command: 'grok',
-    args: ['--no-auto-update', 'agent', 'stdio'],
+    // `--leader`: one shared Grok backend with the TUI, so both surfaces see one session.
+    args: ['--no-auto-update', 'agent', '--leader', 'stdio'],
     cwd: homedir(),
     signal,
     ...callbacks,
@@ -139,7 +130,6 @@ export async function startGrok(signal: AbortSignal, callbacks: AcpCallbacks): P
       sessionFacts: toSessionFacts,
       sessionTitle,
       contextTokens,
-      promptUsage,
     }
   } catch (cause) {
     await process.stop()
@@ -190,13 +180,4 @@ function contextTokens(models: AcpSessionModels | null | undefined): number | un
   const current = models?.availableModels.find((model) => model.modelId === models.currentModelId)
   const meta = modelMetaSchema.safeParse(current?._meta)
   return meta.success ? meta.data.totalContextTokens : undefined
-}
-
-function promptUsage(
-  meta: PromptResponse['_meta'],
-  sizeTokens: number | undefined,
-): ConversationUsage | undefined {
-  const parsed = promptMetaSchema.safeParse(meta)
-  if (!parsed.success || sizeTokens === undefined) return undefined
-  return { usedTokens: Math.min(parsed.data.totalTokens, sizeTokens), sizeTokens }
 }

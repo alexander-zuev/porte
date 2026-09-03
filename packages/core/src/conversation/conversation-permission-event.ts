@@ -40,6 +40,8 @@ const permissionEventDataSchema = z.discriminatedUnion('type', [
     outcome: z.discriminatedUnion('type', [
       z.object({ type: z.literal('selected'), optionId: z.string().min(1) }),
       z.object({ type: z.literal('cancelled') }),
+      // Another client of the shared Grok session answered first; the card goes, no decision here.
+      z.object({ type: z.literal('answered-elsewhere') }),
     ]),
   }),
 ])

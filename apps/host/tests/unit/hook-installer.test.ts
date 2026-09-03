@@ -78,6 +78,45 @@ describe('installGrokHook', () => {
     expect(await runScript(script)).toContain('/rc off')
   })
 
+  it('status line names the failure and its fix while the daemon waits', async () => {
+    await installStatusLineScript(porteHome)
+    const script = join(porteHome, 'statusline.sh')
+    const { writeFile } = await import('node:fs/promises')
+    const state = join(porteHome, 'rc-state.json')
+
+    await writeFile(
+      state,
+      JSON.stringify({
+        status: 'error',
+        pid: process.pid,
+        failure: { type: 'unauthorized', http: 403 },
+      }),
+    )
+    expect(await runScript(script)).toContain(
+      '/rc error[0m · pairing revoked · /remote-control to pair again',
+    )
+
+    await writeFile(
+      state,
+      JSON.stringify({
+        status: 'error',
+        pid: process.pid,
+        failure: { type: 'refused', http: 426 },
+      }),
+    )
+    expect(await runScript(script)).toContain('Porte refused (HTTP 426) · update Porte')
+
+    await writeFile(state, JSON.stringify({ status: 'connecting', pid: process.pid }))
+    expect(await runScript(script)).toContain('/rc connecting…')
+
+    const deadPid = Number((await run('bash', ['-c', 'echo $$'])).stdout.trim())
+    await writeFile(
+      state,
+      JSON.stringify({ status: 'error', pid: deadPid, failure: { type: 'agent-start' } }),
+    )
+    expect(await runScript(script)).toContain('/rc off')
+  })
+
   it('changes nothing when the installed files are current', async () => {
     await installGrokHook({ grokHome, porteHome })
 

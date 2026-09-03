@@ -2,5 +2,6 @@
 # a hook needs plain streamed output, not a TUI.
 export TURBO_UI=stream
 
-GROK_LIVE_TESTS=1 pnpm test:integration
+pnpm test:integration
+pnpm test:live
 pnpm test:design || echo "test:design failed (non-blocking)"

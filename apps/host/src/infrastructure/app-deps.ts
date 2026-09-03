@@ -1,4 +1,5 @@
 import { type IMessageBus, MessageBus } from '@host/application/message-bus.ts'
+import type { AttemptBindings } from '@host/application/ports/attempt-bindings.ts'
 import type { BackgroundTasks } from '@host/application/ports/background-tasks.ts'
 import type { CodingAgent } from '@host/application/ports/coding-agent.ts'
 import type { HostConnections } from '@host/application/ports/host-connections.ts'
@@ -15,6 +16,7 @@ import { startGrok } from '@host/infrastructure/grok/grok-launch.ts'
 import { NodeBackgroundTasks } from '@host/infrastructure/node/background-tasks.ts'
 import { NodeScheduler } from '@host/infrastructure/node/scheduler.ts'
 import { EventOutbox } from '@host/infrastructure/persistence/event-outbox.ts'
+import { InMemoryAttemptBindings } from '@host/infrastructure/persistence/in-memory-attempt-bindings.ts'
 import { InMemoryConversationRepository } from '@host/infrastructure/persistence/in-memory-conversation-repository.ts'
 import { noteLatestCliVersion } from '@host/infrastructure/update-notice.ts'
 import { createPartySocketTransport } from '@host/infrastructure/websocket/party-socket-transport.ts'
@@ -23,6 +25,7 @@ import { createPartySocketTransport } from '@host/infrastructure/websocket/party
 export type AppDeps = {
   readonly outbox: EventOutbox
   readonly conversations: ConversationRepository
+  readonly attempts: AttemptBindings
   readonly codingAgent: CodingAgent
   readonly workingTree: WorkingTree
   readonly connections: HostConnections
@@ -51,6 +54,7 @@ export async function createAppDeps(input: CreateAppDepsInput): Promise<AppDeps>
   const deps: AppDeps = {
     outbox,
     conversations: new InMemoryConversationRepository(outbox),
+    attempts: new InMemoryAttemptBindings(),
     workingTree: new GitWorkingTree(),
     background: new NodeBackgroundTasks(),
     scheduler: new NodeScheduler(),

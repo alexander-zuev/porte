@@ -34,6 +34,7 @@ import { toErrorPayload } from '@server/infrastructure/errors/to-error-payload.t
 import type { RuntimeEnv } from '@server/infrastructure/runtime-env.ts'
 import {
   ConversationEventProjector,
+  canonicalContentToUIMessageParts,
   createConversationEventProjectionState,
   type ConversationEventProjectionState,
 } from '@web/lib/conversation/conversation-event-projector.ts'
@@ -87,8 +88,10 @@ const CHAT_MESSAGES_FRAME = 'cf_agent_chat_messages'
 const COMMANDS_KEY = 'commands'
 /** DO storage key for the queued row `sendQueuedNow` starts alone once the running turn ends. */
 const SEND_NOW_KEY = 'queue.sendNow'
-/** How long a drain waits for the SDK's own turn to settle before giving up until the next trigger. */
+/** How long a drain waits for the SDK's own turn to settle before it schedules another attempt. */
 const DRAIN_STABLE_TIMEOUT_MS = 60_000
+/** The alarm delay before a stalled drain tries again; an alarm, so eviction cannot lose the queue. */
+const DRAIN_RETRY_SECONDS = 30
 
 /** A user part the browser may queue: the same two kinds `sendMessage` builds. */
 const QueuedPartSchema = z.discriminatedUnion('type', [
@@ -149,6 +152,18 @@ type ActiveStream =
     }
 
 /**
+ * A turn typed elsewhere on the shared Grok session. No browser asked for it, so
+ * the relay builds its user row from the Host's echo, then asks the SDK for a
+ * stream through `saveMessages`, which calls `onChatMessage` with this pending.
+ */
+type ForeignTurn = {
+  readonly turnId: TurnId
+  readonly attemptId: AttemptId
+  userMessageId: MessageId | undefined
+  readonly parts: UIMessage['parts']
+}
+
+/**
  * Child chat Agent for one conversation data connection.
  *
  * Owns a projection, never the truth: the machine runs the turn and keeps the
@@ -158,6 +173,8 @@ type ActiveStream =
 export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveState> {
   initialState: ConversationLiveState = INITIAL_CONVERSATION_LIVE_STATE
   private readonly conversationId: ConversationId
+  /** The turn typed elsewhere whose stream is not open yet. */
+  private foreignTurn: ForeignTurn | undefined
   private readonly hostSocket: HostJsonRpcSocket<typeof HostConversationMethods>
   private activeStream: ActiveStream | undefined
   private streamWork: Promise<void> = Promise.resolve()
@@ -305,7 +322,39 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     _onEnd: GenerateTextOnEndCallback,
     _options?: OnChatMessageOptions,
   ): Promise<Response> {
+    const foreign = this.foreignTurn
     const userMessage = startableUserMessage(this.messages)
+    // A browser send always carries a startable row; the SDK turn `streamForeignTurn` asked for never does.
+    if (userMessage === undefined && foreign?.userMessageId !== undefined) {
+      this.foreignTurn = undefined
+      const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
+      if (this.state.runningTurnId !== foreign.turnId) {
+        // The turn ended first and the reconcile wrote its rows; an empty stream keeps them.
+        await stream.writable.getWriter().close()
+        return createUIMessageStreamResponse({ stream: stream.readable })
+      }
+      // The turn already runs on the machine; this stream only shows it.
+      const active = {
+        binding: 'bound' as const,
+        attemptId: foreign.attemptId,
+        userMessageId: foreign.userMessageId,
+        queuedPosition: undefined,
+        turnId: foreign.turnId,
+        writer: stream.writable.getWriter(),
+        projection: createConversationEventProjectionState(),
+      }
+      this.activeStream = active
+      // The turn opened before this stream existed; replay its opening chunk so the assistant
+      // row takes the turn id. Not awaited: nothing reads the stream until this returns.
+      void this.serializeStream(() =>
+        this.writeToStream(active, {
+          type: 'turn.started',
+          turnId: foreign.turnId,
+          attemptId: foreign.attemptId,
+        }),
+      )
+      return createUIMessageStreamResponse({ stream: stream.readable })
+    }
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
 
     const stream = new TransformStream<UIMessageChunk, UIMessageChunk>()
@@ -328,6 +377,63 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     // Exactly the Host contract: the row's queue position is the relay's own fact.
     void this.startTurn(active, { id: userMessage.id, content: userMessage.content })
     return createUIMessageStreamResponse({ stream: stream.readable })
+  }
+
+  /**
+   * A `turn.started` nobody here asked for opens a foreign turn; its user echo
+   * becomes the user row. Once the row is complete, the SDK is asked for a
+   * stream. Events for the turn that arrive before that stream exists are not
+   * lost: the reconcile after `turn.finished` rewrites the whole turn.
+   */
+  private collectForeignTurn(event: ConversationEvent): void {
+    if (event.type === 'turn.started') {
+      if (this.activeStream !== undefined) return
+      this.foreignTurn = {
+        turnId: event.turnId,
+        attemptId: event.attemptId,
+        userMessageId: undefined,
+        parts: [],
+      }
+      return
+    }
+    const foreign = this.foreignTurn
+    if (foreign === undefined || !('turnId' in event) || event.turnId !== foreign.turnId) return
+    if (event.type === 'message.started' && event.role === 'user') {
+      foreign.userMessageId = event.messageId
+    } else if (event.type === 'message.delta' && event.messageId === foreign.userMessageId) {
+      foreign.parts.push(...canonicalContentToUIMessageParts(event.content))
+    } else if (event.type === 'message.completed' && event.messageId === foreign.userMessageId) {
+      void this.streamForeignTurn(foreign, event.messageId)
+    }
+    // Kept past `turn.finished` until `onChatMessage` consumes it: the SDK's turn may still be on its way.
+  }
+
+  /** Persist the echoed user row, then let the SDK open the stream every viewer receives. */
+  private async streamForeignTurn(foreign: ForeignTurn, userMessageId: MessageId): Promise<void> {
+    const row: UIMessage = {
+      id: userMessageId,
+      role: 'user',
+      metadata: { turnId: foreign.turnId },
+      parts: foreign.parts,
+    }
+    // `saveMessages` persists, then runs the programmatic turn that calls `onChatMessage`. The
+    // function form reads the rows when the SDK is ready, not when the echo arrived.
+    const result = await this.saveMessages((rows) => [...rows, row]).catch((error) => {
+      logger.warn('foreign_turn_stream_failed', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId, turnId: foreign.turnId },
+      })
+      return undefined
+    })
+    if (result !== undefined && result.status !== 'completed') {
+      logger.warn('foreign_turn_not_completed', {
+        details: {
+          conversationId: this.conversationId,
+          turnId: foreign.turnId,
+          status: result.status,
+        },
+      })
+    }
   }
 
   /** The turn whose stream just closed; `onChatResponse` reconciles it after the SDK persisted. */
@@ -490,33 +596,40 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     if (event.type === 'turn.started') await this.bindStream(event)
     // The queue waits for the SDK's own turn to settle, so this is safe before the stream closes.
     if (isTerminalEvent(event)) this.drainQueueInBackground()
+    this.collectForeignTurn(event)
     const active = this.activeStream
     if (active?.binding !== 'bound' || !eventBelongsToTurn(event, active.turnId)) {
       if (event.type === 'turn.finished') this.reconcileInBackground(event.turnId, event.outcome)
       return
     }
-    await this.serializeStream(async () => {
-      if (this.activeStream !== active) return
-      try {
-        await writeChunks(active.writer, eventProjector.project(event, active.projection))
-      } catch (error) {
-        logger.warn('conversation_stream_detached', {
-          error: toErrorPayload(error),
-          details: { conversationId: this.conversationId, turnId: active.turnId },
-        })
-        this.activeStream = undefined
-        return
-      }
-      if (!isTerminalEvent(event)) return
-      // `onChatResponse` reconciles after `_reply` has persisted the streamed row.
-      this.reconcileAfterReply = {
-        turnId: active.turnId,
-        userMessageId: active.userMessageId,
-        outcome: event.type === 'turn.finished' ? event.outcome : undefined,
-      }
+    await this.serializeStream(() => this.writeToStream(active, event))
+  }
+
+  /** Project one event of the bound turn into its stream; a terminal event closes the stream. */
+  private async writeToStream(
+    active: Extract<ActiveStream, { binding: 'bound' }>,
+    event: ConversationEvent,
+  ): Promise<void> {
+    if (this.activeStream !== active) return
+    try {
+      await writeChunks(active.writer, eventProjector.project(event, active.projection))
+    } catch (error) {
+      logger.warn('conversation_stream_detached', {
+        error: toErrorPayload(error),
+        details: { conversationId: this.conversationId, turnId: active.turnId },
+      })
       this.activeStream = undefined
-      await active.writer.close().catch(() => undefined)
-    })
+      return
+    }
+    if (!isTerminalEvent(event)) return
+    // `onChatResponse` reconciles after `_reply` has persisted the streamed row.
+    this.reconcileAfterReply = {
+      turnId: active.turnId,
+      userMessageId: active.userMessageId,
+      outcome: event.type === 'turn.finished' ? event.outcome : undefined,
+    }
+    this.activeStream = undefined
+    await active.writer.close().catch(() => undefined)
   }
 
   /** `turn.started` names the turn an attempt asked for; the stream may already be gone. */
@@ -649,6 +762,11 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     return null
   }
 
+  /** The alarm callback a stalled drain schedules. Public so `schedule` can name it. */
+  drainQueueScheduled(): void {
+    this.drainQueueInBackground()
+  }
+
   // One drain at a time: every trigger while one waits is covered by that one.
   private draining = false
 
@@ -680,7 +798,17 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
    */
   private async drainQueue(): Promise<void> {
     const stable = await this.waitUntilStable({ timeout: DRAIN_STABLE_TIMEOUT_MS })
-    if (!stable || this.state.runningTurnId !== undefined) return
+    if (!stable) {
+      if (queuedRows(this.messages).length === 0) return
+      logger.warn('queue_drain_stalled', {
+        details: { conversationId: this.conversationId, retryInSeconds: DRAIN_RETRY_SECONDS },
+      })
+      await this.schedule(DRAIN_RETRY_SECONDS, 'drainQueueScheduled', undefined, {
+        idempotent: true,
+      })
+      return
+    }
+    if (this.state.runningTurnId !== undefined) return
     const queued = queuedRows(this.messages)
     if (queued.length === 0) return
     const sendNow = await this.ctx.storage.get<MessageId>(SEND_NOW_KEY)

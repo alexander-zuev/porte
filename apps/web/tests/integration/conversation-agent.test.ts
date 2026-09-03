@@ -6,6 +6,9 @@ import {
   HOST_CONVERSATION_SUBPROTOCOL,
   IsoDateTimeSchema,
   MessageIdSchema,
+  PermissionIdSchema,
+  ToolCallIdSchema,
+  createAttemptId,
   createHostId,
   hostControlRequestSchema,
   hostConversationRequestSchema,
@@ -364,7 +367,161 @@ describe('ConversationAgent queue', () => {
     await flow.call('withdrawQueued', { messageId: MessageIdSchema.parse('q-1') })
     expect((await flow.messages()).map((row) => row.id)).toContain('q-1')
   })
+
+  it('a drain whose settle wait times out schedules another from an alarm', async () => {
+    // Protected on the SDK class; the test and the facet share one isolate, so the prototype is the seam.
+    const settle = vi
+      .spyOn(
+        ConversationAgent.prototype as unknown as { waitUntilStable: () => Promise<boolean> },
+        'waitUntilStable',
+      )
+      .mockResolvedValue(false)
+    const flow = await openConversation()
+    await flow.call('queueMessage', queued('q-1', 'alone'))
+    await flow.host.expectNoRequestFor(300)
+    await vi.waitFor(async () => {
+      // The stub type lists only the subclass's methods; the SDK's are still RPC-callable.
+      const agent = (await flow.agent()) as unknown as {
+        listSchedules: () => Promise<{ callback: string }[]>
+      }
+      const schedules = await agent.listSchedules()
+      expect(schedules.map((schedule) => schedule.callback)).toContain('drainQueueScheduled')
+    })
+    settle.mockRestore()
+
+    await (await flow.agent()).drainQueueScheduled()
+    const started = await flow.host.startTurn()
+    expect(started.params.userMessage.id).toBe('q-1')
+  })
 })
+/**
+ * Turns nobody in Porte asked for: the terminal typed them, the Host observed
+ * them on the shared Grok session, and the relay must show them like any other.
+ */
+describe('turns the Host observed', () => {
+  it('streams a terminal turn to viewers, persists its user row, and reconciles it', async () => {
+    const flow = await openConversation()
+    const viewer = await flow.viewer()
+    const turnId = turnIdFor(conversation.id, 0)
+    const send = flow.eventSender()
+    // No `turn.start` came from a browser; the attempt id is the Host's own.
+    send({ type: 'turn.started', turnId, attemptId: createAttemptId() })
+    send(userEcho(turnId, ''))
+    send(userDelta(turnId, 'from the terminal'))
+    send(userCompleted(turnId))
+
+    // The user row reaches viewers before any answer, built from the events alone.
+    const seeded = await nextRequest(viewer.inbox, {
+      safeParse: (value: unknown) => {
+        const parsed = ChatMessagesFrameSchema.safeParse(value)
+        return parsed.success && parsed.data.messages.length > 0
+          ? parsed
+          : { success: false as const }
+      },
+    })
+    expect(seeded.messages.map((row) => `${row.role} ${row.id}`)).toEqual([`user ${turnId}:user`])
+
+    flow.host.stream(turnId, 'hello from grok')
+    // Viewers get the live stream although none of them started the turn.
+    const chunk = await nextRequest(viewer.inbox, chatResponseContaining('hello from grok'))
+    expect(chunk.type).toBe('cf_agent_use_chat_response')
+
+    await flow.host.finishTurn(turnId, 'from the terminal', 'hello from grok, reconciled')
+    await vi.waitFor(async () => {
+      const rows = await flow.messages()
+      expect(rows.map((row) => `${row.role} ${row.id}`)).toEqual([
+        `user ${turnId}:user`,
+        `assistant ${turnId}`,
+      ])
+      expect(JSON.stringify(rows[1]?.parts)).toContain('reconciled')
+    })
+  })
+
+  it('shows a permission the terminal was asked and clears it once answered elsewhere', async () => {
+    const flow = await openConversation()
+    const viewer = await flow.viewer()
+    const turnId = turnIdFor(conversation.id, 0)
+    const permissionId = PermissionIdSchema.parse(`${turnId}:permission:1`)
+    const send = flow.eventSender()
+    send({ type: 'turn.started', turnId, attemptId: createAttemptId() })
+    send(userEcho(turnId, ''))
+    send({
+      type: 'permission.requested',
+      turnId,
+      permissionId,
+      toolCallId: ToolCallIdSchema.parse('call-1'),
+      title: 'Execute `git stash list`',
+      options: [{ optionId: 'allow-once', name: 'Yes', kind: 'allow_once' }],
+    })
+    const asked = await nextRequest(
+      viewer.inbox,
+      stateFrameWhere((s) => s.pending.permissions.length === 1),
+    )
+    expect(asked.pending.permissions[0]).toMatchObject({ toolCallId: 'call-1' })
+
+    // The terminal answered first; the card must go without a browser decision.
+    send({
+      type: 'permission.resolved',
+      turnId,
+      permissionId,
+      outcome: { type: 'answered-elsewhere' },
+    })
+    await nextRequest(
+      viewer.inbox,
+      stateFrameWhere((s) => s.pending.permissions.length === 0),
+    )
+  })
+})
+
+/** One text chunk of the user message the Host echoed for an observed turn. */
+function userDelta(turnId: TurnId, text: string): ConversationEvent {
+  // SAFETY: same boundary rule as `delta`.
+  return {
+    type: 'message.delta',
+    turnId,
+    messageId: `${turnId}:user`,
+    content: { type: 'text', text },
+  } as ConversationEvent
+}
+
+function userCompleted(turnId: TurnId): ConversationEvent {
+  // SAFETY: same boundary rule as `delta`.
+  return { type: 'message.completed', turnId, messageId: `${turnId}:user` } as ConversationEvent
+}
+
+/** The SDK stream frame a viewer receives; matched only when its body carries `text`. */
+function chatResponseContaining(text: string) {
+  const schema = z.object({ type: z.literal('cf_agent_use_chat_response'), body: z.string() })
+  return {
+    safeParse: (value: unknown) => {
+      const parsed = schema.safeParse(value)
+      return parsed.success && parsed.data.body.includes(text)
+        ? parsed
+        : { success: false as const }
+    },
+  }
+}
+
+const StateFrameSchema = z.object({
+  type: z.literal('cf_agent_state'),
+  state: z.object({
+    runningTurnId: z.string().optional(),
+    pending: z.object({ permissions: z.array(z.object({ toolCallId: z.string() })) }),
+  }),
+})
+
+type LiveStateFrame = z.infer<typeof StateFrameSchema>['state']
+
+/** The SDK live-state frame a viewer receives; matched only when `predicate` holds. */
+function stateFrameWhere(predicate: (state: LiveStateFrame) => boolean) {
+  return {
+    safeParse: (value: unknown): { success: true; data: LiveStateFrame } | { success: false } => {
+      const parsed = StateFrameSchema.safeParse(value)
+      if (!parsed.success || !predicate(parsed.data.state)) return { success: false }
+      return { success: true, data: parsed.data.state }
+    },
+  }
+}
 
 /** What the browser hands `queueMessage`: the id it minted and the parts it typed. */
 function queued(id: string, text: string) {
@@ -641,6 +798,7 @@ async function openConversation() {
       // No attach request follows: the Host data socket is already connected.
       return { socket: response.webSocket, inbox }
     },
+    agent: () => getSubAgentByName(stub, ConversationAgent, conversation.id),
     // The production read: Worker RPC through the parent, not the SDK's `/get-messages`.
     async messages(): Promise<UIMessage[]> {
       const agent = await getSubAgentByName(stub, ConversationAgent, conversation.id)

@@ -30,21 +30,22 @@ function messageIds(events: readonly ConversationEvent[]): string[] {
 
 describe('identity across live and replay', () => {
   it('mints the same turn and message ids for the first turn seen live and replayed', () => {
-    const liveMapper = new AcpUpdateMapper(conversationId)
     const turnId = turnIdFor(conversationId, 0)
-    liveMapper.beginTurn(turnId, 0)
+    // The live capture starts after the user echo; the replay carries it. Open the turn the same way.
+    const echo = replay.find((n) => n.update.sessionUpdate === 'user_message_chunk')
+    if (echo === undefined) throw new TypeError('replay fixture has no user chunk')
+    const liveMapper = new AcpUpdateMapper(conversationId)
     const liveEvents = [
+      ...liveMapper.map(echo),
       ...live.flatMap((notification) => liveMapper.map(notification)),
-      ...liveMapper.endTurn(),
+      ...liveMapper.completeTurn({ sessionUpdate: 'turn_completed', stop_reason: 'end_turn' }),
     ]
 
     const replayMapper = new AcpUpdateMapper(conversationId)
     const replayEvents = replay.flatMap((notification) => replayMapper.map(notification))
     const firstTurn = replayEvents.filter((event) => 'turnId' in event && event.turnId === turnId)
 
-    // The aggregate raises the user message live; the replay maps it. Compare assistant-side ids.
-    const assistantOnly = (ids: string[]) => ids.filter((id) => !id.endsWith(':user'))
-    expect(assistantOnly(messageIds(liveEvents))).toEqual(assistantOnly(messageIds(firstTurn)))
+    expect(messageIds(liveEvents)).toEqual(messageIds(firstTurn))
     expect(messageIds(firstTurn)[0]).toBe(`${turnId} ${turnId}:user`)
   })
 })

@@ -54,9 +54,14 @@
     },
     "test:integration": {
       "dependsOn": ["^build", "cf-typegen"],
-      "env": ["GROK_LIVE_TESTS"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
       "outputs": [],
+      "outputLogs": "new-only",
+    },
+    // Real Grok, real tokens: never cached, never in CI.
+    "test:live": {
+      "dependsOn": ["^build"],
+      "cache": false,
       "outputLogs": "new-only",
     },
   },

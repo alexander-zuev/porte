@@ -10,12 +10,14 @@ import {
   PermissionNotFoundError,
   ToolCallIdSchema,
   TurnNotFoundError,
+  createAttemptId,
   turnIdFor,
+  type ConversationEvent,
 } from '@porte/core/client'
 import { describe, expect, it } from 'vitest'
 
 const conversationId = ConversationIdSchema.parse('conversation-1')
-// The aggregate mints the turn from the prompt index; the first turn of a new conversation is 0.
+// Grok numbers prompts from 0; the mapper mints the turn id from that number.
 const turnId = turnIdFor(conversationId, 0)
 const attemptId = AttemptIdSchema.parse('0199f97b-9cf1-7f05-9e9d-df1647d7a821')
 const userMessage = {
@@ -29,6 +31,23 @@ const permission = {
   options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' as const }],
 }
 
+/** What the mapper emits when Grok echoes `text` as the prompt of `turnId`. */
+function echo(id = turnId, text = 'hi'): ConversationEvent[] {
+  const messageId = MessageIdSchema.parse(`${id}:user`)
+  return [
+    { type: 'turn.started', turnId: id, attemptId: createAttemptId() },
+    { type: 'message.started', turnId: id, messageId, role: 'user' },
+    { type: 'message.delta', turnId: id, messageId, content: { type: 'text', text } },
+    { type: 'message.completed', turnId: id, messageId },
+  ]
+}
+
+const finished: ConversationEvent = {
+  type: 'turn.finished',
+  turnId,
+  outcome: { type: 'completed', reason: 'completed' },
+}
+
 function create(): Conversation {
   return Conversation.create({
     id: conversationId,
@@ -38,9 +57,11 @@ function create(): Conversation {
   })
 }
 
+/** A turn this Host asked for, echoed by Grok and bound to `attemptId`. */
 function running(): Conversation {
   const conversation = create()
-  conversation.beginTurn(attemptId, userMessage)
+  conversation.requestTurn(attemptId, userMessage)
+  conversation.applyAgentEvents(echo())
   conversation.clearEvents()
   return conversation
 }
@@ -59,7 +80,7 @@ describe('Conversation', () => {
     expect(conversation.collectEvents()).toEqual([])
   })
 
-  it('restores agent facts and replays history without raising', () => {
+  it('restores agent facts and replays history without raising, boundaries included', () => {
     const conversation = Conversation.restore({
       id: conversationId,
       cwd: '/repo/app',
@@ -67,31 +88,21 @@ describe('Conversation', () => {
       title: 'Open flow',
       updatedAt: IsoDateTimeSchema.parse('2026-08-27T12:00:00.000Z'),
     })
-    conversation.replay([
-      { type: 'message.started', turnId, messageId: userMessage.id, role: 'user' },
-      {
-        type: 'message.delta',
-        turnId,
-        messageId: userMessage.id,
-        content: userMessage.content[0]!,
-      },
-    ])
+    conversation.replay([...echo(), finished, ...echo(turnIdFor(conversationId, 1), 'more')])
     expect(conversation.title).toBe('Open flow')
-    expect(conversation.snapshot().items).toEqual([
-      {
-        type: 'message',
-        turnId,
-        messageId: userMessage.id,
-        role: 'user',
-        content: userMessage.content,
-      },
-    ])
+    expect(conversation.snapshot().items).toHaveLength(2)
+    // The second turn never finished on the agent: it is still running there.
+    expect(conversation.turn).toMatchObject({
+      state: 'running',
+      turnId: turnIdFor(conversationId, 1),
+    })
     expect(conversation.collectEvents()).toEqual([])
   })
 
-  it('beginTurn mints the turn from the prompt index and names the user message after it', () => {
+  it('binds the echo of a requested prompt to its attempt and raises the turn', () => {
     const conversation = create()
-    expect(conversation.beginTurn(attemptId, userMessage)).toBe(turnId)
+    expect(conversation.requestTurn(attemptId, userMessage)).toEqual({ type: 'sent' })
+    conversation.applyAgentEvents(echo())
     const events = conversation.collectEvents()
     expect(events.map((event) => ('event' in event ? event.event.type : event.name))).toEqual([
       'turn.started',
@@ -101,48 +112,43 @@ describe('Conversation', () => {
     ])
     expect(events[0]).toMatchObject({ event: { type: 'turn.started', turnId, attemptId } })
     expect(conversation.snapshot()).toMatchObject({
-      turn: { state: 'running', turnId },
-      items: [
-        {
-          type: 'message',
-          turnId,
-          messageId: `${turnId}:user`,
-          role: 'user',
-          content: userMessage.content,
-        },
-      ],
+      turn: { state: 'running', turnId, attemptId },
+      items: [{ type: 'message', turnId, role: 'user', content: userMessage.content }],
     })
   })
 
-  it('beginTurn repeats an attempt as a no-op and rejects a second attempt while running', () => {
+  it('keeps the stream attempt id for a turn typed elsewhere, and keeps the request pending', () => {
+    const conversation = create()
+    conversation.requestTurn(attemptId, userMessage)
+    conversation.applyAgentEvents(echo(turnId, 'typed in the terminal'))
+    const started = conversation.collectEvents()[0]
+    expect(started).toMatchObject({ event: { type: 'turn.started', turnId } })
+    expect(started).not.toMatchObject({ event: { attemptId } })
+    expect(conversation.requestTurn(attemptId, userMessage)).toEqual({ type: 'pending' })
+  })
+
+  it('a repeated attempt answers with its turn and sends nothing; a second attempt is busy', () => {
     const conversation = running()
-    expect(conversation.beginTurn(attemptId, userMessage)).toBe(turnId)
+    expect(conversation.requestTurn(attemptId, userMessage)).toEqual({ type: 'repeated', turnId })
     expect(conversation.collectEvents()).toEqual([])
     expect(() => {
-      conversation.beginTurn(
+      conversation.requestTurn(
         AttemptIdSchema.parse('0199f97b-9cf1-7f05-9e9d-df1647d7a822'),
         userMessage,
       )
     }).toThrow(ConversationBusyError)
   })
 
-  it('beginTurn repeats the last finished attempt without a new turn', () => {
+  it('the stream ends the turn; a second finish or late events are dropped', () => {
     const conversation = running()
-    conversation.finishTurn(turnId, { type: 'completed', reason: 'completed' })
-    conversation.clearEvents()
-    expect(conversation.beginTurn(attemptId, userMessage)).toBe(turnId)
-    expect(conversation.collectEvents()).toEqual([])
+    conversation.applyAgentEvents([finished])
+    conversation.applyAgentEvents([finished])
+    conversation.applyAgentEvents([
+      { type: 'message.started', turnId, messageId: userMessage.id, role: 'assistant' },
+    ])
+    expect(raised(conversation)).toEqual(['turn.finished'])
     expect(conversation.turn).toEqual({ state: 'idle' })
-  })
-
-  it('the second turn takes prompt index 1', () => {
-    const conversation = running()
-    conversation.finishTurn(turnId, { type: 'completed', reason: 'completed' })
-    const next = conversation.beginTurn(
-      AttemptIdSchema.parse('0199f97b-9cf1-7f05-9e9d-df1647d7a823'),
-      userMessage,
-    )
-    expect(next).toBe(turnIdFor(conversationId, 1))
+    expect(conversation.requestTurn(attemptId, userMessage)).toEqual({ type: 'repeated', turnId })
   })
 
   it('requestPermission needs a running turn', () => {
@@ -162,6 +168,29 @@ describe('Conversation', () => {
     expect(conversation.snapshot().pending.permissions).toEqual([])
   })
 
+  it('a tool that runs while its permission is parked was answered elsewhere', () => {
+    const conversation = running()
+    conversation.requestPermission(permission)
+    conversation.applyAgentEvents([
+      {
+        type: 'tool.updated',
+        turnId,
+        tool: {
+          toolCallId: permission.toolCallId,
+          title: 'Write file',
+          kind: 'edit',
+          status: 'in_progress',
+          content: [],
+          locations: [],
+        },
+      },
+    ])
+    expect(conversation.collectEvents().at(-1)).toMatchObject({
+      event: { type: 'permission.resolved', outcome: { type: 'answered-elsewhere' } },
+    })
+    expect(conversation.snapshot().pending.permissions).toEqual([])
+  })
+
   it('cancelTurn resolves every pending as cancelled and keeps the turn running', () => {
     const conversation = running()
     conversation.requestPermission(permission)
@@ -175,23 +204,24 @@ describe('Conversation', () => {
     })
   })
 
-  it('finishTurn raises turn.finished once', () => {
+  it('finishTurn ends the turn here once; a later stream finish is dropped', () => {
     const conversation = running()
     conversation.finishTurn(turnId, { type: 'cancelled' })
     conversation.finishTurn(turnId, { type: 'cancelled' })
+    conversation.applyAgentEvents([finished])
     expect(raised(conversation)).toEqual(['turn.finished'])
     expect(conversation.turn).toEqual({ state: 'idle' })
   })
 
   it('cancelTurn after the turn ended is a no-op, not an error', () => {
     const conversation = running()
-    conversation.finishTurn(turnId, { type: 'completed', reason: 'completed' })
+    conversation.applyAgentEvents([finished])
     conversation.clearEvents()
     conversation.cancelTurn(turnId)
     expect(conversation.collectEvents()).toEqual([])
   })
 
-  it('turnTranscript returns one turn slice and rejects an unknown turn', () => {
+  it('turnTranscript returns one turn slice with its attempt and rejects an unknown turn', () => {
     const conversation = running()
     const messageId = MessageIdSchema.parse(`${turnId}:assistant:1`)
     conversation.applyAgentEvents([
@@ -199,24 +229,21 @@ describe('Conversation', () => {
       { type: 'message.delta', turnId, messageId, content: { type: 'text', text: 'Done' } },
     ])
     const slice = conversation.turnTranscript(turnId)
-    expect(slice.turnId).toBe(turnId)
+    expect(slice).toMatchObject({ turnId, attemptId })
     expect(slice.items.map((item) => item.type)).toEqual(['message', 'message'])
     expect(() => conversation.turnTranscript(turnIdFor(conversationId, 9))).toThrow(
       TurnNotFoundError,
     )
   })
 
-  it('applyAgentEvents folds metadata and rejects turn events while idle', () => {
+  it('applyAgentEvents folds metadata and drops turn events while idle', () => {
     const conversation = create()
     conversation.applyAgentEvents([
       { type: 'conversation.metadata.updated', update: { title: 'Fix bug' } },
+      { type: 'message.started', turnId, messageId: userMessage.id, role: 'assistant' },
     ])
     expect(conversation.title).toBe('Fix bug')
-    expect(() => {
-      conversation.applyAgentEvents([
-        { type: 'message.started', turnId, messageId: userMessage.id, role: 'assistant' },
-      ])
-    }).toThrow(TurnNotFoundError)
+    expect(conversation.snapshot().items).toEqual([])
   })
 
   it('applyAgentEvents rejects a delta for a message that never started', () => {

@@ -30,14 +30,15 @@ JSON-RPC 2.0, one document per text frame, no batches. Porte owns method names a
 
 ## Rules
 
-1. **The Host owns the transcript.** The relay's rows are a projection; when they disagree, the Host wins.
-2. **One writer per turn.** The live stream writes the running turn. `conversation.get` (after each data connect) writes finished turns and re-supplies the streaming turn's rows unchanged. `turn.get` (after `turn.finished`) replaces that turn's rows.
-3. **Ids are never invented twice.** `turnId = turnIdFor(conversationId, promptIndex)`, minted by the Host. `attemptId` (uuidv7) is minted by the relay per `turn.start`; `turn.started { turnId, attemptId }` binds the two. The user row keeps the browser's id and carries `metadata: { attemptId }` from send time, upgraded to `{ turnId, attemptId }` on `turn.started`. The assistant row's id is the `turnId`.
+1. **Grok owns the turns; the Host owns the transcript the relay sees.** Every `turn.started` and `turn.finished` comes from Grok's stream, whoever typed the prompt (see `leader-sessions.md`). The relay's rows are a projection; when they disagree, the Host wins.
+2. **One writer per turn.** The live stream writes the running turn. `conversation.get` (after each data connect) writes finished turns and re-supplies the streaming turn's rows unchanged. `turn.get` (after `turn.finished`) replaces that turn's rows. A turn nobody in Porte asked for gets its user row from the Host's echo and its stream from the SDK's programmatic turn.
+3. **Ids are never invented twice.** `turnId = turnIdFor(conversationId, index)`, where `index` is Grok's `promptIndex`, or the next free index when Grok repeats one. `attemptId` (uuidv7) is minted by the relay per `turn.start`; the Host answers `turn.start` once Grok's echo of the prompt is bound to it, and `turn.started { turnId, attemptId }` carries that binding. A turn typed elsewhere carries a Host-minted `attemptId` no row matches. The user row keeps the browser's id and carries `metadata: { attemptId }` from send time, upgraded to `{ turnId, attemptId }` on `turn.started`. The assistant row's id is the `turnId`.
 4. **Order is `seq`, not socket order.** The relay keeps the last applied `seq` per Host connection in storage, parks early frames (limit in `host-json-rpc-socket.ts`), drops repeats, and closes with 1008 on overflow.
-5. **Stop is a command.** The browser calls `cancelTurn`; the relay never aborts the SDK stream. The Host resolves pending permissions and elicitations as cancelled, sends ACP `session/cancel`, and finishes the turn as `cancelled` when the agent settles or when `CANCEL_DEADLINE_MS` passes (then it also closes the agent session).
+5. **Stop is a command.** The browser calls `cancelTurn`; the relay never aborts the SDK stream. The Host resolves pending permissions and elicitations as cancelled and sends ACP `session/cancel`; Grok ends the turn as `cancelled` on the stream. When `CANCEL_DEADLINE_MS` passes first, the Host ends the turn itself and drops Grok's late events. It never closes the agent session: the session is shared with the terminal.
 6. **A restart is not a retry.** After a wake, the relay re-attaches the Host socket and does nothing else; `onChatRecovery` neither persists nor continues. `runningTurnId` in live state tells the browser a turn still runs.
 7. **Small live state.** Commands live in DO storage and reach the browser through the `listCommands` callable, not through `setState`.
 8. **No offline queue.** A command with no Host socket fails with `HostOfflineError`; the user retries.
+9. **A permission answered elsewhere resolves as `answered-elsewhere`.** The card goes without a browser decision; the tool already runs.
 
 ## Idempotency
 

@@ -46,11 +46,17 @@ describe.skipIf(!liveGrokTestsEnabled())('AcpCodingAgent', () => {
       await withAgent(async ({ agent, pushed }) => {
         const created = await agent.createSession({ cwd: await createGitWorkspace() })
         expect(created.events[0]).toMatchObject({ type: 'conversation.configuration.updated' })
-        const result = await agent.prompt(created.id, turnIdFor(created.id, 0), 0, PING)
-        expect(result.outcome).toEqual({ type: 'completed', reason: 'completed' })
-        expect(result.usage?.sizeTokens).toBeGreaterThan(0)
+        await agent.prompt(created.id, PING)
+        await vi.waitFor(() => {
+          expect(pushed.at(-1)).toMatchObject({
+            type: 'turn.finished',
+            turnId: turnIdFor(created.id, 0),
+            outcome: { type: 'completed', reason: 'completed' },
+          })
+        })
+        expect(pushed[0]).toMatchObject({ type: 'turn.started', turnId: turnIdFor(created.id, 0) })
         expect(pushed.some((event) => event.type === 'message.delta')).toBe(true)
-        expect(pushed.at(-1)?.type).toBe('message.completed')
+        expect(pushed.some((event) => event.type === 'conversation.usage.updated')).toBe(true)
       })
     },
     GROK_TIMEOUT_MS,
@@ -62,14 +68,16 @@ describe.skipIf(!liveGrokTestsEnabled())('AcpCodingAgent', () => {
       await withAgent(async ({ agent }) => {
         const cwd = await createGitWorkspace()
         const created = await agent.createSession({ cwd })
-        await agent.prompt(created.id, turnIdFor(created.id, 0), 0, PING)
+        await agent.prompt(created.id, PING)
         await agent.closeSession(created.id)
-        await expect(
-          agent.prompt(created.id, turnIdFor(created.id, 1), 1, PING),
-        ).rejects.toBeInstanceOf(ConversationNotFoundError)
+        await expect(agent.prompt(created.id, PING)).rejects.toBeInstanceOf(
+          ConversationNotFoundError,
+        )
         const loaded = await agent.loadSession(created.id, cwd)
-        expect(loaded.events[0]).toMatchObject({ type: 'message.started', role: 'user' })
+        expect(loaded.events[0]).toMatchObject({ type: 'turn.started' })
+        expect(loaded.events[1]).toMatchObject({ type: 'message.started', role: 'user' })
         expect(loaded.events.filter((event) => event.type === 'message.started')).toHaveLength(2)
+        expect(loaded.events.filter((event) => event.type === 'turn.finished')).toHaveLength(1)
       })
     },
     GROK_TIMEOUT_MS,
@@ -78,13 +86,22 @@ describe.skipIf(!liveGrokTestsEnabled())('AcpCodingAgent', () => {
   it(
     'cancels an in-flight prompt and reports the cancelled outcome',
     async () => {
-      await withAgent(async ({ agent }) => {
+      await withAgent(async ({ agent, pushed }) => {
         const created = await agent.createSession({ cwd: await createGitWorkspace() })
-        const turn = agent.prompt(created.id, turnIdFor(created.id, 0), 0, [
-          { type: 'text', text: 'Write a long essay about git rebase.' },
+        const turn = agent.prompt(created.id, [
+          { type: 'text', text: 'Write the numbers from one to forty as words, one per line.' },
         ])
+        await vi.waitFor(() => {
+          expect(pushed.some((event) => event.type === 'message.delta')).toBe(true)
+        })
         await agent.cancel(created.id)
-        await expect(turn).resolves.toMatchObject({ outcome: { type: 'cancelled' } })
+        await turn
+        await vi.waitFor(() => {
+          expect(pushed.at(-1)).toMatchObject({
+            type: 'turn.finished',
+            outcome: { type: 'cancelled' },
+          })
+        })
       })
     },
     GROK_TIMEOUT_MS,

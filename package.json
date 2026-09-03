@@ -15,6 +15,7 @@
     "test": "turbo run test",
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
+    "test:live": "turbo run test:live",
     "test:design": "pnpm --filter @porte/web run test:design",
     "release:cli": "node scripts/release-cli.mjs",
     "storybook": "pnpm --filter @porte/web run storybook",
