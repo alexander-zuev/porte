@@ -7,7 +7,6 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { notifyHostOffline, notifyHostOnline } from '@web/features/relay/host-connection-toasts.tsx'
 import { HostStatus } from '@web/ui/components/host-status.tsx'
 import { TerminalCommand } from '@web/ui/components/terminal-command.tsx'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@web/ui/components/ui/alert.tsx'
@@ -287,76 +286,11 @@ function SurfacesBoard() {
   )
 }
 
-/** Toasts need a host and an event, so this board raises them on mount. */
-function ToastBoard() {
-  useEffect(() => {
-    toast('Conversation resumed', {
-      description: 'The machine answered after 12 seconds.',
-      duration: Number.POSITIVE_INFINITY,
-    })
-    toast.success('Paired with Alexander’s MacBook Pro', {
-      duration: Number.POSITIVE_INFINITY,
-    })
-    toast.error('The relay refused the request', {
-      description: 'Nothing was deleted. Try again.',
-      duration: Number.POSITIVE_INFINITY,
-    })
-    return () => {
-      toast.dismiss()
-    }
-  }, [])
-
-  return (
-    <Board
-      title="Toast"
-      summary="A toast reports something that already happened. It never holds the only way to recover."
-    >
-      <Section title="Raised messages" note="Neutral, success, and failure, held open for review.">
-        <Specimen label="Host" wide>
-          <p className="text-muted-foreground">Three toasts sit in the bottom corner.</p>
-        </Specimen>
-      </Section>
-      <Toaster />
-    </Board>
-  )
-}
-
-/** The two toasts the relay raises on its own when the machine leaves and returns. */
-function HostConnectionToastBoard() {
-  useEffect(() => {
-    notifyHostOffline()
-    return () => {
-      toast.dismiss()
-    }
-  }, [])
-
-  return (
-    <Board
-      title="Toast"
-      summary="Raised by the relay when the paired machine drops or comes back while a page is open. Never on first load: the pages already show the offline state."
-    >
-      <Section
-        title="Host connection"
-        note="Offline holds until dismissed or replaced; online clears itself."
-      >
-        <Specimen label="Transitions" wide>
-          {/* Wraps so the board reflows at 320px; the toasts are the subject, not this row. */}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={notifyHostOffline}>
-              Machine went offline
-            </Button>
-            <Button size="sm" variant="outline" onClick={notifyHostOnline}>
-              Machine back online
-            </Button>
-          </div>
-        </Specimen>
-      </Section>
-      <Toaster />
-    </Board>
-  )
-}
-
-/** Copy nobody planned for: the case that decides whether the box wraps or tears. */
+/**
+ * Toasts need a host and an event, so this board raises them on mount. Neutral,
+ * success, and failure, each with copy longer than the box: the case that
+ * decides whether the box wraps or tears.
+ */
 function LongToastBoard() {
   useEffect(() => {
     toast('Reconnecting to Alexander’s MacBook Pro over the Porte relay', {
@@ -401,6 +335,4 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const All: Story = { render: () => <SurfacesBoard /> }
-export const Toasts: Story = { render: () => <ToastBoard /> }
 export const ToastsLongCopy: Story = { render: () => <LongToastBoard /> }
-export const ToastsHostConnection: Story = { render: () => <HostConnectionToastBoard /> }

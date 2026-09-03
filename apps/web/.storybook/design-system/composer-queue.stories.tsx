@@ -45,9 +45,6 @@ const SEED: readonly QueuedMessage[] = [
 /** A turn runs and two messages wait. Every control is live. */
 export const Queued: StoryObj = { render: () => <QueueHarness /> }
 
-/** The sheet, open. */
-export const QueueOpen: StoryObj = { render: () => <QueueHarness defaultOpen /> }
-
 /** Send now was tapped on #1: its controls are disabled until the relay starts it. */
 export const SendingNow: StoryObj = {
   render: () => <QueueHarness defaultOpen sendingNow={SEED[0]?.id ?? null} />,

@@ -17,9 +17,9 @@ grok plugin install porte --trust
 
 Once the official listing lands ([xai-org/plugin-marketplace#463](https://github.com/xai-org/plugin-marketplace/pull/463)), the first command becomes unnecessary.
 
-Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.3.1 rc disable-hook` first; plugin uninstall does not remove it.
+Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-control unpair`, then `grok plugin uninstall porte` — and if you enabled the instant hook, `npx -y @porte/cli@0.3.2 rc disable-hook` first; plugin uninstall does not remove it.
 
-Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.3.1 rc enable-hook` (undo with `rc disable-hook`).
+Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.3.2 rc enable-hook` (undo with `rc disable-hook`).
 
 Status row in Grok — green `/rc on` while the machine is reachable, yellow while it connects, red with the fix when it cannot. Porte adds it to `~/.grok/config.toml` on the first session, unless you already have a status line of your own, which it leaves alone:
 

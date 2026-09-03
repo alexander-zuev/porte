@@ -14,7 +14,6 @@ import {
   OG_IMAGE,
   deepChanges,
   fakeChangesStub,
-  noChanges,
   uncommittedChanges,
 } from '../fixtures/changes.ts'
 import { olderTurns, relayState, session } from '../fixtures/transcript.ts'
@@ -38,9 +37,6 @@ const meta = {
 
 export default meta
 
-/** The pill, closed. */
-export const Changed: StoryObj = { render: () => <ChangesHarness /> }
-
 /** The file list. */
 export const SheetOpen: StoryObj = { render: () => <ChangesHarness defaultOpen /> }
 
@@ -63,9 +59,6 @@ export const TooLarge: StoryObj = {
 export const DeepTree: StoryObj = {
   render: () => <ChangesHarness defaultOpen changes={deepChanges} />,
 }
-
-/** A clean tree draws nothing. */
-export const Clean: StoryObj = { render: () => <ChangesHarness changes={noChanges} /> }
 
 /** The Host refused: the pill is the retry. */
 export const Failed: StoryObj = { render: () => <ChangesHarness fails /> }
