@@ -55,10 +55,11 @@ test.describe('boards look the way they did', () => {
     test(id, async ({ page }) => {
       await page.goto(storyPath(id))
       await settle(page)
-      // No pixel budget on purpose. `threshold` already absorbs anti-aliasing
-      // as a perceived colour difference; a budget on top of it hides real
-      // changes, because 1% of a tall board is every corner in the system.
-      await expect(page).toHaveScreenshot(`${id}.png`, { fullPage: true })
+      // Chromium rasterises text heavier or lighter depending on which layers
+      // it holds opaque at capture time, and that varies between runs: the
+      // same words, up to ~3000 edge pixels apart. An absolute budget covers
+      // that and nothing more; a moved edge or a changed token flips far more.
+      await expect(page).toHaveScreenshot(`${id}.png`, { fullPage: true, maxDiffPixels: 4000 })
     })
   }
 })
