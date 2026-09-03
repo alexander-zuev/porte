@@ -43,8 +43,11 @@ import {
   type ElicitationAnswer,
   type ElicitationId,
   type PermissionId,
+  createLogger,
 } from '@porte/core/client'
 import { z } from 'zod'
+
+const logger = createLogger('acp-coding-agent')
 
 /** A turn may run tools for a long time; the relay cancels, the host does not time out. */
 const PROMPT_TIMEOUT_MS = 1_800_000
@@ -246,6 +249,15 @@ export class AcpCodingAgent implements CodingAgent {
     if (!id.success) return
     const session = this.sessions.get(id.data)
     if (session === undefined) return
+    logger.debug('acp_frame', {
+      details: {
+        conversationId: id.data,
+        kind: 'turn_completed',
+        replayFrame: isReplayFrame(params),
+        loading: session.replay !== undefined,
+        turn: session.mapper.runningTurnId ?? null,
+      },
+    })
     if (session.replay === undefined && isReplayFrame(params)) return
     const events = session.mapper.completeTurn(completed.data.update)
     if (session.replay !== undefined) session.replay.push(...events)
@@ -273,6 +285,16 @@ export class AcpCodingAgent implements CodingAgent {
     if (!id.success) return
     if (this.forgotten.has(id.data)) return
     const session = this.sessions.get(id.data)
+    logger.debug('acp_frame', {
+      details: {
+        conversationId: id.data,
+        kind: notification.update.sessionUpdate,
+        promptIndex: promptIndexOf(notification) ?? null,
+        replayFrame: isReplayFrame(notification),
+        loading: session?.replay !== undefined,
+        turn: session?.mapper.runningTurnId ?? null,
+      },
+    })
     // Grok replays a session's history to every client holding it when another client loads it.
     if (session?.replay === undefined && isReplayFrame(notification)) return
     if (session === undefined) {
@@ -390,6 +412,15 @@ export class AcpCodingAgent implements CodingAgent {
 }
 
 const replayMetaSchema = z.object({ _meta: z.object({ isReplay: z.literal(true) }) })
+const promptIndexMetaSchema = z.object({
+  update: z.object({ _meta: z.object({ promptIndex: z.number() }) }),
+})
+
+/** The prompt index a user chunk carries, for the frame log only. */
+function promptIndexOf(notification: AcpSessionNotification): number | undefined {
+  const parsed = promptIndexMetaSchema.safeParse(notification)
+  return parsed.success ? parsed.data.update._meta.promptIndex : undefined
+}
 
 /** Grok stamps `_meta.isReplay` on frames that repeat history rather than report it. */
 function isReplayFrame(frame: JsonValue | AcpSessionNotification): boolean {
