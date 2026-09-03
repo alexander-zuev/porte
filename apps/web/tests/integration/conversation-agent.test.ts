@@ -179,6 +179,50 @@ describe('ConversationAgent through its facet', () => {
  * assertion reads the store or the requests the Host received.
  */
 describe('ConversationAgent queue', () => {
+  it('a new Host socket starts its seq at 1; a count carried over the reconnect is parked', async () => {
+    const flow = await openConversation()
+    const viewer = await flow.viewer()
+    viewer.socket.send(chatRequest('req-1', 'browser-1', 'hi'))
+    const { turnId, params } = await flow.host.startTurn()
+    flow.host.stream(turnId, 'partial')
+    const carried = flow.lastSeq()
+
+    const reconnected = await flow.reconnectData()
+    const get = await flow.nextDataRequest('conversation.get')
+    reconnected.socket.send(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: get.id,
+        result: {
+          ...finishedTurn(turnId, 'hi', 'partial'),
+          turn: { state: 'running', turnId, attemptId: params.attemptId },
+          plans: [],
+          pending: { permissions: [], elicitations: [] },
+        },
+      }),
+    )
+
+    // A Host that kept counting: the relay waits for 1..carried, so no reconcile follows.
+    const finished = {
+      type: 'turn.finished',
+      turnId,
+      outcome: { type: 'completed', reason: 'completed' },
+    } as const
+    reconnected.socket.send(
+      JSON.stringify(
+        jsonRpcNotification('conversation.event', { seq: carried + 1, event: finished }),
+      ),
+    )
+    expect(await flow.host.requestsWithin(300)).toEqual([])
+
+    // The same event at seq 1 on the new socket applies and reconciles the turn.
+    await flow.host.finishTurn(turnId, 'hi', 'final')
+    await vi.waitFor(async () => {
+      const rows = await flow.messages()
+      expect(JSON.stringify(rows[1]?.parts)).toContain('final')
+    })
+  })
+
   it('queues while a turn runs, then runs the queue one message per turn, in order', async () => {
     const flow = await openConversation()
     const viewer = await flow.viewer()
@@ -554,7 +598,20 @@ async function openConversation() {
         const frame = await data.inbox.nextWithin(ms)
         expect(frame).toBeUndefined()
       },
+      /** Methods of the JSON-RPC requests that reach the Host within `ms` of silence. */
+      async requestsWithin(ms: number): Promise<string[]> {
+        const methods: string[] = []
+        for (let frame = await data.inbox.nextWithin(ms); frame !== undefined;) {
+          const parsed = z.object({ method: z.string() }).safeParse(JSON.parse(frame))
+          if (parsed.success) methods.push(parsed.data.method)
+          // oxlint-disable-next-line no-await-in-loop -- Frames arrive one at a time.
+          frame = await data.inbox.nextWithin(ms)
+        }
+        return methods
+      },
     },
+    /** The `seq` of the last event sent on the current Host socket. */
+    lastSeq: () => seq,
     eventSender() {
       return (...events: readonly ConversationEvent[]) => {
         const frames = events.map((event) => {

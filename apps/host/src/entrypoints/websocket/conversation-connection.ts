@@ -4,7 +4,10 @@ import { createCommand } from '@host/domain/messages/types.ts'
 import type { ConversationMethodHandlerRegistry } from '@host/entrypoints/websocket/conversation-method-handlers.ts'
 import { createJsonRpcHandler } from '@host/entrypoints/websocket/json-rpc-handler.ts'
 import type { RelaySocket } from '@host/infrastructure/websocket/party-socket-transport.ts'
-import { createConversationNotifications } from '@host/infrastructure/websocket/websocket-notifications.ts'
+import {
+  createConversationNotifications,
+  createNotificationSequence,
+} from '@host/infrastructure/websocket/websocket-notifications.ts'
 import {
   HostConversationMethods,
   HostOfflineError,
@@ -20,6 +23,7 @@ export class ConversationConnection {
   /** Settles once the socket is up and the conversation is open; the attach answer waits on it. */
   readonly ready: Promise<void>
   private readonly readyState = Promise.withResolvers<void>()
+  private readonly sequence = createNotificationSequence()
   private readonly onFrame: ReturnType<typeof createJsonRpcHandler>
   private readonly onUp: () => Promise<void>
 
@@ -30,7 +34,10 @@ export class ConversationConnection {
     handlers: ConversationMethodHandlerRegistry,
     bus: IMessageBus,
   ) {
-    this.notifications = createConversationNotifications((frame) => transport.send(frame))
+    this.notifications = createConversationNotifications(
+      (frame) => transport.send(frame),
+      this.sequence,
+    )
     this.stopped = transport.stopped
     // A socket that dies before its first up answers the waiting attach, not a timeout.
     this.ready = Promise.race([
@@ -46,6 +53,8 @@ export class ConversationConnection {
     })
     // Every (re)connect opens the conversation; an open one is a no-op.
     this.onUp = async () => {
+      // Before any await: the relay expects `seq` 1 on this new socket.
+      this.sequence.restart()
       await bus.handle(createCommand('OpenConversation', { conversationId, cwd }))
       this.readyState.resolve()
     }

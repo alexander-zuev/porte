@@ -10,12 +10,16 @@ import {
   ConversationIdSchema,
   HOST_CONTROL_SUBPROTOCOL,
   JsonRpcDocumentSchema,
+  MessageIdSchema,
+  createAttemptId,
   createRequestId,
   jsonRpcRequest,
+  turnIdFor,
   type JsonRpcDocument,
   type JsonRpcParams,
 } from '@porte/core/client'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { createTestDeps } from '../support/test-deps.ts'
 
@@ -114,22 +118,73 @@ describe('Host WebSocket connections', () => {
     })
     await test.conversations[0]?.connect()
     await attached
-    await test.conversations[0]?.receive(
+    const started = test.conversations[0]?.receive(
       request('turn.start', {
         attemptId: '0199f97b-9cf1-7f05-9e9d-df1647d7a821',
         userMessage: { id: 'browser-1', content: [{ type: 'text', text: 'hi' }] },
       }),
     )
+    // `turn.start` answers once Grok echoes the prompt; the fake agent echoes it here.
+    await vi.waitFor(() => {
+      expect(test.deps.codingAgent.prompted).toHaveLength(1)
+    })
+    const turnId = turnIdFor(conversationId, 0)
+    const messageId = MessageIdSchema.parse(`${turnId}:user`)
+    test.deps.codingAgent.push(conversationId, [
+      { type: 'turn.started', turnId, attemptId: createAttemptId() },
+      { type: 'message.started', turnId, messageId, role: 'user' },
+      { type: 'message.delta', turnId, messageId, content: { type: 'text', text: 'hi' } },
+      { type: 'message.completed', turnId, messageId },
+    ])
+    await started
     const methods = jsonFrames(test.conversations[0]).map((frame) =>
       'method' in frame ? frame.method : 'response',
     )
-    expect(methods).toEqual([
-      'conversation.event',
-      'conversation.event',
-      'conversation.event',
-      'conversation.event',
-      'response',
+    // The request answers on `turn.started`, so the response lands among the echo's events.
+    expect(methods[0]).toBe('conversation.event')
+    expect(methods.filter((method) => method === 'conversation.event')).toHaveLength(4)
+    expect(methods.filter((method) => method === 'response')).toHaveLength(1)
+    test.manager.closeAll()
+  })
+
+  it('a reconnect starts the event seq at 1 again', async () => {
+    const test = connectionTest()
+    await test.control.connect()
+    const attached = test.control.receive(request('conversation.attach', attach))
+    await vi.waitFor(() => {
+      expect(test.conversations[0]).toBeDefined()
+    })
+    await test.conversations[0]?.connect()
+    await attached
+    const started = test.conversations[0]?.receive(
+      request('turn.start', {
+        attemptId: '0199f97b-9cf1-7f05-9e9d-df1647d7a821',
+        userMessage: { id: 'browser-1', content: [{ type: 'text', text: 'hi' }] },
+      }),
+    )
+    await vi.waitFor(() => {
+      expect(test.deps.codingAgent.prompted).toHaveLength(1)
+    })
+    const turnId = turnIdFor(conversationId, 0)
+    const messageId = MessageIdSchema.parse(`${turnId}:user`)
+    test.deps.codingAgent.push(conversationId, [
+      { type: 'turn.started', turnId, attemptId: createAttemptId() },
+      { type: 'message.started', turnId, messageId, role: 'user' },
+      { type: 'message.delta', turnId, messageId, content: { type: 'text', text: 'hi' } },
+      { type: 'message.completed', turnId, messageId },
     ])
+    await started
+    // The relay keys its expectation by socket, so a new socket must see 1 first.
+    await test.conversations[0]?.connect()
+    const replyId = MessageIdSchema.parse(`${turnId}:assistant`)
+    test.deps.codingAgent.push(conversationId, [
+      { type: 'message.started', turnId, messageId: replyId, role: 'assistant' },
+      { type: 'message.delta', turnId, messageId: replyId, content: { type: 'text', text: 'yo' } },
+      { type: 'message.completed', turnId, messageId: replyId },
+    ])
+    await vi.waitFor(() => {
+      expect(eventSeqs(test.conversations[0])).toEqual([1, 2, 3, 4, 1, 2, 3])
+    })
     test.manager.closeAll()
   })
 
@@ -198,6 +253,17 @@ function connectionTest() {
 function request(method: string, params: JsonRpcParams): string {
   return JSON.stringify(jsonRpcRequest(createRequestId(), method, params))
 }
+
+/** The `seq` of every `conversation.event` frame, in send order. */
+function eventSeqs(transport: MockTransport | undefined): number[] {
+  return jsonFrames(transport).flatMap((frame) => {
+    if (!('method' in frame) || frame.method !== 'conversation.event') return []
+    const params = SequencedEventSchema.safeParse(frame.params)
+    return params.success ? [params.data.seq] : []
+  })
+}
+
+const SequencedEventSchema = z.object({ seq: z.number() })
 
 function jsonFrames(transport: MockTransport | undefined): JsonRpcDocument[] {
   return (transport?.sent ?? []).flatMap((frame) => {
