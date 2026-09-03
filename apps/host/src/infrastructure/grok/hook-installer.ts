@@ -233,7 +233,9 @@ function hookScript(): string {
 input=$(cat)
 case "$input" in
   *'/remote-control'*)
-    printf '%s' "$input" | exec npx -y @porte/cli@${version} rc hook
+    # From $HOME: npm refuses npx inside a project whose devEngines pin another Node.
+    cd "$HOME" || exit 0
+    printf '%s' "$input" | exec env -u FORCE_COLOR npx -y @porte/cli@${version} rc hook
     ;;
 esac
 exit 0
