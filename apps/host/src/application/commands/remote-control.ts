@@ -1,6 +1,7 @@
 import type { CredentialStore } from '@host/application/ports/credential-store.ts'
 import type { DeviceAuthorizer } from '@host/application/ports/device-authorizer.ts'
 import type {
+  HostFailure,
   PairingWatcher,
   RcPairingStore,
   RcSettings,
@@ -32,6 +33,10 @@ export type RcStatusResult =
   | { readonly type: 'on'; readonly url: string }
   | { readonly type: 'off'; readonly hostName: string }
   | { readonly type: 'not-paired' }
+  /** The daemon is alive and the socket is not up yet. */
+  | { readonly type: 'connecting' }
+  /** The daemon stopped and waits for the person; `/remote-control` is the retry. */
+  | { readonly type: 'error'; readonly failure: HostFailure }
 
 /** What `/remote-control unpair` reports. */
 export type RcUnpairResult = { readonly type: 'unpaired' } | { readonly type: 'not-paired' }
@@ -67,6 +72,20 @@ export async function toggle(deps: RemoteControlDeps): Promise<RcToggleResult> {
   if (credential === null) return startOrRepeatPairing(deps)
 
   const settings = await deps.settings.read()
+  const state = await deps.state.read()
+  // A stopped daemon reads the toggle as "try again": the write it waits for, or a new pairing.
+  if (state.status === 'error') {
+    if (state.failure.type === 'unauthorized') {
+      // The server already refuses this credential; keeping it would refuse forever.
+      await deps.credentials.clear()
+      await deps.pairing.clear()
+      return startOrRepeatPairing(deps)
+    }
+    await deps.settings.write({ ...settings, enabled: true })
+    const retried = await waitForOn(deps)
+    return retried ?? { type: 'connecting', url: credential.baseUrl }
+  }
+
   if (settings.enabled) {
     await deps.settings.write({ ...settings, enabled: false })
     return { type: 'disconnected' }
@@ -84,6 +103,8 @@ export async function status(deps: RemoteControlDeps): Promise<RcStatusResult> {
 
   const state = await deps.state.read()
   if (state.status === 'on') return { type: 'on', url: state.url }
+  if (state.status === 'error') return { type: 'error', failure: state.failure }
+  if (state.status === 'connecting') return { type: 'connecting' }
   return { type: 'off', hostName: deps.host.name }
 }
 

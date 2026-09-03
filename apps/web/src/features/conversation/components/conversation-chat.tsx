@@ -62,9 +62,9 @@ export function ConversationChat({
   const stop = useStopTurn(agent.stub, state.runningTurnId)
   const queue = useMessageQueue(agent.stub, chat.messages)
   const canType = canSend && agent.identified
-  // A send needs the socket. `submitted` and a Stop in flight are the windows where a
-  // second send would double up or land in a turn that is ending.
-  const canSubmit = canType && chat.status !== 'submitted' && !stop.stopping
+  // A send needs the socket. `submitted`, a queue in flight, and a Stop in flight are the
+  // windows where a second send would double up or land in a turn that is ending.
+  const canSubmit = canType && chat.status !== 'submitted' && !queue.queuing && !stop.stopping
   const status = submitStatus(chat.status, running)
   const setModel = useSetModel(agent.stub)
   const sheet = useChangesSheet(agent, { enabled: canType, runningTurnId: state.runningTurnId })
@@ -91,7 +91,11 @@ export function ConversationChat({
       {/* One strip for both pills; hidden when neither draws, so the column gap does not open for nothing. */}
       <div className="flex justify-end gap-2 empty:hidden">
         <ConversationChanges {...sheet} />
-        <ComposerQueue actions={queue.actions} queued={queue.queued} />
+        <ComposerQueue
+          actions={queue.actions}
+          queued={queue.queued}
+          sendingNow={queue.sendingNow}
+        />
       </div>
 
       {/* The provider carries the typed text, so the `/` suggestions can watch it. */}
@@ -100,11 +104,13 @@ export function ConversationChat({
           <ComposerCommandSuggestions agent={agent} />
           <PromptInput
             onSubmit={(message) => {
-              if (!canSubmit) return
-              if (message.text.trim() === '' && message.files.length === 0) return
-              // While a turn runs the words wait in the relay; the idle path is unchanged.
-              if (running) queue.queue(message)
-              else void chat.sendMessage({ text: message.text, files: message.files })
+              if (!canSubmit) return undefined
+              if (message.text.trim() === '' && message.files.length === 0) return undefined
+              // The idle path is the SDK's. While a turn runs the words wait in the relay: the
+              // composer clears when the returned promise resolves, and keeps them when it rejects.
+              if (running) return queue.queue(message)
+              void chat.sendMessage({ text: message.text, files: message.files })
+              return undefined
             }}
           >
             <PromptInputBody>

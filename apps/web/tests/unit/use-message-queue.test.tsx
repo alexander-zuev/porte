@@ -109,16 +109,62 @@ describe('useMessageQueue', () => {
     ])
   })
 
-  it('sends queue commands with the row id and raises a toast when refused', async () => {
-    const sendQueuedNow = vi.fn(() => Promise.resolve(null))
-    const withdrawQueued = vi.fn(() => Promise.reject(new Error('offline')))
-    const hook = mount({ sendQueuedNow, withdrawQueued })
+  it('rejects a refused queue so the composer keeps the words, and toasts', async () => {
+    const hook = mount({ queueMessage: () => Promise.reject(new Error('offline')) })
+    await expect(hook().queue({ text: 'hello', files: [] })).rejects.toThrow('offline')
+    expect(toast.error).toHaveBeenCalledWith('Could not queue the message. Try again.')
+  })
+
+  it('hides a row while its remove is in flight and shows it again when refused', async () => {
+    let refuse: (error: Error) => void = () => undefined
+    const withdrawQueued = vi.fn(
+      () =>
+        new Promise<null>((_resolve, reject) => {
+          refuse = reject
+        }),
+    )
+    const hook = mount({ withdrawQueued })
+    hook().actions.remove(MessageIdSchema.parse('q1'))
+    await waitFor(() => {
+      expect(hook().queued).toEqual([{ id: 'q2', position: 1, text: 'later', files: 1 }])
+    })
+    refuse(new Error('offline'))
+    await waitFor(() => {
+      expect(hook().queued.map((message) => message.id)).toEqual(['q1', 'q2'])
+    })
+    expect(toast.error).toHaveBeenCalledWith('Could not remove it. Try again.')
+  })
+
+  it('shows the dropped order while the reorder is in flight', async () => {
+    const hook = mount({ reorderQueued: () => new Promise(() => undefined) })
+    hook().actions.reorder(MessageIdSchema.parse('q2'), 1)
+    await waitFor(() => {
+      expect(hook().queued.map((message) => [message.id, message.position])).toEqual([
+        ['q2', 1],
+        ['q1', 2],
+      ])
+    })
+  })
+
+  it('marks the Send now row until it leaves the queue, and clears the mark when refused', async () => {
+    let refuse: (error: Error) => void = () => undefined
+    const sendQueuedNow = vi.fn(
+      () =>
+        new Promise<null>((_resolve, reject) => {
+          refuse = reject
+        }),
+    )
+    const hook = mount({ sendQueuedNow })
     const id = MessageIdSchema.parse('q1')
     hook().actions.sendNow(id)
-    hook().actions.remove(id)
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Could not remove it. Try again.')
+      expect(hook().sendingNow).toBe('q1')
     })
+    refuse(new Error('offline'))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Could not send it now. Try again.')
+    })
+    expect(hook().sendingNow).toBeNull()
     expect(sendQueuedNow).toHaveBeenCalledWith({ messageId: 'q1' })
   })
 })

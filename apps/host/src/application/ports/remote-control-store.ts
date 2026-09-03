@@ -10,16 +10,35 @@ import type { DeviceCodeGrant } from '@host/application/ports/device-authorizer.
  */
 export type RcSettingsSnapshot = { readonly enabled: boolean; readonly hook: boolean }
 
+/** A read also says which write it saw, so a daemon can tell "changed" from "same again". */
+export type RcSettingsRead = RcSettingsSnapshot & { readonly generation: number }
+
 /** Remembers the on/off choice across sessions. Written by the rc command. */
 export interface RcSettings {
-  read(): Promise<RcSettingsSnapshot>
+  read(): Promise<RcSettingsRead>
+  /** Every write, same content or not, advances `generation`. */
   write(settings: RcSettingsSnapshot): Promise<void>
 }
+
+/**
+ * Why the Host stopped and will not come back on its own. Each variant names
+ * one fix; readers derive the text. `protocol`: the relay closed the socket
+ * for malformed frames three times in a row, which is version skew.
+ */
+export type HostFailure =
+  | { readonly type: 'unauthorized'; readonly http: 401 | 403 }
+  | { readonly type: 'refused'; readonly http: number }
+  | { readonly type: 'agent-start' }
+  | { readonly type: 'protocol' }
 
 /** The live fact only the connected daemon knows. */
 export type RcStateSnapshot =
   | { readonly status: 'on'; readonly url: string; readonly pid: number }
   | { readonly status: 'off' }
+  /** The daemon is alive and the socket is not up: a first connect, a retry, or a restart. */
+  | { readonly status: 'connecting'; readonly pid: number }
+  /** The daemon is alive and waiting for the person; a dead `pid` reads as off. */
+  | { readonly status: 'error'; readonly pid: number; readonly failure: HostFailure }
 
 /**
  * Publishes the connection fact for other processes.

@@ -1,5 +1,5 @@
 import { arrayMove } from '@dnd-kit/sortable'
-import { MessageIdSchema, createMessageId } from '@porte/core/client'
+import { MessageIdSchema, createMessageId, type MessageId } from '@porte/core/client'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ComposerQueue } from '@web/features/conversation/components/composer-queue.tsx'
 import type { QueuedMessage } from '@web/features/conversation/models/message-queue.ts'
@@ -48,7 +48,18 @@ export const Queued: StoryObj = { render: () => <QueueHarness /> }
 /** The sheet, open. */
 export const QueueOpen: StoryObj = { render: () => <QueueHarness defaultOpen /> }
 
-function QueueHarness({ defaultOpen = false }: { readonly defaultOpen?: boolean }) {
+/** Send now was tapped on #1: its controls are disabled until the relay starts it. */
+export const SendingNow: StoryObj = {
+  render: () => <QueueHarness defaultOpen sendingNow={SEED[0]?.id ?? null} />,
+}
+
+function QueueHarness({
+  defaultOpen = false,
+  sendingNow = null,
+}: {
+  readonly defaultOpen?: boolean
+  readonly sendingNow?: MessageId | null
+}) {
   const [messages, setMessages] = useState<readonly UIMessage[]>(() => [
     ...olderTurns,
     askTests,
@@ -99,6 +110,7 @@ function QueueHarness({ defaultOpen = false }: { readonly defaultOpen?: boolean 
               }}
               defaultOpen={defaultOpen}
               queued={queued}
+              sendingNow={sendingNow}
             />
           }
           state={{ ...relayState, plans: [] }}

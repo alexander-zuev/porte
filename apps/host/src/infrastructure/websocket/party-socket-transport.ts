@@ -3,6 +3,7 @@ import {
   HOST_CLI_VERSION_HEADER,
   JsonRpcSendError,
   JsonRpcTextSchema,
+  RELAY_RECONNECT,
   createLogger,
   readJsonRpcTextFrame,
   sendJsonRpcFrame,
@@ -20,8 +21,45 @@ import {
 
 const logger = createLogger('party-socket-transport')
 
-// Cloudflare closes an idle relay socket after about two minutes, so ping well inside that.
-const PING_INTERVAL_MS = 30_000
+/**
+ * Cloudflare closes an idle relay socket after about two minutes, so the ping
+ * keeps it open. The pong deadline is how a dead link is found: after sleep or
+ * a network change the socket stays OPEN until TCP gives up, minutes later.
+ */
+export const HEARTBEAT = { pingIntervalMs: 15_000, pongDeadlineMs: 10_000 } as const
+
+/** The slice of a `ws` socket a heartbeat drives; a test fakes exactly this. */
+export type HeartbeatSocket = {
+  readonly readyState: number
+  ping(): void
+  terminate(): void
+  on(event: 'pong', listener: () => void): void
+  once(event: 'close', listener: () => void): void
+}
+
+/** Ping on an interval; terminate when the pong is late. Ends with the socket's close. */
+export function attachHeartbeat(socket: HeartbeatSocket, timing = HEARTBEAT): void {
+  let deadline: NodeJS.Timeout | undefined
+  const interval = setInterval(() => {
+    // One ping in flight at a time; a late pong ends the socket, not a second ping.
+    if (socket.readyState !== NodeWebSocket.OPEN || deadline !== undefined) return
+    socket.ping()
+    deadline = setTimeout(() => {
+      socket.terminate()
+    }, timing.pongDeadlineMs)
+    deadline.unref()
+  }, timing.pingIntervalMs)
+  // A pending ping is not work the process should stay alive for.
+  interval.unref()
+  socket.on('pong', () => {
+    clearTimeout(deadline)
+    deadline = undefined
+  })
+  socket.once('close', () => {
+    clearInterval(interval)
+    clearTimeout(deadline)
+  })
+}
 
 /** Input that creates one authenticated PartySocket. */
 export type PartySocketTransportInput = {
@@ -144,6 +182,7 @@ export class PartySocketTransport implements RelaySocket {
       this.recordHandshake,
     )
     return new PartySocket(this.input.url, this.input.subprotocol, {
+      ...RELAY_RECONNECT,
       WebSocket: AuthenticatedWebSocket,
       maxEnqueuedMessages: 0,
       startClosed: true,
@@ -273,8 +312,6 @@ function authenticatedWebSocketConstructor(
   recordHandshake: (status: number) => void,
 ): NodeWebSocketConstructor {
   return class AuthenticatedWebSocket extends NodeWebSocket {
-    private heartbeat: NodeJS.Timeout | undefined
-
     constructor(address: string | URL, protocols?: string | string[]) {
       super(address, protocols ?? [], {
         headers: { Authorization: authorization, [HOST_CLI_VERSION_HEADER]: cliVersion },
@@ -284,16 +321,8 @@ function authenticatedWebSocketConstructor(
         response.resume()
         this.close()
       })
-      this.on('open', () => {
-        this.heartbeat = setInterval(() => {
-          if (this.readyState === NodeWebSocket.OPEN) this.ping()
-        }, PING_INTERVAL_MS)
-        // A pending ping is not work the process should stay alive for.
-        this.heartbeat.unref()
-      })
-      this.once('close', () => {
-        if (this.heartbeat !== undefined) clearInterval(this.heartbeat)
-        this.heartbeat = undefined
+      this.once('open', () => {
+        attachHeartbeat(this)
       })
     }
   }

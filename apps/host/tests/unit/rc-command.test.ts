@@ -62,6 +62,13 @@ describe('rendering', () => {
       'Remote control off · paired as "a-mac"',
     )
     expect(renderStatusResult({ type: 'not-paired' })).toBe('Remote control off · not paired')
+    expect(renderStatusResult({ type: 'connecting' })).toBe('Remote control connecting…')
+    expect(
+      renderStatusResult({ type: 'error', failure: { type: 'unauthorized', http: 403 } }),
+    ).toBe('Remote control error · pairing revoked · /remote-control to pair again')
+    expect(renderStatusResult({ type: 'error', failure: { type: 'refused', http: 426 } })).toBe(
+      'Remote control error · Porte refused (HTTP 426) · update Porte',
+    )
   })
 
   it('renders every unpair result as its exact line', () => {

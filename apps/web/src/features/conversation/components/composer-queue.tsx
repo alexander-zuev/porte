@@ -32,6 +32,8 @@ export type ComposerQueueProps = {
   /** Run order. Empty is a state, never undefined: the pill is simply not drawn. */
   readonly queued: readonly QueuedMessage[]
   readonly actions: QueueActions
+  /** The row Send now took and the relay has not started yet. Its controls are disabled. */
+  readonly sendingNow: MessageId | null
   /** Story-only: open the sheet on first paint. */
   readonly defaultOpen?: boolean
 }
@@ -45,7 +47,12 @@ export type ComposerQueueProps = {
  * Nothing here is drawn inside the transcript; a queued message joins it only
  * when it starts.
  */
-export function ComposerQueue({ queued, actions, defaultOpen = false }: ComposerQueueProps) {
+export function ComposerQueue({
+  queued,
+  actions,
+  sendingNow,
+  defaultOpen = false,
+}: ComposerQueueProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [selectedId, setSelectedId] = useState<MessageId | null>(null)
   // The sheet can be open when the last row starts. Forget that, or the next queued
@@ -91,7 +98,12 @@ export function ComposerQueue({ queued, actions, defaultOpen = false }: Composer
             inert={selected !== null}
             className={cn(SHEET_PANEL, 'pt-3', selected !== null && '-translate-x-1/3')}
           >
-            <QueueList actions={actions} queued={queued} onOpen={setSelectedId} />
+            <QueueList
+              actions={actions}
+              queued={queued}
+              sendingNow={sendingNow}
+              onOpen={setSelectedId}
+            />
           </div>
           <div
             inert={selected === null}
@@ -116,10 +128,12 @@ export function ComposerQueue({ queued, actions, defaultOpen = false }: Composer
 function QueueList({
   queued,
   actions,
+  sendingNow,
   onOpen,
 }: {
   readonly queued: readonly QueuedMessage[]
   readonly actions: QueueActions
+  readonly sendingNow: MessageId | null
   readonly onOpen: (id: MessageId) => void
 }) {
   const sensors = useSensors(
@@ -139,7 +153,13 @@ function QueueList({
       <SortableContext items={queued.map((m) => m.id)} strategy={verticalListSortingStrategy}>
         <ol className="flex flex-col gap-2">
           {queued.map((message) => (
-            <QueueRow key={message.id} actions={actions} message={message} onOpen={onOpen} />
+            <QueueRow
+              key={message.id}
+              actions={actions}
+              message={message}
+              sending={message.id === sendingNow}
+              onOpen={onOpen}
+            />
           ))}
         </ol>
       </SortableContext>
@@ -147,13 +167,16 @@ function QueueList({
   )
 }
 
+/** One row. `sending` disables Send now and Remove: the turn is being cancelled to make room. */
 function QueueRow({
   message,
   actions,
+  sending,
   onOpen,
 }: {
   readonly message: QueuedMessage
   readonly actions: QueueActions
+  readonly sending: boolean
   readonly onOpen: (id: MessageId) => void
 }) {
   const {
@@ -207,6 +230,7 @@ function QueueRow({
       </Button>
       <Button
         aria-label="Send now"
+        disabled={sending}
         size="icon-xs"
         variant="outline"
         onClick={() => {
@@ -217,6 +241,7 @@ function QueueRow({
       </Button>
       <Button
         aria-label="Remove"
+        disabled={sending}
         size="icon-xs"
         variant="outline"
         onClick={() => {

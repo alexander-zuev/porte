@@ -5,6 +5,7 @@ import type {
   PendingPairing,
   RcPairingStore,
   RcSettings,
+  RcSettingsRead,
   RcSettingsSnapshot,
   RcState,
   RcStateSnapshot,
@@ -12,11 +13,25 @@ import type {
 import { isProcessAlive } from '@host/infrastructure/node/process-liveness.ts'
 import { z } from 'zod'
 
-const SettingsSchema = z.object({ enabled: z.boolean(), hook: z.boolean().default(false) })
+const SettingsSchema = z.object({
+  enabled: z.boolean(),
+  hook: z.boolean().default(false),
+  // Files written before the counter existed count as write zero.
+  generation: z.int().nonnegative().default(0),
+})
+
+const HostFailureSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('unauthorized'), http: z.union([z.literal(401), z.literal(403)]) }),
+  z.object({ type: z.literal('refused'), http: z.int() }),
+  z.object({ type: z.literal('agent-start') }),
+  z.object({ type: z.literal('protocol') }),
+])
 
 const StateSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('on'), url: z.string().min(1), pid: z.number().int() }),
   z.object({ status: z.literal('off') }),
+  z.object({ status: z.literal('connecting'), pid: z.number().int() }),
+  z.object({ status: z.literal('error'), pid: z.number().int(), failure: HostFailureSchema }),
 ])
 
 const PendingPairingSchema = z.object({
@@ -30,14 +45,19 @@ const PendingPairingSchema = z.object({
 export class FileRcSettings implements RcSettings {
   constructor(private readonly dataDirectory: string) {}
 
-  async read(): Promise<RcSettingsSnapshot> {
+  async read(): Promise<RcSettingsRead> {
     const parsed = await readJson(join(this.dataDirectory, 'remote-control.json'), SettingsSchema)
     // A machine that never chose is off: connecting must be an explicit choice.
-    return parsed ?? { enabled: false, hook: false }
+    return parsed ?? { enabled: false, hook: false, generation: 0 }
   }
 
   async write(settings: RcSettingsSnapshot): Promise<void> {
-    await writeJson(this.dataDirectory, 'remote-control.json', settings)
+    const { generation } = await this.read()
+    await writeJson(this.dataDirectory, 'remote-control.json', {
+      enabled: settings.enabled,
+      hook: settings.hook,
+      generation: generation + 1,
+    })
   }
 }
 
@@ -90,7 +110,7 @@ async function readJson<T>(path: string, schema: z.ZodType<T>): Promise<T | null
 }
 
 /** Every value these stores persist. */
-type StoredRcValue = RcSettingsSnapshot | RcStateSnapshot | PendingPairing
+type StoredRcValue = RcSettingsRead | RcStateSnapshot | PendingPairing
 
 /** Monotonic suffix so two writes from one process never share a temporary file. */
 let writeSequence = 0

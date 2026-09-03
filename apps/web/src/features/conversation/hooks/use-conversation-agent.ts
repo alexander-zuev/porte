@@ -1,6 +1,11 @@
 import type { UseAgentChatOptions } from '@cloudflare/ai-chat/react'
-import type { ConversationId, ConversationLiveState } from '@porte/core/client'
+import {
+  RELAY_RECONNECT,
+  type ConversationId,
+  type ConversationLiveState,
+} from '@porte/core/client'
 import type { ConversationAgent } from '@server/infrastructure/durable-objects/conversation-agent.ts'
+import { useReconnectOnWake } from '@web/features/relay/use-reconnect-on-wake.ts'
 import { useAgent } from 'agents/react'
 
 export type ConversationAgentClient = ReturnType<
@@ -33,9 +38,12 @@ export type ConversationAgentConnection = UseAgentChatOptions<ConversationLiveSt
 
 /** The browser's socket to one ConversationAgent, reached through the account's relay. */
 export function useConversationAgent(conversationId: ConversationId): ConversationAgentClient {
-  return useAgent<ConversationAgent, ConversationLiveState>({
+  const agent = useAgent<ConversationAgent, ConversationLiveState>({
+    ...RELAY_RECONNECT,
     agent: 'HostRelayAgent',
     basePath: 'api/host/ws',
     sub: [{ agent: 'ConversationAgent', name: conversationId }],
   })
+  useReconnectOnWake(agent)
+  return agent
 }

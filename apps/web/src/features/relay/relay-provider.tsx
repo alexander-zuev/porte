@@ -1,4 +1,4 @@
-import type { HostRelayState } from '@porte/core/client'
+import { RELAY_RECONNECT, type HostRelayState } from '@porte/core/client'
 import type { HostRelayAgent } from '@server/infrastructure/durable-objects/host-relay-agent.ts'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { conversationQueries } from '@web/entities/conversation/conversation-queries.ts'
@@ -6,6 +6,7 @@ import { hostConnectionFrom, type RelayConnection } from '@web/entities/host/hos
 import { hostQueries, hostQueryKeys } from '@web/entities/host/host-queries.ts'
 import { dismissHostNotice } from '@web/features/relay/host-connection-toasts.tsx'
 import { useHostConnectionNotice } from '@web/features/relay/use-host-connection-notice.ts'
+import { useReconnectOnWake } from '@web/features/relay/use-reconnect-on-wake.ts'
 import { ProviderMissing } from '@web/lib/errors/provider-missing.ts'
 import { useAgent } from 'agents/react'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
@@ -57,6 +58,7 @@ export function useRelay(): RelayConnection {
 function RelaySocket({ children }: { readonly children: ReactNode }) {
   const queryClient = useQueryClient()
   const agent = useAgent<HostRelayAgent, HostRelayState>({
+    ...RELAY_RECONNECT,
     agent: 'HostRelayAgent',
     basePath: RELAY_PATH,
     // A terminal close (the relay ended the pairing) is the server's word that this
@@ -65,6 +67,7 @@ function RelaySocket({ children }: { readonly children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: hostQueryKeys.all })
     },
   })
+  useReconnectOnWake(agent)
   // Read off the mutable socket here: `agent` itself never changes identity.
   const { identified, state } = agent
   const connection = useMemo<RelayConnection>(() => ({ identified, state }), [identified, state])

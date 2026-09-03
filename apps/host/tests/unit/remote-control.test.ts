@@ -24,7 +24,7 @@ function fakeDeps(overrides?: {
   stateAfterEnable?: RcStateSnapshot
 }) {
   let credential = overrides?.credential ?? null
-  let settings = { enabled: overrides?.enabled ?? false, hook: false }
+  let settings = { enabled: overrides?.enabled ?? false, hook: false, generation: 0 }
   let state = overrides?.state ?? ({ status: 'off' } as const)
   let pending: ReturnType<RcPairingStore['read']> extends Promise<infer T> ? T : never = null
   const revoked: string[] = []
@@ -64,7 +64,7 @@ function fakeDeps(overrides?: {
     settings: {
       read: () => Promise.resolve(settings),
       write: (value) => {
-        settings = value
+        settings = { ...value, generation: settings.generation + 1 }
         // The daemon reacting to the flip is simulated by the test scenario.
         if (value.enabled && overrides?.stateAfterEnable) state = overrides.stateAfterEnable
         return Promise.resolve()
@@ -110,7 +110,8 @@ function fakeDeps(overrides?: {
     },
     revoked: () => revoked,
     watched: () => watched,
-    settings: () => settings,
+    settings: () => ({ enabled: settings.enabled, hook: settings.hook }),
+    generation: () => settings.generation,
     pending: () => pending,
     credential: () => credential,
   }
@@ -178,6 +179,35 @@ describe('toggle', () => {
     expect(test.settings()).toEqual({ enabled: true, hook: false })
   })
 
+  it('on a revoked pairing, drops the dead credential and starts pairing again', async () => {
+    const test = fakeDeps({
+      credential: PAIRED,
+      enabled: true,
+      state: { status: 'error', pid: 1, failure: { type: 'unauthorized', http: 403 } },
+    })
+
+    const result = await toggle(test.deps)
+
+    expect(result.type).toBe('pairing-started')
+    expect(test.credential()).toBeNull()
+    expect(test.watched()).toEqual(['device-secret'])
+  })
+
+  it('on any other error, writes the settings again so the daemon retries', async () => {
+    const test = fakeDeps({
+      credential: PAIRED,
+      enabled: true,
+      state: { status: 'error', pid: 1, failure: { type: 'refused', http: 426 } },
+      stateAfterEnable: { status: 'on', url: 'https://useporte.dev', pid: 1 },
+    })
+
+    const result = await toggle(test.deps)
+
+    expect(result).toEqual({ type: 'connected', url: 'https://useporte.dev' })
+    expect(test.settings()).toEqual({ enabled: true, hook: false })
+    expect(test.generation()).toBe(1)
+  })
+
   it('disables while on', async () => {
     const test = fakeDeps({
       credential: PAIRED,
@@ -204,6 +234,17 @@ describe('status', () => {
       state: { status: 'on', url: 'https://useporte.dev', pid: 42 },
     })
     expect(await status(test.deps)).toEqual({ type: 'on', url: 'https://useporte.dev' })
+  })
+
+  it('reports connecting while the daemon has no socket up', async () => {
+    const test = fakeDeps({ credential: PAIRED, state: { status: 'connecting', pid: 1 } })
+    expect(await status(test.deps)).toEqual({ type: 'connecting' })
+  })
+
+  it('reports the failure the daemon stopped on', async () => {
+    const failure = { type: 'agent-start' } as const
+    const test = fakeDeps({ credential: PAIRED, state: { status: 'error', pid: 1, failure } })
+    expect(await status(test.deps)).toEqual({ type: 'error', failure })
   })
 
   it('reports off with the host name', async () => {
