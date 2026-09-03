@@ -28,7 +28,7 @@ Then, in a new Grok session:
 
 The `/rc` row at the bottom of Grok shows the same: green when reachable, red with the fix when not. `/remote-control status-line off` hides it, `on` brings it back.
 
-Instant `/remote-control`, no model turn: `npx -y @porte/cli@0.3.2 rc enable-hook`.
+Instant `/remote-control`, no model turn: `npx -y @porte/cli@0.3.3 rc enable-hook`.
 
 ## Update
 

@@ -2,7 +2,7 @@
   "mcpServers": {
     "porte": {
       "command": "sh",
-      "args": ["-c", "cd \"$HOME\" && exec npx -y @porte/cli@0.3.2 mcp"]
+      "args": ["-c", "cd \"$HOME\" && exec npx -y @porte/cli@0.3.3 mcp"]
     }
   }
 }
