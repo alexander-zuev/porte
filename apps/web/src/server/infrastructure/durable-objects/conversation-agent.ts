@@ -49,6 +49,7 @@ import {
   queuedPositionOfRow,
   queuedRowMetadata,
   queuedRows,
+  runningTurnReplay,
   turnIdOfRow,
   turnToMessages,
   type TurnOutcome,
@@ -161,6 +162,8 @@ type ForeignTurn = {
   readonly attemptId: AttemptId
   userMessageId: MessageId | undefined
   readonly parts: UIMessage['parts']
+  /** Written into the stream once it binds: `turn.started`, plus the reply a late viewer missed. */
+  readonly replay: readonly ConversationEvent[]
 }
 
 /**
@@ -344,15 +347,12 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         projection: createConversationEventProjectionState(),
       }
       this.activeStream = active
-      // The turn opened before this stream existed; replay its opening chunk so the assistant
-      // row takes the turn id. Not awaited: nothing reads the stream until this returns.
-      void this.serializeStream(() =>
-        this.writeToStream(active, {
-          type: 'turn.started',
-          turnId: foreign.turnId,
-          attemptId: foreign.attemptId,
-        }),
-      )
+      // The turn opened before this stream existed: replay what it missed, from `turn.started`
+      // (so the assistant row takes the turn id) to the reply so far. Not awaited: nothing
+      // reads the stream until this returns.
+      for (const event of foreign.replay) {
+        void this.serializeStream(() => this.writeToStream(active, event))
+      }
       return createUIMessageStreamResponse({ stream: stream.readable })
     }
     if (userMessage === undefined) return errorStreamResponse('Enter a prompt or attach a file.')
@@ -393,6 +393,7 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
         attemptId: event.attemptId,
         userMessageId: undefined,
         parts: [],
+        replay: [event],
       }
       return
     }
@@ -554,16 +555,26 @@ export class ConversationAgent extends AIChatAgent<RuntimeEnv, ConversationLiveS
     }
     let rows = await conversationStateToMessages(state, this.messages)
     const active = this.activeStream
+    // A viewer opened the conversation mid-turn: nobody here saw `turn.started`, so the
+    // snapshot is what opens the stream. The stream then owns that turn's rows.
+    const missed =
+      active === undefined && this.foreignTurn === undefined ? runningTurnReplay(state) : undefined
     if (active?.binding === 'bound') {
       // The stream owns its turn: re-supply the current rows unchanged, never omit them: `persistMessages` deletes what the supplied set lacks.
       rows = [
         ...rows.filter((row) => !rowBelongsToTurn(row, active.turnId)),
         ...this.messages.filter((row) => rowBelongsToTurn(row, active.turnId)),
       ]
+    } else if (missed !== undefined) {
+      rows = rows.filter((row) => !rowBelongsToTurn(row, missed.turn.turnId))
     }
     // Queued and dequeued rows are the relay's, not the Host's: the snapshot cannot know them.
     rows = [...rows, ...this.messages.filter((row) => isQueuedRow(row) || isDequeuedRow(row))]
     await this.persistMessages(rows, [], { _deleteStaleRows: true })
+    if (missed !== undefined) {
+      this.foreignTurn = { ...missed.turn, replay: missed.events }
+      void this.streamForeignTurn(this.foreignTurn, missed.turn.userMessageId)
+    }
     this.publishCurrentActivity()
     if (state.turn.state === 'idle') this.drainQueueInBackground()
   }

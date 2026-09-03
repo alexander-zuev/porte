@@ -112,6 +112,43 @@ describeLive('Host on a shared Grok session', () => {
   )
 
   it(
+    'opened mid-turn: a session the TUI created and is answering streams the rest of the turn',
+    async () => {
+      // The TUI owns this session; the Host has never seen it.
+      const created = await tui.request<NewSessionResponse>('session/new', { cwd, mcpServers: [] })
+      const id = ConversationIdSchema.parse(created.sessionId)
+      await promptOf(tui, id, 'Reply with exactly: one')
+      const prompt = promptOf(tui, id, LONG_PROMPT)
+      await tui.waitForUpdates(
+        id,
+        (u) => ofKind(u, 'agent_message_chunk').length > 3,
+        GROK_TIMEOUT_MS,
+      )
+
+      await withHost(async (deps) => {
+        // The phone opens the conversation now: the Host loads it while turn 1 runs.
+        await deps.connections.connectConversation(id, cwd)
+        const state = await deps.bus.handle(createQuery('GetConversation', { conversationId: id }))
+        expect(state.turn).toMatchObject({ state: 'running', turnId: turnIdFor(id, 1) })
+
+        // What the relay receives from here on is the live rest of that turn, then its end.
+        await sentEvent(deps, id, 'message.delta', (e) => e.turnId === turnIdFor(id, 1))
+        expect((await prompt).stopReason).toBe('end_turn')
+        const finished = await sentEvent(
+          deps,
+          id,
+          'turn.finished',
+          (e) => e.turnId === turnIdFor(id, 1),
+        )
+        expect(finished.outcome).toEqual({ type: 'completed', reason: 'completed' })
+        // The finished turn 0 from the replay never surfaces as a failed live turn.
+        expect(sentEvents(deps, id).filter((e) => e.type === 'turn.finished')).toHaveLength(1)
+      })
+    },
+    GROK_TIMEOUT_MS * 2,
+  )
+
+  it(
     'permissions from either side: Porte answers a TUI tool, the TUI answers a Porte tool',
     async () => {
       await withHost(async (deps) => {

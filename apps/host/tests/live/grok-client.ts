@@ -21,6 +21,8 @@ export type GrokFrame = {
     | typeof GROK_SESSION_NOTIFICATION_METHOD
   readonly sessionId: string
   readonly update: SessionUpdateJson
+  /** Grok's `_meta.isReplay`: the frame repeats history rather than reports it. */
+  readonly replay: boolean
 }
 
 const sessionUpdateSchema = z
@@ -31,6 +33,8 @@ const sessionUpdateSchema = z
 export type SessionUpdateJson = z.infer<typeof sessionUpdateSchema>
 
 const frameParamsSchema = z.object({ sessionId: z.string(), update: sessionUpdateSchema })
+/** Grok stamps `_meta.isReplay` on frames that repeat history rather than report it. */
+const replayMetaSchema = z.object({ _meta: z.object({ isReplay: z.literal(true) }) })
 
 /** What a client does with `session/request_permission`: answer at once, or leave it open. */
 export type PermissionPolicy = 'allow-once' | 'hold'
@@ -176,7 +180,13 @@ export class GrokClient {
   private record(method: GrokFrame['method'], params: JsonValue): void {
     const parsed = frameParamsSchema.safeParse(params)
     if (!parsed.success) return
-    this.frames.push({ method, sessionId: parsed.data.sessionId, update: parsed.data.update })
+    const replay = replayMetaSchema.safeParse(params).success
+    this.frames.push({
+      method,
+      sessionId: parsed.data.sessionId,
+      update: parsed.data.update,
+      replay,
+    })
   }
 }
 

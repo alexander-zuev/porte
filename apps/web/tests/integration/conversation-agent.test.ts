@@ -437,6 +437,107 @@ describe('turns the Host observed', () => {
     })
   })
 
+  /**
+   * Opened mid-turn: the viewer arrives while the terminal's turn runs. The Host's
+   * answer is a snapshot with a partial reply, never a `turn.started` event. Each
+   * case below pins one thing that snapshot must do.
+   */
+  describe('opened mid-turn', () => {
+    it('the snapshot alone opens the stream with the partial reply', async () => {
+      const { viewer } = await openedMidTurn({ text: 'partial from snapshot' })
+      const chunk = await nextRequest(viewer.inbox, chatResponseContaining('partial from snapshot'))
+      expect(chunk.type).toBe('cf_agent_use_chat_response')
+    })
+
+    it('the viewer sees the turn as running', async () => {
+      const { viewer, turnId } = await openedMidTurn({ text: 'partial' })
+      await nextRequest(
+        viewer.inbox,
+        stateFrameWhere((s) => s.runningTurnId === turnId),
+      )
+    })
+
+    it('the partial reasoning replays as reasoning, not as text', async () => {
+      const { viewer } = await openedMidTurn({ reasoning: 'thinking hard', text: 'partial' })
+      const chunk = await nextRequest(viewer.inbox, chatResponseContaining('thinking hard'))
+      expect(chunk.body).toContain('reasoning-delta')
+    })
+
+    it('a live delta continues the same stream', async () => {
+      const { flow, viewer, turnId } = await openedMidTurn({ text: 'partial' })
+      await nextRequest(viewer.inbox, chatResponseContaining('partial'))
+      flow.eventSender()(delta(turnId, ' then live'))
+      await nextRequest(viewer.inbox, chatResponseContaining(' then live'))
+    })
+
+    it('with no reply yet, the first live delta is the first thing streamed', async () => {
+      const { flow, viewer, turnId } = await openedMidTurn({})
+      await nextRequest(
+        viewer.inbox,
+        stateFrameWhere((s) => s.runningTurnId === turnId),
+      )
+      flow.eventSender()(
+        { type: 'message.started', turnId, messageId: assistantId(turnId), role: 'assistant' },
+        delta(turnId, 'first live words'),
+      )
+      await nextRequest(viewer.inbox, chatResponseContaining('first live words'))
+    })
+
+    it('the reconcile at turn.finished leaves one user row and one assistant row', async () => {
+      const { flow, viewer, turnId } = await openedMidTurn({ text: 'partial' })
+      await nextRequest(viewer.inbox, chatResponseContaining('partial'))
+      flow.eventSender()(delta(turnId, ' then live'))
+      await flow.host.finishTurn(turnId, 'from the terminal', 'partial then live')
+      await vi.waitFor(async () => {
+        const rows = await flow.messages()
+        expect(rows.map((row) => `${row.role} ${row.id}`)).toEqual([
+          `user ${turnId}:user`,
+          `assistant ${turnId}`,
+        ])
+        expect(JSON.stringify(rows[1]?.parts)).toContain('partial then live')
+      })
+    })
+
+    it('stop from the phone cancels the terminal turn', async () => {
+      const { flow, viewer, turnId } = await openedMidTurn({ text: 'partial' })
+      await nextRequest(viewer.inbox, chatResponseContaining('partial'))
+      const stop = flow.call('cancelTurn', { turnId })
+      const cancel = await flow.nextDataRequest('turn.cancel')
+      expect(z.object({ turnId: z.string() }).parse(cancel.params).turnId).toBe(turnId)
+      flow.data.socket.send(JSON.stringify({ jsonrpc: '2.0', id: cancel.id, result: null }))
+      await flow.host.finishTurn(turnId, 'from the terminal', 'partial', { type: 'cancelled' })
+      await stop
+      await vi.waitFor(async () => {
+        const rows = await flow.messages()
+        expect(rows.filter((row) => row.role === 'assistant')).toHaveLength(1)
+      })
+    })
+
+    it('a permission the snapshot carries shows on the phone', async () => {
+      const permissionId = PermissionIdSchema.parse(`${turnIdFor(conversation.id, 0)}:permission:1`)
+      const { viewer } = await openedMidTurn({
+        text: 'about to run it',
+        pending: {
+          permissions: [
+            {
+              permissionId,
+              turnId: turnIdFor(conversation.id, 0),
+              toolCallId: ToolCallIdSchema.parse('call-1'),
+              title: 'Execute `git stash list`',
+              options: [{ optionId: 'allow-once', name: 'Yes', kind: 'allow_once' }],
+            },
+          ],
+          elicitations: [],
+        },
+      })
+      const asked = await nextRequest(
+        viewer.inbox,
+        stateFrameWhere((s) => s.pending.permissions.length === 1),
+      )
+      expect(asked.pending.permissions[0]).toMatchObject({ toolCallId: 'call-1' })
+    })
+  })
+
   it('shows a permission the terminal was asked and clears it once answered elsewhere', async () => {
     const flow = await openConversation()
     const viewer = await flow.viewer()
@@ -615,6 +716,47 @@ function userEcho(turnId: TurnId, text: string): ConversationEvent {
 function turnSlice(turnId: TurnId, text: string, userText = 'hi') {
   const { items, tools } = finishedTurn(turnId, userText, text)
   return { turnId, items, tools }
+}
+
+/**
+ * A viewer opens the conversation while the terminal's first turn runs: the Host
+ * socket answers `conversation.get` with `turn: running` and whatever the reply
+ * holds so far. Returns the flow, the viewer, and the running turn's id.
+ */
+async function openedMidTurn(reply: {
+  reasoning?: string
+  text?: string
+  pending?: ConversationState['pending']
+}) {
+  const flow = await openConversation()
+  const viewer = await flow.viewer()
+  const turnId = turnIdFor(conversation.id, 0)
+  const attemptId = createAttemptId()
+  const reconnected = await flow.reconnectData()
+  const get = await flow.nextDataRequest('conversation.get')
+  const base = finishedTurn(turnId, 'from the terminal', reply.text ?? '')
+  const reasoning: ConversationState['items'] =
+    reply.reasoning === undefined
+      ? []
+      : [
+          {
+            type: 'reasoning',
+            turnId,
+            messageId: MessageIdSchema.parse(`${turnId}:reasoning:1`),
+            content: [{ type: 'text', text: reply.reasoning }],
+          },
+        ]
+  const result: ConversationState = {
+    ...base,
+    // Reasoning sits between the user row and the assistant row, as the Host records it.
+    items: [base.items[0], ...reasoning, ...base.items.slice(1)].filter(
+      (item): item is ConversationState['items'][number] => item !== undefined,
+    ),
+    turn: { state: 'running', turnId, attemptId },
+    pending: reply.pending ?? base.pending,
+  }
+  reconnected.socket.send(JSON.stringify({ jsonrpc: '2.0', id: get.id, result }))
+  return { flow, viewer, turnId }
 }
 
 function finishedTurn(turnId: TurnId, userText: string, assistantText: string) {

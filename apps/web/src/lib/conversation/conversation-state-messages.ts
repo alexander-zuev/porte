@@ -1,11 +1,13 @@
 import {
   AttemptIdSchema,
   TurnIdSchema,
+  createAttemptId,
   type AttemptId,
   type ConversationEvent,
   type ConversationItem,
   type ConversationState,
   type ConversationTurn,
+  type MessageId,
   type ToolView,
   type TurnId,
 } from '@porte/core/client'
@@ -266,6 +268,64 @@ export async function conversationStateToMessages(
     messages.push(...rows)
   }
   return messages
+}
+
+/** The running turn of a snapshot, shaped like the live events that would have opened it. */
+export type RunningTurnReplay = {
+  readonly turn: {
+    readonly turnId: TurnId
+    readonly attemptId: AttemptId
+    readonly userMessageId: MessageId
+    readonly parts: UIMessage['parts']
+  }
+  /** `turn.started`, then the reply so far: one delta per content part, nothing that closes. */
+  readonly events: readonly ConversationEvent[]
+}
+
+/**
+ * What a viewer who opens the conversation mid-turn missed: the running turn as
+ * the events a live start would have sent, so the relay can open the same
+ * stream it opens for a turn it watched from the first chunk. Nothing when no
+ * turn runs, or when its user row has not reached the Host yet.
+ */
+export function runningTurnReplay(state: ConversationState): RunningTurnReplay | undefined {
+  if (state.turn.state !== 'running') return undefined
+  const { turnId } = state.turn
+  // A Host that restarted mid-turn forgot the attempt; a foreign stream binds by turn id anyway.
+  const attemptId = state.turn.attemptId ?? createAttemptId()
+  const items = state.items.filter((item) => item.turnId === turnId)
+  const user = items.find(
+    (item): item is Extract<ConversationItem, { type: 'message' }> =>
+      item.type === 'message' && item.role === 'user',
+  )
+  if (user === undefined) return undefined
+  const events: ConversationEvent[] = [{ type: 'turn.started', turnId, attemptId }]
+  for (const item of items) {
+    if (item === user) continue
+    if (item.type === 'message') {
+      events.push({ type: 'message.started', turnId, messageId: item.messageId, role: item.role })
+      for (const content of item.content) {
+        events.push({ type: 'message.delta', turnId, messageId: item.messageId, content })
+      }
+    } else if (item.type === 'reasoning') {
+      events.push({ type: 'reasoning.started', turnId, messageId: item.messageId })
+      for (const content of item.content) {
+        events.push({ type: 'reasoning.delta', turnId, messageId: item.messageId, content })
+      }
+    } else {
+      const tool = state.tools.find((view) => view.toolCallId === item.toolCallId)
+      if (tool !== undefined) events.push({ type: 'tool.updated', turnId, tool })
+    }
+  }
+  return {
+    turn: {
+      turnId,
+      attemptId,
+      userMessageId: user.messageId,
+      parts: user.content.flatMap((content) => canonicalContentToUIMessageParts(content)),
+    },
+    events,
+  }
 }
 
 /** One assistant row per turn, `id = turnId`, exactly what the live stream builds. */
