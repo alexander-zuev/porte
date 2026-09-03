@@ -136,6 +136,47 @@ describe('AcpUpdateMapper', () => {
     })
   })
 
+  it('mints a fresh turn for a repeated promptIndex so the replay folds without raising', () => {
+    // Captured from grok 1.0.13: the TUI and the Host each numbered a prompt 3.
+    const mapper = new AcpUpdateMapper(conversationId)
+    const prompt = (promptIndex: number, text: string): AcpSessionNotification => ({
+      sessionId: conversationId,
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        content: { type: 'text', text },
+        _meta: { modelId: 'grok-4.6', promptIndex },
+      },
+    })
+    const reply: AcpSessionNotification = {
+      sessionId: conversationId,
+      update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' } },
+    }
+    const events = [
+      prompt(3, 'commit'),
+      reply,
+      prompt(4, 'long'),
+      reply,
+      prompt(3, 'more'),
+      reply,
+    ].flatMap((notification) => mapper.map(notification))
+    const turnIds = new Set(events.flatMap((event) => ('turnId' in event ? [event.turnId] : [])))
+    expect([...turnIds]).toEqual([
+      `${conversationId}:turn:3`,
+      `${conversationId}:turn:4`,
+      `${conversationId}:turn:5`,
+    ])
+    const conversation = Conversation.restore({
+      id: conversationId,
+      cwd: '/repo',
+      gitRoot: '/repo',
+      title: '',
+      updatedAt: IsoDateTimeSchema.parse('2026-09-03T12:00:00.000Z'),
+    })
+    expect(() => {
+      conversation.replay(events)
+    }).not.toThrow()
+  })
+
   it('rejects updates outside a turn, a second live turn, and another session', () => {
     const mapper = new AcpUpdateMapper(conversationId)
     expect(() => mapper.map(live[2]!)).toThrow(AcpUpdateSequenceError)

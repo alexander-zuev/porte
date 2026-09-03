@@ -51,8 +51,10 @@ type ContentUpdate = Extract<
   AcpSessionUpdate,
   { sessionUpdate: 'user_message_chunk' | 'agent_message_chunk' | 'agent_thought_chunk' }
 >
-/** Live turns come from the relay; replay turns are keyed by Grok's `promptIndex`. */
-type ActiveTurn = { readonly turnId: TurnId; readonly live: boolean }
+/** Live turns come from the relay; replay turns are grouped by Grok's `promptIndex`. */
+type ActiveTurn =
+  | { readonly turnId: TurnId; readonly live: true }
+  | { readonly turnId: TurnId; readonly live: false; readonly promptIndex: number }
 
 /** The agent sent an update in an order the mapper cannot place. */
 export class AcpUpdateSequenceError extends TaggedError('AcpUpdateSequenceError')<{
@@ -92,9 +94,15 @@ export class AcpSessionMismatchError extends TaggedError('AcpSessionMismatchErro
  * boundaries: a chunk on a stream with no open message starts one; `tool_call`
  * and the end of a turn close every open stream. Turn events themselves belong
  * to the `Conversation` aggregate; the mapper never emits `turn.*`.
+ *
+ * Turn indexes minted here strictly increase. Grok's `promptIndex` is unique
+ * only within one Grok process: a second process on the same session (the
+ * TUI beside the Host) restarts its own counter, and the history then repeats
+ * an index. The same history maps to the same ids on every load either way.
  */
 export class AcpUpdateMapper {
   private turn: ActiveTurn | undefined
+  private nextTurnIndex = 0
   private ordinal = 0
   private readonly open = new Map<MessageStream, MessageId>()
   private readonly tools = new Map<string, ToolView>()
@@ -128,6 +136,7 @@ export class AcpUpdateMapper {
       throw new AcpUpdateSequenceError('A live turn is already active')
     }
     this.turn = { turnId, live: true }
+    this.nextTurnIndex = Math.max(this.nextTurnIndex, expectedPromptIndex + 1)
     this.expectedPromptIndex = expectedPromptIndex
     this.promptIndexChecked = false
     this.ordinal = 0
@@ -239,13 +248,28 @@ export class AcpUpdateMapper {
     if (!promptIndex.success) {
       throw new AcpUpdateValueError('ACP replay user message has no promptIndex')
     }
-    const turnId = turnIdFor(this.conversationId, promptIndex.data)
     // Real replays repeat a promptIndex when one turn carried several user chunks; same turn.
-    if (this.turn?.live === false && this.turn.turnId === turnId) return []
+    if (this.turn?.live === false && this.turn.promptIndex === promptIndex.data) return []
     const closed = this.closeStreams()
-    this.turn = { turnId, live: false }
+    this.turn = {
+      turnId: turnIdFor(this.conversationId, this.claimTurnIndex(promptIndex.data)),
+      live: false,
+      promptIndex: promptIndex.data,
+    }
     this.ordinal = 0
     return closed
+  }
+
+  /** Grok's index when it is new here; otherwise the next free one, so no turn id repeats. */
+  private claimTurnIndex(promptIndex: number): number {
+    const index = Math.max(promptIndex, this.nextTurnIndex)
+    if (index !== promptIndex) {
+      logger.warn('prompt_index_repeated', {
+        details: { conversationId: this.conversationId, promptIndex, turnIndex: index },
+      })
+    }
+    this.nextTurnIndex = index + 1
+    return index
   }
 
   private mapContent(stream: MessageStream, update: ContentUpdate): EventData[] {
