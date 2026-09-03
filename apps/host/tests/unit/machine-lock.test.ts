@@ -39,6 +39,51 @@ describe('FileMachineLock', () => {
     expect(await lock.acquire()).toEqual({ type: 'held' })
   })
 
+  it('replaces a live holder from an older release: it is told to stop, then the lock is taken', async () => {
+    // The holder is this process with an old version; `terminate` marks it gone instead of signalling.
+    let holderAlive = true
+    const holder = new FileMachineLock(directory, {
+      version: '0.2.7',
+      isAlive: () => true,
+      terminate: () => undefined,
+    })
+    await holder.acquire()
+    const terminated: number[] = []
+    const newer = new FileMachineLock(directory, {
+      version: '0.3.1',
+      isAlive: () => holderAlive,
+      terminate: (pid) => {
+        terminated.push(pid)
+        holderAlive = false
+      },
+    })
+
+    expect(await newer.acquire()).toEqual({ type: 'replaced', pid: process.pid })
+    expect(terminated).toEqual([process.pid])
+  })
+
+  it('treats a lock with no version as older, and a same-version holder as final', async () => {
+    await writeFile(join(directory, 'host.lock'), JSON.stringify({ pid: process.pid }))
+    const stopped: number[] = []
+    const newer = new FileMachineLock(directory, {
+      version: '0.3.1',
+      isAlive: () => stopped.length === 0,
+      terminate: (pid) => {
+        stopped.push(pid)
+      },
+    })
+    expect(await newer.acquire()).toEqual({ type: 'replaced', pid: process.pid })
+
+    const peer = new FileMachineLock(directory, {
+      version: '0.3.1',
+      isAlive: () => true,
+      terminate: () => {
+        throw new Error('a peer must never be signalled')
+      },
+    })
+    expect(await peer.acquire()).toEqual({ type: 'held-elsewhere', pid: process.pid })
+  })
+
   it('releases idempotently and frees the lock for the next process', async () => {
     const first = new FileMachineLock(directory)
     await first.acquire()
