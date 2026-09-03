@@ -13,7 +13,11 @@ export default defineConfig({
     projects: [
       { extends: true, test: { name: 'unit', include: ['tests/unit/**/*.test.ts'] } },
       { extends: true, test: { name: 'integration', include: ['tests/integration/**/*.test.ts'] } },
-      { extends: true, test: { name: 'live', include: ['tests/live/**/*.test.ts'] } },
+      {
+        extends: true,
+        // One file at a time: every live file drives the same Grok process and session store.
+        test: { name: 'live', include: ['tests/live/**/*.test.ts'], fileParallelism: false },
+      },
     ],
   },
 })

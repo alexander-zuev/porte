@@ -44,7 +44,8 @@ export async function cleanupGrokSessions(): Promise<void> {
   const stale = await staleWorkspaces(sessions)
   const targets = new Set([...workspaces, ...stale])
   if (targets.size === 0) return
-  const index = new DatabaseSync(join(sessions, 'session_search.sqlite'))
+  // Grok's own process may hold the index while a client is still shutting down.
+  const index = new DatabaseSync(join(sessions, 'session_search.sqlite'), { timeout: 5_000 })
   try {
     const remove = index.prepare('DELETE FROM session_docs WHERE cwd = ?')
     for (const cwd of targets) {
