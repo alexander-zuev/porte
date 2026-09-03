@@ -2,7 +2,7 @@
  * The newest released CLI. Written by `pnpm release:cli`, never by hand; the
  * publish workflow refuses a release where any version fact disagrees.
  */
-export const LATEST_CLI_VERSION = '0.2.7'
+export const LATEST_CLI_VERSION = '0.3.0'
 
 /** The header a host sends with its control upgrade, naming its own build. */
 export const HOST_CLI_VERSION_HEADER = 'x-porte-cli-version'

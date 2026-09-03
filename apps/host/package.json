@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
   "name": "@porte/cli",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "Run your local Grok sessions from your phone. The daemon that pairs a machine with useporte.dev.",
   "keywords": [
     "acp",
@@ -39,10 +39,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
-    "test": "vitest run --exclude tests/e2e/**",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:e2e": "vitest run tests/e2e"
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:live": "GROK_LIVE_TESTS=1 vitest run --project live"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "catalog:",
