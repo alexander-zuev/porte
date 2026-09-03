@@ -12,6 +12,7 @@ import type { HostConfig } from '@host/infrastructure/config/host-config.ts'
 import {
   enableLeaderMode,
   installGrokHook,
+  installStatusLineConfig,
   installStatusLineScript,
   removeGrokHook,
 } from '@host/infrastructure/grok/hook-installer.ts'
@@ -45,6 +46,8 @@ export async function runMcpCommand(config: HostConfig): Promise<void> {
       // One shared Grok backend for the TUI and the Host; takes effect at the next Grok start.
       await enableLeaderMode(paths.grokHome).catch(() => null)
       await installStatusLineScript(config.dataDirectory).catch(() => null)
+      // Grok has one status line: ours goes in only when it is free or already ours.
+      await installStatusLineConfig(paths.grokHome, config.dataDirectory).catch(() => null)
     },
     createRuntime: (signal) => createHostRuntime(config, signal),
     pollMs: POLL_MS,

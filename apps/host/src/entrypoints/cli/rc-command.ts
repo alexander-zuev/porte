@@ -20,6 +20,7 @@ import {
   disableLeaderMode,
   installGrokHook,
   removeGrokHook,
+  removeStatusLineConfig,
 } from '@host/infrastructure/grok/hook-installer.ts'
 import { readAllText } from '@host/infrastructure/node/read-stream.ts'
 import { UPDATE_AVAILABLE_FILE, updateNoticeLine } from '@host/infrastructure/update-notice.ts'
@@ -189,9 +190,12 @@ async function verbLine(
       return renderStatusResult(await status(deps))
     case 'unpair': {
       const result = await unpair(deps)
-      // Porte leaves Grok as it found it: no shared session process without remote control.
-      if (result.type === 'unpaired')
-        await disableLeaderMode(join(homedir(), '.grok')).catch(() => null)
+      // Porte leaves Grok as it found it: no shared session process and no status line of ours.
+      if (result.type === 'unpaired') {
+        const grokHome = join(homedir(), '.grok')
+        await disableLeaderMode(grokHome).catch(() => null)
+        await removeStatusLineConfig(grokHome).catch(() => null)
+      }
       return renderUnpairResult(result)
     }
   }

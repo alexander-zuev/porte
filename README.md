@@ -21,13 +21,13 @@ Then type `/remote-control` in Grok and approve on your phone. Undo: `/remote-co
 
 Optional, instant `/remote-control` — answers in under a second instead of a model turn, at the cost of Grok's "Prompt blocked" framing around the reply: `npx -y @porte/cli@0.3.0 rc enable-hook` (undo with `rc disable-hook`).
 
-Optional status row in Grok — a green `/rc on` while the machine is reachable. Add to `~/.grok/config.toml` (only your own config can set this; a plugin cannot):
+Status row in Grok — green `/rc on` while the machine is reachable, yellow while it connects, red with the fix when it cannot. Porte adds it to `~/.grok/config.toml` on the first session, unless you already have a status line of your own, which it leaves alone:
 
 ```toml
 [ui.status_line]
 type = "command"
 command = "~/.porte/statusline.sh"
-refresh_interval = 30
+refresh_interval = 2
 ```
 
 Or hand it to your agent:

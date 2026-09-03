@@ -57,6 +57,83 @@ export async function enableLeaderMode(grokHome: string): Promise<boolean> {
   return true
 }
 
+const STATUS_LINE_SECTION = '[ui.status_line]'
+const STATUS_LINE_SECTION_LINE = /^\s*\[ui\.status_line\]\s*(#.*)?$/
+const TABLE_HEADER_LINE = /^\s*\[/
+/** Ours when the command is our script; any other command is the person's own status line. */
+const OUR_COMMAND_LINE = /^\s*command\s*=.*porte.*statusline\.sh/
+/** Two seconds: one `cat` and one `kill -0`, and the line follows the daemon within a poll. */
+const STATUS_LINE_REFRESH_S = 2
+
+/**
+ * Point Grok's status line at our script in `~/.grok/config.toml`.
+ *
+ * Grok has one status line. Absent: ours is appended. Ours already: its lines are
+ * rewritten, so an older interval is brought current. Someone else's: untouched,
+ * because their status line is theirs. Same line-edit discipline as `use_leader`.
+ */
+export async function installStatusLineConfig(
+  grokHome: string,
+  porteHome: string,
+): Promise<boolean> {
+  const path = join(grokHome, 'config.toml')
+  const current = await readFile(path, 'utf8').catch(() => '')
+  const next = withStatusLine(current, statusLineConfigLines(porteHome))
+  if (next === current) return false
+  await mkdir(grokHome, { recursive: true })
+  await writeFile(path, next)
+  return true
+}
+
+/** Drop our status line on unpair; a status line that is not ours stays. */
+export async function removeStatusLineConfig(grokHome: string): Promise<boolean> {
+  const path = join(grokHome, 'config.toml')
+  const current = await readFile(path, 'utf8').catch(() => undefined)
+  if (current === undefined) return false
+  const lines = current.split('\n')
+  const section = statusLineSection(lines)
+  if (section === null || !section.ours) return false
+  lines.splice(section.start, section.end - section.start)
+  const next = lines.join('\n')
+  await writeFile(path, next)
+  return true
+}
+
+function statusLineConfigLines(porteHome: string): readonly string[] {
+  return [
+    'type = "command"',
+    `command = "${join(porteHome, 'statusline.sh')}"`,
+    `refresh_interval = ${String(STATUS_LINE_REFRESH_S)}`,
+  ]
+}
+
+function withStatusLine(config: string, ours: readonly string[]): string {
+  const lines = config.split('\n')
+  const section = statusLineSection(lines)
+  if (section === null) {
+    const body = config.endsWith('\n') || config.length === 0 ? config : `${config}\n`
+    const separator = body.length === 0 ? '' : '\n'
+    return `${body}${separator}${STATUS_LINE_SECTION}\n${ours.join('\n')}\n`
+  }
+  if (!section.ours) return config
+  lines.splice(section.start + 1, section.end - section.start - 1, ...ours)
+  return lines.join('\n')
+}
+
+/** Header index, the index after the last body line, and whether the command is ours. */
+function statusLineSection(
+  lines: readonly string[],
+): { start: number; end: number; ours: boolean } | null {
+  const start = lines.findIndex((line) => STATUS_LINE_SECTION_LINE.test(line))
+  if (start === -1) return null
+  let end = start + 1
+  while (end < lines.length && !TABLE_HEADER_LINE.test(lines[end] ?? '')) end += 1
+  // A trailing blank line belongs to the gap before the next table, not to this section.
+  while (end > start + 1 && (lines[end - 1] ?? '').trim() === '') end -= 1
+  const ours = lines.slice(start + 1, end).some((line) => OUR_COMMAND_LINE.test(line))
+  return { start, end, ours }
+}
+
 /** Drop the `use_leader` line again on unpair, so Grok runs as it did before Porte. */
 export async function disableLeaderMode(grokHome: string): Promise<boolean> {
   const path = join(grokHome, 'config.toml')
@@ -95,11 +172,10 @@ export async function removeGrokHook(input: InstallGrokHookInput): Promise<void>
 }
 
 /**
- * Write the status-line script the person can opt into from `config.toml`.
+ * Write the status-line script that `installStatusLineConfig` points Grok at.
  *
- * Only the person's own Grok config may set `[ui.status_line]` — Grok refuses
- * it from every other layer — so the daemon delivers the script and the README
- * carries the four config lines.
+ * Grok honours `[ui.status_line]` only from the person's own config file, not
+ * from a plugin's, so the daemon writes both the script and the config lines.
  */
 export async function installStatusLineScript(porteHome: string): Promise<boolean> {
   const path = join(porteHome, 'statusline.sh')
