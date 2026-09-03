@@ -49,6 +49,8 @@ Works today:
 - Open any Grok conversation on the paired machine, or start one in a known repo
 - Read the transcript live: thoughts, tool calls with diffs and read output, Grok's answer
 - Prompt, attach files, run slash commands, stop a turn
+- Queue a prompt while a turn runs; it sends when the turn ends
+- Open uncommitted changes from the pill above the composer; tap a file for its diff
 - Allow or deny a permission request from the phone
 - Switch the model and its reasoning effort from the composer; mode and context usage shown beside it
 - Install as a home-screen app on iOS and Android

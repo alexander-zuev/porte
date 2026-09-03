@@ -14,31 +14,16 @@ interrupt a running turn from the device — Porte can stop a turn today.
 
 ## Stack rank (impact × wow)
 
-### 1. Never-blocked composer — queue and steer mid-turn
+### 1. Never-blocked composer — shipped
 
-The composer accepts a message while Grok runs; the host queues it and delivers
-it when the turn ends. Today the same send fails with `ConversationBusyError`.
-Both competitors treat this as the definition of "remote".
+The composer accepts a message while Grok runs. The relay queues it and
+sends it when the turn ends. Send now, reorder, and remove live in the
+queue sheet.
 
-Includes the turn-wedge fix: a failed `beginTurn` must not leave the
-conversation stuck in `ConversationBusyError` (see item 14 in
-`tool-rendering-plan.md` — promptIndex drift from hidden reminder chunks).
+### 2. Changes pane — shipped
 
-Proof: send two messages during a running turn from the phone; both land, in
-order, without an error toast; a killed host mid-turn recovers without restart.
-
-### 2. Changes pane — working-tree diff on demand
-
-One view per conversation: the machine's current `git diff` (uncommitted, or
-branch diff when the tree is clean). Fetched from the host on request, never
-cached.
-
-Hunks only — never the whole file. Each file is one row with +/− counts. A
-tap opens that file's diff: `Collapsible` on desktop, `Drawer` on phone, the
-same split as `Reasoning` and `ToolRun`. Render with `DiffBlock`.
-
-Proof: after a multi-file turn, the pane shows every changed file, matches
-`git diff --stat` on the machine, and a phone tap opens one file in a sheet.
+The pill above the composer shows uncommitted files. A tap opens the sheet:
+each file is one row with +/− counts; a second tap opens that file's diff.
 
 ### 3. `@` file select in the composer
 

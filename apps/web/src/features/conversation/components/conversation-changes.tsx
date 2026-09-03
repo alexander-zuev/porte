@@ -69,7 +69,7 @@ export type ConversationChangesProps = {
  *
  * One surface on every device: the pill says how much of the tree is
  * uncommitted, the sheet lists the files, and a tapped file pushes its diff in
- * from the right the way a tool run's sheet does. Spec: docs/diff-sheet.md.
+ * from the right the way a tool run's sheet does.
  */
 export function ConversationChanges({
   changes,
