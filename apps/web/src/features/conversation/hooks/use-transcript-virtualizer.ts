@@ -96,6 +96,8 @@ export function useTranscriptVirtualizer(
     // The reader's last direction. Only an input sets it: the library's corrections scroll too.
     let heading: 'up' | 'down' | null = null
     const stop = () => {
+      // Nothing above the viewport to go back to: an upward flick on a short transcript is not leaving the end.
+      if (scroller.scrollHeight <= scroller.clientHeight) return
       heading = 'up'
       followingRef.current = false
       setFollowingState(false)
