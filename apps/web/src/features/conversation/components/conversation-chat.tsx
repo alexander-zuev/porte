@@ -117,7 +117,7 @@ export function ConversationChat({
               <PromptInputAttachments />
               <PromptInputTextarea
                 disabled={!canType}
-                placeholder={promptPlaceholder(canSend, agent.identified, running)}
+                placeholder={promptPlaceholder(canSend, agent.identified)}
               />
               <ChatComposerFooter
                 canSubmit={canSubmit}
@@ -246,10 +246,9 @@ function submitStatus(chatStatus: ChatStatus, running: boolean): ChatStatus {
   return 'ready'
 }
 
-function promptPlaceholder(canSend: boolean, identified: boolean, running: boolean): string {
+function promptPlaceholder(canSend: boolean, identified: boolean): string {
   if (!canSend) return 'Your machine is offline'
   if (!identified) return 'Reconnecting…'
-  if (running) return 'Queue for after this turn…'
-  // The agent is addressed, not the machine it runs on.
-  return 'Message Grok…'
+  // The agent is addressed, not the machine it runs on; a running turn queues the message.
+  return 'Message Grok (use / for commands)'
 }

@@ -69,7 +69,7 @@ export function ConversationSkeleton() {
       >
         <PromptInputBody>
           {/* The same words as the live box: the state is "not yet", not a message to read. */}
-          <PromptInputTextarea disabled placeholder="Message Grok…" />
+          <PromptInputTextarea disabled placeholder="Message Grok (use / for commands)" />
           <PromptInputFooter>
             <PromptInputTools>
               <PromptInputButton
