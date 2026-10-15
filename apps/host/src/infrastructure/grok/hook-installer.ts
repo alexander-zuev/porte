@@ -141,9 +141,25 @@ export async function removeStatusLineConfig(grokHome: string): Promise<boolean>
 function statusLineConfigLines(porteHome: string): readonly string[] {
   return [
     'type = "command"',
-    `command = "${join(porteHome, 'statusline.sh')}"`,
+    `command = ${tomlBasicString(join(porteHome, 'statusline.sh'))}`,
     `refresh_interval = ${String(STATUS_LINE_REFRESH_S)}`,
   ]
+}
+
+/**
+ * One TOML basic string.
+ *
+ * A Windows path's `\U` is a Unicode escape inside double quotes. Escaping
+ * every backslash keeps the path a path.
+ */
+function tomlBasicString(value: string): string {
+  const escaped = value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\t', '\\t')
+  return `"${escaped}"`
 }
 
 /** The config with our lines in, or null when someone else's status line is kept. */

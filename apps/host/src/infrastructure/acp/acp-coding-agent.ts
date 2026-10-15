@@ -1,5 +1,5 @@
 /* oxlint-disable no-underscore-dangle -- ACP reserves `_meta` for provider data. */
-import type { CreateElicitationResponse, McpServer } from '@agentclientprotocol/sdk'
+import type { CreateElicitationResponse } from '@agentclientprotocol/sdk'
 import type {
   AgentListener,
   CodingAgent,
@@ -125,7 +125,8 @@ export class AcpCodingAgent implements CodingAgent {
   async createSession(input: CreateSession): Promise<CreatedSession> {
     const created = await this.agent.process.request({
       method: 'session/new',
-      params: { cwd: input.cwd, mcpServers: toMcpServers(input.mcpServers) },
+      // The relay names the directory. Grok keeps this machine's own MCP servers.
+      params: { cwd: input.cwd, mcpServers: [] },
     })
     const id = ConversationIdSchema.parse(created.sessionId)
     const session = this.open(id, input.cwd, parseSessionModels(created))
@@ -433,10 +434,4 @@ function elicitationResponse(answer: ElicitationAnswer): JsonValue {
   }
   if (answer.type === 'accept') return { action: 'accept' } satisfies CreateElicitationResponse
   return { action: answer.type } satisfies CreateElicitationResponse
-}
-
-function toMcpServers(servers: CreateSession['mcpServers']): McpServer[] {
-  if (servers === undefined) return []
-  // SAFETY: `conversation.create` carries MCP JSON as-is until core owns a schema; ACP rejects a bad list.
-  return [...servers] as McpServer[]
 }

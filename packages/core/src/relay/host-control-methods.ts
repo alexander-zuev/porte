@@ -35,9 +35,11 @@ export const HostControlMethods = {
   },
   'conversation.create': {
     kind: JSON_RPC_METHOD_KINDS.request,
+    // The relay names the directory and nothing else. `mcpServers` is not a
+    // field: a strict object rejects it, so a remote client cannot attach
+    // processes to the new Grok session.
     params: z.strictObject({
       cwd: z.string().min(1),
-      mcpServers: z.array(z.json()).optional(),
     }),
     result: ConversationSummarySchema,
   },

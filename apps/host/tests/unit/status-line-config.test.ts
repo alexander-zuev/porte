@@ -15,7 +15,7 @@ const configPath = () => join(grokHome, 'config.toml')
 
 const OURS = `[ui.status_line]
 type = "command"
-command = "/home/me/.porte/statusline.sh"
+command = ${tomlBasicString(join(porteHome, 'statusline.sh'))}
 refresh_interval = 2
 `
 
@@ -42,6 +42,22 @@ describe('installStatusLineConfig', () => {
     )
     expect(await installStatusLineConfig(grokHome, porteHome)).toBe('added')
     expect(await readFile(configPath(), 'utf8')).toBe(`${OURS}\n[cli]\nuse_leader = true\n`)
+  })
+
+  it('escapes a Windows path so TOML does not treat \\U as a Unicode escape', async () => {
+    const windowsHome = 'C:\\Users\\me\\.porte'
+    const scriptPath = join(windowsHome, 'statusline.sh')
+    await writeFile(
+      configPath(),
+      `[ui.status_line]\ntype = "command"\ncommand = "${scriptPath}"\nrefresh_interval = 2\n`,
+    )
+    expect(scriptPath).toContain('\\U')
+    expect(await installStatusLineConfig(grokHome, windowsHome)).toBe('added')
+    const written = await readFile(configPath(), 'utf8')
+    expect(written).toContain(`command = ${tomlBasicString(scriptPath)}`)
+    expect(written).toContain('\\\\U')
+    expect(tomlBasicStringValue(written)).toBe(scriptPath)
+    expect(await installStatusLineConfig(grokHome, windowsHome)).toBe('current')
   })
 
   it("leaves someone else's status line untouched, unless told to replace it", async () => {
@@ -95,3 +111,36 @@ describe('removeStatusLineConfig', () => {
     expect(await readFile(configPath(), 'utf8')).toBe(theirs)
   })
 })
+
+/** Same escaping `statusLineConfigLines` applies, so the snapshot follows the platform. */
+function tomlBasicString(value: string): string {
+  const escaped = value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\t', '\\t')
+  return `"${escaped}"`
+}
+
+/** The decoded `command` value, using TOML basic-string escapes. */
+function tomlBasicStringValue(config: string): string {
+  const match = /command = "((?:\\.|[^"\\])*)"/.exec(config)
+  if (match?.[1] === undefined) throw new Error('status line command is missing')
+  return match[1].replace(/\\(?:\\|n|r|t|")/g, (token) => {
+    switch (token) {
+      case '\\\\':
+        return '\\'
+      case '\\n':
+        return '\n'
+      case '\\r':
+        return '\r'
+      case '\\t':
+        return '\t'
+      case '\\"':
+        return '"'
+      default:
+        return token
+    }
+  })
+}

@@ -58,6 +58,29 @@ describe('Host JSON-RPC methods', () => {
     ).toBe(true)
   })
 
+  it('rejects a conversation.create that tries to attach MCP servers', () => {
+    const params = HostControlMethods['conversation.create'].params
+    expect(params.safeParse({ cwd: '/work/repo' }).success).toBe(true)
+    const refused = [
+      { cwd: '/work/repo', mcpServers: [] },
+      { cwd: '/work/repo', mcpServers: [{ command: 'node', args: ['evil.js'] }] },
+      { cwd: '/work/repo', mcpServers: 'node' },
+      { cwd: '/work/repo', command: 'bash' },
+    ]
+    for (const attempt of refused) {
+      expect(params.safeParse(attempt).success).toBe(false)
+    }
+    const request = hostControlRequestSchema('conversation.create')
+    expect(
+      request.safeParse({
+        jsonrpc: '2.0',
+        id: HOST_REQUEST_ID,
+        method: 'conversation.create',
+        params: { cwd: '/work/repo', mcpServers: [{ command: 'bash', args: ['-c', 'id'] }] },
+      }).success,
+    ).toBe(false)
+  })
+
   it('requires a UUID v7 request identifier', () => {
     const schema = hostControlRequestSchema('conversations.list')
     const request = {
