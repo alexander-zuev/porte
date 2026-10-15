@@ -11,6 +11,29 @@ export type InstallGrokHookInput = {
   readonly grokHome: string
   /** The Porte data directory, `~/.porte` outside tests. */
   readonly porteHome: string
+  /** Which scripts to write; `process.platform` outside tests. */
+  readonly platform?: NodeJS.Platform
+}
+
+/** Windows has no bash: there the scripts are batch files Grok runs directly. */
+function isWindows(platform: NodeJS.Platform | undefined): boolean {
+  return (platform ?? process.platform) === 'win32'
+}
+
+function hookScriptName(platform: NodeJS.Platform | undefined): string {
+  return isWindows(platform) ? 'porte-hook.cmd' : 'porte-hook.sh'
+}
+
+function statusLineScriptName(platform: NodeJS.Platform | undefined): string {
+  return isWindows(platform) ? 'statusline.cmd' : 'statusline.sh'
+}
+
+/**
+ * A TOML basic string. JSON's escapes are a subset of TOML's, so a Windows path
+ * like `C:\Users\me` keeps its backslashes instead of reading as `\U` escapes.
+ */
+function tomlString(value: string): string {
+  return JSON.stringify(value)
 }
 
 /**
@@ -21,9 +44,9 @@ export type InstallGrokHookInput = {
  * files are left untouched so their mtimes stay honest.
  */
 export async function installGrokHook(input: InstallGrokHookInput): Promise<HookInstallResult> {
-  const scriptPath = join(input.porteHome, 'hook', 'porte-hook.sh')
+  const scriptPath = join(input.porteHome, 'hook', hookScriptName(input.platform))
   const configPath = join(input.grokHome, 'hooks', 'porte.json')
-  const script = hookScript()
+  const script = isWindows(input.platform) ? windowsHookScript() : hookScript()
   const config = `${JSON.stringify(hookConfig(scriptPath), null, 2)}\n`
 
   const scriptChanged = await writeIfChanged(scriptPath, script)
@@ -61,7 +84,7 @@ const STATUS_LINE_SECTION = '[ui.status_line]'
 const STATUS_LINE_SECTION_LINE = /^\s*\[ui\.status_line\]\s*(#.*)?$/
 const TABLE_HEADER_LINE = /^\s*\[/
 /** Ours when the command is our script; any other command is the person's own status line. */
-const OUR_COMMAND_LINE = /^\s*command\s*=.*porte.*statusline\.sh/
+const OUR_COMMAND_LINE = /^\s*command\s*=.*porte.*statusline\.(sh|cmd)/
 /** Two seconds: one `cat` and one `kill -0`, and the line follows the daemon within a poll. */
 const STATUS_LINE_REFRESH_S = 2
 
@@ -79,11 +102,14 @@ export type StatusLineInstall = 'added' | 'current' | 'theirs'
 export async function installStatusLineConfig(
   grokHome: string,
   porteHome: string,
-  options: { readonly foreign: 'keep' | 'replace' } = { foreign: 'keep' },
+  options: { readonly foreign: 'keep' | 'replace'; readonly platform?: NodeJS.Platform } = {
+    foreign: 'keep',
+  },
 ): Promise<StatusLineInstall> {
   const path = join(grokHome, 'config.toml')
   const current = await readFile(path, 'utf8').catch(() => '')
-  const next = withStatusLine(current, statusLineConfigLines(porteHome), options.foreign)
+  const lines = statusLineConfigLines(porteHome, options.platform)
+  const next = withStatusLine(current, lines, options.foreign)
   if (next === null) return 'theirs'
   if (next === current) return 'current'
   await mkdir(grokHome, { recursive: true })
@@ -117,8 +143,13 @@ export async function syncGrokConfig(
     return { statusLine: 'off' }
   }
   try {
-    await installStatusLineScript(paths.porteHome)
-    return { statusLine: await installStatusLineConfig(paths.grokHome, paths.porteHome) }
+    await installStatusLineScript(paths.porteHome, paths.platform)
+    return {
+      statusLine: await installStatusLineConfig(paths.grokHome, paths.porteHome, {
+        foreign: 'keep',
+        platform: paths.platform,
+      }),
+    }
   } catch {
     return { statusLine: 'unwritable' }
   }
@@ -138,10 +169,13 @@ export async function removeStatusLineConfig(grokHome: string): Promise<boolean>
   return true
 }
 
-function statusLineConfigLines(porteHome: string): readonly string[] {
+function statusLineConfigLines(
+  porteHome: string,
+  platform: NodeJS.Platform | undefined,
+): readonly string[] {
   return [
     'type = "command"',
-    `command = "${join(porteHome, 'statusline.sh')}"`,
+    `command = ${tomlString(join(porteHome, statusLineScriptName(platform)))}`,
     `refresh_interval = ${String(STATUS_LINE_REFRESH_S)}`,
   ]
 }
@@ -213,6 +247,7 @@ function withUseLeader(config: string): string {
 export async function removeGrokHook(input: InstallGrokHookInput): Promise<void> {
   await rm(join(input.grokHome, 'hooks', 'porte.json'), { force: true })
   await rm(join(input.porteHome, 'hook', 'porte-hook.sh'), { force: true })
+  await rm(join(input.porteHome, 'hook', 'porte-hook.cmd'), { force: true })
 }
 
 /**
@@ -221,11 +256,66 @@ export async function removeGrokHook(input: InstallGrokHookInput): Promise<void>
  * Grok honours `[ui.status_line]` only from the person's own config file, not
  * from a plugin's, so the daemon writes both the script and the config lines.
  */
-export async function installStatusLineScript(porteHome: string): Promise<boolean> {
+export async function installStatusLineScript(
+  porteHome: string,
+  platform?: NodeJS.Platform,
+): Promise<boolean> {
+  if (isWindows(platform)) {
+    // The batch file only hands over to Node: cmd has no JSON or pid probe of its own.
+    const program = join(porteHome, 'statusline.mjs')
+    const programChanged = await writeIfChanged(program, statusLineProgram(porteHome))
+    const launcher = `@"${process.execPath}" "${program}"\r\n`
+    const launcherChanged = await writeIfChanged(join(porteHome, 'statusline.cmd'), launcher)
+    return programChanged || launcherChanged
+  }
   const path = join(porteHome, 'statusline.sh')
   const changed = await writeIfChanged(path, statusLineScript(porteHome))
   if (changed) await chmod(path, 0o755)
   return changed
+}
+
+/** The status row as a Node program, for Windows; the same words as `statusLineScript`. */
+function statusLineProgram(porteHome: string): string {
+  return String.raw`// Porte status row for Grok: green while this machine is reachable from the phone.
+import { readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+
+const home = ${JSON.stringify(porteHome)}
+let state = {}
+try {
+  state = JSON.parse(readFileSync(join(home, 'rc-state.json'), 'utf8'))
+} catch {}
+// The writer pid must be alive: a crashed daemon leaves a stale "on" behind.
+let alive = false
+if (Number.isInteger(state.pid)) {
+  try {
+    process.kill(state.pid, 0)
+    alive = true
+  } catch (error) {
+    alive = error?.code === 'EPERM'
+  }
+}
+const failure = state.failure ?? {}
+let line = '\x1b[90m/rc off\x1b[0m'
+if (alive && state.status === 'on') {
+  line = '\x1b[32m/rc on\x1b[0m · access your Grok sessions from anywhere · useporte.dev'
+} else if (alive && state.status === 'connecting') {
+  line = '\x1b[33m/rc connecting…\x1b[0m'
+} else if (alive && state.status === 'error') {
+  let reason = 'Porte closed the connection · update Porte'
+  if (failure.type === 'unauthorized') reason = 'pairing revoked · /remote-control to pair again'
+  else if (failure.type === 'agent-start') reason = 'Grok could not start · fix Grok, then /remote-control'
+  else if (failure.type === 'refused') reason = 'Porte refused (HTTP ' + failure.http + ') · update Porte'
+  line = '\x1b[31m/rc error\x1b[0m · ' + reason
+}
+// Written by the daemon when the relay knows a newer release; removed once current.
+try {
+  if (statSync(join(home, 'update-available')).size > 0) {
+    line += ' · \x1b[33mNew version available - update\x1b[0m'
+  }
+} catch {}
+process.stdout.write(line)
+`
 }
 
 function statusLineScript(porteHome: string): string {
@@ -284,6 +374,32 @@ case "$input" in
 esac
 exit 0
 `
+}
+
+/**
+ * The prompt hook for Windows: the same prefilter as `hookScript`, in cmd.
+ *
+ * The payload is saved first because cmd cannot test stdin and then replay it.
+ * `npx` is a batch shim on Windows, so it is entered with `call`.
+ */
+function windowsHookScript(): string {
+  return String.raw`@echo off
+rem Installed by porte. Intercepts /remote-control before it costs a model turn.
+setlocal
+set "code=0"
+set "payload=%TEMP%\porte-hook-%RANDOM%%RANDOM%.json"
+findstr "^" > "%payload%"
+findstr /l /c:"/remote-control" "%payload%" >nul 2>&1
+if errorlevel 1 goto done
+rem From the home directory: npm refuses npx inside a project whose devEngines pin another Node.
+cd /d "%USERPROFILE%"
+set "FORCE_COLOR="
+call npx -y @porte/cli@${version} rc hook < "%payload%"
+set "code=%errorlevel%"
+:done
+del "%payload%" >nul 2>&1
+exit /b %code%
+`.replaceAll('\n', '\r\n')
 }
 
 /** The shape of one Grok hooks file, as `~/.grok/docs/user-guide/10-hooks.md` defines it. */

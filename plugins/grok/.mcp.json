@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "porte": {
-      "command": "sh",
-      "args": ["-c", "cd \"$HOME\" && exec npx -y @porte/cli@0.3.3 mcp"]
+      "command": "node",
+      "args": [
+        "-e",
+        "const c=require('node:child_process').spawn('npx -y @porte/cli@0.3.3 mcp',{cwd:require('node:os').homedir(),stdio:'inherit',shell:true});for(const s of['SIGINT','SIGTERM'])process.on(s,()=>c.kill(s));c.on('exit',(code,signal)=>process.exit(code??(signal?1:0)))"
+      ]
     }
   }
 }

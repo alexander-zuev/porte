@@ -117,6 +117,46 @@ describe('installGrokHook', () => {
     expect(await runScript(script)).toContain('/rc off')
   })
 
+  it('writes a batch hook on Windows and removes it again', async () => {
+    const input = { grokHome, porteHome, platform: 'win32' } as const
+    expect(await installGrokHook(input)).toEqual({ changed: true })
+    const config = JSON.parse(await readFile(join(grokHome, 'hooks', 'porte.json'), 'utf8'))
+    const scriptPath = join(porteHome, 'hook', 'porte-hook.cmd')
+    expect(config.hooks.UserPromptSubmit[0].hooks[0].command).toBe(scriptPath)
+    const script = await readFile(scriptPath, 'utf8')
+    expect(script).toContain(`call npx -y @porte/cli@${version} rc hook`)
+    expect(script).not.toContain('bash')
+    expect(script).toMatch(/\r\n$/)
+    await removeGrokHook(input)
+    await expect(readFile(scriptPath, 'utf8')).rejects.toThrow()
+  })
+
+  it('writes a Node status row behind a batch launcher on Windows', async () => {
+    expect(await installStatusLineScript(porteHome, 'win32')).toBe(true)
+    const launcher = await readFile(join(porteHome, 'statusline.cmd'), 'utf8')
+    expect(launcher).toContain(process.execPath)
+    const program = join(porteHome, 'statusline.mjs')
+    const { writeFile } = await import('node:fs/promises')
+    const row = async (): Promise<string> => (await run(process.execPath, [program])).stdout
+
+    expect(await row()).toContain('/rc off')
+    await writeFile(
+      join(porteHome, 'rc-state.json'),
+      JSON.stringify({ status: 'on', pid: process.pid, url: 'x' }),
+    )
+    expect(await row()).toContain('/rc on')
+    await writeFile(
+      join(porteHome, 'rc-state.json'),
+      JSON.stringify({
+        status: 'error',
+        pid: process.pid,
+        failure: { type: 'refused', http: 426 },
+      }),
+    )
+    expect(await row()).toContain('Porte refused (HTTP 426)')
+    expect(await installStatusLineScript(porteHome, 'win32')).toBe(false)
+  })
+
   it('changes nothing when the installed files are current', async () => {
     await installGrokHook({ grokHome, porteHome })
 

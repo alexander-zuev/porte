@@ -44,6 +44,25 @@ describe('installStatusLineConfig', () => {
     expect(await readFile(configPath(), 'utf8')).toBe(`${OURS}\n[cli]\nuse_leader = true\n`)
   })
 
+  it('writes a Windows path as a TOML string whose backslashes survive', async () => {
+    await writeFile(configPath(), '')
+    const windowsHome = String.raw`C:\Users\me\.porte`
+    const added = await installStatusLineConfig(grokHome, windowsHome, {
+      foreign: 'keep',
+      platform: 'win32',
+    })
+    expect(added).toBe('added')
+    const config = await readFile(configPath(), 'utf8')
+    // Each backslash is escaped, so TOML reads `C:\Users`, not a `\U` unicode escape.
+    expect(config).toContain(String.raw`command = "C:\\Users\\me\\.porte`)
+    expect(config).toContain(`command = ${JSON.stringify(join(windowsHome, 'statusline.cmd'))}`)
+    // The line reads back as ours, so a second run changes nothing.
+    expect(
+      await installStatusLineConfig(grokHome, windowsHome, { foreign: 'keep', platform: 'win32' }),
+    ).toBe('current')
+    expect(await removeStatusLineConfig(grokHome)).toBe(true)
+  })
+
   it("leaves someone else's status line untouched, unless told to replace it", async () => {
     const theirs = '[ui.status_line]\ntype = "command"\ncommand = "~/bin/branch.sh"\n'
     await writeFile(configPath(), theirs)

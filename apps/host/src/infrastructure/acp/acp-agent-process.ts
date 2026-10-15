@@ -3,6 +3,7 @@ import { addAbortListener, once } from 'node:events'
 import { Readable, Writable } from 'node:stream'
 
 import * as acp from '@agentclientprotocol/sdk'
+import { resolveCommand } from '@host/infrastructure/node/resolve-command.ts'
 import { z } from 'zod'
 
 import {
@@ -107,7 +108,9 @@ export class AcpAgentProcess {
   static async start(input: StartAcpAgentProcess): Promise<AcpAgentProcess> {
     if (input.signal.aborted) throw new AcpStartError({ cause: input.signal.reason })
 
-    const child = spawn(input.command, [...input.args], {
+    const resolved = resolveCommand(input.command)
+    const child = spawn(resolved.command, [...input.args], {
+      shell: resolved.shell,
       cwd: input.cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
